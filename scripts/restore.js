@@ -42,6 +42,9 @@ async function serverRunning() {
   if (await serverRunning() && !force) {
     fail('Ledgerly is running. Stop the app first, then run the restore again. Use --force only when you are sure.');
   }
+  if (!force && (fs.existsSync(`${dbPath}-wal`) || fs.existsSync(`${dbPath}-shm`))) {
+    fail('SQLite WAL files are still present. Stop Ledgerly cleanly before restoring, or use --force only when you are sure.');
+  }
 
   const header = Buffer.alloc(16);
   const fd = fs.openSync(source, 'r');
