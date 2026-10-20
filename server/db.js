@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS settings (
   company_phone TEXT NOT NULL DEFAULT '',
   company_address TEXT NOT NULL DEFAULT '',
   currency TEXT NOT NULL DEFAULT 'AED',
-  tax_rate REAL NOT NULL DEFAULT 0,
   payment_terms_days INTEGER NOT NULL DEFAULT 30,
   invoice_prefix TEXT NOT NULL DEFAULT 'INV',
   bill_prefix TEXT NOT NULL DEFAULT 'BILL',
@@ -100,9 +99,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   status TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('draft', 'sent', 'void')),
   notes TEXT NOT NULL DEFAULT '',
   terms TEXT NOT NULL DEFAULT '',
-  tax_rate REAL NOT NULL DEFAULT 0,
   subtotal_cents INTEGER NOT NULL DEFAULT 0,
-  tax_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL DEFAULT 0,
   amount_paid_cents INTEGER NOT NULL DEFAULT 0,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
@@ -146,10 +143,8 @@ CREATE TABLE IF NOT EXISTS bills (
   due_date TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('draft', 'received', 'void')),
   notes TEXT NOT NULL DEFAULT '',
-  tax_rate REAL NOT NULL DEFAULT 0,
   default_payment_method TEXT NOT NULL DEFAULT 'Bank transfer',
   subtotal_cents INTEGER NOT NULL DEFAULT 0,
-  tax_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL DEFAULT 0,
   amount_paid_cents INTEGER NOT NULL DEFAULT 0,
   portal_id INTEGER,
@@ -199,7 +194,6 @@ CREATE TABLE IF NOT EXISTS bookings (
   destination TEXT NOT NULL DEFAULT '',
   pnr TEXT NOT NULL DEFAULT '',
   notes TEXT NOT NULL DEFAULT '',
-  tax_rate REAL NOT NULL DEFAULT 0,
   sale_total_cents INTEGER NOT NULL DEFAULT 0,
   cost_total_cents INTEGER NOT NULL DEFAULT 0,
   invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
@@ -239,7 +233,6 @@ CREATE TABLE IF NOT EXISTS visa_applications (
   date_of_birth TEXT,
   reference TEXT NOT NULL DEFAULT '',
   notes TEXT NOT NULL DEFAULT '',
-  tax_rate REAL NOT NULL DEFAULT 0,
   sale_total_cents INTEGER NOT NULL DEFAULT 0,
   cost_total_cents INTEGER NOT NULL DEFAULT 0,
   invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
@@ -350,7 +343,6 @@ CREATE TABLE IF NOT EXISTS compliance_items (
   amount_cents INTEGER NOT NULL DEFAULT 0,
   variable_amount INTEGER NOT NULL DEFAULT 0,
   payment_method TEXT NOT NULL DEFAULT 'Bank transfer',
-  tax_rate REAL NOT NULL DEFAULT 0,
   frequency TEXT NOT NULL DEFAULT 'monthly' CHECK (frequency IN ('weekly', 'monthly', 'quarterly', 'yearly', 'once')),
   next_due_date TEXT NOT NULL,
   end_date TEXT,
@@ -427,12 +419,10 @@ const defaultAccounts = [
   ['1010', 'Bank Account', 'asset', 'current_asset', 'debit', 1, 0],
   ['1100', 'Accounts Receivable', 'asset', 'receivable', 'debit', 0, 1],
   ['1200', 'Prepaid Expenses', 'asset', 'current_asset', 'debit', 0, 0],
-  ['1300', 'Tax Receivable', 'asset', 'tax', 'debit', 0, 1],
   ['1400', 'Supplier Advances', 'asset', 'current_asset', 'debit', 0, 0],
   ['1500', 'Equipment', 'asset', 'fixed_asset', 'debit', 0, 0],
   ['2000', 'Accounts Payable', 'liability', 'payable', 'credit', 0, 1],
   ['2100', 'Credit Card', 'liability', 'current_liability', 'credit', 0, 0],
-  ['2200', 'Sales Tax Payable', 'liability', 'tax', 'credit', 0, 1],
   ['2400', 'Customer Advances', 'liability', 'current_liability', 'credit', 0, 1],
   ['2500', 'Refund Payable', 'liability', 'current_liability', 'credit', 0, 1],
   ['3000', "Owner's Equity", 'equity', 'equity', 'credit', 0, 0],
@@ -478,6 +468,10 @@ function ensureColumn(table, column, definition) {
   if (!hasColumn(table, column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
+function dropColumn(table, column) {
+  if (hasColumn(table, column)) db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+}
+
 ensureColumn('settings', 'booking_prefix', "TEXT NOT NULL DEFAULT 'BK'");
 ensureColumn('settings', 'next_booking_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_advance_number', 'INTEGER NOT NULL DEFAULT 1');
@@ -504,6 +498,26 @@ ensureColumn('bill_payments', 'portal_id', 'INTEGER');
 ensureColumn('bill_payments', 'cheque_number', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('bill_payments', 'cheque_date', 'TEXT');
 ensureColumn('bill_payments', 'bank_name', "TEXT NOT NULL DEFAULT ''");
+
+// VAT/tax support was removed. Drop legacy columns on existing databases.
+dropColumn('settings', 'tax_rate');
+dropColumn('invoices', 'tax_rate');
+dropColumn('invoices', 'tax_cents');
+dropColumn('bills', 'tax_rate');
+dropColumn('bills', 'tax_cents');
+dropColumn('bookings', 'tax_rate');
+dropColumn('visa_applications', 'tax_rate');
+dropColumn('compliance_items', 'tax_rate');
+
+for (const code of ['1300', '2200']) {
+  const account = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
+  if (!account) continue;
+  try {
+    db.prepare('DELETE FROM accounts WHERE id = ?').run(account.id);
+  } catch {
+    db.prepare("UPDATE accounts SET is_active = 0, name = name || ' (archived)' WHERE id = ?").run(account.id);
+  }
+}
 ensureColumn('booking_items', 'portal_id', 'INTEGER');
 ensureColumn('customer_advances', 'visa_id', 'INTEGER');
 

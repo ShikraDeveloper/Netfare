@@ -34,7 +34,7 @@ const FREQUENCY_LABELS = {
 
 const DEFAULT_CATEGORY = {
   recurring_bill: 'Office rent',
-  filing: 'VAT return',
+  filing: 'Corporate tax',
   renewal: 'Trade licence',
 };
 
@@ -241,7 +241,6 @@ function normalizePayload(db, payload = {}, existing = null) {
   if (!STATUSES.includes(status)) throw bad('Choose a valid status');
 
   const amount = cents(payload.amount_cents ?? existing?.amount_cents ?? 0, 'Amount');
-  const taxRate = num(payload.tax_rate ?? existing?.tax_rate ?? 0, 'Tax rate', { min: 0, max: 100 });
   const reminderDays = Math.round(num(
     payload.reminder_days ?? existing?.reminder_days ?? 14,
     'Reminder days',
@@ -295,7 +294,6 @@ function normalizePayload(db, payload = {}, existing = null) {
     amount_cents: amount,
     variable_amount: variableAmount ? 1 : 0,
     payment_method: paymentMethod,
-    tax_rate: taxRate,
     frequency,
     next_due_date: nextDueDate,
     end_date: endDate,
@@ -312,12 +310,12 @@ function createCompliance(db, payload = {}) {
     const info = db.prepare(`
       INSERT INTO compliance_items (
         name, kind, category, vendor_id, account_id, amount_cents, variable_amount,
-        payment_method, tax_rate, frequency, next_due_date, end_date, status,
+        payment_method, frequency, next_due_date, end_date, status,
         auto_create_bill, reminder_days, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name, data.kind, data.category, data.vendor_id, data.account_id,
-      data.amount_cents, data.variable_amount, data.payment_method, data.tax_rate,
+      data.amount_cents, data.variable_amount, data.payment_method,
       data.frequency, data.next_due_date, data.end_date, data.status,
       data.auto_create_bill, data.reminder_days, data.notes,
     );
@@ -338,13 +336,13 @@ function updateCompliance(db, id, payload = {}) {
     db.prepare(`
       UPDATE compliance_items SET
         name = ?, kind = ?, category = ?, vendor_id = ?, account_id = ?,
-        amount_cents = ?, variable_amount = ?, payment_method = ?, tax_rate = ?,
+        amount_cents = ?, variable_amount = ?, payment_method = ?,
         frequency = ?, next_due_date = ?, end_date = ?, status = ?,
         auto_create_bill = ?, reminder_days = ?, notes = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       data.name, data.kind, data.category, data.vendor_id, data.account_id,
-      data.amount_cents, data.variable_amount, data.payment_method, data.tax_rate,
+      data.amount_cents, data.variable_amount, data.payment_method,
       data.frequency, data.next_due_date, data.end_date, data.status,
       data.auto_create_bill, data.reminder_days, data.notes, id,
     );
@@ -388,16 +386,12 @@ function generateBill(db, id, payload = {}) {
       ? dateISO(payload.due_date, 'Due date')
       : billDate;
     if (dueDate < billDate) throw bad('Due date cannot be before the bill date');
-    const taxRate = payload.tax_rate != null
-      ? num(payload.tax_rate, 'Tax rate', { min: 0, max: 100 })
-      : item.tax_rate;
 
     const bill = billService.createBill(db, {
       vendor_id: item.vendor_id,
       bill_date: billDate,
       due_date: dueDate,
       status: 'draft',
-      tax_rate: taxRate,
       default_payment_method: item.payment_method || 'Bank transfer',
       notes: `Compliance: ${item.name}${payload.notes ? ` · ${payload.notes}` : ''}`,
       items: [{

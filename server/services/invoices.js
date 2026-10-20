@@ -15,7 +15,6 @@ const {
   isCashAccount,
   postEntry,
   reverseEntry,
-  getSettings,
   invoiceDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
@@ -131,10 +130,9 @@ function normalizeItems(db, items, allowedTypes) {
   });
 }
 
-function computeTotals(items, taxRate) {
+function computeTotals(items) {
   const subtotal = items.reduce((sum, item) => sum + item.amount_cents, 0);
-  const tax = Math.round((subtotal * taxRate) / 100);
-  return { subtotal, tax, total: subtotal + tax };
+  return { subtotal, total: subtotal };
 }
 
 function insertItems(db, invoiceId, items) {
@@ -162,10 +160,6 @@ function postInvoice(db, invoice, customer, items) {
     revenueTotal += amount;
     lines.push({ account_id: accountId, debit_cents: 0, credit_cents: amount, description: `Invoice ${invoice.number}` });
   }
-  if (invoice.tax_cents > 0) {
-    const tax = systemAccount(db, '2200', 'Sales Tax Payable');
-    lines.push({ account_id: tax.id, debit_cents: 0, credit_cents: invoice.tax_cents, description: `Sales tax — ${invoice.number}` });
-  }
   if (revenueTotal <= 0) throw bad('Invoice total must be greater than zero');
 
   return postEntry(db, {
@@ -180,22 +174,20 @@ function postInvoice(db, invoice, customer, items) {
 
 function createInvoice(db, payload) {
   return db.transaction(() => {
-    const settings = getSettings(db);
     const customer = assertCustomer(db, payload.customer_id);
     const issueDate = dateISO(payload.issue_date, 'Issue date');
     const dueDate = dateISO(payload.due_date || issueDate, 'Due date');
     if (dueDate < issueDate) throw bad('Due date cannot be before the issue date');
-    const taxRate = num(payload.tax_rate ?? settings.tax_rate, 'Tax rate', { min: 0, max: 100 });
     const status = payload.status === 'draft' ? 'draft' : 'sent';
     const items = normalizeItems(db, payload.items, ['revenue']);
-    const totals = computeTotals(items, taxRate);
+    const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Invoice total must be greater than zero');
     const number = allocateNumber(db, 'invoice', issueDate);
 
     const info = db.prepare(`
       INSERT INTO invoices (number, customer_id, issue_date, due_date, status, notes, terms,
-        tax_rate, subtotal_cents, tax_cents, total_cents, amount_paid_cents)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        subtotal_cents, total_cents, amount_paid_cents)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `).run(
       number,
       customer.id,
@@ -204,9 +196,7 @@ function createInvoice(db, payload) {
       status,
       optionalStr(payload.notes, 'Notes', 2000),
       optionalStr(payload.terms, 'Terms', 2000),
-      taxRate,
       totals.subtotal,
-      totals.tax,
       totals.total,
     );
     const invoiceId = Number(info.lastInsertRowid);
@@ -227,19 +217,17 @@ function updateInvoice(db, id, payload) {
     const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!existing) throw notFound('Invoice not found');
     if (existing.status !== 'draft') throw bad('Only draft invoices can be edited');
-    const settings = getSettings(db);
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
     const issueDate = dateISO(payload.issue_date ?? existing.issue_date, 'Issue date');
     const dueDate = dateISO(payload.due_date ?? existing.due_date, 'Due date');
     if (dueDate < issueDate) throw bad('Due date cannot be before the issue date');
-    const taxRate = num(payload.tax_rate ?? existing.tax_rate, 'Tax rate', { min: 0, max: 100 });
     const items = normalizeItems(db, payload.items, ['revenue']);
-    const totals = computeTotals(items, taxRate);
+    const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Invoice total must be greater than zero');
 
     db.prepare(`
       UPDATE invoices SET customer_id = ?, issue_date = ?, due_date = ?, notes = ?, terms = ?,
-        tax_rate = ?, subtotal_cents = ?, tax_cents = ?, total_cents = ?, updated_at = datetime('now')
+        subtotal_cents = ?, total_cents = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       customer.id,
@@ -247,9 +235,7 @@ function updateInvoice(db, id, payload) {
       dueDate,
       optionalStr(payload.notes ?? existing.notes, 'Notes', 2000),
       optionalStr(payload.terms ?? existing.terms, 'Terms', 2000),
-      taxRate,
       totals.subtotal,
-      totals.tax,
       totals.total,
       id,
     );

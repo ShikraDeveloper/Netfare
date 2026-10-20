@@ -597,7 +597,6 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 .totals-panel { margin-left: auto; width: 290px; max-width: 100%; display: flex; flex-direction: column; gap: 7px; margin-top: 16px; }
 .totals-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 13px; color: var(--muted); }
 .totals-row span:last-child { font-variant-numeric: tabular-nums; color: var(--text-soft); }
-.totals-row .tax-input { width: 66px; height: 28px; padding: 0 7px; font-size: 12px; text-align: right; }
 .totals-row.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 10px; font-size: 16px; font-weight: 700; color: var(--text); }
 .totals-row.total span:last-child { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
 .totals-row.balance { color: var(--primary-dark); font-weight: 650; }

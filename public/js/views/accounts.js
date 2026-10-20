@@ -26,7 +26,6 @@ const SUBTYPES = [
   ['fixed_asset', 'Fixed asset'],
   ['cash', 'Cash / bank'],
   ['receivable', 'Receivable'],
-  ['tax', 'Tax'],
   ['current_liability', 'Current liability'],
   ['long_term_liability', 'Long-term liability'],
   ['payable', 'Payable'],

@@ -236,7 +236,6 @@ export async function render(container, { params } = {}) {
           </div>
           <div class="doc-totals">
             <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(bill.subtotal_cents)}</span></div>
-            ${bill.tax_cents > 0 ? `<div class="totals-row"><span>Tax (${fmtNumber(bill.tax_rate)}%)</span><span>${fmtMoney(bill.tax_cents)}</span></div>` : ''}
             <div class="totals-row total"><span>Total</span><span>${fmtMoney(bill.total_cents)}</span></div>
             ${bill.amount_paid_cents > 0 ? `<div class="totals-row"><span>Paid</span><span>−${fmtMoney(bill.amount_paid_cents)}</span></div>` : ''}
             <div class="totals-row balance"><span>Balance due</span><span>${fmtMoney(bill.balance_cents)}</span></div>
@@ -285,7 +284,7 @@ export async function render(container, { params } = {}) {
     finalizeButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: 'Receive and post this bill?',
-        message: 'This will lock the bill and post the expense, any tax and a payable to your ledger.',
+        message: 'This will lock the bill and post the expense and a payable to your ledger.',
         confirmLabel: 'Receive & post',
         danger: false,
       });

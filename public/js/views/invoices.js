@@ -216,7 +216,6 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
   const settings = store.settings || {};
   const issueDate = invoice?.issue_date || todayISO();
   const dueDate = invoice?.due_date || addDaysISO(issueDate, Number(settings.payment_terms_days ?? 30));
-  const taxRate = invoice?.tax_rate ?? settings.tax_rate ?? 0;
 
   const body = `
     <div class="form-grid">
@@ -239,10 +238,6 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         ${lineItemsHtml(invoice?.items || [], accounts)}
         <div class="totals-panel">
           <div class="totals-row"><span>Subtotal</span><span id="sum-subtotal">${fmtMoney(0)}</span></div>
-          <div class="totals-row">
-            <span>Tax <input class="input tax-input" id="tax-rate" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(taxRate)}"> %</span>
-            <span id="sum-tax">${fmtMoney(0)}</span>
-          </div>
           <div class="totals-row total"><span>Total</span><span id="sum-total">${fmtMoney(0)}</span></div>
         </div>
       </div>
@@ -272,17 +267,13 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
     body,
     submitLabel: isEdit ? 'Save invoice' : 'Create invoice',
     onMount(overlay) {
-      const taxInput = overlay.querySelector('#tax-rate');
       const editor = mountLineItems(overlay, {
         accounts,
-        taxRate: () => Number(taxInput.value) || 0,
         onTotals(totals) {
           overlay.querySelector('#sum-subtotal').textContent = fmtMoney(totals.subtotal_cents);
-          overlay.querySelector('#sum-tax').textContent = fmtMoney(totals.tax_cents);
           overlay.querySelector('#sum-total').textContent = fmtMoney(totals.total_cents);
         },
       });
-      taxInput.addEventListener('input', editor.recalc);
       overlay.editor = editor;
 
       if (!isEdit) {
@@ -311,7 +302,6 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         customer_id: Number(values.get('customer_id')),
         issue_date: values.get('issue_date'),
         due_date: values.get('due_date'),
-        tax_rate: Number(values.get('tax_rate')) || 0,
         notes: values.get('notes'),
         terms: values.get('terms'),
         items,

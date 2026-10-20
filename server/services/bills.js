@@ -16,7 +16,6 @@ const {
   isPurchaseAccount,
   postEntry,
   reverseEntry,
-  getSettings,
   billDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
@@ -135,10 +134,9 @@ function normalizeItems(db, items) {
   });
 }
 
-function computeTotals(items, taxRate) {
+function computeTotals(items) {
   const subtotal = items.reduce((sum, item) => sum + item.amount_cents, 0);
-  const tax = Math.round((subtotal * taxRate) / 100);
-  return { subtotal, tax, total: subtotal + tax };
+  return { subtotal, total: subtotal };
 }
 
 function insertItems(db, billId, items) {
@@ -164,10 +162,6 @@ function postBill(db, bill, vendor, items) {
     expenseTotal += amount;
     lines.push({ account_id: accountId, debit_cents: amount, credit_cents: 0, description: `Bill ${bill.number}` });
   }
-  if (bill.tax_cents > 0) {
-    const tax = systemAccount(db, '1300', 'Tax Receivable');
-    lines.push({ account_id: tax.id, debit_cents: bill.tax_cents, credit_cents: 0, description: `Tax — ${bill.number}` });
-  }
   if (expenseTotal <= 0) throw bad('Bill total must be greater than zero');
   lines.push({ account_id: ap.id, debit_cents: 0, credit_cents: bill.total_cents, description: `Bill ${bill.number}` });
 
@@ -183,23 +177,21 @@ function postBill(db, bill, vendor, items) {
 
 function createBill(db, payload) {
   return db.transaction(() => {
-    const settings = getSettings(db);
     const vendor = assertVendor(db, payload.vendor_id);
     const billDate = dateISO(payload.bill_date, 'Bill date');
     const dueDate = dateISO(payload.due_date || billDate, 'Due date');
     if (dueDate < billDate) throw bad('Due date cannot be before the bill date');
-    const taxRate = num(payload.tax_rate ?? settings.tax_rate, 'Tax rate', { min: 0, max: 100 });
     const status = payload.status === 'draft' ? 'draft' : 'received';
     const defaultPaymentMethod = optionalStr(payload.default_payment_method, 'Default payment method', 100) || 'Bank transfer';
     const items = normalizeItems(db, payload.items);
-    const totals = computeTotals(items, taxRate);
+    const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Bill total must be greater than zero');
     const number = allocateNumber(db, 'bill', billDate);
 
     const info = db.prepare(`
       INSERT INTO bills (number, vendor_id, bill_date, due_date, status, notes,
-        tax_rate, default_payment_method, subtotal_cents, tax_cents, total_cents, amount_paid_cents)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        default_payment_method, subtotal_cents, total_cents, amount_paid_cents)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `).run(
       number,
       vendor.id,
@@ -207,10 +199,8 @@ function createBill(db, payload) {
       dueDate,
       status,
       optionalStr(payload.notes, 'Notes', 2000),
-      taxRate,
       defaultPaymentMethod,
       totals.subtotal,
-      totals.tax,
       totals.total,
     );
     const billId = Number(info.lastInsertRowid);
@@ -235,23 +225,20 @@ function updateBill(db, id, payload) {
     const billDate = dateISO(payload.bill_date ?? existing.bill_date, 'Bill date');
     const dueDate = dateISO(payload.due_date ?? existing.due_date, 'Due date');
     if (dueDate < billDate) throw bad('Due date cannot be before the bill date');
-    const taxRate = num(payload.tax_rate ?? existing.tax_rate, 'Tax rate', { min: 0, max: 100 });
     const items = normalizeItems(db, payload.items);
-    const totals = computeTotals(items, taxRate);
+    const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Bill total must be greater than zero');
 
     db.prepare(`
-      UPDATE bills SET vendor_id = ?, bill_date = ?, due_date = ?, notes = ?, tax_rate = ?,
-        subtotal_cents = ?, tax_cents = ?, total_cents = ?, updated_at = datetime('now')
+      UPDATE bills SET vendor_id = ?, bill_date = ?, due_date = ?, notes = ?,
+        subtotal_cents = ?, total_cents = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       vendor.id,
       billDate,
       dueDate,
       optionalStr(payload.notes ?? existing.notes, 'Notes', 2000),
-      taxRate,
       totals.subtotal,
-      totals.tax,
       totals.total,
       id,
     );

@@ -9,10 +9,10 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Supplier portals & wallets** — track the money you hold with airline logins, IATA agencies, consolidators and GDS accounts. Top up a prepaid portal, spend it on bookings, or run a supplier on credit; every movement is posted to the ledger. Prepaid wallets reconcile against the supplier's own statement, while credit accounts show a full bills, payments and supplier-refund ledger and statement.
 - **Booking lifecycle** — `draft → confirmed → travelled`, plus cancellation with full reversing entries (`cancelled`).
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
-- **Invoicing & billing** — customers, invoices, line items, tax rates (VAT-ready, default 0%), printable PDF-style documents, send/post, void, and payments.
+- **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
 - **Refunds** — refund a customer payment or record money returned by a supplier, in full or in part. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
 - **Expenses & bills** — vendors (consolidators, hotels, visa agents, DMCs), bills with expense/asset coding, receive/post, void, and bill payments. Bill payments can be recorded by **cheque** with cheque number, cheque date and bank; compliance items carry a default payment method so office rent can open directly as a cheque payment.
-- **Compliance engine** — recurring overheads such as office rent, utilities, salaries and insurance can generate draft bills on schedule, while VAT returns, corporate tax, trade licence, lease, insurance and visa-quota deadlines sit in the same calendar with reminders and activity history.
+- **Compliance engine** — recurring overheads such as office rent, utilities, salaries and insurance can generate draft bills on schedule, while corporate tax, trade licence, lease, insurance and visa-quota deadlines sit in the same calendar with reminders and activity history.
 - **Post-dated cheques** — schedule a batch of 12 monthly cheques (or any 1–60 cheques) from a recurring compliance item. Track cheque number, date, amount, bank and status; recording the matching cheque payment on the bill automatically marks the register cheque **Cleared**.
 - **Banking & cash deposits** — at the end of the day, move cash sales from **1000 Cash** into a bank account with a dedicated deposit entry. The deposit posts Dr Bank / Cr Cash, tracks the slip reference and can be voided without deleting history.
 - **Date filters** — bookings, visas, invoices, bills, refunds and journal entries can be narrowed to any date range, with filtered totals and a one-click reset.
@@ -208,9 +208,9 @@ Cancelling a booking still reverses the customer invoice and every supplier bill
 
 **Accounting → Compliance** combines recurring overheads and a UAE compliance calendar.
 
-- **Recurring bills** — office rent, utilities, salaries, internet, software, insurance, trade-licence instalments and similar costs. Set the vendor, expense account, amount, tax rate, frequency, next due date and optional end date.
+- **Recurring bills** — office rent, utilities, salaries, internet, software, insurance, trade-licence instalments and similar costs. Set the vendor, expense account, amount, frequency, next due date and optional end date.
 - **Variable amounts** — for Etihad WE, DEWA, phone or other bills that change every month, tick **Amount varies each period**. The stored amount becomes an estimate, auto-draft is disabled, and **Create bill** opens a form where you enter the actual amount, bill date and due date for that period.
-- **Filings & renewals** — VAT returns, corporate tax, payroll, trade licence, lease, insurance, vehicle registration and visa quota. Set the frequency and reminder window; amounts are optional estimates.
+- **Filings & renewals** — corporate tax, payroll, trade licence, lease, insurance, vehicle registration and visa quota. Set the frequency and reminder window; amounts are optional estimates.
 - **Auto-create draft bills** — for fixed recurring costs only. When enabled, opening Compliance (or pressing **Run due bills**) creates draft bills for every missed period up to today. The draft bill is not posted to the ledger until you review it and receive it under **Bills**.
 - **Payment method** — set a default method on each recurring item. Office rent can default to **Cheque**; the generated bill’s payment form then opens with Cheque selected and asks for cheque number, cheque date and bank. Cheque payments post through the normal Dr Accounts Payable / Cr Bank entry.
 - **Reminders** — each item has a reminder window in days. The page shows overdue, due soon and active counts; the dashboard shows a compliance alert when something needs attention.
@@ -256,10 +256,8 @@ The default chart includes these system accounts, which the posting engine depen
 | Code | Account | Type |
 | --- | --- | --- |
 | 1100 | Accounts Receivable | asset (receivable) |
-| 1300 | Tax Receivable | asset (tax) |
 | 1400 | Supplier Advances | asset |
 | 2000 | Accounts Payable | liability (payable) |
-| 2200 | Sales Tax Payable | liability (tax) |
 | 2400 | Customer Advances | liability |
 | 2500 | Refund Payable | liability |
 | 3100 | Retained Earnings | equity |
@@ -267,15 +265,15 @@ The default chart includes these system accounts, which the posting engine depen
 
 Travel-specific defaults also include revenue accounts **4000 Ticket Sales**, **4100 Tour & Package Sales**, **4310 Commission Income**, **4320 Visa & Documentation Revenue**, and cost accounts **5000 Air Ticket Cost**, **5100 Hotel & Tour Cost**, **5120 Visa & Supplier Cost**.
 
-You can rename accounts and add your own under **Chart of accounts**, but don't archive the system accounts above or posting will fail with a clear error. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables, tax or system accounts.
+You can rename accounts and add your own under **Chart of accounts**, but don't archive the system accounts above or posting will fail with a clear error. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
 
 ### Automatic postings
 
 | Event | Debit | Credit |
 | --- | --- | --- |
-| Send an invoice | Accounts Receivable | Revenue accounts + Sales Tax Payable |
+| Send an invoice | Accounts Receivable | Revenue accounts |
 | Receive a customer payment | Bank/Cash account | Accounts Receivable |
-| Receive a bill | Expense/asset accounts + Tax Receivable | Accounts Payable |
+| Receive a bill | Expense/asset accounts | Accounts Payable |
 | Pay a bill | Accounts Payable | Bank/Cash account |
 | Confirm a booking | Posts the customer invoice and each supplier bill | (as above) |
 | Submit a visa application | Posts the customer invoice and each supplier bill | (as above) |

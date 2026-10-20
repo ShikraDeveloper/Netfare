@@ -49,7 +49,7 @@ export function lineItemsHtml(items, accounts) {
   `;
 }
 
-export function mountLineItems(root, { accounts, taxRate = () => 0, onTotals = () => {} }) {
+export function mountLineItems(root, { accounts, onTotals = () => {} }) {
   const rowsContainer = root.querySelector('[data-line-rows]');
   const addButton = root.querySelector('[data-add-line]');
   if (!rowsContainer) return { getItems: () => [], recalc: () => {}, getTotals: () => ({}) };
@@ -80,14 +80,11 @@ export function mountLineItems(root, { accounts, taxRate = () => 0, onTotals = (
       subtotal += amount;
       row.querySelector('.line-amount').textContent = fmtMoney(amount);
     }
-    const rate = Number(taxRate()) || 0;
-    const tax = Math.round((subtotal * rate) / 100);
-    const total = subtotal + tax;
     const live = root.querySelector('.line-total-live');
     if (live) live.textContent = rows().length ? `Subtotal ${fmtMoney(subtotal)}` : '';
-    onTotals({ subtotal_cents: subtotal, tax_cents: tax, total_cents: total, tax_rate: rate });
+    onTotals({ subtotal_cents: subtotal, total_cents: subtotal });
     updateRemoveButtons();
-    return { subtotal_cents: subtotal, tax_cents: tax, total_cents: total, tax_rate: rate };
+    return { subtotal_cents: subtotal, total_cents: subtotal };
   }
 
   function addRow() {

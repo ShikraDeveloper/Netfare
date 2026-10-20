@@ -13,6 +13,8 @@ process.env.LEDGERLY_DATA_DIR = tempDir;
 const db = require('../server/db');
 const invoiceService = require('../server/services/invoices');
 const billService = require('../server/services/bills');
+const bookingService = require('../server/services/bookings');
+const visaService = require('../server/services/visas');
 const refundService = require('../server/services/refunds');
 const cashDepositService = require('../server/services/cash-deposits');
 const advanceService = require('../server/services/advances');
@@ -52,13 +54,49 @@ test('default chart loads and starts balanced', () => {
   assertBalanced();
 });
 
+test('VAT/tax support is absent from the schema and chart', () => {
+  for (const table of ['settings', 'invoices', 'bills', 'bookings', 'visa_applications', 'compliance_items']) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name);
+    assert.deepEqual(columns.filter((name) => name.includes('tax')), [], `${table} has no tax columns`);
+  }
+  const taxAccounts = db.prepare("SELECT COUNT(*) AS count FROM accounts WHERE code IN ('1300', '2200')").get();
+  assert.equal(taxAccounts.count, 0);
+});
+
+test('booking and visa creation work without tax fields', () => {
+  const customerId = insertCustomer('No VAT Customer');
+  const vendorId = insertVendor('No VAT Vendor');
+  const booking = bookingService.createBooking(db, {
+    customer_id: customerId,
+    booking_date: '2026-10-20',
+    due_date: '2026-10-20',
+    sale_items: [{ description: 'Package', quantity: 1, unit_price_cents: 120_000, account_id: account('4000').id }],
+    cost_items: [{ description: 'Supplier cost', quantity: 1, unit_price_cents: 90_000, account_id: account('5000').id, vendor_id: vendorId }],
+  });
+  const confirmed = bookingService.confirmBooking(db, booking.id);
+  assert.equal(confirmed.status, 'confirmed');
+  const invoice = invoiceService.getInvoice(db, confirmed.invoice_id);
+  assert.equal(invoice.subtotal_cents, 120_000);
+  assert.equal(invoice.total_cents, 120_000);
+  assert.equal(db.prepare('SELECT COUNT(*) AS count FROM bills WHERE booking_id = ?').get(booking.id).count, 1);
+
+  const visa = visaService.createVisa(db, {
+    customer_id: customerId,
+    application_date: '2026-10-20',
+    destination_country: 'UAE',
+    sale_items: [{ description: 'Visa service', quantity: 1, unit_price_cents: 35_000, account_id: account('4320').id }],
+    cost_items: [{ description: 'Visa cost', quantity: 1, unit_price_cents: 20_000, account_id: account('5120').id, vendor_id: vendorId }],
+  });
+  assert.equal(visa.sale_total_cents, 35_000);
+  assertBalanced();
+});
+
 test('cash invoice payment posts and is limited to cash/bank accounts', () => {
   const customerId = insertCustomer('P0 Customer');
   const invoice = invoiceService.createInvoice(db, {
     customer_id: customerId,
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
-    tax_rate: 0,
     status: 'sent',
     items: [{ description: 'Test sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
   });

@@ -138,10 +138,6 @@ export async function render(container) {
                   <div class="hint">Used to format every amount in the app.</div>
                 </div>
                 <div class="field">
-                  <label for="tax-rate">Default tax rate (%)</label>
-                  <input class="input" id="tax-rate" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(settings.tax_rate)}">
-                </div>
-                <div class="field">
                   <label for="terms-days">Payment terms (days)</label>
                   <input class="input" id="terms-days" name="payment_terms_days" type="number" min="0" max="365" step="1" value="${esc(settings.payment_terms_days)}">
                   <div class="hint">Used to pre-fill due dates.</div>
@@ -289,7 +285,6 @@ export async function render(container) {
     try {
       const updated = await api.put('/settings', {
         currency: values.get('currency'),
-        tax_rate: Number(values.get('tax_rate')) || 0,
         payment_terms_days: Number(values.get('payment_terms_days')) || 0,
         fiscal_year_start_month: Number(values.get('fiscal_year_start_month')) || 1,
         invoice_prefix: values.get('invoice_prefix'),

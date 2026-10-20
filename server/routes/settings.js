@@ -20,7 +20,6 @@ router.put('/', (req, res) => {
     : current.currency;
   if (!/^[A-Z]{3}$/.test(currency)) throw bad('Currency must be a 3-letter ISO code, such as USD or EUR');
 
-  const taxRate = body.tax_rate != null ? num(body.tax_rate, 'Default tax rate', { min: 0, max: 100 }) : current.tax_rate;
   const terms = body.payment_terms_days != null
     ? Math.round(num(body.payment_terms_days, 'Payment terms', { min: 0, max: 365 }))
     : current.payment_terms_days;
@@ -46,7 +45,7 @@ router.put('/', (req, res) => {
 
   db.prepare(`
     UPDATE settings SET company_name = ?, company_email = ?, company_phone = ?, company_address = ?,
-      currency = ?, tax_rate = ?, payment_terms_days = ?, invoice_prefix = ?, bill_prefix = ?,
+      currency = ?, payment_terms_days = ?, invoice_prefix = ?, bill_prefix = ?,
       booking_prefix = ?, visa_prefix = ?, topup_prefix = ?, fiscal_year_start_month = ?, updated_at = datetime('now')
     WHERE id = 1
   `).run(
@@ -55,7 +54,6 @@ router.put('/', (req, res) => {
     body.company_phone != null ? optionalStr(body.company_phone, 'Company phone', 60) : current.company_phone,
     body.company_address != null ? optionalStr(body.company_address, 'Company address', 500) : current.company_address,
     currency,
-    taxRate,
     terms,
     invoicePrefix,
     billPrefix,

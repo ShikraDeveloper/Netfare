@@ -243,10 +243,6 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         <label for="bk-pnr">PNR / ticket no.</label>
         <input class="input" id="bk-pnr" name="pnr" value="${esc(booking?.pnr || '')}" placeholder="Optional">
       </div>
-      <div class="field">
-        <label for="bk-tax">Tax rate %</label>
-        <input class="input" id="bk-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(booking?.tax_rate ?? 0)}">
-      </div>
       <div class="field full">
         <label for="bk-notes">Notes</label>
         <textarea class="input" id="bk-notes" name="notes" rows="2" placeholder="Internal note">${esc(booking?.notes || '')}</textarea>
@@ -317,7 +313,6 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         return_date: values.get('return_date') || null,
         destination: values.get('destination'),
         pnr: values.get('pnr'),
-        tax_rate: Number(values.get('tax_rate')) || 0,
         notes: values.get('notes'),
         sale_items: sale,
         cost_items: cost,

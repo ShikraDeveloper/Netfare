@@ -192,7 +192,6 @@ function createBooking(db, payload) {
     if (dueDate < bookingDate) throw bad('Due date cannot be before the booking date');
     const travelDate = payload.travel_date ? dateISO(payload.travel_date, 'Travel date') : null;
     const returnDate = payload.return_date ? dateISO(payload.return_date, 'Return date') : null;
-    const taxRate = num(payload.tax_rate ?? 0, 'Tax rate', { min: 0, max: 100 });
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
@@ -202,8 +201,8 @@ function createBooking(db, payload) {
     const number = allocateNumber(db, 'booking', bookingDate);
     const info = db.prepare(`
       INSERT INTO bookings (number, customer_id, booking_date, due_date, travel_date, return_date,
-        status, destination, pnr, notes, tax_rate, sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)
+        status, destination, pnr, notes, sale_total_cents, cost_total_cents)
+      VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -214,7 +213,6 @@ function createBooking(db, payload) {
       optionalStr(payload.destination, 'Destination', 200),
       optionalStr(payload.pnr, 'PNR / ticket number', 60),
       optionalStr(payload.notes, 'Notes', 2000),
-      taxRate,
       saleTotal,
       costItems.length ? itemTotals(costItems) : 0,
     );
@@ -235,7 +233,6 @@ function updateBooking(db, id, payload) {
     if (dueDate < bookingDate) throw bad('Due date cannot be before the booking date');
     const travelDate = payload.travel_date ? dateISO(payload.travel_date, 'Travel date') : null;
     const returnDate = payload.return_date ? dateISO(payload.return_date, 'Return date') : null;
-    const taxRate = num(payload.tax_rate ?? existing.tax_rate, 'Tax rate', { min: 0, max: 100 });
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
@@ -244,7 +241,7 @@ function updateBooking(db, id, payload) {
 
     db.prepare(`
       UPDATE bookings SET customer_id = ?, booking_date = ?, due_date = ?, travel_date = ?,
-        return_date = ?, destination = ?, pnr = ?, notes = ?, tax_rate = ?,
+        return_date = ?, destination = ?, pnr = ?, notes = ?,
         sale_total_cents = ?, cost_total_cents = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -256,7 +253,6 @@ function updateBooking(db, id, payload) {
       optionalStr(payload.destination, 'Destination', 200),
       optionalStr(payload.pnr, 'PNR / ticket number', 60),
       optionalStr(payload.notes, 'Notes', 2000),
-      taxRate,
       saleTotal,
       itemTotals(costItems),
       id,
@@ -291,7 +287,6 @@ function confirmBooking(db, id) {
       customer_id: booking.customer_id,
       issue_date: booking.booking_date,
       due_date: booking.due_date || booking.booking_date,
-      tax_rate: booking.tax_rate,
       notes: booking.notes,
       terms: booking.destination ? `Destination: ${booking.destination}` : '',
       status: 'sent',
@@ -315,7 +310,6 @@ function confirmBooking(db, id) {
         vendor_id: vendorId,
         bill_date: booking.booking_date,
         due_date: booking.due_date || booking.booking_date,
-        tax_rate: 0,
         notes: `Booking ${booking.number}${booking.pnr ? ` · PNR ${booking.pnr}` : ''}`,
         status: 'received',
         items: vendorItems.map((item) => ({

@@ -216,7 +216,6 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
   const settings = store.settings || {};
   const billDate = bill?.bill_date || todayISO();
   const dueDate = bill?.due_date || addDaysISO(billDate, Number(settings.payment_terms_days ?? 30));
-  const taxRate = bill?.tax_rate ?? 0;
 
   const body = `
     <div class="form-grid">
@@ -239,10 +238,6 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
         ${lineItemsHtml(bill?.items || [], accounts)}
         <div class="totals-panel">
           <div class="totals-row"><span>Subtotal</span><span id="sum-subtotal">${fmtMoney(0)}</span></div>
-          <div class="totals-row">
-            <span>Tax <input class="input tax-input" id="tax-rate" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(taxRate)}"> %</span>
-            <span id="sum-tax">${fmtMoney(0)}</span>
-          </div>
           <div class="totals-row total"><span>Total</span><span id="sum-total">${fmtMoney(0)}</span></div>
         </div>
       </div>
@@ -268,17 +263,13 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
     body,
     submitLabel: isEdit ? 'Save bill' : 'Save bill',
     onMount(overlay) {
-      const taxInput = overlay.querySelector('#tax-rate');
       const editor = mountLineItems(overlay, {
         accounts,
-        taxRate: () => Number(taxInput.value) || 0,
         onTotals(totals) {
           overlay.querySelector('#sum-subtotal').textContent = fmtMoney(totals.subtotal_cents);
-          overlay.querySelector('#sum-tax').textContent = fmtMoney(totals.tax_cents);
           overlay.querySelector('#sum-total').textContent = fmtMoney(totals.total_cents);
         },
       });
-      taxInput.addEventListener('input', editor.recalc);
       overlay.editor = editor;
 
       if (!isEdit) {
@@ -307,7 +298,6 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
         vendor_id: Number(values.get('vendor_id')),
         bill_date: values.get('bill_date'),
         due_date: values.get('due_date'),
-        tax_rate: Number(values.get('tax_rate')) || 0,
         notes: values.get('notes'),
         items,
         status,

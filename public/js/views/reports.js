@@ -193,10 +193,6 @@ function dailySales(data) {
     `;
   }
 
-  const taxNote = data.totals.tax_cents > 0
-    ? ` Sales exclude ${fmtMoney(data.totals.tax_cents)} tax.`
-    : '';
-
   return `
     <div class="report-card">
       ${reportHeader('Daily Sales Report', periodLabel(data.from, data.to), company)}
@@ -293,7 +289,7 @@ function dailySales(data) {
         </table>
       </div>
       <div class="report-balance-note">
-        ${icon('check', 14)} Cost comes from the linked booking or visa; direct invoices have no linked cost. Paid and balance are current as of today. Cash in hand and bank are closing balances for each day, and at the period end in the summary.${taxNote}
+        ${icon('check', 14)} Cost comes from the linked booking or visa; direct invoices have no linked cost. Paid and balance are current as of today. Cash in hand and bank are closing balances for each day, and at the period end in the summary.
       </div>
     </div>
   `;

@@ -226,7 +226,6 @@ function createVisa(db, payload) {
   return db.transaction(() => {
     const customer = assertCustomer(db, payload.customer_id);
     const dates = normalizeDates(payload);
-    const taxRate = num(payload.tax_rate ?? 0, 'Tax rate', { min: 0, max: 100 });
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
@@ -237,8 +236,8 @@ function createVisa(db, payload) {
     const info = db.prepare(`
       INSERT INTO visa_applications (number, customer_id, application_date, due_date, travel_date,
         status, destination_country, visa_type, applicant_name, nationality, passport_number,
-        passport_expiry, date_of_birth, reference, notes, tax_rate, sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        passport_expiry, date_of_birth, reference, notes, sale_total_cents, cost_total_cents)
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -254,7 +253,6 @@ function createVisa(db, payload) {
       dates.dateOfBirth,
       optionalStr(payload.reference, 'Application reference', 120),
       optionalStr(payload.notes, 'Notes', 2000),
-      taxRate,
       saleTotal,
       itemTotals(costItems),
     );
@@ -271,7 +269,6 @@ function updateVisa(db, id, payload) {
     if (existing.status !== 'draft') throw bad('Only draft visa applications can be edited');
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
     const dates = normalizeDates(payload, existing);
-    const taxRate = num(payload.tax_rate ?? existing.tax_rate, 'Tax rate', { min: 0, max: 100 });
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
@@ -281,7 +278,7 @@ function updateVisa(db, id, payload) {
     db.prepare(`
       UPDATE visa_applications SET customer_id = ?, application_date = ?, due_date = ?, travel_date = ?,
         destination_country = ?, visa_type = ?, applicant_name = ?, nationality = ?, passport_number = ?,
-        passport_expiry = ?, date_of_birth = ?, reference = ?, notes = ?, tax_rate = ?,
+        passport_expiry = ?, date_of_birth = ?, reference = ?, notes = ?,
         sale_total_cents = ?, cost_total_cents = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -298,7 +295,6 @@ function updateVisa(db, id, payload) {
       dates.dateOfBirth,
       optionalStr(payload.reference, 'Application reference', 120),
       optionalStr(payload.notes, 'Notes', 2000),
-      taxRate,
       saleTotal,
       itemTotals(costItems),
       id,
@@ -333,7 +329,6 @@ function submitVisa(db, id) {
       customer_id: visa.customer_id,
       issue_date: visa.application_date,
       due_date: visa.due_date || visa.application_date,
-      tax_rate: visa.tax_rate,
       notes: visa.notes,
       terms: visa.destination_country
         ? `${visa.destination_country} ${visa.visa_type} visa${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
@@ -359,7 +354,6 @@ function submitVisa(db, id) {
         vendor_id: vendorId,
         bill_date: visa.application_date,
         due_date: visa.due_date || visa.application_date,
-        tax_rate: 0,
         notes: `Visa ${visa.number} · ${visa.destination_country || 'Application'}${visa.reference ? ` · Ref ${visa.reference}` : ''}`,
         status: 'received',
         items: vendorItems.map((item) => ({

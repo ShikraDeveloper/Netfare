@@ -249,7 +249,7 @@ function dailySales(db, from, to) {
   const today = todayISO();
 
   const rows = db.prepare(`
-    SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents, i.tax_cents,
+    SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
            i.total_cents, i.amount_paid_cents, i.booking_id, i.visa_id,
            c.name AS customer_name,
            b.number AS booking_number, b.destination,
@@ -271,7 +271,6 @@ function dailySales(db, from, to) {
   const totals = {
     invoice_count: 0,
     sale_cents: 0,
-    tax_cents: 0,
     cost_cents: 0,
     margin_cents: 0,
     paid_cents: 0,
@@ -304,7 +303,6 @@ function dailySales(db, from, to) {
       reference_id: row.booking_id || row.visa_id || null,
       particulars,
       sale_cents: sale,
-      tax_cents: row.tax_cents,
       cost_cents: cost,
       margin_cents: sale - cost,
       paid_cents: row.amount_paid_cents,
@@ -317,7 +315,6 @@ function dailySales(db, from, to) {
         date: row.issue_date,
         invoice_count: 0,
         sale_cents: 0,
-        tax_cents: 0,
         cost_cents: 0,
         margin_cents: 0,
         paid_cents: 0,
@@ -330,7 +327,7 @@ function dailySales(db, from, to) {
     day.rows.push(item);
     day.invoice_count += 1;
     totals.invoice_count += 1;
-    for (const key of ['sale_cents', 'tax_cents', 'cost_cents', 'margin_cents', 'paid_cents', 'balance_cents']) {
+    for (const key of ['sale_cents', 'cost_cents', 'margin_cents', 'paid_cents', 'balance_cents']) {
       day[key] += item[key];
       totals[key] += item[key];
     }

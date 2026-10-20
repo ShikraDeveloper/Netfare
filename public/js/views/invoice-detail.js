@@ -240,7 +240,6 @@ export async function render(container, { params } = {}) {
           </div>
           <div class="doc-totals">
             <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(invoice.subtotal_cents)}</span></div>
-            ${invoice.tax_cents > 0 ? `<div class="totals-row"><span>Tax (${fmtNumber(invoice.tax_rate)}%)</span><span>${fmtMoney(invoice.tax_cents)}</span></div>` : ''}
             <div class="totals-row total"><span>Total</span><span>${fmtMoney(invoice.total_cents)}</span></div>
             ${invoice.amount_paid_cents > 0 ? `<div class="totals-row"><span>Paid</span><span>−${fmtMoney(invoice.amount_paid_cents)}</span></div>` : ''}
             <div class="totals-row balance"><span>Balance due</span><span>${fmtMoney(invoice.balance_cents)}</span></div>
@@ -292,7 +291,7 @@ export async function render(container, { params } = {}) {
     finalizeButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: 'Send and post this invoice?',
-        message: 'This will lock the invoice and post a receivable, revenue and any sales tax to your ledger.',
+        message: 'This will lock the invoice and post a receivable and revenue to your ledger.',
         confirmLabel: 'Send & post',
         danger: false,
       });

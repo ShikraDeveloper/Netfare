@@ -147,10 +147,6 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         <label for="visa-dob">Date of birth</label>
         <input class="input" id="visa-dob" name="date_of_birth" type="date" value="${esc(visa?.date_of_birth || '')}">
       </div>
-      <div class="field">
-        <label for="visa-tax">Tax rate %</label>
-        <input class="input" id="visa-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(visa?.tax_rate ?? 0)}">
-      </div>
       <div class="field full">
         <label for="visa-notes">Notes</label>
         <textarea class="input" id="visa-notes" name="notes" rows="2" placeholder="Internal note, documents checklist, embassy appointment…">${esc(visa?.notes || '')}</textarea>
@@ -228,7 +224,6 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         passport_expiry: values.get('passport_expiry') || null,
         date_of_birth: values.get('date_of_birth') || null,
         reference: values.get('reference'),
-        tax_rate: Number(values.get('tax_rate')) || 0,
         notes: values.get('notes'),
         sale_items: sale,
         cost_items: cost,

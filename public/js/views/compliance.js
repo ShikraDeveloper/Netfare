@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { activeVendors, expenseAccounts, store } from '../store.js';
+import { activeVendors, expenseAccounts } from '../store.js';
 import {
   centsToInput,
   confirmDialog,
@@ -20,7 +20,7 @@ import {
 
 const KIND_OPTIONS = [
   { value: 'recurring_bill', label: 'Recurring bill — rent, utilities, salaries' },
-  { value: 'filing', label: 'Filing — VAT return, corporate tax' },
+  { value: 'filing', label: 'Filing — corporate tax, payroll' },
   { value: 'renewal', label: 'Renewal — licence, lease, insurance' },
 ];
 
@@ -42,7 +42,7 @@ const PAYMENT_METHODS = ['Bank transfer', 'Cheque', 'Cash', 'Credit card', 'Othe
 
 const CATEGORIES = {
   recurring_bill: ['Office rent', 'Utilities', 'Salaries', 'Internet & phone', 'Software', 'Insurance', 'Trade licence', 'Other'],
-  filing: ['VAT return', 'Corporate tax', 'Payroll', 'Other'],
+  filing: ['Corporate tax', 'Payroll', 'Other'],
   renewal: ['Trade licence', 'Lease', 'Insurance', 'Vehicle registration', 'Visa quota', 'Other'],
 };
 
@@ -97,7 +97,6 @@ function modalBody(item = null) {
   const category = item?.category || CATEGORIES[kind][0];
   const frequency = item?.frequency || (kind === 'renewal' ? 'yearly' : kind === 'filing' ? 'quarterly' : 'monthly');
   const amount = item?.amount_cents != null ? centsToInput(item.amount_cents) : '';
-  const taxRate = item?.tax_rate != null ? item.tax_rate : (store.settings?.tax_rate || 0);
   return `
     <div class="form-grid">
       <div class="field full">
@@ -144,10 +143,6 @@ function modalBody(item = null) {
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="ci-amount" name="amount" type="number" min="0" step="0.01" value="${amount}" placeholder="0.00">
         </div>
-      </div>
-      <div class="field" data-ci-recurring>
-        <label for="ci-tax">Tax rate %</label>
-        <input class="input" id="ci-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(taxRate)}">
       </div>
       <div class="field" data-ci-recurring>
         <label for="ci-payment-method">Payment method</label>
@@ -269,7 +264,6 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
         amount_cents: amount,
         variable_amount: variable,
         payment_method: recurring ? (values.get('payment_method') || 'Bank transfer') : 'Bank transfer',
-        tax_rate: recurring ? Number(values.get('tax_rate') || 0) : 0,
         frequency: values.get('frequency'),
         next_due_date: nextDue,
         end_date: endDate || null,
@@ -305,10 +299,6 @@ export async function openGenerateBillModal(item, onSaved = null) {
           <div class="hint">${item.variable_amount ? 'Enter the amount from this month’s bill.' : 'Change this if this period’s bill is different.'}</div>
         </div>
         <div class="field">
-          <label for="gb-tax">Tax rate %</label>
-          <input class="input" id="gb-tax" name="tax_rate" type="number" min="0" max="100" step="0.01" value="${esc(item.tax_rate ?? 0)}">
-        </div>
-        <div class="field">
           <label for="gb-date">Bill date</label>
           <input class="input" id="gb-date" name="bill_date" type="date" value="${esc(item.next_due_date)}" required>
         </div>
@@ -339,7 +329,6 @@ export async function openGenerateBillModal(item, onSaved = null) {
         amount_cents: amount,
         bill_date: billDate,
         due_date: dueDate,
-        tax_rate: Number(values.get('tax_rate') || 0),
         notes: values.get('notes'),
       });
       toast(`Draft bill ${result.bill.number} created`);
@@ -433,11 +422,11 @@ export async function render(container, { query } = {}) {
         ${emptyState({
           iconName: 'check',
           title: 'No compliance items yet',
-          message: 'Track office rent and utilities as recurring bills, and keep VAT, corporate tax, licence, lease and insurance deadlines in one calendar.',
+          message: 'Track office rent and utilities as recurring bills, and keep corporate tax, licence, lease and insurance deadlines in one calendar.',
           action: `
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
               <button class="btn btn-primary" data-action="new-compliance" data-kind="recurring_bill" data-category="Office rent">${icon('plus', 15)} Add office rent</button>
-              <button class="btn btn-secondary" data-action="new-compliance" data-kind="filing" data-category="VAT return">${icon('check', 15)} Add VAT reminder</button>
+              <button class="btn btn-secondary" data-action="new-compliance" data-kind="filing" data-category="Corporate tax">${icon('check', 15)} Add corporate tax reminder</button>
             </div>
           `,
         })}

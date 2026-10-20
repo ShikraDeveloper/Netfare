@@ -238,7 +238,6 @@ function loadDemo(db) {
         destination: plan.destination,
         pnr: plan.pnr,
         notes: 'Thank you for booking with Skyline Travels.',
-        tax_rate: 0,
         sale_items: plan.sale.map(([description, quantity, unitPrice, account]) => ({
           description, quantity, unit_price_cents: unitPrice, account_id: account,
         })),
@@ -394,7 +393,6 @@ function loadDemo(db) {
         date_of_birth: plan.birthDays ? addDays(todayISO(), -plan.birthDays) : null,
         reference: plan.ref,
         notes: 'Visa application managed by Skyline Travels.',
-        tax_rate: 0,
         sale_items: plan.sale.map(([description, quantity, unitPrice, account]) => ({
           description, quantity, unit_price_cents: unitPrice, account_id: account,
         })),
