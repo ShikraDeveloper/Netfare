@@ -15,6 +15,8 @@ const invoiceService = require('../server/services/invoices');
 const billService = require('../server/services/bills');
 const refundService = require('../server/services/refunds');
 const cashDepositService = require('../server/services/cash-deposits');
+const advanceService = require('../server/services/advances');
+const portalService = require('../server/services/portals');
 const backupService = require('../server/services/backup');
 
 function account(code) {
@@ -135,6 +137,44 @@ test('bill payment must use cash/bank and posts a balanced entry', () => {
     payment_account_id: account('1010').id,
   });
   assert.equal(paid.balance_cents, 0);
+  assertBalanced();
+});
+
+test('advance and portal accounts must be cash/bank', () => {
+  const customerId = insertCustomer('Advance Customer');
+  assert.throws(
+    () => advanceService.createAdvance(db, {
+      customer_id: customerId,
+      advance_date: '2026-10-20',
+      amount_cents: 10_000,
+      deposit_account_id: account('1100').id,
+    }),
+    /cash or bank account/,
+  );
+  const advance = advanceService.createAdvance(db, {
+    customer_id: customerId,
+    advance_date: '2026-10-20',
+    amount_cents: 10_000,
+    deposit_account_id: account('1000').id,
+  });
+  assert.equal(advance.amount_cents, 10_000);
+
+  const vendorId = insertVendor('Portal Vendor');
+  const portal = portalService.createPortal(db, {
+    name: 'P0 Test Portal',
+    portal_type: 'other',
+    settlement: 'prepaid',
+    vendor_id: vendorId,
+  });
+  assert.throws(
+    () => portalService.topUp(db, {
+      portal_id: portal.id,
+      topup_date: '2026-10-20',
+      amount_cents: 10_000,
+      deposit_account_id: account('1100').id,
+    }),
+    /active bank or cash account/,
+  );
   assertBalanced();
 });
 
