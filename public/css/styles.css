@@ -1092,6 +1092,25 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 }
 
 /* ---------- Print ---------- */
+/* ---------- Bank reconciliation ---------- */
+.recon-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+.recon-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 15px 17px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 3px; }
+.recon-kpi span { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.recon-kpi strong { font-size: 20px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.recon-kpi small { font-size: 11px; color: var(--muted); }
+.field-inline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.recon-workspace { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
+.recon-placeholder { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 24px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.recon-modal-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.recon-modal-cards > div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; display: flex; flex-direction: column; gap: 2px; }
+.recon-modal-cards span { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.recon-modal-cards strong { font-size: 14px; font-variant-numeric: tabular-nums; }
+.recon-lines { max-height: 330px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.recon-lines .data th { position: sticky; top: 0; z-index: 1; }
+.error-text { color: var(--red) !important; }
+.amount-ok { color: var(--green); }
+@media (max-width: 700px) { .recon-kpis, .recon-modal-cards { grid-template-columns: 1fr 1fr; } }
+
 /* ---------- Statements ---------- */
 .statement-card { padding: 34px 38px; max-width: 980px; }
 .statement-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding-bottom: 20px; border-bottom: 2px solid var(--primary-dark); }

@@ -25,6 +25,7 @@ import * as refundDetailView from './views/refund-detail.js';
 import * as complianceView from './views/compliance.js';
 import * as chequesView from './views/cheques.js';
 import * as bankingView from './views/banking.js';
+import * as bankReconciliationView from './views/bank-reconciliation.js';
 import * as accountsView from './views/accounts.js';
 import * as reportsView from './views/reports.js';
 import * as settingsView from './views/settings.js';
@@ -67,6 +68,7 @@ const NAV_GROUPS = [
       { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
       { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
       { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking' },
+      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation' },
       { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts' },
       { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports' },
     ],
@@ -104,6 +106,7 @@ const ROUTES = [
   { pattern: /^\/compliance$/, view: complianceView, section: 'compliance' },
   { pattern: /^\/cheques$/, view: chequesView, section: 'cheques' },
   { pattern: /^\/banking$/, view: bankingView, section: 'banking' },
+  { pattern: /^\/bank-reconciliation$/, view: bankReconciliationView, section: 'bank-reconciliation' },
   { pattern: /^\/accounts$/, view: accountsView, section: 'accounts' },
   { pattern: /^\/reports(?:\/([a-z-]+))?$/, view: reportsView, section: 'reports' },
   { pattern: /^\/settings$/, view: settingsView, section: 'settings' },

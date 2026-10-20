@@ -399,6 +399,24 @@ CREATE TABLE IF NOT EXISTS cash_deposits (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS bank_reconciliations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  statement_date TEXT NOT NULL,
+  statement_balance_cents INTEGER NOT NULL DEFAULT 0,
+  cleared_balance_cents INTEGER NOT NULL DEFAULT 0,
+  difference_cents INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'reconciled' CHECK (status IN ('reconciled', 'difference')),
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS bank_reconciliation_lines (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reconciliation_id INTEGER NOT NULL REFERENCES bank_reconciliations(id) ON DELETE CASCADE,
+  journal_line_id INTEGER NOT NULL UNIQUE REFERENCES journal_lines(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
 CREATE INDEX IF NOT EXISTS idx_entries_date ON journal_entries(entry_date);
@@ -411,6 +429,8 @@ CREATE INDEX IF NOT EXISTS idx_booking_items_booking ON booking_items(booking_id
 CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_advances_customer ON customer_advances(customer_id);
+CREATE INDEX IF NOT EXISTS idx_bank_reconciliations_account ON bank_reconciliations(account_id, statement_date);
+CREATE INDEX IF NOT EXISTS idx_bank_recon_lines_rec ON bank_reconciliation_lines(reconciliation_id);
 `);
 
 const defaultAccounts = [

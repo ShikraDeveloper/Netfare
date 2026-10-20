@@ -12,6 +12,8 @@ process.env.LEDGERLY_DATA_DIR = tempDir;
 const db = require('../server/db');
 const openingBalances = require('../server/services/opening-balances');
 const statements = require('../server/services/statements');
+const bankReconciliations = require('../server/services/bank-reconciliations');
+const { postEntry } = require('../server/accounting');
 const invoiceService = require('../server/services/invoices');
 const billService = require('../server/services/bills');
 
@@ -76,6 +78,67 @@ test('opening balances create and replace one balanced opening entry', () => {
 
   openingBalances.clearOpeningBalances(db);
   assert.equal(openingBalances.getOpeningBalances(db).entry_id, null);
+  assertBalanced();
+});
+
+test('bank reconciliation clears lines, tracks differences and reopens the latest', () => {
+  const bankId = Number(db.prepare(`
+    INSERT INTO accounts (code, name, type, subtype, normal_balance, is_cash)
+    VALUES ('1099', 'Reconciliation Test Bank', 'asset', 'current_asset', 'debit', 1)
+  `).run().lastInsertRowid);
+
+  postEntry(db, {
+    entry_date: '2026-01-05',
+    memo: 'Opening bank deposit',
+    lines: [
+      { account_id: bankId, debit_cents: 100_000, credit_cents: 0 },
+      { account_id: account('3000').id, debit_cents: 0, credit_cents: 100_000 },
+    ],
+  });
+
+  const firstWorkspace = bankReconciliations.getWorkspace(db, { account_id: bankId, statement_date: '2026-01-31' });
+  assert.equal(firstWorkspace.ledger_balance_cents, 100_000);
+  assert.equal(firstWorkspace.lines.length, 1);
+  const firstLineId = firstWorkspace.lines[0].id;
+
+  const first = bankReconciliations.createReconciliation(db, {
+    account_id: bankId,
+    statement_date: '2026-01-31',
+    statement_balance_cents: 100_000,
+    line_ids: [firstLineId],
+  });
+  assert.equal(first.status, 'reconciled');
+  assert.equal(first.difference_cents, 0);
+  assert.equal(first.cleared_balance_cents, 100_000);
+
+  postEntry(db, {
+    entry_date: '2026-02-05',
+    memo: 'February bank deposit',
+    lines: [
+      { account_id: bankId, debit_cents: 25_000, credit_cents: 0 },
+      { account_id: account('4000').id, debit_cents: 0, credit_cents: 25_000 },
+    ],
+  });
+
+  const secondWorkspace = bankReconciliations.getWorkspace(db, { account_id: bankId, statement_date: '2026-02-28' });
+  assert.equal(secondWorkspace.cleared_before_cents, 100_000);
+  assert.equal(secondWorkspace.ledger_balance_cents, 125_000);
+  assert.equal(secondWorkspace.lines.length, 1);
+
+  const second = bankReconciliations.createReconciliation(db, {
+    account_id: bankId,
+    statement_date: '2026-02-28',
+    statement_balance_cents: 100_000,
+    line_ids: [secondWorkspace.lines[0].id],
+  });
+  assert.equal(second.status, 'difference');
+  assert.equal(second.difference_cents, -25_000);
+
+  assert.throws(() => bankReconciliations.deleteReconciliation(db, first.id), /later reconciliation/i);
+  bankReconciliations.deleteReconciliation(db, second.id);
+  const reopened = bankReconciliations.getWorkspace(db, { account_id: bankId, statement_date: '2026-02-28' });
+  assert.equal(reopened.lines.length, 1);
+  assert.equal(reopened.lines[0].amount_cents, 25_000);
   assertBalanced();
 });
 
