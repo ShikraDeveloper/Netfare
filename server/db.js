@@ -427,6 +427,7 @@ const defaultAccounts = [
   ['2500', 'Refund Payable', 'liability', 'current_liability', 'credit', 0, 1],
   ['3000', "Owner's Equity", 'equity', 'equity', 'credit', 0, 0],
   ['3100', 'Retained Earnings', 'equity', 'equity', 'credit', 0, 1],
+  ['3900', 'Opening Balance Equity', 'equity', 'equity', 'credit', 0, 1],
   ['4000', 'Ticket Sales', 'revenue', 'operating_revenue', 'credit', 0, 1],
   ['4100', 'Tour & Package Sales', 'revenue', 'operating_revenue', 'credit', 0, 0],
   ['4200', 'Other Income', 'revenue', 'other_revenue', 'credit', 0, 0],

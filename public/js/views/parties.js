@@ -59,6 +59,7 @@ function partyRow(party, config) {
       <td class="num ${party.outstanding_cents > 0 ? 'amount-due' : 'muted'}">${party.outstanding_cents > 0 ? fmtMoney(party.outstanding_cents) : '—'}</td>
       <td>
         <div class="row-actions">
+          <a class="icon-btn" href="#${config.base}/${party.id}/statement" title="Statement">${icon('file', 16)}</a>
           <button class="icon-btn" data-edit="${party.id}" title="Edit">${icon('edit', 16)}</button>
           <button class="icon-btn" data-archive="${party.id}" title="${party.is_active ? 'Archive' : 'Restore'}">${icon(party.is_active ? 'archive' : 'refresh', 16)}</button>
           ${count === 0 ? `<button class="icon-btn danger" data-delete="${party.id}" title="Delete">${icon('trash', 16)}</button>` : ''}

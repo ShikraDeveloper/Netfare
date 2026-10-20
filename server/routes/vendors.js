@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const db = require('../db');
 const { bad, notFound, str, optionalStr, isTruthy } = require('../util');
+const statementService = require('../services/statements');
 
 function listVendors() {
   return db.prepare(`
@@ -21,6 +22,10 @@ router.get('/', (req, res) => {
   const includeInactive = isTruthy(req.query.include_inactive);
   const rows = listVendors();
   res.json(includeInactive ? rows : rows.filter((row) => row.is_active));
+});
+
+router.get('/:id/statement', (req, res) => {
+  res.json(statementService.vendorStatement(db, req.params.id, req.query));
 });
 
 router.post('/', (req, res) => {

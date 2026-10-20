@@ -15,8 +15,11 @@ import * as portalReconcileView from './views/portal-reconcile.js';
 import * as billsView from './views/bills.js';
 import * as billDetailView from './views/bill-detail.js';
 import * as customersView from './views/customers.js';
+import * as customerStatementView from './views/customer-statement.js';
 import * as vendorsView from './views/vendors.js';
+import * as vendorStatementView from './views/vendor-statement.js';
 import * as journalView from './views/journal.js';
+import * as openingBalancesView from './views/opening-balances.js';
 import * as refundsView from './views/refunds.js';
 import * as refundDetailView from './views/refund-detail.js';
 import * as complianceView from './views/compliance.js';
@@ -59,6 +62,7 @@ const NAV_GROUPS = [
     label: 'Accounting',
     items: [
       { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal' },
+      { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances' },
       { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
       { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
       { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
@@ -90,8 +94,11 @@ const ROUTES = [
   { pattern: /^\/bills$/, view: billsView, section: 'bills' },
   { pattern: /^\/bills\/(\d+)$/, view: billDetailView, section: 'bills' },
   { pattern: /^\/customers$/, view: customersView, section: 'customers' },
+  { pattern: /^\/customers\/(\d+)\/statement$/, view: customerStatementView, section: 'customers' },
   { pattern: /^\/vendors$/, view: vendorsView, section: 'vendors' },
+  { pattern: /^\/vendors\/(\d+)\/statement$/, view: vendorStatementView, section: 'vendors' },
   { pattern: /^\/journal$/, view: journalView, section: 'journal' },
+  { pattern: /^\/opening-balances$/, view: openingBalancesView, section: 'opening-balances' },
   { pattern: /^\/refunds$/, view: refundsView, section: 'refunds' },
   { pattern: /^\/refunds\/(\d+)$/, view: refundDetailView, section: 'refunds' },
   { pattern: /^\/compliance$/, view: complianceView, section: 'compliance' },
