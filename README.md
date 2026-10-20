@@ -332,9 +332,14 @@ Document statuses (`draft`, `sent`/`received`, `void`) are stored. Display statu
 ```
 server/
   index.js            Express app and static hosting
-  db.js               Schema, default chart of accounts, SQLite setup
+  db.js               SQLite setup, chart seeding and migration runner
+  schema.js           CREATE TABLE / index SQL
+  default-accounts.js Default chart of accounts
+  migrations.js       Lightweight column migrations and post-migration indexes
   accounting.js       Posting/reversal engine and status helpers
   services/           Business logic: bookings, visas, portals, advances, invoices, bills, credits, refunds, compliance, cheques, cash deposits, opening balances, reconciliation, statements, reports, demo data
+  services/portals/   Portal lifecycle, money movements and supplier/wallet ledgers
+  services/reports/   Financial statements, aging, daily sales and dashboard reports
   routes/             REST API endpoints
 scripts/
   backup.js           CLI database backup
@@ -343,6 +348,10 @@ scripts/
 public/
   index.html          SPA shell (theme bootstrap, fonts, favicon)
   js/                 Router, views, shared UI, line-item editor, attachments helper
+  js/views/reports/   Individual report renderers
+  js/views/compliance/ Compliance row/helpers and modal forms
+  js/views/portal-detail/ Portal modals and action handlers
+  js/views/portal-reconcile/ Statement parsing and matching helpers
   js/theme.js         Light/dark theme read, apply and sync
   css/styles.css      App and print styles
   css/theme.css       Light/dark theme layer (colours, type, polish)

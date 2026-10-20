@@ -1,0 +1,218 @@
+'use strict';
+
+const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../../util');
+const { systemAccount, postEntry, reverseEntry } = require('../../accounting');
+const { allocateNumber } = require('../numbering');
+const { SUPPLIER_ADVANCES, AP, assertAccount, lockBalance } = require('./common');
+const { getPortal, portalForVendor } = require('./lifecycle');
+
+function topUp(db, payload) {
+  return db.transaction(() => {
+    const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(payload.portal_id));
+    if (!portal) throw bad('Choose a portal');
+    if (!portal.is_active) throw bad('That portal is archived');
+
+    const amount = cents(payload.amount_cents, 'Top-up amount', { min: 1 });
+    const date = dateISO(payload.topup_date || todayISO(), 'Top-up date');
+    const account = assertAccount(db, payload.deposit_account_id, 'source account');
+    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+    const number = allocateNumber(db, 'topup', date);
+
+    const info = db.prepare(`
+      INSERT INTO portal_topups (number, portal_id, topup_date, amount_cents, method, reference, notes, deposit_account_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      number,
+      portal.id,
+      date,
+      amount,
+      optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
+      optionalStr(payload.reference, 'Reference', 200),
+      optionalStr(payload.notes, 'Notes', 2000),
+      account.id,
+    );
+    const topupId = Number(info.lastInsertRowid);
+
+    const entryId = postEntry(db, {
+      entry_date: date,
+      memo: `Portal top-up ${number} — ${portal.name}`,
+      reference: number,
+      source_type: 'portal_topup',
+      source_id: topupId,
+      lines: [
+        { account_id: supplierAdvances.id, debit_cents: amount, credit_cents: 0, description: `Top-up ${number} · ${portal.name}` },
+        { account_id: account.id, debit_cents: 0, credit_cents: amount, description: `Top-up ${number}` },
+      ],
+    });
+    db.prepare('UPDATE portal_topups SET journal_entry_id = ? WHERE id = ?').run(entryId, topupId);
+    return getPortal(db, portal.id);
+  })();
+}
+
+function deleteTopup(db, id) {
+  return db.transaction(() => {
+    const topup = db.prepare('SELECT * FROM portal_topups WHERE id = ?').get(id);
+    if (!topup) throw notFound('Top-up not found');
+    const balance = lockBalance(db, topup.portal_id);
+    if (balance < topup.amount_cents) {
+      throw bad('Part of this top-up has already been used. Withdraw the remaining balance instead of deleting.');
+    }
+    if (topup.journal_entry_id) {
+      reverseEntry(db, topup.journal_entry_id, {
+        entry_date: todayISO(),
+        memo: `Reverse portal top-up ${topup.number}`,
+        source_type: 'void',
+      });
+    }
+    db.prepare('DELETE FROM portal_topups WHERE id = ?').run(id);
+    return getPortal(db, topup.portal_id);
+  })();
+}
+
+function refundPortal(db, id, payload = {}) {
+  return db.transaction(() => {
+    const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(id);
+    if (!portal) throw notFound('Portal not found');
+
+    const balance = lockBalance(db, id);
+    if (balance <= 0) throw bad('This portal has no available balance to withdraw');
+    const amount = payload.amount_cents == null
+      ? balance
+      : cents(payload.amount_cents, 'Withdrawal amount', { min: 1 });
+    if (amount > balance) throw bad('Withdrawal is more than the available portal balance');
+
+    const account = assertAccount(db, payload.payment_account_id, 'refund account');
+    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+    const date = dateISO(payload.refund_date || todayISO(), 'Refund date');
+
+    const info = db.prepare(`
+      INSERT INTO portal_refunds (portal_id, refund_date, amount_cents, method, reference, notes, payment_account_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      portal.id,
+      date,
+      amount,
+      optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
+      optionalStr(payload.reference, 'Reference', 200),
+      optionalStr(payload.notes, 'Notes', 2000),
+      account.id,
+    );
+    const refundId = Number(info.lastInsertRowid);
+
+    const entryId = postEntry(db, {
+      entry_date: date,
+      memo: `Portal withdrawal — ${portal.name}`,
+      reference: portal.name,
+      source_type: 'portal_refund',
+      source_id: refundId,
+      lines: [
+        { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Withdrawal from ${portal.name}` },
+        { account_id: supplierAdvances.id, debit_cents: 0, credit_cents: amount, description: `Withdrawal from ${portal.name}` },
+      ],
+    });
+    db.prepare('UPDATE portal_refunds SET journal_entry_id = ? WHERE id = ?').run(entryId, refundId);
+    return getPortal(db, portal.id);
+  })();
+}
+
+function settleBillFromPortal(db, payload) {
+  return db.transaction(() => {
+    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(Number(payload.bill_id));
+    if (!bill) throw bad('Choose a bill');
+    if (bill.status !== 'received') throw bad('Only received bills can be settled from a portal');
+
+    const billBalance = Math.max(0, bill.total_cents - bill.amount_paid_cents);
+    if (billBalance <= 0) throw bad('That bill is already fully paid');
+
+    const portal = payload.portal_id
+      ? db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(payload.portal_id))
+      : portalForVendor(db, bill.vendor_id);
+    if (!portal) throw bad('No portal is linked to this supplier');
+    if (!portal.is_active) throw bad('That portal is archived');
+    if (portal.vendor_id && portal.vendor_id !== bill.vendor_id) {
+      throw bad(`Portal "${portal.name}" belongs to a different supplier`);
+    }
+
+    const available = lockBalance(db, portal.id);
+    if (available <= 0) throw bad(`Portal "${portal.name}" has no available balance`);
+
+    const requested = payload.amount_cents == null
+      ? billBalance
+      : cents(payload.amount_cents, 'Settlement amount', { min: 1 });
+    const amount = Math.min(requested, billBalance, available);
+    if (amount <= 0) throw bad('Nothing to settle from this portal');
+
+    const date = dateISO(payload.settle_date || todayISO(), 'Settlement date');
+    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+    const ap = systemAccount(db, AP, 'Accounts Payable');
+    const number = allocateNumber(db, 'bill_payment', date);
+
+    const info = db.prepare(`
+      INSERT INTO bill_payments (number, bill_id, vendor_id, payment_date, amount_cents, method, reference, payment_account_id, portal_id)
+      VALUES (?, ?, ?, ?, ?, 'Portal wallet', ?, ?, ?)
+    `).run(
+      number,
+      bill.id,
+      bill.vendor_id,
+      date,
+      amount,
+      portal.name,
+      supplierAdvances.id,
+      portal.id,
+    );
+    const paymentId = Number(info.lastInsertRowid);
+
+    const entryId = postEntry(db, {
+      entry_date: date,
+      memo: `Bill ${bill.number} settled from portal ${portal.name}`,
+      reference: bill.number,
+      source_type: 'portal_settle',
+      source_id: paymentId,
+      lines: [
+        { account_id: ap.id, debit_cents: amount, credit_cents: 0, description: `Bill ${bill.number}` },
+        { account_id: supplierAdvances.id, debit_cents: 0, credit_cents: amount, description: `Portal ${portal.name}` },
+      ],
+    });
+    db.prepare('UPDATE bill_payments SET journal_entry_id = ? WHERE id = ?').run(entryId, paymentId);
+    db.prepare(`
+      UPDATE bills SET amount_paid_cents = amount_paid_cents + ?, portal_id = COALESCE(portal_id, ?),
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(amount, portal.id, bill.id);
+
+    return { settled_cents: amount, bill_id: bill.id, portal_id: portal.id, portal_name: portal.name };
+  })();
+}
+
+// Used when a booking is confirmed: prepaid portals settle their vendor's bill
+// automatically, up to whatever balance is available.
+function autoSettleBill(db, billId, settleDate) {
+  const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(billId);
+  if (!bill || bill.status !== 'received') return null;
+  const portal = portalForVendor(db, bill.vendor_id);
+  if (!portal || portal.settlement !== 'prepaid') return null;
+
+  const billBalance = Math.max(0, bill.total_cents - bill.amount_paid_cents);
+  if (billBalance <= 0) return null;
+  const available = lockBalance(db, portal.id);
+  if (available <= 0) {
+    return { settled_cents: 0, portal_id: portal.id, portal_name: portal.name, shortfall_cents: billBalance };
+  }
+
+  const amount = Math.min(billBalance, available);
+  const result = settleBillFromPortal(db, {
+    bill_id: bill.id,
+    portal_id: portal.id,
+    amount_cents: amount,
+    settle_date: settleDate || bill.bill_date,
+  });
+  return { ...result, shortfall_cents: Math.max(0, billBalance - amount) };
+}
+
+module.exports = {
+  topUp,
+  deleteTopup,
+  refundPortal,
+  settleBillFromPortal,
+  autoSettleBill,
+};
