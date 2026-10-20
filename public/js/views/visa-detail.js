@@ -1,0 +1,645 @@
+import { api } from '../api.js';
+import { cashAccounts, store } from '../store.js';
+import {
+  centsToInput,
+  confirmDialog,
+  currencySymbol,
+  emptyState,
+  esc,
+  fmtDate,
+  fmtMoney,
+  fmtNumber,
+  icon,
+  openModal,
+  optionsHtml,
+  setHeader,
+  statusBadge,
+  todayISO,
+  toast,
+  toCents,
+} from '../ui.js';
+import { openVisaModal, visaTypeLabel } from './visas.js';
+
+function depositAccounts() {
+  const accounts = cashAccounts().slice().sort((a, b) => a.code.localeCompare(b.code));
+  const preferred = accounts.find((account) => account.code === '1010')
+    || accounts.find((account) => account.is_cash)
+    || accounts[0];
+  return { accounts, preferred };
+}
+
+function advanceModalBody(visa) {
+  const { accounts, preferred } = depositAccounts();
+  return `
+    <div class="form-grid">
+      <div class="field">
+        <label for="adv-amount">Advance amount</label>
+        <div class="money-input">
+          <span>${esc(currencySymbol())}</span>
+          <input class="input" id="adv-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(visa.balance_cents)}" required>
+        </div>
+        <div class="hint">Application balance ${fmtMoney(visa.balance_cents)}</div>
+      </div>
+      <div class="field">
+        <label for="adv-date">Date received</label>
+        <input class="input" id="adv-date" name="advance_date" type="date" value="${todayISO()}" required>
+      </div>
+      <div class="field">
+        <label for="adv-method">Method</label>
+        <select class="input" id="adv-method" name="method">
+          <option>Bank transfer</option><option>Cheque</option><option>Cash</option><option>Credit card</option><option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="adv-ref">Reference</label>
+        <input class="input" id="adv-ref" name="reference" placeholder="e.g. deposit slip no." autocomplete="off">
+      </div>
+      <div class="field full">
+        <label for="adv-account">Deposit to</label>
+        <select class="input" id="adv-account" name="deposit_account_id">
+          ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
+        </select>
+      </div>
+      <div class="field full">
+        <div class="form-note">Money received before the application is invoiced. It is held as a <strong>Customer Advances</strong> liability until you apply it to an invoice.</div>
+      </div>
+    </div>
+  `;
+}
+
+function applyModalBody(visa, advances) {
+  return `
+    <div class="form-grid">
+      <div class="field full">
+        <label for="apply-advance">Advance to apply</label>
+        <select class="input" id="apply-advance" name="advance_id">
+          ${optionsHtml(advances, { placeholder: 'Choose an advance…', labelKey: (advance) => `${advance.number} · ${fmtMoney(advance.remaining_cents)} available` })}
+        </select>
+      </div>
+      <div class="field">
+        <label for="apply-date">Application date</label>
+        <input class="input" id="apply-date" name="payment_date" type="date" value="${todayISO()}" required>
+      </div>
+      <div class="field">
+        <label>Invoice</label>
+        <input class="input" value="${esc(visa.invoice.number)} · ${fmtMoney(visa.invoice.balance_cents)} due" disabled>
+      </div>
+      <div class="field full">
+        <div class="form-note">Applying the advance reduces the invoice balance and moves the amount from Customer Advances to Accounts Receivable.</div>
+      </div>
+    </div>
+  `;
+}
+
+function refundModalBody(advance) {
+  const { accounts, preferred } = depositAccounts();
+  return `
+    <div class="form-grid">
+      <div class="field">
+        <label for="ref-amount">Refund amount</label>
+        <div class="money-input">
+          <span>${esc(currencySymbol())}</span>
+          <input class="input" id="ref-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(advance.remaining_cents)}" required>
+        </div>
+        <div class="hint">${fmtMoney(advance.remaining_cents)} available on ${esc(advance.number)}</div>
+      </div>
+      <div class="field">
+        <label for="ref-date">Refund date</label>
+        <input class="input" id="ref-date" name="refund_date" type="date" value="${todayISO()}" required>
+      </div>
+      <div class="field full">
+        <label for="ref-account">Refund from</label>
+        <select class="input" id="ref-account" name="payment_account_id">
+          ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
+        </select>
+      </div>
+      <div class="field full">
+        <div class="form-note">Refunding debits Customer Advances and credits your bank or cash account.</div>
+      </div>
+    </div>
+  `;
+}
+
+function statusSteps(visa) {
+  if (['rejected', 'cancelled'].includes(visa.status)) {
+    const rejected = visa.status === 'rejected';
+    return `
+      <div class="visa-outcome ${rejected ? 'rejected' : 'cancelled'}">
+        <div class="visa-outcome-icon">${icon(rejected ? 'alert' : 'x', 18)}</div>
+        <div>
+          <strong>${rejected ? 'Application rejected' : 'Application cancelled'}</strong>
+          <p>${rejected
+    ? 'The customer invoice and supplier bills were reversed. If the embassy keeps its fee, record it as an expense.'
+    : 'The customer invoice and supplier bills were reversed with the cancellation.'}</p>
+        </div>
+      </div>
+    `;
+  }
+  const order = ['draft', 'submitted', 'approved', 'issued'];
+  const labels = ['Draft', 'Submitted', 'Approved', 'Issued'];
+  const current = Math.max(0, order.indexOf(visa.status));
+  return `
+    <div class="visa-steps">
+      ${labels.map((label, index) => {
+    const state = index < current ? 'done' : index === current ? 'current' : '';
+    return `
+          ${index ? '<span class="visa-step-line"></span>' : ''}
+          <div class="visa-step ${state}">
+            <span class="visa-step-dot">${index < current ? icon('check', 12) : index + 1}</span>
+            <span>${label}</span>
+          </div>
+        `;
+  }).join('')}
+    </div>
+  `;
+}
+
+export async function render(container, { params } = {}) {
+  const id = Number(params?.[0]);
+  const visa = await api.get(`/visas/${id}`);
+
+  const isDraft = visa.status === 'draft';
+  const isSubmitted = visa.status === 'submitted';
+  const isApproved = visa.status === 'approved';
+  const isIssued = visa.status === 'issued';
+  const isRejected = visa.status === 'rejected';
+  const isCancelled = visa.status === 'cancelled';
+  const invoice = visa.invoice;
+
+  const canApplyAdvance = Boolean(invoice && invoice.status === 'sent' && invoice.balance_cents > 0 && visa.advances.some((advance) => advance.remaining_cents > 0));
+
+  const settings = store.settings || {};
+  const company = settings.company_name || 'My Company';
+  const marginClass = visa.margin_cents >= 0 ? 'margin-positive' : 'margin-negative';
+  const marginPercent = visa.sale_total_cents ? (visa.margin_cents / visa.sale_total_cents) * 100 : 0;
+
+  const actions = [];
+  actions.push(`<a class="btn btn-ghost" href="#/visas"><span>All visas</span></a>`);
+  actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
+  if (isDraft) {
+    actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
+    actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
+    actions.push(`<button class="btn btn-primary" data-action="submit">${icon('check', 15)}<span>Submit &amp; post</span></button>`);
+  }
+  if (isSubmitted) {
+    actions.push(`<button class="btn btn-danger-ghost" data-action="reject"><span>Reject</span></button>`);
+    actions.push(`<button class="btn btn-primary" data-action="approve">${icon('check', 15)}<span>Mark approved</span></button>`);
+  }
+  if (isApproved) {
+    actions.push(`<button class="btn btn-danger-ghost" data-action="reject"><span>Reject</span></button>`);
+    actions.push(`<button class="btn btn-primary" data-action="issue">${icon('check', 15)}<span>Mark issued</span></button>`);
+  }
+  if (!isCancelled && !isRejected) {
+    actions.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
+  }
+
+  const subtitleParts = [
+    visa.applicant_name || visa.customer_name,
+    visa.destination_country || 'No destination',
+    `${visaTypeLabel(visa.visa_type)} visa`,
+  ];
+  setHeader({
+    title: visa.number,
+    subtitle: subtitleParts.join(' · '),
+    actions: actions.join(''),
+  });
+
+  const saleRows = visa.sale_items.map((item) => `
+    <tr>
+      <td>${esc(item.description)}</td>
+      <td class="num">${fmtNumber(item.quantity)}</td>
+      <td class="num">${fmtMoney(item.unit_price_cents)}</td>
+      <td class="muted">${esc(item.account_code)} · ${esc(item.account_name)}</td>
+      <td class="num amount">${fmtMoney(item.amount_cents)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="5" class="muted">No sale items</td></tr>`;
+
+  const costRows = visa.cost_items.map((item) => `
+    <tr>
+      <td>${esc(item.description)}</td>
+      <td class="num">${fmtNumber(item.quantity)}</td>
+      <td class="num">${fmtMoney(item.unit_price_cents)}</td>
+      <td class="muted">${esc(item.account_code)} · ${esc(item.account_name)}</td>
+      <td>${esc(item.vendor_name || '—')}${item.supplier_ref ? `<small class="cell-sub"> · ${esc(item.supplier_ref)}</small>` : ''}</td>
+      <td class="num amount">${fmtMoney(item.amount_cents)}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" class="muted">No cost items</td></tr>`;
+
+  const advanceRows = visa.advances.map((advance) => `
+    <div class="payment-item">
+      <div class="payment-icon">${icon('wallet', 15)}</div>
+      <div class="payment-main">
+        <strong>${esc(advance.number)} · ${statusBadge(advance.status)}</strong>
+        <span>${esc(fmtDate(advance.advance_date))} · ${esc(advance.method || 'Advance')}${advance.reference ? ` · ${esc(advance.reference)}` : ''} · Received ${fmtMoney(advance.amount_cents)}</span>
+      </div>
+      <div class="payment-amount">${fmtMoney(advance.remaining_cents)} <small class="muted">left</small></div>
+      <div style="display:flex;gap:4px">
+        ${advance.remaining_cents > 0 ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
+        ${advance.remaining_cents > 0 && advance.applied_cents === 0 ? `<button class="icon-btn danger" data-delete-advance="${advance.id}" title="Delete advance">${icon('trash', 16)}</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+
+  const paymentRows = visa.payments.length
+    ? visa.payments.map((payment) => `
+        <div class="payment-item">
+          <div class="payment-icon">${icon('cash', 15)}</div>
+          <div class="payment-main">
+            <strong>${esc(payment.method || 'Payment')}</strong>
+            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}</span>
+          </div>
+          <div class="payment-amount">${fmtMoney(payment.amount_cents)}</div>
+        </div>
+      `).join('')
+    : emptyState({
+      iconName: 'cash',
+      title: 'No payments yet',
+      message: invoice && invoice.balance_cents > 0 ? 'Record a payment or apply an advance to reduce the balance.' : 'Payments will appear here once recorded.',
+    });
+
+  const billRows = visa.bills.length
+    ? visa.bills.map((bill) => `
+        <div class="payment-item">
+          <div class="payment-icon">${icon('bill', 15)}</div>
+          <div class="payment-main">
+            <strong>${esc(bill.number)} · ${esc(bill.vendor_name)}</strong>
+            <span>${esc(fmtDate(bill.bill_date))} · Total ${fmtMoney(bill.total_cents)} · ${statusBadge(bill.status_display || bill.status)}${bill.portal_name ? ` · ${esc(bill.portal_name)}` : ''}</span>
+          </div>
+          <div class="payment-amount">${fmtMoney(bill.balance_cents)} <small class="muted">due</small></div>
+          <a class="icon-btn" href="#/bills/${bill.id}" title="Open bill">${icon('chevron', 16)}</a>
+        </div>
+      `).join('')
+    : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'Supplier bills are created automatically when you submit this application.' : 'No supplier bills linked.'}</div>`;
+
+  const invoiceCard = invoice
+    ? `
+      <div class="payment-item">
+        <div class="payment-icon">${icon('invoice', 15)}</div>
+        <div class="payment-main">
+          <strong>${esc(invoice.number)} · ${statusBadge(invoice.status_display || invoice.status)}</strong>
+          <span>Issued ${esc(fmtDate(invoice.issue_date))} · Total ${fmtMoney(invoice.total_cents)} · Paid ${fmtMoney(invoice.amount_paid_cents)}</span>
+        </div>
+        <div class="payment-amount">${fmtMoney(invoice.balance_cents)} <small class="muted">due</small></div>
+        <a class="icon-btn" href="#/invoices/${invoice.id}" title="Open invoice">${icon('chevron', 16)}</a>
+      </div>
+    `
+    : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'A customer invoice is created when you submit this application.' : 'No customer invoice linked.'}</div>`;
+
+  const applicantDetails = [
+    visa.nationality ? `Nationality: ${visa.nationality}` : '',
+    visa.passport_number ? `Passport: ${visa.passport_number}` : '',
+    visa.passport_expiry ? `Expires ${fmtDate(visa.passport_expiry)}` : '',
+    visa.date_of_birth ? `DOB ${fmtDate(visa.date_of_birth)}` : '',
+  ].filter(Boolean).join('\n');
+
+  container.innerHTML = `
+    ${statusSteps(visa)}
+
+    <div class="doc-wrap">
+      <div class="doc">
+        <div class="doc-head">
+          <div class="doc-brand">
+            <span class="brand-mark">L</span>
+            <div>
+              <div class="doc-company-name">${esc(company)}</div>
+              <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>
+            </div>
+          </div>
+          <div class="doc-meta">
+            <div class="doc-kind">Visa application</div>
+            <div class="doc-number">${esc(visa.number)}</div>
+            <div class="doc-status">${statusBadge(visa.status)}</div>
+            <dl class="doc-meta-grid">
+              <dt>Application date</dt><dd>${esc(fmtDate(visa.application_date))}</dd>
+              <dt>Travel date</dt><dd>${visa.travel_date ? esc(fmtDate(visa.travel_date)) : '—'}</dd>
+              <dt>Visa type</dt><dd>${esc(visaTypeLabel(visa.visa_type))}</dd>
+              <dt>Embassy ref</dt><dd>${esc(visa.reference || '—')}</dd>
+            </dl>
+          </div>
+        </div>
+
+        <div class="doc-parties">
+          <div>
+            <div class="doc-label">Applicant / customer</div>
+            <div class="doc-party-name">${esc(visa.applicant_name || visa.customer_name)}</div>
+            <div class="doc-party-detail">${esc([visa.customer_address, visa.customer_email, visa.customer_phone].filter(Boolean).join('\n'))}</div>
+            ${applicantDetails ? `<div class="doc-party-detail" style="margin-top:6px">${esc(applicantDetails)}</div>` : ''}
+          </div>
+          <div>
+            <div class="doc-label">Destination</div>
+            <div class="doc-terms">${esc(visa.destination_country || 'No destination recorded')}${visa.notes ? `\n${visa.notes}` : ''}</div>
+          </div>
+        </div>
+
+        <div class="doc-items-wrap">
+          <div class="doc-label" style="margin-bottom:8px">Sale items</div>
+          <table class="doc-items">
+            <thead>
+              <tr>
+                <th style="width:38%">Description</th>
+                <th class="num">Qty</th>
+                <th class="num">Unit price</th>
+                <th>Revenue account</th>
+                <th class="num">Amount</th>
+              </tr>
+            </thead>
+            <tbody>${saleRows}</tbody>
+          </table>
+
+          <div class="doc-label" style="margin:18px 0 8px">Supplier cost items</div>
+          <table class="doc-items">
+            <thead>
+              <tr>
+                <th style="width:30%">Description</th>
+                <th class="num">Qty</th>
+                <th class="num">Unit cost</th>
+                <th>Cost account</th>
+                <th>Supplier</th>
+                <th class="num">Amount</th>
+              </tr>
+            </thead>
+            <tbody>${costRows}</tbody>
+          </table>
+        </div>
+
+        <div class="doc-total-area">
+          <div class="doc-notes"></div>
+          <div class="doc-totals">
+            <div class="totals-row"><span>Total sale</span><span>${fmtMoney(visa.sale_total_cents)}</span></div>
+            <div class="totals-row"><span>Total cost</span><span>${fmtMoney(visa.cost_total_cents)}</span></div>
+            <div class="totals-row total"><span>Margin</span><span class="${marginClass}">${fmtMoney(visa.margin_cents)}</span></div>
+            <div class="totals-row"><span class="muted">Profitability</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
+            <div class="totals-row balance"><span>Customer balance</span><span>${fmtMoney(visa.balance_cents)}</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-grid no-print">
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><h2>Customer invoice</h2><p>${invoice ? fmtMoney(invoice.balance_cents) + ' outstanding' : 'Created on submission'}</p></div>
+          ${invoice && invoice.status === 'sent' && invoice.balance_cents > 0 ? `<a class="card-link" href="#/invoices/${invoice.id}">Record payment ${icon('chevron', 12)}</a>` : ''}
+        </div>
+        <div class="card-body" style="padding:6px 20px">${invoiceCard}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><h2>Supplier bills</h2><p>${visa.bills.length} bill${visa.bills.length === 1 ? '' : 's'} · ${fmtMoney(visa.cost_total_cents)} cost</p></div>
+        </div>
+        <div class="card-body" style="padding:6px 20px">${billRows}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><h2>Customer advances</h2><p>${visa.advances.length ? `${visa.advances.length} advance${visa.advances.length === 1 ? '' : 's'}` : 'No advances recorded'}</p></div>
+          <div style="display:flex;gap:6px">
+            ${canApplyAdvance ? `<button class="btn btn-secondary btn-sm" data-action="apply-advance">${icon('check', 14)} Apply</button>` : ''}
+            ${!isCancelled && !isRejected ? `<button class="btn btn-primary btn-sm" data-action="record-advance">${icon('plus', 14)} Record</button>` : ''}
+          </div>
+        </div>
+        <div class="card-body" ${visa.advances.length ? 'style="padding:4px 20px"' : ''}>
+          ${visa.advances.length ? advanceRows : emptyState({
+    iconName: 'wallet',
+    title: 'No advances recorded',
+    message: 'Record a deposit if the customer pays before the application is invoiced.',
+  })}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><h2>Payments received</h2><p>${invoice ? `${fmtMoney(invoice.amount_paid_cents)} received` : 'No invoice yet'}</p></div>
+        </div>
+        <div class="card-body" ${visa.payments.length ? 'style="padding:4px 20px"' : ''}>${paymentRows}</div>
+      </div>
+    </div>
+  `;
+
+  function refresh() {
+    return render(container, { params: [String(id)] });
+  }
+
+  function on(selector, handler) {
+    document.querySelectorAll(selector).forEach((element) => element.addEventListener('click', handler));
+  }
+
+  on('[data-action="print"]', () => window.print());
+
+  const editButton = document.querySelector('[data-action="edit"]');
+  if (editButton) {
+    editButton.addEventListener('click', () => openVisaModal({ visa, onSaved: () => refresh() }));
+  }
+
+  const submitButton = document.querySelector('[data-action="submit"]');
+  if (submitButton) {
+    submitButton.addEventListener('click', async () => {
+      const confirmed = await confirmDialog({
+        title: `Submit ${visa.number}?`,
+        message: `This creates and posts the customer invoice (${fmtMoney(visa.sale_total_cents)}) and ${fmtMoney(visa.cost_total_cents)} of supplier bills to your ledger.`,
+        confirmLabel: 'Submit & post',
+        danger: false,
+      });
+      if (!confirmed) return;
+      try {
+        const result = await api.post(`/visas/${id}/submit`, {});
+        toast(`${visa.number} submitted and posted`);
+        if (Array.isArray(result?.warnings)) {
+          result.warnings.forEach((warning) => toast(warning, 'error'));
+        }
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  const approveButton = document.querySelector('[data-action="approve"]');
+  if (approveButton) {
+    approveButton.addEventListener('click', async () => {
+      try {
+        await api.post(`/visas/${id}/approve`, {});
+        toast(`${visa.number} marked as approved`);
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  const issueButton = document.querySelector('[data-action="issue"]');
+  if (issueButton) {
+    issueButton.addEventListener('click', async () => {
+      try {
+        await api.post(`/visas/${id}/issue`, {});
+        toast(`${visa.number} marked as issued`);
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  const deleteButton = document.querySelector('[data-action="delete"]');
+  if (deleteButton) {
+    deleteButton.addEventListener('click', async () => {
+      const confirmed = await confirmDialog({
+        title: 'Delete this draft application?',
+        message: `${visa.number} and its line items will be permanently deleted. Nothing has been posted to the ledger yet.`,
+        confirmLabel: 'Delete application',
+      });
+      if (!confirmed) return;
+      try {
+        await api.del(`/visas/${id}`);
+        toast('Draft visa application deleted');
+        location.hash = '#/visas';
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  const rejectButton = document.querySelector('[data-action="reject"]');
+  if (rejectButton) {
+    rejectButton.addEventListener('click', async () => {
+      const confirmed = await confirmDialog({
+        title: `Reject ${visa.number}?`,
+        message: 'The customer invoice and supplier bills will be reversed. If the embassy or supplier keeps its fee, record it as an expense afterwards.',
+        confirmLabel: 'Reject application',
+      });
+      if (!confirmed) return;
+      try {
+        await api.post(`/visas/${id}/reject`, {});
+        toast(`${visa.number} rejected with reversing entries`);
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  const cancelButton = document.querySelector('[data-action="cancel"]');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', async () => {
+      const confirmed = await confirmDialog({
+        title: `Cancel ${visa.number}?`,
+        message: 'The customer invoice and supplier bills will be reversed. Any payments already received will be reversed, and applied advances returned to Customer Advances.',
+        confirmLabel: 'Cancel application',
+      });
+      if (!confirmed) return;
+      try {
+        await api.post(`/visas/${id}/cancel`, {});
+        toast(`${visa.number} cancelled with reversing entries`);
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  }
+
+  on('[data-action="record-advance"]', () => {
+    openModal({
+      title: 'Record customer advance',
+      subtitle: `${visa.number} · ${visa.customer_name}`,
+      body: advanceModalBody(visa),
+      submitLabel: 'Record advance',
+      onMount(overlay) {
+        const method = overlay.querySelector('#adv-method');
+        const account = overlay.querySelector('#adv-account');
+        if (!method || !account) return;
+        method.addEventListener('change', () => {
+          const { accounts } = depositAccounts();
+          const code = method.value === 'Cash' ? '1000' : '1010';
+          const target = accounts.find((candidate) => candidate.code === code);
+          if (target) account.value = String(target.id);
+        });
+      },
+      async onSubmit(form) {
+        const values = new FormData(form);
+        const amount = toCents(values.get('amount'));
+        if (amount <= 0) throw new Error('Enter an advance amount');
+        await api.post('/advances', {
+          customer_id: visa.customer_id,
+          visa_id: visa.id,
+          amount_cents: amount,
+          advance_date: values.get('advance_date'),
+          method: values.get('method'),
+          reference: values.get('reference'),
+          deposit_account_id: Number(values.get('deposit_account_id')),
+        });
+        toast(`Advance of ${fmtMoney(amount)} recorded`);
+        refresh();
+      },
+    });
+  });
+
+  const applyButton = document.querySelector('[data-action="apply-advance"]');
+  if (applyButton) {
+    applyButton.addEventListener('click', () => {
+      const openAdvances = visa.advances.filter((advance) => advance.remaining_cents > 0);
+      openModal({
+        title: 'Apply advance to invoice',
+        subtitle: `${visa.invoice.number} · ${fmtMoney(visa.invoice.balance_cents)} due`,
+        body: applyModalBody(visa, openAdvances),
+        submitLabel: 'Apply advance',
+        async onSubmit(form) {
+          const values = new FormData(form);
+          const advanceId = Number(values.get('advance_id'));
+          if (!advanceId) throw new Error('Choose an advance');
+          await api.post(`/advances/${advanceId}/apply`, {
+            invoice_id: visa.invoice.id,
+            payment_date: values.get('payment_date'),
+          });
+          toast('Advance applied to the invoice');
+          refresh();
+        },
+      });
+    });
+  }
+
+  document.querySelectorAll('[data-refund-advance]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const advance = visa.advances.find((item) => item.id === Number(button.dataset.refundAdvance));
+      if (!advance) return;
+      openModal({
+        title: `Refund ${advance.number}`,
+        subtitle: `${visa.customer_name} · ${fmtMoney(advance.remaining_cents)} available`,
+        body: refundModalBody(advance),
+        submitLabel: 'Record refund',
+        async onSubmit(form) {
+          const values = new FormData(form);
+          const amount = toCents(values.get('amount'));
+          if (amount <= 0) throw new Error('Enter a refund amount');
+          await api.post(`/advances/${advance.id}/refund`, {
+            amount_cents: amount,
+            refund_date: values.get('refund_date'),
+            payment_account_id: Number(values.get('payment_account_id')),
+          });
+          toast(`Refund of ${fmtMoney(amount)} recorded`);
+          refresh();
+        },
+      });
+    });
+  });
+
+  document.querySelectorAll('[data-delete-advance]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const confirmed = await confirmDialog({
+        title: 'Delete this advance?',
+        message: 'The advance will be reversed and removed. Use this only for a mistake that has not been applied to any invoice.',
+        confirmLabel: 'Delete advance',
+      });
+      if (!confirmed) return;
+      try {
+        await api.del(`/advances/${button.dataset.deleteAdvance}`);
+        toast('Advance deleted');
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  });
+
+  return () => {};
+}
