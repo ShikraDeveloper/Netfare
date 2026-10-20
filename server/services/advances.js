@@ -143,7 +143,7 @@ function applyAdvance(db, id, payload = {}) {
     if (invoice.status !== 'sent') throw bad('Only sent invoices can receive an advance');
     if (invoice.customer_id !== advance.customer_id) throw bad('That invoice belongs to a different customer');
 
-    const invoiceBalance = Math.max(0, invoice.total_cents - invoice.amount_paid_cents);
+    const invoiceBalance = Math.max(0, invoice.total_cents - invoice.amount_paid_cents - (invoice.credit_applied_cents || 0));
     if (invoiceBalance <= 0) throw bad('That invoice is already fully paid');
     const amount = Math.min(remaining, invoiceBalance);
 

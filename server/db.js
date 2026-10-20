@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS settings (
   next_payment_number INTEGER NOT NULL DEFAULT 1,
   next_refund_number INTEGER NOT NULL DEFAULT 1,
   next_deposit_number INTEGER NOT NULL DEFAULT 1,
+  next_credit_number INTEGER NOT NULL DEFAULT 1,
   fiscal_year_start_month INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -102,6 +103,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   subtotal_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL DEFAULT 0,
   amount_paid_cents INTEGER NOT NULL DEFAULT 0,
+  credit_applied_cents INTEGER NOT NULL DEFAULT 0,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -254,6 +256,31 @@ CREATE TABLE IF NOT EXISTS visa_items (
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS credit_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  credit_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued', 'void')),
+  amount_cents INTEGER NOT NULL,
+  applied_cents INTEGER NOT NULL DEFAULT 0,
+  revenue_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  notes TEXT NOT NULL DEFAULT '',
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS credit_applications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  credit_note_id INTEGER NOT NULL REFERENCES credit_notes(id) ON DELETE CASCADE,
+  invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+  applied_date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS customer_advances (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT NOT NULL UNIQUE,
@@ -399,6 +426,18 @@ CREATE TABLE IF NOT EXISTS cash_deposits (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa')),
+  entity_id INTEGER NOT NULL,
+  file_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  storage_name TEXT NOT NULL UNIQUE,
+  data BLOB NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS bank_reconciliations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
@@ -431,6 +470,10 @@ CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_advances_customer ON customer_advances(customer_id);
 CREATE INDEX IF NOT EXISTS idx_bank_reconciliations_account ON bank_reconciliations(account_id, statement_date);
 CREATE INDEX IF NOT EXISTS idx_bank_recon_lines_rec ON bank_reconciliation_lines(reconciliation_id);
+CREATE INDEX IF NOT EXISTS idx_credit_notes_customer ON credit_notes(customer_id);
+CREATE INDEX IF NOT EXISTS idx_credit_applications_note ON credit_applications(credit_note_id);
+CREATE INDEX IF NOT EXISTS idx_credit_applications_invoice ON credit_applications(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
 `);
 
 const defaultAccounts = [
@@ -444,6 +487,7 @@ const defaultAccounts = [
   ['2000', 'Accounts Payable', 'liability', 'payable', 'credit', 0, 1],
   ['2100', 'Credit Card', 'liability', 'current_liability', 'credit', 0, 0],
   ['2400', 'Customer Advances', 'liability', 'current_liability', 'credit', 0, 1],
+  ['2450', 'Customer Credits', 'liability', 'current_liability', 'credit', 0, 1],
   ['2500', 'Refund Payable', 'liability', 'current_liability', 'credit', 0, 1],
   ['3000', "Owner's Equity", 'equity', 'equity', 'credit', 0, 0],
   ['3100', 'Retained Earnings', 'equity', 'equity', 'credit', 0, 1],
@@ -502,15 +546,18 @@ ensureColumn('settings', 'visa_prefix', "TEXT NOT NULL DEFAULT 'VIS'");
 ensureColumn('settings', 'next_visa_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_refund_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'next_credit_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'setup_version', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('invoices', 'booking_id', 'INTEGER');
 ensureColumn('invoices', 'visa_id', 'INTEGER');
+ensureColumn('invoices', 'credit_applied_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('bills', 'booking_id', 'INTEGER');
 ensureColumn('bills', 'visa_id', 'INTEGER');
 ensureColumn('bills', 'portal_id', 'INTEGER');
 ensureColumn('compliance_items', 'variable_amount', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'payment_method', "TEXT NOT NULL DEFAULT 'Bank transfer'");
 ensureColumn('bills', 'default_payment_method', "TEXT NOT NULL DEFAULT 'Bank transfer'");
+ensureColumn('attachments', 'data', 'BLOB');
 ensureColumn('payments', 'advance_id', 'INTEGER');
 ensureColumn('payments', 'cheque_number', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('payments', 'cheque_date', 'TEXT');

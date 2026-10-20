@@ -62,6 +62,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           <span>${balanceLabel}</span>
           <strong>${fmtMoney(data.closing_balance_cents)}</strong>
           <small>As of ${esc(fmtDate(data.to, { long: true }))}</small>
+          ${data.unapplied_credits_cents > 0 ? `<small>Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</small>` : ''}
         </div>
       </div>
 

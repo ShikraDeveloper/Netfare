@@ -4,6 +4,8 @@ import { icon, esc, avatar, setHeader, toast } from './ui.js';
 import * as dashboardView from './views/dashboard.js';
 import * as invoicesView from './views/invoices.js';
 import * as invoiceDetailView from './views/invoice-detail.js';
+import * as creditsView from './views/credits.js';
+import * as creditDetailView from './views/credit-detail.js';
 import * as bookingsView from './views/bookings.js';
 import * as bookingDetailView from './views/booking-detail.js';
 import * as visasView from './views/visas.js';
@@ -49,6 +51,7 @@ const NAV_GROUPS = [
     label: 'Sales',
     items: [
       { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices' },
+      { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },
       { section: 'customers', href: '#/customers', icon: 'customers', label: 'Customers' },
     ],
   },
@@ -85,6 +88,8 @@ const ROUTES = [
   { pattern: /^\/dashboard$/, view: dashboardView, section: 'dashboard' },
   { pattern: /^\/invoices$/, view: invoicesView, section: 'invoices' },
   { pattern: /^\/invoices\/(\d+)$/, view: invoiceDetailView, section: 'invoices' },
+  { pattern: /^\/credits$/, view: creditsView, section: 'credits' },
+  { pattern: /^\/credits\/(\d+)$/, view: creditDetailView, section: 'credits' },
   { pattern: /^\/bookings$/, view: bookingsView, section: 'bookings' },
   { pattern: /^\/bookings\/(\d+)$/, view: bookingDetailView, section: 'bookings' },
   { pattern: /^\/visas$/, view: visasView, section: 'visas' },

@@ -20,6 +20,7 @@ import {
 } from '../ui.js';
 import { openInvoiceModal } from './invoices.js';
 import { openRefundModal } from './refund-modal.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 function paymentModalBody(invoice) {
   const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));
@@ -83,6 +84,7 @@ function paymentModalBody(invoice) {
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const invoice = await api.get(`/invoices/${id}`);
+  const attachments = await loadAttachments('invoice', id);
   let journal = null;
   if (invoice.journal_entry_id) {
     try {
@@ -95,7 +97,7 @@ export async function render(container, { params } = {}) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const canRecordPayment = invoice.status === 'sent' && invoice.balance_cents > 0;
-  const canVoid = invoice.status === 'sent' && invoice.amount_paid_cents === 0;
+  const canVoid = invoice.status === 'sent' && invoice.amount_paid_cents === 0 && invoice.credit_applied_cents === 0;
 
   const actions = [];
   actions.push(`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`);
@@ -104,6 +106,9 @@ export async function render(container, { params } = {}) {
   }
   if (invoice.visa_id) {
     actions.push(`<a class="btn btn-secondary" href="#/visas/${invoice.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
+  }
+  if (invoice.status === 'sent' && invoice.balance_cents > 0) {
+    actions.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
   }
   actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
   if (isDraft) {
@@ -242,6 +247,7 @@ export async function render(container, { params } = {}) {
             <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(invoice.subtotal_cents)}</span></div>
             <div class="totals-row total"><span>Total</span><span>${fmtMoney(invoice.total_cents)}</span></div>
             ${invoice.amount_paid_cents > 0 ? `<div class="totals-row"><span>Paid</span><span>−${fmtMoney(invoice.amount_paid_cents)}</span></div>` : ''}
+            ${invoice.credit_applied_cents > 0 ? `<div class="totals-row"><span>Credits applied</span><span>−${fmtMoney(invoice.credit_applied_cents)}</span></div>` : ''}
             <div class="totals-row balance"><span>Balance due</span><span>${fmtMoney(invoice.balance_cents)}</span></div>
           </div>
         </div>
@@ -256,6 +262,17 @@ export async function render(container, { params } = {}) {
         </div>
         <div class="card-body" ${invoice.payments.length ? 'style="padding:4px 20px"' : ''}>
           ${paymentRows}
+          ${invoice.credits?.length ? `
+            <div class="credit-application-list">
+              <div class="credit-application-title">Credits applied</div>
+              ${invoice.credits.map((credit) => `
+                <div class="credit-application-row">
+                  <div><a href="#/credits/${credit.credit_note_id}"><strong>${esc(credit.credit_number)}</strong></a><span class="cell-sub">${esc(fmtDate(credit.applied_date))}${credit.credit_status === 'void' ? ' · void' : ''}</span></div>
+                  <strong>−${fmtMoney(credit.amount_cents)}</strong>
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
       </div>
       <div class="card">
@@ -266,7 +283,11 @@ export async function render(container, { params } = {}) {
         <div class="card-body">${journalHtml}</div>
       </div>
     </div>
+
+    ${attachmentSection({ entityType: 'invoice', entityId: id, attachments })}
   `;
+
+  bindAttachmentSection(container, { entityType: 'invoice', entityId: id });
 
   function refresh() {
     return render(container, { params: [String(id)] });

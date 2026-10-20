@@ -271,7 +271,7 @@ function loadDemo(db) {
 
       if (plan.pay === 'full') {
         const fresh = db.prepare('SELECT * FROM invoices WHERE id = ?').get(confirmed.invoice_id);
-        const balance = fresh.total_cents - fresh.amount_paid_cents;
+        const balance = fresh.total_cents - fresh.amount_paid_cents - (fresh.credit_applied_cents || 0);
         if (balance > 0) {
           invoiceService.recordInvoicePayment(db, confirmed.invoice_id, {
             amount_cents: balance,
@@ -283,7 +283,7 @@ function loadDemo(db) {
         }
       } else if (plan.pay === 'partial') {
         const fresh = db.prepare('SELECT * FROM invoices WHERE id = ?').get(confirmed.invoice_id);
-        const balance = fresh.total_cents - fresh.amount_paid_cents;
+        const balance = fresh.total_cents - fresh.amount_paid_cents - (fresh.credit_applied_cents || 0);
         const half = Math.round(balance / 2);
         if (half > 0) {
           invoiceService.recordInvoicePayment(db, confirmed.invoice_id, {
@@ -407,7 +407,7 @@ function loadDemo(db) {
 
       if (plan.pay === 'full' || plan.pay === 'partial') {
         const fresh = db.prepare('SELECT * FROM invoices WHERE id = ?').get(submitted.invoice_id);
-        const balance = fresh.total_cents - fresh.amount_paid_cents;
+        const balance = fresh.total_cents - fresh.amount_paid_cents - (fresh.credit_applied_cents || 0);
         const amount = plan.pay === 'full' ? balance : Math.round(balance / 2);
         if (amount > 0) {
           invoiceService.recordInvoicePayment(db, submitted.invoice_id, {
@@ -455,6 +455,11 @@ function loadDemo(db) {
 
 function resetAll(db) {
   return db.transaction(() => {
+    db.prepare('DELETE FROM bank_reconciliation_lines').run();
+    db.prepare('DELETE FROM bank_reconciliations').run();
+    db.prepare('DELETE FROM attachments').run();
+    db.prepare('DELETE FROM credit_applications').run();
+    db.prepare('DELETE FROM credit_notes').run();
     db.prepare('DELETE FROM cash_deposits').run();
     db.prepare('DELETE FROM post_dated_cheques').run();
     db.prepare('DELETE FROM compliance_logs').run();
@@ -481,10 +486,12 @@ function resetAll(db) {
     db.prepare(`
       UPDATE settings SET next_invoice_number = 1, next_bill_number = 1, next_payment_number = 1,
         next_booking_number = 1, next_visa_number = 1, next_advance_number = 1, next_topup_number = 1,
-        next_refund_number = 1, next_deposit_number = 1, updated_at = datetime('now') WHERE id = 1
+        next_refund_number = 1, next_deposit_number = 1, next_credit_number = 1,
+        updated_at = datetime('now') WHERE id = 1
     `).run();
     db.prepare(`DELETE FROM sqlite_sequence WHERE name IN
-      ('cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',
+      ('bank_reconciliations', 'bank_reconciliation_lines', 'attachments', 'credit_notes', 'credit_applications',
+       'cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',
        'bookings', 'booking_items', 'visa_applications', 'visa_items', 'customer_advances',
        'supplier_portals', 'portal_topups', 'portal_refunds', 'journal_lines', 'journal_entries',
        'customers', 'vendors')`).run();

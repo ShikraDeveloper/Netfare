@@ -9,7 +9,7 @@ function listCustomers() {
   return db.prepare(`
     SELECT c.*,
       (SELECT COUNT(*) FROM invoices i WHERE i.customer_id = c.id) AS invoice_count,
-      (SELECT COALESCE(SUM(i.total_cents - i.amount_paid_cents), 0)
+      (SELECT COALESCE(SUM(i.total_cents - i.amount_paid_cents - i.credit_applied_cents), 0)
        FROM invoices i WHERE i.customer_id = c.id AND i.status = 'sent') AS outstanding_cents,
       (SELECT COALESCE(SUM(i.total_cents), 0)
        FROM invoices i WHERE i.customer_id = c.id AND i.status <> 'void') AS total_billed_cents

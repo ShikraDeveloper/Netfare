@@ -124,7 +124,7 @@ function getVisa(db, id) {
     : null;
   if (visa.invoice) {
     visa.invoice.balance_cents = visa.invoice.status === 'sent'
-      ? Math.max(0, visa.invoice.total_cents - visa.invoice.amount_paid_cents)
+      ? Math.max(0, visa.invoice.total_cents - visa.invoice.amount_paid_cents - (visa.invoice.credit_applied_cents || 0))
       : 0;
   }
 

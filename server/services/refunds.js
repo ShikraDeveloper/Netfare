@@ -341,7 +341,7 @@ function voidRefund(db, id, payload = {}) {
       if (invoice.status === 'void') {
         throw bad('Cannot void a refund on a void invoice');
       }
-      if (invoice.amount_paid_cents + refund.amount_cents > invoice.total_cents) {
+      if (invoice.amount_paid_cents + refund.amount_cents + (invoice.credit_applied_cents || 0) > invoice.total_cents) {
         throw bad('Voiding this refund would make the invoice overpaid. Remove newer payments first.');
       }
       db.prepare(`

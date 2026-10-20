@@ -14,6 +14,8 @@ router.use('/visas', require('./visas'));
 router.use('/advances', require('./advances'));
 router.use('/portals', require('./portals'));
 router.use('/invoices', require('./invoices'));
+router.use('/credits', require('./credits'));
+router.use('/attachments', require('./attachments'));
 router.use('/bills', require('./bills'));
 router.use('/refunds', require('./refunds'));
 router.use('/compliance', require('./compliance'));

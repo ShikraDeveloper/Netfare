@@ -193,6 +193,8 @@ const SOURCE_LABELS = {
   portal_settle: 'Paid from portal',
   customer_refund: 'Customer refund',
   supplier_refund: 'Supplier refund',
+  credit_note: 'Credit note',
+  credit_applied: 'Credit applied',
   cash_deposit: 'Cash deposit',
   cash_deposit: 'Cash deposit',
   manual: 'Manual',

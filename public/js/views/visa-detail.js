@@ -19,6 +19,7 @@ import {
   toCents,
 } from '../ui.js';
 import { openVisaModal, visaTypeLabel } from './visas.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 function depositAccounts() {
   const accounts = cashAccounts().slice().sort((a, b) => a.code.localeCompare(b.code));
@@ -157,6 +158,7 @@ function statusSteps(visa) {
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const visa = await api.get(`/visas/${id}`);
+  const attachments = await loadAttachments('visa', id);
 
   const isDraft = visa.status === 'draft';
   const isSubmitted = visa.status === 'submitted';
@@ -415,7 +417,11 @@ export async function render(container, { params } = {}) {
         <div class="card-body" ${visa.payments.length ? 'style="padding:4px 20px"' : ''}>${paymentRows}</div>
       </div>
     </div>
+
+    ${attachmentSection({ entityType: 'visa', entityId: id, attachments })}
   `;
+
+  bindAttachmentSection(container, { entityType: 'visa', entityId: id });
 
   function refresh() {
     return render(container, { params: [String(id)] });

@@ -858,6 +858,27 @@ body.modal-open { overflow: hidden; }
 .detail-list > div:last-child { border-bottom: none; padding-bottom: 0; }
 .detail-list span { color: var(--muted); }
 .detail-list strong { text-align: right; font-weight: 600; }
+.attachments-card { max-width: 920px; margin-left: auto; margin-right: auto; }
+.attachment-empty { color: var(--muted); font-size: 12.5px; padding: 4px 0; }
+.attachment-list { display: flex; flex-direction: column; gap: 2px; }
+.attachment-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--border); }
+.attachment-row:last-child { border-bottom: none; }
+.attachment-icon { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; background: var(--primary-soft); color: var(--primary); flex: none; }
+.attachment-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.attachment-meta a { font-size: 12.5px; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachment-meta a:hover { color: var(--primary); text-decoration: underline; }
+.attachment-meta span { font-size: 10.5px; color: var(--muted); }
+.credit-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; max-width: 920px; margin: 0 auto; }
+.credit-summary > div { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow-sm); }
+.credit-summary span { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.credit-summary strong { font-size: 18px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.credit-application-list { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 10px; }
+.credit-application-title { font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.credit-application-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: 12.5px; }
+.credit-application-row > div { display: flex; flex-direction: column; gap: 1px; }
+.credit-application-row a { text-decoration: none; }
+.credit-application-row a:hover { color: var(--primary); }
+.credit-application-row strong { font-variant-numeric: tabular-nums; }
 .entry-lines { font-size: 12.5px; }
 .entry-line { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; padding: 7px 0; border-bottom: 1px dashed #eef0f4; }
 .entry-line:last-child { border-bottom: none; }
@@ -1109,7 +1130,7 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 .recon-lines .data th { position: sticky; top: 0; z-index: 1; }
 .error-text { color: var(--red) !important; }
 .amount-ok { color: var(--green); }
-@media (max-width: 700px) { .recon-kpis, .recon-modal-cards { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { .recon-kpis, .recon-modal-cards, .credit-summary { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Statements ---------- */
 .statement-card { padding: 34px 38px; max-width: 980px; }

@@ -15,6 +15,7 @@ const {
   isCashAccount,
   postEntry,
   reverseEntry,
+  invoiceBalanceCents,
   invoiceDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
@@ -30,7 +31,7 @@ function serializeInvoice(invoice, today = todayISO()) {
   return {
     ...invoice,
     status_display: invoiceDisplayStatus(invoice, today),
-    balance_cents: Math.max(0, invoice.total_cents - invoice.amount_paid_cents),
+    balance_cents: invoiceBalanceCents(invoice),
   };
 }
 
@@ -60,6 +61,14 @@ function getInvoice(db, id) {
       ? 0
       : Math.max(0, payment.amount_cents - payment.refunded_cents),
   }));
+  invoice.credits = db.prepare(`
+    SELECT ca.id, ca.amount_cents, ca.applied_date, cn.id AS credit_note_id,
+           cn.number AS credit_number, cn.status AS credit_status
+    FROM credit_applications ca
+    JOIN credit_notes cn ON cn.id = ca.credit_note_id
+    WHERE ca.invoice_id = ?
+    ORDER BY ca.applied_date, ca.id
+  `).all(id);
   if (invoice.journal_entry_id) {
     invoice.journal_entry = db.prepare(`
       SELECT e.*, (
@@ -273,6 +282,7 @@ function voidInvoice(db, id) {
       throw bad('Void the refunds on this invoice before voiding it.');
     }
     if (invoice.amount_paid_cents > 0) throw bad('Remove payments from this invoice before voiding it');
+    if (invoice.credit_applied_cents > 0) throw bad('Remove credit applications from this invoice before voiding it');
     if (invoice.status === 'sent' && invoice.journal_entry_id) {
       reverseEntry(db, invoice.journal_entry_id, {
         entry_date: todayISO(),
@@ -301,7 +311,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status !== 'sent') throw bad('Payments can only be recorded against sent invoices');
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
-    const balance = invoice.total_cents - invoice.amount_paid_cents;
+    const balance = invoiceBalanceCents(invoice);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);
     const paymentDate = dateISO(payload.payment_date || todayISO(), 'Payment date');
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.deposit_account_id));

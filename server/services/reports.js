@@ -135,13 +135,14 @@ function balanceSheet(db, asOf = todayISO()) {
 function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName, asOf) {
   const today = asOf ? dateISO(asOf, 'As-of date') : todayISO();
   const dateColumn = table === 'invoices' ? 'issue_date' : 'bill_date';
+  const creditExpr = table === 'invoices' ? 'd.credit_applied_cents' : '0';
   const rows = db.prepare(`
     SELECT d.id, d.number, d.${dateColumn} AS document_date, d.due_date, d.total_cents, d.amount_paid_cents,
            p.id AS party_id, p.name AS party_name,
-           d.total_cents - d.amount_paid_cents AS balance_cents
+           d.total_cents - d.amount_paid_cents - ${creditExpr} AS balance_cents
     FROM ${table} d
     JOIN ${partyTable} p ON p.id = d.${partyColumn}
-    WHERE d.status = '${statusValue}' AND d.total_cents > d.amount_paid_cents
+    WHERE d.status = '${statusValue}' AND d.total_cents > d.amount_paid_cents + ${creditExpr}
     ORDER BY p.name, d.due_date
   `).all();
 
@@ -250,7 +251,7 @@ function dailySales(db, from, to) {
 
   const rows = db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
-           i.total_cents, i.amount_paid_cents, i.booking_id, i.visa_id,
+           i.total_cents, i.amount_paid_cents, i.credit_applied_cents, i.booking_id, i.visa_id,
            c.name AS customer_name,
            b.number AS booking_number, b.destination,
            b.cost_total_cents AS booking_cost_cents,
@@ -306,7 +307,7 @@ function dailySales(db, from, to) {
       cost_cents: cost,
       margin_cents: sale - cost,
       paid_cents: row.amount_paid_cents,
-      balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents),
+      balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
       status_display: invoiceDisplayStatus(row, today),
     };
 
@@ -405,8 +406,8 @@ function dashboard(db) {
   `).get();
 
   const ar = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS total, COUNT(*) AS count
-    FROM invoices WHERE status = 'sent' AND total_cents > amount_paid_cents
+    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total, COUNT(*) AS count
+    FROM invoices WHERE status = 'sent' AND total_cents > amount_paid_cents + credit_applied_cents
   `).get();
   const ap = db.prepare(`
     SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS total, COUNT(*) AS count
@@ -414,8 +415,9 @@ function dashboard(db) {
   `).get();
 
   const overdueAr = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS total
-    FROM invoices WHERE status = 'sent' AND total_cents > amount_paid_cents AND due_date < ?
+    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total
+    FROM invoices
+    WHERE status = 'sent' AND total_cents > amount_paid_cents + credit_applied_cents AND due_date < ?
   `).get(today);
   const overdueAp = db.prepare(`
     SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS total
@@ -469,7 +471,7 @@ function dashboard(db) {
   `).all().map((row) => ({
     ...row,
     status_display: invoiceDisplayStatus(row, today),
-    balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents),
+    balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
   }));
 
   const recentBills = db.prepare(`

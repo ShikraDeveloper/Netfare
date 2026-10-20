@@ -7,6 +7,7 @@ const SYSTEM_CODES = {
   SUPPLIER_ADVANCES: '1400',
   AP: '2000',
   CUSTOMER_ADVANCES: '2400',
+  CUSTOMER_CREDITS: '2450',
   REFUND_PAYABLE: '2500',
   RETAINED_EARNINGS: '3100',
   OPENING_BALANCE_EQUITY: '3900',
@@ -125,11 +126,16 @@ function getEntryWithLines(db, entryId) {
   return entry;
 }
 
+function invoiceBalanceCents(invoice) {
+  return Math.max(0, invoice.total_cents - invoice.amount_paid_cents - (invoice.credit_applied_cents || 0));
+}
+
 function invoiceDisplayStatus(invoice, today = todayISO()) {
   if (invoice.status === 'draft') return 'draft';
   if (invoice.status === 'void') return 'void';
-  if (invoice.total_cents <= invoice.amount_paid_cents) return 'paid';
-  if (invoice.amount_paid_cents > 0) return invoice.due_date < today ? 'overdue' : 'partial';
+  const settled = invoice.amount_paid_cents + (invoice.credit_applied_cents || 0);
+  if (invoice.total_cents <= settled) return 'paid';
+  if (settled > 0) return invoice.due_date < today ? 'overdue' : 'partial';
   return invoice.due_date < today ? 'overdue' : 'sent';
 }
 
@@ -151,6 +157,7 @@ module.exports = {
   postEntry,
   reverseEntry,
   getEntryWithLines,
+  invoiceBalanceCents,
   invoiceDisplayStatus,
   billDisplayStatus,
 };

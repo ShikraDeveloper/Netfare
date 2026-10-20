@@ -27,6 +27,7 @@ router.get('/backup', (req, res) => {
     'bills', 'bill_items', 'bill_payments', 'bookings', 'booking_items', 'visa_applications', 'visa_items', 'customer_advances',
     'supplier_portals', 'portal_topups', 'portal_refunds', 'refunds',
     'compliance_items', 'compliance_logs', 'post_dated_cheques', 'cash_deposits',
+    'credit_notes', 'credit_applications', 'bank_reconciliations', 'bank_reconciliation_lines', 'attachments',
     'journal_entries', 'journal_lines',
   ];
   const data = {
@@ -36,7 +37,10 @@ router.get('/backup', (req, res) => {
     tables: {},
   };
   for (const table of tables) {
-    data.tables[table] = db.prepare(`SELECT * FROM ${table}`).all();
+    const select = table === 'attachments'
+      ? 'id, entity_type, entity_id, file_name, mime_type, size_bytes, created_at'
+      : '*';
+    data.tables[table] = db.prepare(`SELECT ${select} FROM ${table}`).all();
   }
   res.setHeader('Content-Disposition', `attachment; filename="ledgerly-backup-${todayISO()}.json"`);
   res.setHeader('Content-Type', 'application/json');

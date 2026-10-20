@@ -19,6 +19,7 @@ import {
   currencySymbol,
 } from '../ui.js';
 import { openBookingModal } from './bookings.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 function depositAccounts() {
   const accounts = cashAccounts().slice().sort((a, b) => a.code.localeCompare(b.code));
@@ -123,6 +124,7 @@ function refundModalBody(advance) {
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const booking = await api.get(`/bookings/${id}`);
+  const attachments = await loadAttachments('booking', id);
 
   const isDraft = booking.status === 'draft';
   const isConfirmed = booking.status === 'confirmed';
@@ -357,7 +359,11 @@ export async function render(container, { params } = {}) {
         <div class="card-body" ${booking.payments.length ? 'style="padding:4px 20px"' : ''}>${paymentRows}</div>
       </div>
     </div>
+
+    ${attachmentSection({ entityType: 'booking', entityId: id, attachments })}
   `;
+
+  bindAttachmentSection(container, { entityType: 'booking', entityId: id });
 
   function refresh() {
     return render(container, { params: [String(id)] });

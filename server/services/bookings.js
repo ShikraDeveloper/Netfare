@@ -113,7 +113,7 @@ function getBooking(db, id) {
     ? db.prepare('SELECT * FROM invoices WHERE id = ?').get(booking.invoice_id)
     : null;
   if (booking.invoice) {
-    booking.invoice.balance_cents = Math.max(0, booking.invoice.total_cents - booking.invoice.amount_paid_cents);
+    booking.invoice.balance_cents = Math.max(0, booking.invoice.total_cents - booking.invoice.amount_paid_cents - (booking.invoice.credit_applied_cents || 0));
   }
 
   booking.bills = db.prepare(`

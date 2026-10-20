@@ -20,6 +20,7 @@ import {
 } from '../ui.js';
 import { openBillModal } from './bills.js';
 import { openRefundModal } from './refund-modal.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 function paymentModalBody(bill) {
   const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));
@@ -79,6 +80,7 @@ function paymentModalBody(bill) {
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const bill = await api.get(`/bills/${id}`);
+  const attachments = await loadAttachments('bill', id);
   let journal = null;
   if (bill.journal_entry_id) {
     try {
@@ -262,7 +264,11 @@ export async function render(container, { params } = {}) {
         <div class="card-body">${journalHtml}</div>
       </div>
     </div>
+
+    ${attachmentSection({ entityType: 'bill', entityId: id, attachments })}
   `;
+
+  bindAttachmentSection(container, { entityType: 'bill', entityId: id });
 
   function refresh() {
     return render(container, { params: [String(id)] });

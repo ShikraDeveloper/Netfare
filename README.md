@@ -11,16 +11,21 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
 - **Refunds** — refund a customer payment or record money returned by a supplier, in full or in part. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
+- **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging.
+- **Opening balances** — a guided balance-sheet page creates one balanced opening journal entry. Enter each account as a debit or credit; the difference posts automatically to **3900 Opening Balance Equity**.
+- **Bank reconciliation** — reconcile any active cash or bank account against a statement closing balance. Tick cleared transactions, see the cleared balance and difference, keep a reconciliation history, and reopen the latest reconciliation when a correction is needed.
+- **Customer & vendor statements** — printable statements with opening balance, invoices or bills, payments, refunds, applied credits and a running balance. Filter by period and print directly from the browser.
 - **Expenses & bills** — vendors (consolidators, hotels, visa agents, DMCs), bills with expense/asset coding, receive/post, void, and bill payments. Bill payments can be recorded by **cheque** with cheque number, cheque date and bank; compliance items carry a default payment method so office rent can open directly as a cheque payment.
 - **Compliance engine** — recurring overheads such as office rent, utilities, salaries and insurance can generate draft bills on schedule, while corporate tax, trade licence, lease, insurance and visa-quota deadlines sit in the same calendar with reminders and activity history.
 - **Post-dated cheques** — schedule a batch of 12 monthly cheques (or any 1–60 cheques) from a recurring compliance item. Track cheque number, date, amount, bank and status; recording the matching cheque payment on the bill automatically marks the register cheque **Cleared**.
 - **Banking & cash deposits** — at the end of the day, move cash sales from **1000 Cash** into a bank account with a dedicated deposit entry. The deposit posts Dr Bank / Cr Cash, tracks the slip reference and can be voided without deleting history.
 - **Date filters** — bookings, visas, invoices, bills, refunds and journal entries can be narrowed to any date range, with filtered totals and a one-click reset.
+- **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings and visas. Files are stored in the local SQLite database, so full database backups include them.
 - **Double-entry ledger** — every document posts balanced journal entries automatically. A general journal supports manual accruals and adjustments.
 - **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging.
 - **Light & dark themes** — a warm cream/navy/gold look by default, with a one-click dark mode under **Settings → Appearance**. The choice is remembered per browser; printing always uses light paper.
 - **Local by design** — Express API + SQLite + a small vanilla-JS single-page app. Chart.js is bundled locally in `public/vendor/`.
-- **Backup** — export every table as JSON from `GET /api/admin/backup`.
+- **Backup** — download a complete SQLite database, or export table data as JSON from `GET /api/admin/backup`.
 
 ## Requirements
 
@@ -36,7 +41,7 @@ npm start
 
 Then open **http://127.0.0.1:4173**.
 
-Run the automated P0 checks with:
+Run the automated checks with:
 
 ```bash
 npm test
@@ -259,8 +264,10 @@ The default chart includes these system accounts, which the posting engine depen
 | 1400 | Supplier Advances | asset |
 | 2000 | Accounts Payable | liability (payable) |
 | 2400 | Customer Advances | liability |
+| 2450 | Customer Credits | liability |
 | 2500 | Refund Payable | liability |
 | 3100 | Retained Earnings | equity |
+| 3900 | Opening Balance Equity | equity |
 | 4300 | Service Charges & Markup | revenue |
 
 Travel-specific defaults also include revenue accounts **4000 Ticket Sales**, **4100 Tour & Package Sales**, **4310 Commission Income**, **4320 Visa & Documentation Revenue**, and cost accounts **5000 Air Ticket Cost**, **5100 Hotel & Tour Cost**, **5120 Visa & Supplier Cost**.
@@ -281,6 +288,8 @@ You can rename accounts and add your own under **Chart of accounts**, but don't 
 | Apply an advance to an invoice | Customer Advances | Accounts Receivable |
 | Refund an advance | Customer Advances | Bank/Cash account |
 | Refund a customer payment | Accounts Receivable | Bank/Cash account |
+| Issue a customer credit note | Revenue account | Customer Credits |
+| Apply a customer credit to an invoice | Customer Credits | Accounts Receivable |
 | Record a supplier refund | Bank/Cash account | Accounts Payable |
 | Deposit cash into the bank | Bank account | Cash account |
 | Void a customer or supplier refund | Reverses the refund entry | Reverses the refund entry |
@@ -304,7 +313,7 @@ Document statuses (`draft`, `sent`/`received`, `void`) are stored. Display statu
 - **Full database backup:** `GET /api/admin/backup/database` downloads a consistent `.db` file. The Settings page also saves copies under `data/backups/`; the newest 30 are kept.
 - **Restore:** stop the app, then run `npm run restore -- data/backups/<file>.db`. The restore script validates the SQLite file, saves a safety backup of the current database, and replaces the live file.
 - **Automatic safety backups:** created before **Clear all data** and **Load sample data**.
-- JSON export: `GET /api/admin/backup` downloads every table as JSON (for inspection/migration, not the primary recovery file).
+- JSON export: `GET /api/admin/backup` downloads table data as JSON (attachment metadata only; use the full `.db` backup to preserve attachment bytes). It is for inspection/migration, not the primary recovery file.
 - To move the ledger, copy the `data/` directory while the app is stopped.
 - The data directory can be overridden with `LEDGERLY_DATA_DIR` (useful for tests or separate books).
 
@@ -315,11 +324,11 @@ server/
   index.js            Express app and static hosting
   db.js               Schema, default chart of accounts, SQLite setup
   accounting.js       Posting/reversal engine and status helpers
-  services/           Business logic: bookings, visas, portals, advances, invoices, bills, refunds, compliance, cheques, cash deposits, reports, demo data
+  services/           Business logic: bookings, visas, portals, advances, invoices, bills, credits, refunds, compliance, cheques, cash deposits, opening balances, reconciliation, statements, reports, demo data
   routes/             REST API endpoints
 public/
   index.html          SPA shell (theme bootstrap, fonts, favicon)
-  js/                 Router, views, shared UI, line-item editor
+  js/                 Router, views, shared UI, line-item editor, attachments helper
   js/theme.js         Light/dark theme read, apply and sync
   css/styles.css      App and print styles
   css/theme.css       Light/dark theme layer (colours, type, polish)
@@ -347,6 +356,17 @@ All endpoints are under `/api`:
 | GET/POST/PUT/DELETE | `/invoices`, `/bills` | Documents |
 | POST | `/invoices/:id/finalize`, `/invoices/:id/void` | Post / reverse |
 | POST/DELETE | `/invoices/:id/payments`, `/invoices/payments/:id` | Payments |
+| GET/POST | `/credits` | Customer credit notes |
+| GET | `/credits/:id` | Credit note with invoice applications |
+| POST | `/credits/:id/apply`, `/credits/:id/void` | Apply credit to an invoice or void an unused credit |
+| DELETE | `/credits/applications/:id` | Reverse a credit application |
+| GET/POST/DELETE | `/opening-balances` | Read, save or clear the single opening-balance journal entry |
+| GET/POST | `/bank-reconciliations` | Reconciliation history and save a reconciliation |
+| GET | `/bank-reconciliations/workspace` | Uncleared bank lines, cleared balance and ledger balance through a statement date |
+| GET/DELETE | `/bank-reconciliations/:id` | Reconciliation detail or reopen the latest one |
+| GET | `/customers/:id/statement`, `/vendors/:id/statement` | Printable customer/vendor statement (optional `from`/`to`) |
+| GET/POST | `/attachments` | List or upload a local attachment (`entity_type`, `entity_id`, raw body, `filename`) |
+| GET/DELETE | `/attachments/:id/download`, `/attachments/:id` | Download or remove an attachment |
 | GET/POST | `/refunds` | Customer and supplier refunds (`refund_type`, `payment_id` or `bill_payment_id`, amount, date, account) |
 | GET | `/refunds/sources?type=customer\|supplier` | Payments with a remaining refundable amount |
 | GET | `/refunds/:id` | Refund voucher with its journal entry |

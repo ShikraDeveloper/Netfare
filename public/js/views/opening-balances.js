@@ -86,7 +86,7 @@ export async function render(container) {
         </div>
         <div class="callout" style="margin-top:18px">
           ${icon('check', 18)}
-          <div class="callout-text"><h3>No VAT or tax lines</h3><p>Opening balances are entered as account debits and credits only. Later business postings continue automatically.</p></div>
+          <div class="callout-text"><h3>One clean opening entry</h3><p>Enter account debits and credits only. Later business postings continue automatically.</p></div>
         </div>
       </div>
     </div>

@@ -66,6 +66,12 @@ function allocateNumber(db, kind, dateStr) {
       next: settings.next_deposit_number,
       column: 'next_deposit_number',
     },
+    credit: {
+      table: 'credit_notes',
+      prefix: 'CR',
+      next: settings.next_credit_number,
+      column: 'next_credit_number',
+    },
   };
   const config = configs[kind];
   if (!config) throw new Error(`Unknown document kind: ${kind}`);

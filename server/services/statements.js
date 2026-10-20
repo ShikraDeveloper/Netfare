@@ -26,8 +26,14 @@ function customerTransactions(db, customerId) {
     FROM refunds r
     LEFT JOIN invoices i ON i.id = r.invoice_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
+    UNION ALL
+    SELECT 'credit', ca.id, cn.number, ca.applied_date, NULL, ca.amount_cents, 'applied', 'Credit note', i.number
+    FROM credit_applications ca
+    JOIN credit_notes cn ON cn.id = ca.credit_note_id
+    JOIN invoices i ON i.id = ca.invoice_id
+    WHERE cn.customer_id = ? AND cn.status = 'issued'
     ORDER BY date, kind, id
-  `).all(customerId, customerId, customerId).map((row) => {
+  `).all(customerId, customerId, customerId, customerId).map((row) => {
     if (row.kind === 'invoice') {
       return {
         ...row,
@@ -40,6 +46,14 @@ function customerTransactions(db, customerId) {
       return {
         ...row,
         description: `Payment ${row.reference}${row.related ? ` · ${row.related}` : ''}`,
+        debit_cents: 0,
+        credit_cents: row.amount_cents,
+      };
+    }
+    if (row.kind === 'credit') {
+      return {
+        ...row,
+        description: `Credit ${row.reference}${row.related ? ` applied to ${row.related}` : ''}`,
         debit_cents: 0,
         credit_cents: row.amount_cents,
       };
@@ -124,6 +138,12 @@ function buildStatement(db, { kind, partyId, from, to }) {
   }, { debit_cents: 0, credit_cents: 0 });
 
   const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
+  const unappliedCredits = kind === 'customer'
+    ? db.prepare(`
+        SELECT COALESCE(SUM(amount_cents - applied_cents), 0) AS total
+        FROM credit_notes WHERE customer_id = ? AND status = 'issued'
+      `).get(partyId).total
+    : 0;
   return {
     kind,
     party,
@@ -132,6 +152,7 @@ function buildStatement(db, { kind, partyId, from, to }) {
     to: range.to,
     opening_balance_cents: opening,
     closing_balance_cents: balance,
+    unapplied_credits_cents: unappliedCredits,
     total_debit_cents: totals.debit_cents,
     total_credit_cents: totals.credit_cents,
     transactions,
