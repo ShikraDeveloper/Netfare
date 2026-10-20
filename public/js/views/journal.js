@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   bindDateRange,
   confirmDialog,
@@ -23,7 +24,7 @@ import {
 
 function entryRow(entry) {
   return `
-    <tr class="clickable" data-id="${entry.id}">
+    <tr class="clickable" data-id="${entry.id}" tabindex="0">
       <td class="nowrap">${esc(fmtDate(entry.entry_date))}</td>
       <td>
         <div class="cell-main">${esc(entry.memo || '(no memo)')}</div>
@@ -297,37 +298,57 @@ export async function render(container, { query } = {}) {
           <tbody id="journal-body"></tbody>
         </table>
       </div>
+      <div id="journal-pagination"></div>
     </div>
   `;
 
   const searchInput = container.querySelector('#journal-search');
   const body = container.querySelector('#journal-body');
   const countEl = container.querySelector('#journal-count');
+  const paginationEl = container.querySelector('#journal-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="6">${emptyState({
+        iconName: 'journal',
+        title: entries.length ? 'No matching entries' : 'No journal entries yet',
+        message: entries.length ? 'Try a different search term or date range.' : 'Invoices, bills, payments and manual adjustments all appear here.',
+      })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(entryRow).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const { from, to } = dateRange.values();
-    const filtered = entries.filter((entry) => {
+    filtered = entries.filter((entry) => {
       if (!inDateRange(entry.entry_date, from, to)) return false;
       if (!term) return true;
       return [entry.memo, entry.reference, entry.source_type, entry.entry_date]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
-    countEl.textContent = `${filtered.length} shown`;
+    countEl.textContent = `${filtered.length} matching`;
     const subtitleEl = document.getElementById('page-subtitle');
     if (subtitleEl) {
       subtitleEl.textContent = `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'} · Every document posts here`;
     }
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="6">${emptyState({
-    iconName: 'journal',
-    title: entries.length ? 'No matching entries' : 'No journal entries yet',
-    message: entries.length ? 'Try a different search term or date range.' : 'Invoices, bills, payments and manual adjustments all appear here.',
-  })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(entryRow).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);
@@ -380,6 +401,14 @@ export async function render(container, { query } = {}) {
       } catch (error) {
         toast(error.message, 'error');
       }
+    }
+  });
+  body.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter' || !event.target.matches('tr[data-id]')) return;
+    try {
+      await openEntryDetail(Number(event.target.dataset.id));
+    } catch (error) {
+      toast(error.message, 'error');
     }
   });
 

@@ -62,8 +62,35 @@ function listBackups() {
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
+function runAutoBackup(db, { hours = Number(process.env.LEDGERLY_AUTO_BACKUP_HOURS || 24) } = {}) {
+  const interval = Number(hours);
+  if (!Number.isFinite(interval) || interval <= 0) return null;
+  const latest = listBackups()[0];
+  if (latest && Date.now() - Date.parse(latest.created_at) < interval * 60 * 60 * 1000) return null;
+  return createDatabaseBackup(db, 'auto');
+}
+
+function startAutoBackup(db, options = {}) {
+  const hours = Number(options.hours ?? process.env.LEDGERLY_AUTO_BACKUP_HOURS ?? 24);
+  if (!Number.isFinite(hours) || hours <= 0) return null;
+  const check = () => {
+    try {
+      const backup = runAutoBackup(db, { hours });
+      if (backup) console.log(`  Automatic backup saved: ${backup.name}`);
+    } catch (error) {
+      console.error(`  Automatic backup failed: ${error.message}`);
+    }
+  };
+  check();
+  const timer = setInterval(check, Math.min(hours * 60 * 60 * 1000, 6 * 60 * 60 * 1000));
+  timer.unref();
+  return timer;
+}
+
 module.exports = {
   backupDir,
   createDatabaseBackup,
   listBackups,
+  runAutoBackup,
+  startAutoBackup,
 };

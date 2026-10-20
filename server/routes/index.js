@@ -1,9 +1,22 @@
 'use strict';
 
 const router = require('express').Router();
+const db = require('../db');
 
 router.get('/health', (req, res) => {
-  res.json({ ok: true, app: 'Ledgerly', version: '1.0.0' });
+  let database = 'ok';
+  try {
+    db.prepare('SELECT 1').get();
+  } catch {
+    database = 'error';
+  }
+  res.status(database === 'ok' ? 200 : 503).json({
+    ok: database === 'ok',
+    app: 'Ledgerly',
+    version: '1.0.0',
+    database,
+    uptime_seconds: Math.round(process.uptime()),
+  });
 });
 
 router.use('/accounts', require('./accounts'));

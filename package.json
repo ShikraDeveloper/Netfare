@@ -8,6 +8,8 @@
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "restore": "node scripts/restore.js",
+    "backup": "node scripts/backup.js",
+    "check": "node scripts/check.js",
     "test": "node --test"
   },
   "dependencies": {

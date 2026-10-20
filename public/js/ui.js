@@ -272,6 +272,8 @@ export function toast(message, type = 'success') {
  *   hideFooter, footer (HTML), onSubmit(form, event) -> Promise,
  *   onMount(overlay, close), onClose()
  */
+let modalId = 0;
+
 export function openModal(options) {
   const {
     title,
@@ -288,6 +290,8 @@ export function openModal(options) {
     onClose = null,
   } = options;
 
+  const titleId = `modal-title-${++modalId}`;
+  const previousFocus = document.activeElement;
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   const footerHtml = hideFooter
@@ -299,10 +303,10 @@ export function openModal(options) {
       </div>`;
 
   overlay.innerHTML = `
-    <div class="modal ${size}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="modal ${size}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
       <div class="modal-head">
         <div>
-          <h2>${esc(title)}</h2>
+          <h2 id="${titleId}">${esc(title)}</h2>
           ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}
         </div>
         <button type="button" class="icon-btn" data-close aria-label="Close">${icon('x', 18)}</button>
@@ -321,8 +325,28 @@ export function openModal(options) {
   let closed = false;
   let submitting = false;
 
+  const focusableSelector = [
+    'a[href]', 'button:not([disabled])', 'input:not([disabled]):not([type="hidden"])',
+    'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
+  ].join(', ');
+
   const onKeydown = (event) => {
-    if (event.key === 'Escape' && !document.body.classList.contains('modal-locked')) close();
+    if (event.key === 'Escape' && !document.body.classList.contains('modal-locked')) {
+      close();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = [...overlay.querySelectorAll(focusableSelector)].filter((element) => element.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
   document.addEventListener('keydown', onKeydown);
 
@@ -334,6 +358,7 @@ export function openModal(options) {
     document.body.classList.remove('modal-open');
     setTimeout(() => {
       overlay.remove();
+      if (previousFocus && document.body.contains(previousFocus)) previousFocus.focus();
       if (onClose) onClose();
     }, 160);
   }
@@ -379,7 +404,8 @@ export function openModal(options) {
 
   if (onMount) onMount(overlay, close);
   setTimeout(() => {
-    const focusable = overlay.querySelector('.modal-body input:not([type="hidden"]), .modal-body select, .modal-body textarea');
+    const focusable = overlay.querySelector('.modal-body input:not([type="hidden"]), .modal-body select, .modal-body textarea, .modal-body button')
+      || overlay.querySelector('[data-close]');
     if (focusable) focusable.focus();
   }, 80);
 

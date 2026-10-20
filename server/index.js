@@ -3,13 +3,43 @@
 const express = require('express');
 const path = require('path');
 const db = require('./db');
+const { startAutoBackup } = require('./services/backup');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4173;
 const HOST = process.env.HOST || '127.0.0.1';
 
 app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '));
+  if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use(express.json({ limit: '2mb' }));
+app.use((req, res, next) => {
+  const started = process.hrtime.bigint();
+  res.on('finish', () => {
+    const elapsedMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+    if (elapsedMs >= 1500 || res.statusCode >= 500) {
+      console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${elapsedMs.toFixed(0)}ms`);
+    }
+  });
+  next();
+});
 
 app.use('/api', require('./routes'));
 
@@ -34,6 +64,7 @@ app.use((err, req, res, next) => {
 
 const server = app.listen(PORT, HOST, () => {
   console.log(`\n  Ledgerly is running at http://${HOST}:${PORT}\n`);
+  startAutoBackup(db);
 });
 
 let shuttingDown = false;
@@ -52,3 +83,10 @@ function shutdown() {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+process.on('unhandledRejection', (error) => {
+  console.error('Unhandled promise rejection:', error);
+});
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error);
+  shutdown();
+});

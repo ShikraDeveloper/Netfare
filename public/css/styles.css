@@ -30,6 +30,10 @@
 }
 
 * { box-sizing: border-box; }
+.skip-link { position: fixed; left: 12px; top: 10px; z-index: 1000; transform: translateY(-150%); background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; padding: 9px 13px; font-size: 13px; font-weight: 600; text-decoration: none; box-shadow: var(--shadow-md); }
+.skip-link:focus { transform: translateY(0); outline: 3px solid var(--primary); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.view:focus { outline: none; }
 
 html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
 
@@ -375,6 +379,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .data tbody tr:last-child td { border-bottom: none; }
 .data tbody tr.clickable { cursor: pointer; }
 .data tbody tr.clickable:hover { background: #fafbff; }
+.data tbody tr.clickable:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; background: var(--primary-soft); }
 .data .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .data tr.group-row td { background: #fafbfd; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding-top: 9px; padding-bottom: 9px; }
 .balance-input { width: 118px; height: 34px; margin-left: auto; text-align: right; font-size: 13px; }
@@ -1130,6 +1135,14 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 .recon-lines .data th { position: sticky; top: 0; z-index: 1; }
 .error-text { color: var(--red) !important; }
 .amount-ok { color: var(--green); }
+.pagination { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 11px 16px; border-top: 1px solid var(--border); background: var(--surface-2); border-radius: 0 0 var(--radius) var(--radius); }
+.pagination-info { margin-right: auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pagination-size { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 11px; }
+.pagination-size .input { width: 68px; height: 30px; padding: 0 7px; font-size: 12px; }
+.pagination-controls { display: flex; align-items: center; gap: 8px; }
+.pagination-page { min-width: 86px; text-align: center; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.pagination .btn:disabled { opacity: .4; cursor: not-allowed; }
+@media (max-width: 600px) { .pagination { gap: 8px; } .pagination-info { width: 100%; } }
 @media (max-width: 700px) { .recon-kpis, .recon-modal-cards, .credit-summary { grid-template-columns: 1fr 1fr; } }
 
 /* ---------- Statements ---------- */

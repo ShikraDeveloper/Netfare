@@ -16,6 +16,7 @@ const bankReconciliations = require('../server/services/bank-reconciliations');
 const creditService = require('../server/services/credits');
 const reports = require('../server/services/reports');
 const demoService = require('../server/services/demo');
+const backupService = require('../server/services/backup');
 const { postEntry } = require('../server/accounting');
 const invoiceService = require('../server/services/invoices');
 const billService = require('../server/services/bills');
@@ -332,4 +333,13 @@ test('clear all data also clears P1 tables and resets credit numbering', () => {
   }
   assert.equal(db.prepare('SELECT next_credit_number FROM settings WHERE id = 1').get().next_credit_number, 1);
   assertBalanced();
+});
+
+test('automatic backup runs once per configured interval', () => {
+  const first = backupService.runAutoBackup(db, { hours: 24 });
+  assert.ok(first);
+  assert.ok(fs.existsSync(first.path));
+  const second = backupService.runAutoBackup(db, { hours: 24 });
+  assert.equal(second, null);
+  assert.equal(backupService.runAutoBackup(db, { hours: 0 }), null);
 });

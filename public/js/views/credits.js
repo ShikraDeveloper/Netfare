@@ -1,10 +1,14 @@
 import { api } from '../api.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
+  bindDateRange,
+  dateRangeHtml,
   emptyState,
   esc,
   fmtDate,
   fmtMoney,
   icon,
+  inDateRange,
   openModal,
   setHeader,
   toast,
@@ -41,6 +45,12 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     body = `
       <div class="toolbar">
         <div class="search-box">${icon('search', 17)}<input class="input" id="credit-search" type="search" placeholder="Search credit notes…" autocomplete="off"></div>
+        <select class="input" id="credit-status" style="max-width:160px">
+          <option value="all">All statuses</option>
+          <option value="issued">Issued</option>
+          <option value="void">Void</option>
+        </select>
+        ${dateRangeHtml({ label: 'Credit date' })}
         <div class="spacer"></div>
         <span class="muted" id="credit-count" style="font-size:12px"></span>
       </div>
@@ -51,21 +61,29 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
             <tbody id="credit-body"></tbody>
           </table>
         </div>
+        <div id="credit-pagination"></div>
       </div>
     `;
   }
   container.innerHTML = body;
 
-  function applyFilter() {
-    const searchInput = container.querySelector('#credit-search');
-    const bodyEl = container.querySelector('#credit-body');
-    if (!searchInput || !bodyEl) return;
-    const term = searchInput.value.trim().toLowerCase();
-    const rows = credits.filter((credit) => [credit.number, credit.customer_name, credit.notes]
-      .some((value) => String(value || '').toLowerCase().includes(term)));
-    container.querySelector('#credit-count').textContent = `${rows.length} shown`;
+  const searchInput = container.querySelector('#credit-search');
+  const statusSelect = container.querySelector('#credit-status');
+  const bodyEl = container.querySelector('#credit-body');
+  const paginationEl = container.querySelector('#credit-pagination');
+  const countEl = container.querySelector('#credit-count');
+  const dateRange = bindDateRange(container, () => applyFilter());
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
     bodyEl.innerHTML = rows.length ? rows.map((credit) => `
-      <tr class="clickable" data-id="${credit.id}">
+      <tr class="clickable" data-id="${credit.id}" tabindex="0">
         <td><div class="cell-main">${esc(credit.number)}</div><div class="cell-sub">${esc(credit.revenue_account_name)}</div></td>
         <td>${esc(credit.customer_name)}</td>
         <td class="nowrap">${esc(fmtDate(credit.credit_date))}</td>
@@ -75,16 +93,41 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
         <td><span class="badge badge-${credit.status === 'issued' ? 'issued' : 'void'}">${credit.status === 'issued' ? 'Issued' : 'Void'}</span></td>
       </tr>
     `).join('') : `<tr><td colspan="7">${emptyState({ iconName: 'search', title: 'No matching credit notes', message: 'Try a different search term.' })}</td></tr>`;
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
   }
 
-  const searchInput = container.querySelector('#credit-search');
+  function applyFilter() {
+    if (!searchInput || !bodyEl) return;
+    page = 1;
+    const term = searchInput.value.trim().toLowerCase();
+    const status = statusSelect?.value || 'all';
+    const { from, to } = dateRange.values();
+    filtered = credits.filter((credit) => {
+      if (!inDateRange(credit.credit_date, from, to)) return false;
+      if (status !== 'all' && credit.status !== status) return false;
+      return [credit.number, credit.customer_name, credit.notes]
+        .some((value) => String(value || '').toLowerCase().includes(term));
+    });
+    countEl.textContent = `${filtered.length} matching`;
+    renderPage();
+  }
+
   if (searchInput) searchInput.addEventListener('input', applyFilter);
-  const bodyEl = container.querySelector('#credit-body');
+  if (statusSelect) statusSelect.addEventListener('change', applyFilter);
   if (bodyEl) {
     applyFilter();
     bodyEl.addEventListener('click', (event) => {
       const row = event.target.closest('tr[data-id]');
       if (row) location.hash = `#/credits/${row.dataset.id}`;
+    });
+    bodyEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || !event.target.matches('tr[data-id]')) return;
+      location.hash = `#/credits/${event.target.dataset.id}`;
     });
   }
 

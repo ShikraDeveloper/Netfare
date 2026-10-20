@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { activeCustomers, revenueAccounts, store } from '../store.js';
 import { lineItemsHtml, mountLineItems } from '../line-items.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   addDaysISO,
   avatar,
@@ -22,7 +23,7 @@ import {
 
 function invoiceRow(invoice) {
   return `
-    <tr class="clickable" data-id="${invoice.id}">
+    <tr class="clickable" data-id="${invoice.id}" tabindex="0">
       <td>
         <div class="cell-main">${esc(invoice.number)}</div>
         <div class="cell-sub">${esc(fmtDate(invoice.issue_date))}</div>
@@ -115,6 +116,7 @@ export async function render(container, { query } = {}) {
           <tbody id="invoice-body"></tbody>
         </table>
       </div>
+      <div id="invoice-pagination"></div>
     </div>
   `;
 
@@ -122,13 +124,40 @@ export async function render(container, { query } = {}) {
   const statusSelect = container.querySelector('#invoice-status');
   const body = container.querySelector('#invoice-body');
   const countEl = container.querySelector('#invoice-count');
+  const paginationEl = container.querySelector('#invoice-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="7">${emptyState({
+        iconName: 'search',
+        title: 'No matching invoices',
+        message: 'Try a different search term, status or date range.',
+      })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(invoiceRow).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const status = statusSelect.value;
     const { from, to } = dateRange.values();
-    const filtered = invoices.filter((invoice) => {
+    filtered = invoices.filter((invoice) => {
       if (!inDateRange(invoice.issue_date, from, to)) return false;
       const matchesStatus = status === 'all'
         || (status === 'outstanding'
@@ -145,20 +174,12 @@ export async function render(container, { query } = {}) {
       .reduce((sum, invoice) => sum + invoice.balance_cents, 0);
     const filteredOpen = filtered
       .filter((invoice) => !['draft', 'void', 'paid'].includes(invoice.status_display)).length;
-    countEl.textContent = `${filtered.length} shown`;
+    countEl.textContent = `${filtered.length} matching`;
     const subtitleEl = document.getElementById('page-subtitle');
     if (subtitleEl) {
       subtitleEl.textContent = `${filtered.length} invoice${filtered.length === 1 ? '' : 's'} · ${fmtMoney(filteredOutstanding)} outstanding across ${filteredOpen}`;
     }
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="7">${emptyState({
-    iconName: 'search',
-    title: 'No matching invoices',
-    message: 'Try a different search term, status or date range.',
-  })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(invoiceRow).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);
@@ -166,6 +187,10 @@ export async function render(container, { query } = {}) {
   body.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/invoices/${row.dataset.id}`;
+  });
+  body.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !event.target.matches('tr[data-id]')) return;
+    location.hash = `#/invoices/${event.target.dataset.id}`;
   });
 
   document.querySelectorAll('[data-action="new-invoice"]').forEach((button) => {

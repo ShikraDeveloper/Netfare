@@ -63,15 +63,25 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: 'Treasury',
+    items: [
+      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking' },
+      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation' },
+      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
+    ],
+  },
+  {
+    label: 'Compliance',
+    items: [
+      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
+    ],
+  },
+  {
     label: 'Accounting',
     items: [
       { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal' },
       { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances' },
       { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
-      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
-      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
-      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking' },
-      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation' },
       { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts' },
       { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports' },
     ],
@@ -119,6 +129,11 @@ const ROUTES = [
 
 const sidebar = document.getElementById('sidebar');
 const scrim = document.getElementById('sidebar-scrim');
+
+document.getElementById('skip-link')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  document.getElementById('view')?.focus();
+});
 
 function buildNav() {
   const nav = document.getElementById('main-nav');
@@ -258,14 +273,19 @@ async function renderRoute() {
   updateNav(route.section);
   closeSidebar();
   setHeader({ title: '', subtitle: '', actions: '' });
+  viewEl.setAttribute('aria-busy', 'true');
   viewEl.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading…</span></div>';
+  window.scrollTo(0, 0);
 
   try {
     const cleanup = await route.view.render(viewEl, { query, params: match.slice(1), path });
     if (token !== renderToken) return;
+    viewEl.setAttribute('aria-busy', 'false');
+    viewEl.focus({ preventScroll: true });
     if (typeof cleanup === 'function') currentCleanup = cleanup;
   } catch (error) {
     if (token !== renderToken) return;
+    viewEl.setAttribute('aria-busy', 'false');
     viewEl.innerHTML = `
       <div class="card">
         <div class="error-state">

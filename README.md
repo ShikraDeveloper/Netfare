@@ -19,7 +19,9 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Compliance engine** — recurring overheads such as office rent, utilities, salaries and insurance can generate draft bills on schedule, while corporate tax, trade licence, lease, insurance and visa-quota deadlines sit in the same calendar with reminders and activity history.
 - **Post-dated cheques** — schedule a batch of 12 monthly cheques (or any 1–60 cheques) from a recurring compliance item. Track cheque number, date, amount, bank and status; recording the matching cheque payment on the bill automatically marks the register cheque **Cleared**.
 - **Banking & cash deposits** — at the end of the day, move cash sales from **1000 Cash** into a bank account with a dedicated deposit entry. The deposit posts Dr Bank / Cr Cash, tracks the slip reference and can be voided without deleting history.
-- **Date filters** — bookings, visas, invoices, bills, refunds and journal entries can be narrowed to any date range, with filtered totals and a one-click reset.
+- **Date filters & pagination** — bookings, visas, invoices, bills, refunds, credit notes and journal entries can be narrowed to any date range, with filtered totals and a one-click reset. Invoices, bills, refunds, credit notes and journal entries paginate in the browser with a selectable page size.
+- **Grouped navigation** — Travel, Sales, Purchases, Treasury, Compliance and Accounting are separated in the sidebar so the daily workflow stays short and predictable.
+- **Accessibility** — skip link, keyboard focus rings, modal focus trapping/restore, labelled dialogs and busy-state announcements are built in.
 - **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings and visas. Files are stored in the local SQLite database, so full database backups include them.
 - **Double-entry ledger** — every document posts balanced journal entries automatically. A general journal supports manual accruals and adjustments.
 - **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging.
@@ -45,7 +47,10 @@ Run the automated checks with:
 
 ```bash
 npm test
+npm run check
 ```
+
+`npm run check` syntax-checks every server, browser and script JavaScript file without starting the app.
 
 For development with auto-reload:
 
@@ -313,9 +318,14 @@ Document statuses (`draft`, `sent`/`received`, `void`) are stored. Display statu
 - **Full database backup:** `GET /api/admin/backup/database` downloads a consistent `.db` file. The Settings page also saves copies under `data/backups/`; the newest 30 are kept.
 - **Restore:** stop the app, then run `npm run restore -- data/backups/<file>.db`. The restore script validates the SQLite file, saves a safety backup of the current database, and replaces the live file.
 - **Automatic safety backups:** created before **Clear all data** and **Load sample data**.
+- **Scheduled local backup:** Ledgerly checks on startup and every six hours; if the newest backup is older than 24 hours it creates a new one under `data/backups/`. Set `LEDGERLY_AUTO_BACKUP_HOURS=0` to disable, or another number of hours to change the interval.
+- **CLI backup:** `npm run backup` creates a timestamped backup while the app can stay running.
+- **Health check:** `GET /api/health` returns app version, uptime and SQLite status.
+- **Security headers:** the server sends CSP, frame, referrer, permissions and MIME-sniffing protections; API responses are `no-store`.
 - JSON export: `GET /api/admin/backup` downloads table data as JSON (attachment metadata only; use the full `.db` backup to preserve attachment bytes). It is for inspection/migration, not the primary recovery file.
 - To move the ledger, copy the `data/` directory while the app is stopped.
 - The data directory can be overridden with `LEDGERLY_DATA_DIR` (useful for tests or separate books).
+- Server request logging is quiet by default; slow requests (1.5s+) and 5xx responses are logged to the console. Unexpected promise rejections and uncaught exceptions are logged, and uncaught exceptions trigger a clean shutdown.
 
 ## Project structure
 
@@ -326,6 +336,10 @@ server/
   accounting.js       Posting/reversal engine and status helpers
   services/           Business logic: bookings, visas, portals, advances, invoices, bills, credits, refunds, compliance, cheques, cash deposits, opening balances, reconciliation, statements, reports, demo data
   routes/             REST API endpoints
+scripts/
+  backup.js           CLI database backup
+  check.js            Syntax-check all JavaScript files
+  restore.js          Safe restore with integrity and WAL guards
 public/
   index.html          SPA shell (theme bootstrap, fonts, favicon)
   js/                 Router, views, shared UI, line-item editor, attachments helper
@@ -342,7 +356,7 @@ All endpoints are under `/api`:
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/health` | Health check |
+| GET | `/health` | App version, uptime and SQLite health |
 | GET/POST/PUT/DELETE | `/bookings` | Travel bookings (with sale & cost items) |
 | POST | `/bookings/:id/confirm`, `/bookings/:id/travel`, `/bookings/:id/cancel` | Booking lifecycle |
 | GET/POST/PUT/DELETE | `/visas` | Visa applications (applicant details, sale & cost items, margin) |

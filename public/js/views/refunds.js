@@ -13,6 +13,7 @@ import {
   statusBadge,
 } from '../ui.js';
 import { openRefundModal } from './refund-modal.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 
 function typeBadge(type) {
   const label = type === 'customer' ? 'Customer' : 'Supplier';
@@ -21,7 +22,7 @@ function typeBadge(type) {
 
 function refundRow(refund) {
   return `
-    <tr class="clickable" data-id="${refund.id}">
+    <tr class="clickable" data-id="${refund.id}" tabindex="0">
       <td>
         <div class="cell-main nowrap">${esc(refund.number)}</div>
         <div class="cell-sub">${esc(fmtDate(refund.refund_date))}</div>
@@ -123,6 +124,7 @@ export async function render(container) {
           <tbody id="refund-body"></tbody>
         </table>
       </div>
+      <div id="refund-pagination"></div>
     </div>
   `;
 
@@ -131,14 +133,41 @@ export async function render(container) {
   const statusSelect = container.querySelector('#refund-status-filter');
   const body = container.querySelector('#refund-body');
   const countEl = container.querySelector('#refund-count');
+  const paginationEl = container.querySelector('#refund-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="6">${emptyState({
+        iconName: 'search',
+        title: 'No matching refunds',
+        message: 'Try a different search term, type, status or date range.',
+      })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(refundRow).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const type = typeSelect.value;
     const status = statusSelect.value;
     const { from, to } = dateRange.values();
-    const filtered = refunds.filter((refund) => {
+    filtered = refunds.filter((refund) => {
       if (!inDateRange(refund.refund_date, from, to)) return false;
       if (type !== 'all' && refund.refund_type !== type) return false;
       if (status !== 'all' && refund.status !== status) return false;
@@ -156,20 +185,12 @@ export async function render(container) {
 
     const filteredPaid = filtered.filter((refund) => refund.status === 'paid');
     const filteredTotal = filteredPaid.reduce((sum, refund) => sum + refund.amount_cents, 0);
-    countEl.textContent = `${filtered.length} shown`;
+    countEl.textContent = `${filtered.length} matching`;
     const subtitleEl = document.getElementById('page-subtitle');
     if (subtitleEl) {
       subtitleEl.textContent = `${filteredPaid.length} paid refund${filteredPaid.length === 1 ? '' : 's'} · ${fmtMoney(filteredTotal)} refunded`;
     }
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="6">${emptyState({
-        iconName: 'search',
-        title: 'No matching refunds',
-        message: 'Try a different search term, type, status or date range.',
-      })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(refundRow).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);
@@ -178,6 +199,10 @@ export async function render(container) {
   body.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/refunds/${row.dataset.id}`;
+  });
+  body.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !event.target.matches('tr[data-id]')) return;
+    location.hash = `#/refunds/${event.target.dataset.id}`;
   });
 
   bindNewRefund();
