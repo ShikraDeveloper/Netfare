@@ -2,7 +2,7 @@
 
 const express = require('express');
 const path = require('path');
-require('./db');
+const db = require('./db');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4173;
@@ -32,6 +32,23 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: status >= 500 ? 'Something went wrong on the server' : err.message });
 });
 
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, () => {
   console.log(`\n  Ledgerly is running at http://${HOST}:${PORT}\n`);
 });
+
+let shuttingDown = false;
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  server.close(() => {
+    try { db.close(); } catch { /* already closed */ }
+    process.exit(0);
+  });
+  setTimeout(() => {
+    try { db.close(); } catch { /* already closed */ }
+    process.exit(0);
+  }, 1500).unref();
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
