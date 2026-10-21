@@ -191,6 +191,10 @@ test('backup retention protects safety and automatic backups and downloads are t
   for (const label of ['auto', 'pre-reset', 'pre-restore']) {
     fs.writeFileSync(path.join(backupDir, `ledgerly-2026-01-01T00-00-00-000Z-${label}.db`), 'test');
   }
+  const oldAutomatic = path.join(backupDir, 'ledgerly-2025-01-01T00-00-00-000Z-auto.db');
+  fs.writeFileSync(oldAutomatic, 'test');
+  const oldTime = new Date(Date.now() - 91 * 24 * 60 * 60 * 1000);
+  fs.utimesSync(oldAutomatic, oldTime, oldTime);
 
   backupService.pruneBackups(30);
   const names = fs.readdirSync(backupDir);
@@ -198,6 +202,7 @@ test('backup retention protects safety and automatic backups and downloads are t
   for (const label of ['auto', 'pre-reset', 'pre-restore']) {
     assert.ok(names.includes(`ledgerly-2026-01-01T00-00-00-000Z-${label}.db`), `${label} backup survives pruning`);
   }
+  assert.equal(names.includes(path.basename(oldAutomatic)), false, 'automatic backups older than 90 days are removed');
 
   const before = backupService.listBackups().length;
   const temporary = backupService.createTemporaryBackup(db, 'download');

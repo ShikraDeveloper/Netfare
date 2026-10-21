@@ -345,7 +345,7 @@ Document statuses (`draft`, `sent`/`received`, `void`) are stored. Display statu
 ## Data & backups
 
 - Database: `data/accounting.db` (SQLite, WAL mode)
-- **Full database backup:** `GET /api/admin/backup/database` downloads a consistent `.db` file from a temporary copy. The Settings page can also save a copy under `data/backups/`; the newest 30 manual backups are kept. Automatic, pre-reset and pre-restore safety backups are never removed by that count.
+- **Full database backup:** `GET /api/admin/backup/database` downloads a consistent `.db` file from a temporary copy. The Settings page can also save a copy under `data/backups/`; the newest 30 manual backups are kept. Automatic backups are kept for 90 days. Pre-reset and pre-restore safety backups are never removed by these retention rules.
 - **Restore:** stop the app, then run `npm run restore -- data/backups/<file>.db`. The restore script validates the SQLite file, saves a safety backup of the current database, verifies a temporary copy, then atomically replaces the live file. It refuses to restore while Ledgerly is running, including with `--force`; `--force` only bypasses the leftover WAL warning.
 - **Automatic safety backups:** created before **Clear all data** and **Load sample data**. A refused sample-data load does not create one.
 - **Scheduled local backup:** Ledgerly checks on startup and every six hours; if the newest backup is older than 24 hours it creates a new one under `data/backups/`. Set `LEDGERLY_AUTO_BACKUP_HOURS=0` to disable, or another number of hours to change the interval.

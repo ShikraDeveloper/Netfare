@@ -17,16 +17,25 @@ function safeLabel(label) {
   return String(label || 'manual').replace(/[^a-z0-9-]/gi, '-').slice(0, 40) || 'manual';
 }
 
-function pruneBackups(keep = 30) {
+const AUTO_BACKUP_MAX_AGE_DAYS = 90;
+
+function pruneBackups(keep = 30, { autoMaxAgeDays = AUTO_BACKUP_MAX_AGE_DAYS } = {}) {
   try {
     const files = fs.readdirSync(backupDir)
       .filter((name) => name.endsWith('.db'))
-      // Safety and automatic backups are never deleted by the manual-backup count.
-      .filter((name) => !/-(?:pre-reset|pre-restore|auto)\.db$/.test(name))
-      .map((name) => ({ name, time: fs.statSync(path.join(backupDir, name)).mtimeMs }))
+      .map((name) => ({ name, time: fs.statSync(path.join(backupDir, name)).mtimeMs }));
+    const isAutomatic = (file) => /-auto\.db$/.test(file.name);
+    // Safety and automatic backups are never deleted by the manual-backup count.
+    const manual = files
+      .filter((file) => !/-(?:pre-reset|pre-restore|auto)\.db$/.test(file.name))
       .sort((a, b) => b.time - a.time);
-    for (const file of files.slice(keep)) {
+    for (const file of manual.slice(keep)) {
       fs.unlinkSync(path.join(backupDir, file.name));
+    }
+
+    const cutoff = Date.now() - autoMaxAgeDays * 24 * 60 * 60 * 1000;
+    for (const file of files.filter(isAutomatic)) {
+      if (file.time < cutoff) fs.unlinkSync(path.join(backupDir, file.name));
     }
   } catch {
     // Backup retention must never block the backup itself.
