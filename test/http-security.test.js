@@ -139,6 +139,51 @@ test('mutating requests are blocked cross-origin and without JSON or binary cont
   assert.equal(allowed.status, 200);
 });
 
+test('run-due ignores a client-supplied today date', async () => {
+  const headers = { Origin: baseUrl, 'Content-Type': 'application/json' };
+  const accounts = await jsonRequest('/api/accounts');
+  const expense = accounts.data.find((account) => account.code === '5000');
+  assert.ok(expense, 'default expense account exists');
+
+  const vendor = await jsonRequest('/api/vendors', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ name: 'N2 Future Vendor' }),
+  });
+  assert.equal(vendor.status, 201);
+
+  const future = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const item = await jsonRequest('/api/compliance', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      name: 'N2 future recurring bill',
+      kind: 'recurring_bill',
+      vendor_id: vendor.data.id,
+      account_id: expense.id,
+      amount_cents: 10_000,
+      frequency: 'monthly',
+      anchor_date: future,
+      next_due_date: future,
+      auto_create_bill: true,
+    }),
+  });
+  assert.equal(item.status, 201);
+
+  const run = await jsonRequest('/api/compliance/run-due', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ today: '2099-01-01' }),
+  });
+  assert.equal(run.status, 200);
+  assert.equal(run.data.generated.length, 0);
+
+  const refreshed = await jsonRequest(`/api/compliance/${item.data.id}`);
+  assert.equal(refreshed.status, 200);
+  assert.equal(refreshed.data.next_due_date, future);
+  assert.ok(!refreshed.data.last_generated_date);
+});
+
 test('downloads use temporary copies and do not consume backup slots', async () => {
   const before = await jsonRequest('/api/admin/backups');
   const response = await fetch(`${baseUrl}/api/admin/backup/database`);

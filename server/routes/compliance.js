@@ -25,7 +25,9 @@ router.delete('/:id', (req, res) => {
 });
 
 router.post('/run-due', (req, res) => {
-  res.json(service.runDueBills(db, { today: req.body?.today }));
+  // Always use the server's date. A client-supplied date could generate many
+  // future bills, or delay genuinely due ones.
+  res.json(service.runDueBills(db));
 });
 
 router.post('/:id/generate', (req, res) => {
