@@ -15,14 +15,25 @@ function trialBalance(db, asOf = todayISO()) {
     FROM accounts a
     ORDER BY a.code
   `).all(date, date);
-  const totals = rows.reduce((acc, row) => {
+  const balances = rows.map((row) => {
+    const net = row.debit_cents - row.credit_cents;
+    return {
+      ...row,
+      gross_debit_cents: row.debit_cents,
+      gross_credit_cents: row.credit_cents,
+      debit_cents: net > 0 ? net : 0,
+      credit_cents: net < 0 ? -net : 0,
+      balance_cents: net,
+    };
+  });
+  const totals = balances.reduce((acc, row) => {
     acc.debit_cents += row.debit_cents;
     acc.credit_cents += row.credit_cents;
     return acc;
   }, { debit_cents: 0, credit_cents: 0 });
   return {
     as_of: date,
-    rows: rows.map((row) => ({ ...row, balance_cents: row.debit_cents - row.credit_cents })),
+    rows: balances,
     totals,
     balanced: totals.debit_cents === totals.credit_cents,
   };
