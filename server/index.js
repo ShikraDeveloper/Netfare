@@ -4,6 +4,7 @@ const express = require('express');
 const path = require('path');
 const db = require('./db');
 const { startAutoBackup } = require('./services/backup');
+const { hostGuard, apiGuard } = require('./security');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4173;
@@ -17,7 +18,7 @@ app.use((req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob:",
@@ -29,6 +30,8 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
+app.use(hostGuard());
+app.use('/api', apiGuard({ port: PORT }));
 app.use(express.json({ limit: '2mb' }));
 app.use((req, res, next) => {
   const started = process.hrtime.bigint();

@@ -15,10 +15,10 @@ router.put('/', (req, res) => {
   const companyName = body.company_name != null
     ? str(body.company_name, 'Company name', { max: 160 })
     : current.company_name;
-  const currency = body.currency != null
-    ? str(body.currency, 'Currency', { max: 3 }).toUpperCase()
-    : current.currency;
-  if (!/^[A-Z]{3}$/.test(currency)) throw bad('Currency must be a 3-letter ISO code, such as USD or EUR');
+  const currency = 'AED';
+  if (body.currency != null && String(body.currency).trim().toUpperCase() !== currency) {
+    throw bad('Ledgerly records all amounts in AED');
+  }
 
   const terms = body.payment_terms_days != null
     ? Math.round(num(body.payment_terms_days, 'Payment terms', { min: 0, max: 365 }))

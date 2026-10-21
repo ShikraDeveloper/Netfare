@@ -1,16 +1,43 @@
 'use strict';
 
-const { bad, dateISO, cents } = require('../util');
+const { bad, dateISO, cents, todayISO } = require('../util');
 const { postEntry, SYSTEM_CODES } = require('../accounting');
 
 const EQUITY_CODE = SYSTEM_CODES.OPENING_BALANCE_EQUITY;
 
-function getOpeningBalances(db) {
-  const entry = db.prepare(`
-    SELECT * FROM journal_entries
-    WHERE source_type = 'opening_balance'
-    ORDER BY id DESC LIMIT 1
+function activeOpeningEntry(db) {
+  return db.prepare(`
+    SELECT e.* FROM journal_entries e
+    WHERE e.source_type = 'opening_balance'
+      AND NOT EXISTS (
+        SELECT 1 FROM journal_entries r
+        WHERE r.source_type = 'opening_balance_reversal' AND r.source_id = e.id
+      )
+    ORDER BY e.id DESC LIMIT 1
   `).get();
+}
+
+function reverseOpeningEntry(db, entry, entryDate) {
+  const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entry.id);
+  if (!lines.length) return null;
+  const date = entryDate > entry.entry_date ? entryDate : entry.entry_date;
+  return postEntry(db, {
+    entry_date: date,
+    memo: `Reversal of opening balances #${entry.id}`,
+    reference: entry.reference || 'OPENING',
+    source_type: 'opening_balance_reversal',
+    source_id: entry.id,
+    lines: lines.map((line) => ({
+      account_id: line.account_id,
+      debit_cents: line.credit_cents,
+      credit_cents: line.debit_cents,
+      description: line.description,
+    })),
+  });
+}
+
+function getOpeningBalances(db) {
+  const entry = activeOpeningEntry(db);
   const lines = entry
     ? db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entry.id)
     : [];
@@ -71,10 +98,8 @@ function saveOpeningBalances(db, payload = {}) {
   }
 
   return db.transaction(() => {
-    const existing = db.prepare(`
-      SELECT * FROM journal_entries WHERE source_type = 'opening_balance' ORDER BY id DESC LIMIT 1
-    `).get();
-    if (existing) db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existing.id);
+    const existing = activeOpeningEntry(db);
+    if (existing) reverseOpeningEntry(db, existing, entryDate);
 
     if (!normalized.length) return getOpeningBalances(db);
 
@@ -112,10 +137,8 @@ function saveOpeningBalances(db, payload = {}) {
 
 function clearOpeningBalances(db) {
   return db.transaction(() => {
-    const existing = db.prepare(`
-      SELECT * FROM journal_entries WHERE source_type = 'opening_balance' ORDER BY id DESC LIMIT 1
-    `).get();
-    if (existing) db.prepare('DELETE FROM journal_entries WHERE id = ?').run(existing.id);
+    const existing = activeOpeningEntry(db);
+    if (existing) reverseOpeningEntry(db, existing, todayISO());
     return getOpeningBalances(db);
   })();
 }

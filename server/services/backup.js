@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const dataDir = process.env.LEDGERLY_DATA_DIR
@@ -20,6 +21,8 @@ function pruneBackups(keep = 30) {
   try {
     const files = fs.readdirSync(backupDir)
       .filter((name) => name.endsWith('.db'))
+      // Safety and automatic backups are never deleted by the manual-backup count.
+      .filter((name) => !/-(?:pre-reset|pre-restore|auto)\.db$/.test(name))
       .map((name) => ({ name, time: fs.statSync(path.join(backupDir, name)).mtimeMs }))
       .sort((a, b) => b.time - a.time);
     for (const file of files.slice(keep)) {
@@ -43,6 +46,30 @@ function createDatabaseBackup(db, label = 'manual') {
     size: stat.size,
     created_at: new Date(stat.mtimeMs).toISOString(),
   };
+}
+
+// Downloads must not consume the permanent backup allowance.
+function createTemporaryBackup(db, label = 'download') {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-download-'));
+  const name = `ledgerly-${stamp()}-${safeLabel(label)}.db`;
+  const file = path.join(dir, name);
+  const cleanup = () => {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* already removed */ }
+  };
+  try {
+    db.prepare('VACUUM INTO ?').run(file);
+    const stat = fs.statSync(file);
+    return {
+      name,
+      path: file,
+      size: stat.size,
+      created_at: new Date(stat.mtimeMs).toISOString(),
+      cleanup,
+    };
+  } catch (error) {
+    cleanup();
+    throw error;
+  }
 }
 
 function listBackups() {
@@ -90,7 +117,9 @@ function startAutoBackup(db, options = {}) {
 module.exports = {
   backupDir,
   createDatabaseBackup,
+  createTemporaryBackup,
   listBackups,
+  pruneBackups,
   runAutoBackup,
   startAutoBackup,
 };

@@ -11,25 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    // Restore the theme before the first paint so dark mode never flashes light.
-    try {
-      const savedTheme = localStorage.getItem('ledgerly.theme');
-      const theme = savedTheme === 'dark' ? 'dark' : 'light';
-      document.documentElement.dataset.theme = theme;
-      document.documentElement.style.colorScheme = theme;
-      const themeMeta = document.querySelector('meta[name="theme-color"]');
-      if (themeMeta) themeMeta.setAttribute('content', theme === 'dark' ? '#08121f' : '#f7f1e5');
-    } catch (error) {
-      document.documentElement.dataset.theme = 'light';
-    }
-    // Restore the desktop sidebar state before the first paint so it does not animate in.
-    try {
-      if (localStorage.getItem('ledgerly.navCollapsed') === '1') {
-        document.documentElement.classList.add('nav-collapsed');
-      }
-    } catch (error) { /* storage unavailable */ }
-  </script>
+  <script src="/js/theme-boot.js"></script>
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/css/theme.css">
 </head>

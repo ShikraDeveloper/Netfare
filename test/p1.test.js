@@ -48,7 +48,7 @@ after(() => {
   fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-test('opening balances create and replace one balanced opening entry', () => {
+test('opening balances replace the previous entry with a reversal', () => {
   const empty = openingBalances.getOpeningBalances(db);
   assert.equal(empty.entry_id, null);
   assert.ok(empty.equity_account);
@@ -76,7 +76,8 @@ test('opening balances create and replace one balanced opening entry', () => {
     entry_date: '2026-01-02',
     balances: [{ account_id: account('1000').id, debit_cents: 75_000, credit_cents: 0 }],
   });
-  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM journal_entries WHERE source_type = 'opening_balance'").get().count, 1);
+  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM journal_entries WHERE source_type = 'opening_balance'").get().count, 2);
+  assert.ok(db.prepare("SELECT id FROM journal_entries WHERE source_type = 'opening_balance_reversal' AND source_id = ?").get(first.entry_id));
   assert.equal(second.total_debit_cents, 75_000);
   assert.equal(second.equity_cents, 75_000);
 

@@ -19,7 +19,7 @@ function daysAgo(n) {
   return addDays(todayISO(), -n);
 }
 
-function loadDemo(db) {
+function assertLedgerEmpty(db) {
   const invoiceCount = db.prepare('SELECT COUNT(*) AS c FROM invoices').get().c;
   const billCount = db.prepare('SELECT COUNT(*) AS c FROM bills').get().c;
   const customerCount = db.prepare('SELECT COUNT(*) AS c FROM customers').get().c;
@@ -28,6 +28,10 @@ function loadDemo(db) {
   if (invoiceCount > 0 || billCount > 0 || customerCount > 0 || bookingCount > 0 || visaCount > 0) {
     throw bad('Sample data can only be loaded into an empty ledger. Clear all data first.');
   }
+}
+
+function loadDemo(db) {
+  assertLedgerEmpty(db);
 
   return db.transaction(() => {
     const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
@@ -499,4 +503,4 @@ function resetAll(db) {
   })();
 }
 
-module.exports = { loadDemo, resetAll };
+module.exports = { assertLedgerEmpty, loadDemo, resetAll };

@@ -2,8 +2,9 @@
 
 const router = require('express').Router();
 const db = require('../db');
-const { bad, notFound, str, optionalStr, dateISO } = require('../util');
+const { notFound, str, optionalStr, dateISO } = require('../util');
 const { postEntry, getEntryWithLines } = require('../accounting');
+const journalService = require('../services/journal');
 
 router.get('/', (req, res) => {
   const clauses = [];
@@ -53,13 +54,7 @@ router.post('/', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(Number(req.params.id));
-  if (!entry) throw notFound('Journal entry not found');
-  if (entry.source_type !== 'manual') {
-    throw bad('Only manual journal entries can be deleted. Void the source document instead.');
-  }
-  db.prepare('DELETE FROM journal_entries WHERE id = ?').run(entry.id);
-  res.json({ deleted: true });
+  res.json(journalService.deleteManualEntry(db, req.params.id));
 });
 
 module.exports = router;

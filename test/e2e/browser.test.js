@@ -87,6 +87,10 @@ function seedListFixtures(dataDir) {
     const bank = db.prepare("SELECT id FROM accounts WHERE code = '1010'").get();
     assert.ok(cash && bank, 'Default chart should include cash and bank accounts');
 
+    const storedXss = '<img data-xss src=x onerror="window.__xss = 1">';
+    db.prepare('UPDATE bookings SET notes = ?').run(storedXss);
+    db.prepare('UPDATE visa_applications SET notes = ?').run(storedXss);
+
     db.transaction(() => {
       for (let index = 1; index <= 30; index += 1) {
         insertCompliance.run(`E2E compliance ${index}`, vendor.id, account.id);
@@ -175,7 +179,11 @@ before(async () => {
 
   try {
     await waitForHealth(baseUrl);
-    const demoResponse = await fetch(`${baseUrl}/api/admin/demo`, { method: 'POST' });
+    const demoResponse = await fetch(`${baseUrl}/api/admin/demo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+    });
     assert.equal(demoResponse.status, 201, 'Demo data should load');
     seedListFixtures(dataDir);
 
@@ -230,6 +238,41 @@ test('app shell, skip link, keyboard row and console health', async () => {
   await page.keyboard.press('Enter');
   await page.waitForFunction((id) => location.hash === `#/invoices/${id}`, invoiceId);
   await page.waitForSelector('#view .doc');
+  assertNoConsoleErrors();
+});
+
+test('stored notes and confirmation messages render as text', async () => {
+  const [bookings, visas] = await Promise.all([
+    getJson(baseUrl, '/api/bookings'),
+    getJson(baseUrl, '/api/visas'),
+  ]);
+
+  for (const [route, id] of [[`/bookings/${bookings[0].id}`, bookings[0].id], [`/visas/${visas[0].id}`, visas[0].id]]) {
+    await openRoute(route);
+    assert.equal(await page.locator('[data-xss]').count(), 0, `${route} must not render stored HTML`);
+    assert.match(await page.locator('.doc-terms').first().innerText(), /<img data-xss/);
+    assert.equal(await page.evaluate(() => window.__xss), undefined);
+  }
+
+  const payload = '<img data-xss src=x onerror="window.__xss = 1">';
+  const response = await fetch(`${baseUrl}/api/customers`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: `XSS customer ${payload}` }),
+  });
+  assert.equal(response.status, 201);
+  const customer = await response.json();
+
+  await openRoute('/customers');
+  await page.locator('#party-search').fill('XSS customer');
+  await page.waitForTimeout(100);
+  await page.locator(`[data-delete="${customer.id}"]`).click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.equal(await dialog.locator('[data-xss]').count(), 0, 'confirm dialog must not render stored HTML');
+  assert.match(await dialog.locator('.confirm-text').innerText(), /<img data-xss/);
+  assert.equal(await page.evaluate(() => window.__xss), undefined);
+  await page.keyboard.press('Escape');
   assertNoConsoleErrors();
 });
 

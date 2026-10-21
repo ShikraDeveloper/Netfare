@@ -438,7 +438,7 @@ CREATE TABLE IF NOT EXISTS bank_reconciliations (
 CREATE TABLE IF NOT EXISTS bank_reconciliation_lines (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   reconciliation_id INTEGER NOT NULL REFERENCES bank_reconciliations(id) ON DELETE CASCADE,
-  journal_line_id INTEGER NOT NULL UNIQUE REFERENCES journal_lines(id) ON DELETE CASCADE
+  journal_line_id INTEGER NOT NULL UNIQUE REFERENCES journal_lines(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);

@@ -10,11 +10,6 @@ import {
   toast,
 } from '../ui.js';
 
-const CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CNY', 'INR', 'AED', 'SAR', 'QAR',
-  'ZAR', 'CHF', 'SEK', 'NOK', 'DKK', 'SGD', 'HKD', 'BRL', 'MXN', 'TRY', 'PLN', 'CZK',
-];
-
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -43,9 +38,6 @@ export async function render(container) {
     actions: '',
   });
 
-  const currencyOptions = CURRENCIES.includes(settings.currency)
-    ? CURRENCIES
-    : [settings.currency, ...CURRENCIES];
   const theme = getTheme();
 
   container.innerHTML = `
@@ -131,11 +123,11 @@ export async function render(container) {
             <div class="card-body">
               <div class="form-grid">
                 <div class="field">
-                  <label for="currency">Currency</label>
-                  <select class="input" id="currency" name="currency">
-                    ${currencyOptions.map((code) => `<option value="${code}" ${code === settings.currency ? 'selected' : ''}>${code}</option>`).join('')}
-                  </select>
-                  <div class="hint">Used to format every amount in the app.</div>
+                  <label>Currency</label>
+                  <div class="readonly-box">
+                    <strong>AED</strong>
+                    <span>United Arab Emirates dirham. Ledgerly records every amount in AED.</span>
+                  </div>
                 </div>
                 <div class="field">
                   <label for="terms-days">Payment terms (days)</label>
@@ -241,7 +233,7 @@ export async function render(container) {
               <div><span>Version</span><strong>1.0.0</strong></div>
               <div><span>Storage</span><strong>Local SQLite</strong></div>
               <div><span>Accounting</span><strong>Double-entry</strong></div>
-              <div><span>Currency</span><strong>${esc(settings.currency)}</strong></div>
+              <div><span>Currency</span><strong>AED</strong></div>
               <div><span>Server</span><strong>127.0.0.1</strong></div>
             </div>
             <div class="form-note" style="margin-top:16px">
@@ -284,7 +276,6 @@ export async function render(container) {
     button.disabled = true;
     try {
       const updated = await api.put('/settings', {
-        currency: values.get('currency'),
         payment_terms_days: Number(values.get('payment_terms_days')) || 0,
         fiscal_year_start_month: Number(values.get('fiscal_year_start_month')) || 1,
         invoice_prefix: values.get('invoice_prefix'),

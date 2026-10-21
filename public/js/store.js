@@ -74,5 +74,5 @@ export function portalForVendorId(vendorId) {
 }
 
 export function currency() {
-  return store.settings?.currency || 'USD';
+  return 'AED';
 }

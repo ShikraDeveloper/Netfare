@@ -12,7 +12,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
 - **Refunds** — refund a customer payment or record money returned by a supplier, in full or in part. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
 - **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging.
-- **Opening balances** — a guided balance-sheet page creates one balanced opening journal entry. Enter each account as a debit or credit; the difference posts automatically to **3900 Opening Balance Equity**.
+- **Opening balances** — a guided balance-sheet page creates one balanced opening journal entry. Enter each account as a debit or credit; the difference posts automatically to **3900 Opening Balance Equity**. Replacing or clearing balances posts a reversal, so reconciled lines and audit history are never deleted.
 - **Bank reconciliation** — reconcile any active cash or bank account against a statement closing balance. Tick cleared transactions, see the cleared balance and difference, keep a reconciliation history, and reopen the latest reconciliation when a correction is needed.
 - **Customer & vendor statements** — printable statements with opening balance, invoices or bills, payments, refunds, applied credits and a running balance. Filter by period and print directly from the browser.
 - **Expenses & bills** — vendors (consolidators, hotels, visa agents, DMCs), bills with expense/asset coding, receive/post, void, and bill payments. Bill payments can be recorded by **cheque** with cheque number, cheque date and bank; compliance items carry a default payment method so office rent can open directly as a cheque payment.
@@ -80,7 +80,9 @@ The first run creates an empty ledger with a default chart of accounts and trave
 To load a fully populated demo agency (**Skyline Travels**, Dubai) — customers, suppliers, supplier portals with topped-up wallets, eight bookings across every status, six visa applications across the visa lifecycle, customer advances, payments, supplier bills, and posted journal entries:
 
 ```bash
-curl -X POST http://127.0.0.1:4173/api/admin/demo
+curl -X POST http://127.0.0.1:4173/api/admin/demo \
+  -H 'Content-Type: application/json' \
+  -d '{}'
 ```
 
 To erase everything and start clean (this signs out all data):
@@ -319,16 +321,17 @@ Document statuses (`draft`, `sent`/`received`, `void`) are stored. Display statu
 ## Data & backups
 
 - Database: `data/accounting.db` (SQLite, WAL mode)
-- **Full database backup:** `GET /api/admin/backup/database` downloads a consistent `.db` file. The Settings page also saves copies under `data/backups/`; the newest 30 are kept.
-- **Restore:** stop the app, then run `npm run restore -- data/backups/<file>.db`. The restore script validates the SQLite file, saves a safety backup of the current database, and replaces the live file.
-- **Automatic safety backups:** created before **Clear all data** and **Load sample data**.
+- **Full database backup:** `GET /api/admin/backup/database` downloads a consistent `.db` file from a temporary copy. The Settings page can also save a copy under `data/backups/`; the newest 30 manual backups are kept. Automatic, pre-reset and pre-restore safety backups are never removed by that count.
+- **Restore:** stop the app, then run `npm run restore -- data/backups/<file>.db`. The restore script validates the SQLite file, saves a safety backup of the current database, verifies a temporary copy, then atomically replaces the live file. It refuses to restore while Ledgerly is running, including with `--force`; `--force` only bypasses the leftover WAL warning.
+- **Automatic safety backups:** created before **Clear all data** and **Load sample data**. A refused sample-data load does not create one.
 - **Scheduled local backup:** Ledgerly checks on startup and every six hours; if the newest backup is older than 24 hours it creates a new one under `data/backups/`. Set `LEDGERLY_AUTO_BACKUP_HOURS=0` to disable, or another number of hours to change the interval.
 - **CLI backup:** `npm run backup` creates a timestamped backup while the app can stay running.
 - **Health check:** `GET /api/health` returns app version, uptime and SQLite status.
-- **Security headers:** the server sends CSP, frame, referrer, permissions and MIME-sniffing protections; API responses are `no-store`.
+- **Security headers:** the server sends CSP, frame, referrer, permissions and MIME-sniffing protections; API responses are `no-store`. Inline scripts are not allowed.
 - JSON export: `GET /api/admin/backup` downloads table data as JSON (attachment metadata only; use the full `.db` backup to preserve attachment bytes). It is for inspection/migration, not the primary recovery file.
 - To move the ledger, copy the `data/` directory while the app is stopped.
-- The data directory can be overridden with `LEDGERLY_DATA_DIR` (useful for tests or separate books).
+- The data directory can be overridden with `LEDGERLY_DATA_DIR` (useful for tests or separate books). `npm run restore` follows the same variable, so it never assumes `data/` when you are working with another set of books.
+- By default the server accepts only `localhost`, `127.0.0.1` and `[::1]` hosts. If you deliberately expose Ledgerly on a trusted LAN, add the exact host names to `LEDGERLY_ALLOWED_HOSTS` and origins to `LEDGERLY_ALLOWED_ORIGINS` (comma-separated). Keep the default local-only setup unless you really need remote access.
 - Server request logging is quiet by default; slow requests (1.5s+) and 5xx responses are logged to the console. Unexpected promise rejections and uncaught exceptions are logged, and uncaught exceptions trigger a clean shutdown.
 
 ## Project structure

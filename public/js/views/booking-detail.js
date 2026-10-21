@@ -170,7 +170,7 @@ export async function render(container, { params } = {}) {
           </div>
           <div>
             <div class="doc-label">Itinerary</div>
-            <div class="doc-terms">${esc(booking.destination ? `Destination: ${booking.destination}` : 'No destination recorded.')}${booking.notes ? `\n${booking.notes}` : ''}</div>
+            <div class="doc-terms">${esc(booking.destination ? `Destination: ${booking.destination}` : 'No destination recorded.')}${booking.notes ? esc(`\n${booking.notes}`) : ''}</div>
           </div>
         </div>
 

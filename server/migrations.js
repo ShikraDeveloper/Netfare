@@ -14,6 +14,36 @@ function dropColumn(table, column) {
   if (hasColumn(table, column)) db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
 }
 
+function foreignKeyOnDelete(table, column) {
+  const row = db.prepare(`PRAGMA foreign_key_list(${table})`).all().find((entry) => entry.from === column);
+  return row ? String(row.on_delete || '').toUpperCase() : '';
+}
+
+// Older databases deleted reconciliation lines together with their journal line.
+// Rebuild that table once so a reconciled line cannot silently disappear.
+function protectReconciledLines() {
+  if (foreignKeyOnDelete('bank_reconciliation_lines', 'journal_line_id') !== 'CASCADE') return;
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`
+        DROP TABLE IF EXISTS bank_reconciliation_lines_new;
+        CREATE TABLE bank_reconciliation_lines_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          reconciliation_id INTEGER NOT NULL REFERENCES bank_reconciliations(id) ON DELETE CASCADE,
+          journal_line_id INTEGER NOT NULL UNIQUE REFERENCES journal_lines(id) ON DELETE RESTRICT
+        );
+        INSERT INTO bank_reconciliation_lines_new (id, reconciliation_id, journal_line_id)
+          SELECT id, reconciliation_id, journal_line_id FROM bank_reconciliation_lines;
+        DROP TABLE bank_reconciliation_lines;
+        ALTER TABLE bank_reconciliation_lines_new RENAME TO bank_reconciliation_lines;
+      `);
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 ensureColumn('settings', 'booking_prefix', "TEXT NOT NULL DEFAULT 'BK'");
 ensureColumn('settings', 'next_booking_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_advance_number', 'INTEGER NOT NULL DEFAULT 1');
@@ -54,14 +84,29 @@ dropColumn('bookings', 'tax_rate');
 dropColumn('visa_applications', 'tax_rate');
 dropColumn('compliance_items', 'tax_rate');
 
-for (const code of ['1300', '2200']) {
-  const account = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
-  if (!account) continue;
-  try {
-    db.prepare('DELETE FROM accounts WHERE id = ?').run(account.id);
-  } catch {
-    db.prepare("UPDATE accounts SET is_active = 0, name = name || ' (archived)' WHERE id = ?").run(account.id);
-  }
+protectReconciledLines();
+
+// Retire the old VAT accounts exactly once. A user-created account at 1300 or
+// 2200 must never be renamed or deleted by later startups.
+const setup = db.prepare('SELECT setup_version FROM settings WHERE id = 1').get();
+const setupVersion = Number(setup?.setup_version || 0);
+if (setupVersion < 2) {
+  db.transaction(() => {
+    const legacyAccounts = [
+      ['1300', 'Tax Receivable'],
+      ['2200', 'Sales Tax Payable'],
+    ];
+    for (const [code, name] of legacyAccounts) {
+      const account = db.prepare('SELECT * FROM accounts WHERE code = ? AND name = ?').get(code, name);
+      if (!account) continue;
+      try {
+        db.prepare('DELETE FROM accounts WHERE id = ?').run(account.id);
+      } catch {
+        db.prepare("UPDATE accounts SET is_active = 0, name = name || ' (archived)' WHERE id = ?").run(account.id);
+      }
+    }
+    db.prepare("UPDATE settings SET currency = 'AED', setup_version = 2 WHERE id = 1").run();
+  })();
 }
 ensureColumn('booking_items', 'portal_id', 'INTEGER');
 ensureColumn('customer_advances', 'visa_id', 'INTEGER');
@@ -92,11 +137,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_cash_deposits_status ON cash_deposits(status);
 `);
 
-// One-time travel-agency setup: AED currency and travel account labels.
-const setup = db.prepare('SELECT setup_version FROM settings WHERE id = 1').get();
-if (setup && Number(setup.setup_version || 0) < 1) {
-  db.prepare("UPDATE settings SET currency = 'AED', setup_version = 1 WHERE id = 1").run();
-}
+// Travel account labels are name-aware and safe to check on every start.
 db.prepare("UPDATE accounts SET name = 'Ticket Sales' WHERE code = '4000' AND name = 'Sales Revenue'").run();
 db.prepare("UPDATE accounts SET name = 'Tour & Package Sales' WHERE code = '4100' AND name = 'Service Revenue'").run();
 db.prepare("UPDATE accounts SET name = 'Air Ticket Cost' WHERE code = '5000' AND name = 'Cost of Goods Sold'").run();

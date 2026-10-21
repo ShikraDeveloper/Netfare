@@ -50,7 +50,7 @@ export function icon(name, size = 18) {
 }
 
 function currencyCode() {
-  return store.settings?.currency || 'USD';
+  return 'AED';
 }
 
 export function fmtMoney(cents, { compact = false, showCents = true } = {}) {
@@ -66,7 +66,7 @@ export function fmtMoney(cents, { compact = false, showCents = true } = {}) {
       };
     return new Intl.NumberFormat(undefined, options).format(value);
   } catch {
-    return `$${value.toFixed(2)}`;
+    return `AED ${value.toFixed(2)}`;
   }
 }
 
@@ -78,9 +78,9 @@ export function currencySymbol() {
   try {
     const parts = new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode() }).formatToParts(0);
     const part = parts.find((item) => item.type === 'currency');
-    return part ? part.value : '$';
+    return part ? part.value : 'AED';
   } catch {
-    return '$';
+    return 'AED';
   }
 }
 
@@ -417,7 +417,7 @@ export function confirmDialog({ title = 'Are you sure?', message = '', confirmLa
     let confirmed = false;
     openModal({
       title,
-      body: `<p class="confirm-text">${message}</p>`,
+      body: `<p class="confirm-text">${esc(message)}</p>`,
       size: 'modal-sm',
       submitLabel: confirmLabel,
       danger,

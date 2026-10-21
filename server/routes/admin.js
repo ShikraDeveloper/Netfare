@@ -3,8 +3,8 @@
 const router = require('express').Router();
 const db = require('../db');
 const { bad, todayISO } = require('../util');
-const { loadDemo, resetAll } = require('../services/demo');
-const { createDatabaseBackup, listBackups } = require('../services/backup');
+const { assertLedgerEmpty, loadDemo, resetAll } = require('../services/demo');
+const { createDatabaseBackup, createTemporaryBackup, listBackups } = require('../services/backup');
 
 router.get('/backups', (req, res) => {
   res.json(listBackups());
@@ -15,8 +15,9 @@ router.post('/backup', (req, res) => {
 });
 
 router.get('/backup/database', (req, res, next) => {
-  const backup = createDatabaseBackup(db, 'download');
+  const backup = createTemporaryBackup(db, 'download');
   res.download(backup.path, backup.name, (error) => {
+    backup.cleanup();
     if (error && !res.headersSent) next(error);
   });
 });
@@ -48,6 +49,7 @@ router.get('/backup', (req, res) => {
 });
 
 router.post('/demo', (req, res) => {
+  assertLedgerEmpty(db);
   const backup = createDatabaseBackup(db, 'pre-demo');
   res.status(201).json({ ...loadDemo(db), backup });
 });

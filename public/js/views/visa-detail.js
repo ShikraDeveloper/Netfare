@@ -228,7 +228,7 @@ export async function render(container, { params } = {}) {
           </div>
           <div>
             <div class="doc-label">Destination</div>
-            <div class="doc-terms">${esc(visa.destination_country || 'No destination recorded')}${visa.notes ? `\n${visa.notes}` : ''}</div>
+            <div class="doc-terms">${esc(visa.destination_country || 'No destination recorded')}${visa.notes ? esc(`\n${visa.notes}`) : ''}</div>
           </div>
         </div>
 
