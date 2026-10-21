@@ -176,29 +176,29 @@ export async function render(container, { params } = {}) {
 
         <div class="doc-items-wrap">
           <div class="doc-label" style="margin-bottom:8px">Sale items</div>
-          <table class="doc-items">
+          <table class="doc-items"><caption class="sr-only">Booking sale items</caption>
             <thead>
               <tr>
-                <th style="width:38%">Description</th>
-                <th class="num">Qty</th>
-                <th class="num">Unit price</th>
-                <th>Revenue account</th>
-                <th class="num">Amount</th>
+                <th scope="col" style="width:38%">Description</th>
+                <th scope="col" class="num">Qty</th>
+                <th scope="col" class="num">Unit price</th>
+                <th scope="col">Revenue account</th>
+                <th scope="col" class="num">Amount</th>
               </tr>
             </thead>
             <tbody>${saleRows}</tbody>
           </table>
 
           <div class="doc-label" style="margin:18px 0 8px">Supplier cost items</div>
-          <table class="doc-items">
+          <table class="doc-items"><caption class="sr-only">Booking supplier costs</caption>
             <thead>
               <tr>
-                <th style="width:30%">Description</th>
-                <th class="num">Qty</th>
-                <th class="num">Unit cost</th>
-                <th>Cost account</th>
-                <th>Supplier</th>
-                <th class="num">Amount</th>
+                <th scope="col" style="width:30%">Description</th>
+                <th scope="col" class="num">Qty</th>
+                <th scope="col" class="num">Unit cost</th>
+                <th scope="col">Cost account</th>
+                <th scope="col">Supplier</th>
+                <th scope="col" class="num">Amount</th>
               </tr>
             </thead>
             <tbody>${costRows}</tbody>

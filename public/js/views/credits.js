@@ -44,8 +44,8 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
   } else {
     body = `
       <div class="toolbar">
-        <div class="search-box">${icon('search', 17)}<input class="input" id="credit-search" type="search" placeholder="Search credit notes…" autocomplete="off"></div>
-        <select class="input" id="credit-status" style="max-width:160px">
+        <div class="search-box">${icon('search', 17)}<input class="input" id="credit-search" type="search" placeholder="Search credit notes…" aria-label="Search credit notes" autocomplete="off"></div>
+        <select class="input" id="credit-status" aria-label="Filter credit notes by status" style="max-width:160px">
           <option value="all">All statuses</option>
           <option value="issued">Issued</option>
           <option value="void">Void</option>
@@ -56,8 +56,8 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
       </div>
       <div class="card">
         <div class="table-wrap">
-          <table class="data">
-            <thead><tr><th>Credit note</th><th>Customer</th><th>Date</th><th class="num">Amount</th><th class="num">Applied</th><th class="num">Remaining</th><th>Status</th></tr></thead>
+          <table class="data"><caption class="sr-only">Credit notes</caption>
+            <thead><tr><th scope="col">Credit note</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Applied</th><th scope="col" class="num">Remaining</th><th scope="col">Status</th></tr></thead>
             <tbody id="credit-body"></tbody>
           </table>
         </div>

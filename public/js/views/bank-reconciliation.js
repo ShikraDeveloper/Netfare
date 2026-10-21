@@ -60,8 +60,8 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     <div class="card">
       ${rows.length ? `
         <div class="table-wrap">
-          <table class="data">
-            <thead><tr><th>Statement date</th><th>Account</th><th class="num">Statement balance</th><th class="num">Cleared balance</th><th class="num">Difference</th><th>Status</th><th></th></tr></thead>
+          <table class="data"><caption class="sr-only">Reconciliation history</caption>
+            <thead><tr><th scope="col">Statement date</th><th scope="col">Account</th><th scope="col" class="num">Statement balance</th><th scope="col" class="num">Cleared balance</th><th scope="col" class="num">Difference</th><th scope="col">Status</th><th scope="col"></th></tr></thead>
             <tbody>
               ${rows.map((row) => `
                 <tr>
@@ -219,8 +219,8 @@ function workspaceHtml(workspace) {
       <div><span>Difference</span><strong data-recon-difference>${fmtMoney(0)}</strong></div>
     </div>
     <div class="table-wrap recon-lines">
-      <table class="data">
-        <thead><tr><th><input type="checkbox" data-select-all aria-label="Select all transactions"></th><th>Date</th><th>Description</th><th>Reference</th><th class="num">Debit</th><th class="num">Credit</th></tr></thead>
+      <table class="data"><caption class="sr-only">Bank transactions for reconciliation</caption>
+        <thead><tr><th scope="col"><input type="checkbox" data-select-all aria-label="Select all transactions"></th><th scope="col">Date</th><th scope="col">Description</th><th scope="col">Reference</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th></tr></thead>
         <tbody>
           ${workspace.lines.length ? workspace.lines.map((line) => `
             <tr>

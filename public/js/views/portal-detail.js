@@ -406,15 +406,15 @@ export async function render(container, { params, query } = {}) {
 
         <div class="doc-items-wrap">
           <div class="doc-label" style="margin-bottom:8px">${isCredit ? (hasCreditRefunds ? 'Bills, payments & refunds' : 'Bills & payments') : 'Wallet activity'}</div>
-          <table class="doc-items stmt-items">
+          <table class="doc-items stmt-items"><caption class="sr-only">${esc(portal.name)} statement</caption>
             <thead>
               <tr>
-                <th style="width:13%">Date</th>
-                <th style="width:18%">Reference</th>
-                <th>Description</th>
-                <th class="num" style="width:12%">${isCredit ? (hasCreditRefunds ? 'Billed / refunded' : 'Billed') : 'In'}</th>
-                <th class="num" style="width:12%">${isCredit ? 'Paid' : 'Out'}</th>
-                <th class="num" style="width:15%">Balance</th>
+                <th scope="col" style="width:13%">Date</th>
+                <th scope="col" style="width:18%">Reference</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="num" style="width:12%">${isCredit ? (hasCreditRefunds ? 'Billed / refunded' : 'Billed') : 'In'}</th>
+                <th scope="col" class="num" style="width:12%">${isCredit ? 'Paid' : 'Out'}</th>
+                <th scope="col" class="num" style="width:15%">Balance</th>
               </tr>
             </thead>
             <tbody>${statementRows}</tbody>

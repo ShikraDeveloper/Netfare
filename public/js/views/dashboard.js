@@ -387,7 +387,7 @@ export async function render(container, { query } = {}) {
           </div>
           <a class="card-link" href="#/reports/income-statement">P&amp;L ${icon('chevron', 13)}</a>
         </div>
-        <div class="chart-wrap"><canvas id="revenue-chart"></canvas></div>
+        <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Monthly revenue and expenses for the last six months"></canvas></div>
       </div>
       <div class="card chart-card">
         <div class="card-head">
@@ -399,7 +399,7 @@ export async function render(container, { query } = {}) {
         <div class="chart-wrap">
           ${expenseEmpty
     ? emptyState({ iconName: 'cash', title: 'No expenses this month', message: 'Record a bill to see your spending breakdown.' })
-    : '<canvas id="expense-chart"></canvas>'}
+    : `<canvas id="expense-chart" role="img" aria-label="Expenses by category for ${esc(month)}"></canvas>`}
         </div>
       </div>
     </div>

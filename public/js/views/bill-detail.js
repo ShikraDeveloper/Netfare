@@ -210,13 +210,13 @@ export async function render(container, { params } = {}) {
         </div>
 
         <div class="doc-items-wrap">
-          <table class="doc-items">
+          <table class="doc-items"><caption class="sr-only">Bill line items</caption>
             <thead>
               <tr>
-                <th style="width:46%">Description</th>
-                <th class="num">Qty</th>
-                <th class="num">Unit cost</th>
-                <th class="num">Amount</th>
+                <th scope="col" style="width:46%">Description</th>
+                <th scope="col" class="num">Qty</th>
+                <th scope="col" class="num">Unit cost</th>
+                <th scope="col" class="num">Amount</th>
               </tr>
             </thead>
             <tbody>

@@ -89,21 +89,21 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="compliance-search" type="search" placeholder="Search compliance items…" autocomplete="off">
+        <input class="input" id="compliance-search" type="search" placeholder="Search compliance items…" aria-label="Search compliance items" autocomplete="off">
       </div>
-      <select class="input" id="compliance-kind" style="max-width:190px">
+      <select class="input" id="compliance-kind" aria-label="Filter compliance items by type" style="max-width:190px">
         <option value="all">All types</option>
         <option value="recurring_bill">Recurring bills</option>
         <option value="filing">Filings</option>
         <option value="renewal">Renewals</option>
       </select>
-      <select class="input" id="compliance-due" style="max-width:160px">
+      <select class="input" id="compliance-due" aria-label="Filter compliance items by due date" style="max-width:160px">
         <option value="all">All due dates</option>
         <option value="attention">Needs attention</option>
         <option value="overdue">Overdue</option>
         <option value="soon">Due soon</option>
       </select>
-      <select class="input" id="compliance-status" style="max-width:150px">
+      <select class="input" id="compliance-status" aria-label="Filter compliance items by status" style="max-width:150px">
         <option value="all">All statuses</option>
         <option value="active">Active</option>
         <option value="paused">Paused</option>
@@ -115,16 +115,16 @@ export async function render(container, { query } = {}) {
 
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Compliance calendar items</caption>
           <thead>
             <tr>
-              <th>Item</th>
-              <th>Type</th>
-              <th>Schedule</th>
-              <th>Next due</th>
-              <th class="num">Amount</th>
-              <th>Status</th>
-              <th></th>
+              <th scope="col">Item</th>
+              <th scope="col">Type</th>
+              <th scope="col">Schedule</th>
+              <th scope="col">Next due</th>
+              <th scope="col" class="num">Amount</th>
+              <th scope="col">Status</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="compliance-body"></tbody>

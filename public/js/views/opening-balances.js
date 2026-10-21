@@ -96,9 +96,9 @@ export async function render(container) {
         <div class="card-title"><h2>Balance sheet accounts</h2><p>Enter each account once as either a debit or a credit.</p></div>
       </div>
       <div class="table-wrap">
-        <table class="data opening-table">
+        <table class="data opening-table"><caption class="sr-only">Opening balances</caption>
           <thead>
-            <tr><th>Account</th><th class="num">Debit</th><th class="num">Credit</th><th class="num">Normal</th></tr>
+            <tr><th scope="col">Account</th><th scope="col" class="num">Debit</th><th scope="col" class="num">Credit</th><th scope="col" class="num">Normal</th></tr>
           </thead>
           <tbody>${accountRows(data.accounts)}</tbody>
         </table>

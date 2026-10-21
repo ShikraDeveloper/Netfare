@@ -365,10 +365,11 @@ export function columnOptions(parsed, selected, { allowNone = false, noneLabel =
 }
 
 export function selectField(label, field, parsed, selected, options = {}) {
+  const id = `map-${field}`;
   return `
     <div class="field">
-      <label>${esc(label)}</label>
-      <select class="input" data-map="${field}">
+      <label for="${id}">${esc(label)}</label>
+      <select class="input" id="${id}" data-map="${field}">
         ${columnOptions(parsed, selected, options)}
       </select>
     </div>

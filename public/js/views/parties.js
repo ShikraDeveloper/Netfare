@@ -176,14 +176,14 @@ export async function renderPartyView(container, { query = new URLSearchParams()
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">${config.title}</caption>
           <thead>
             <tr>
-              <th>${config.singular === 'customer' ? 'Customer' : 'Vendor'}</th>
-              <th>Phone</th>
-              <th class="num">${config.listLabel}s</th>
-              <th class="num">${config.outstandingLabel}</th>
-              <th></th>
+              <th scope="col">${config.singular === 'customer' ? 'Customer' : 'Vendor'}</th>
+              <th scope="col">Phone</th>
+              <th scope="col" class="num">${config.listLabel}s</th>
+              <th scope="col" class="num">${config.outstandingLabel}</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="party-body"></tbody>

@@ -228,13 +228,13 @@ async function openEntryDetail(id) {
     footer: `<div class="modal-foot"><button type="button" class="btn btn-secondary" data-close>Close</button></div>`,
     body: `
       <div class="table-wrap">
-        <table class="report-table">
+        <table class="report-table"><caption class="sr-only">Journal entry lines</caption>
           <thead>
             <tr>
-              <th>Account</th>
-              <th>Description</th>
-              <th class="num">Debit</th>
-              <th class="num">Credit</th>
+              <th scope="col">Account</th>
+              <th scope="col">Description</th>
+              <th scope="col" class="num">Debit</th>
+              <th scope="col" class="num">Credit</th>
             </tr>
           </thead>
           <tbody>
@@ -284,15 +284,15 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Journal entries</caption>
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Memo</th>
-              <th>Source</th>
-              <th class="num">Lines</th>
-              <th class="num">Amount</th>
-              <th></th>
+              <th scope="col">Date</th>
+              <th scope="col">Memo</th>
+              <th scope="col">Source</th>
+              <th scope="col" class="num">Lines</th>
+              <th scope="col" class="num">Amount</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="journal-body"></tbody>

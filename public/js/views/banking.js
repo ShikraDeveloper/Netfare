@@ -108,9 +108,9 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="deposit-search" type="search" placeholder="Search deposit number, reference or notes…" autocomplete="off">
+        <input class="input" id="deposit-search" type="search" placeholder="Search deposit number, reference or notes…" aria-label="Search cash deposits" autocomplete="off">
       </div>
-      <select class="input" id="deposit-status" style="max-width:150px">
+      <select class="input" id="deposit-status" aria-label="Filter cash deposits by status" style="max-width:150px">
         <option value="all">All statuses</option>
         <option value="posted">Posted</option>
         <option value="void">Void</option>
@@ -124,17 +124,17 @@ export async function render(container, { query } = {}) {
 
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Cash deposit history</caption>
           <thead>
             <tr>
-              <th>Deposit</th>
-              <th>From</th>
-              <th>To</th>
-              <th class="num">Amount</th>
-              <th>Reference</th>
-              <th>Status</th>
-              <th>Journal</th>
-              <th></th>
+              <th scope="col">Deposit</th>
+              <th scope="col">From</th>
+              <th scope="col">To</th>
+              <th scope="col" class="num">Amount</th>
+              <th scope="col">Reference</th>
+              <th scope="col">Status</th>
+              <th scope="col">Journal</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="deposit-body"></tbody>

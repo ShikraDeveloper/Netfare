@@ -92,14 +92,14 @@ export async function render(container) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="refund-search" type="search" placeholder="Search refunds…" autocomplete="off">
+        <input class="input" id="refund-search" type="search" placeholder="Search refunds…" aria-label="Search refunds" autocomplete="off">
       </div>
-      <select class="input" id="refund-type-filter" style="max-width:180px">
+      <select class="input" id="refund-type-filter" aria-label="Filter refunds by type" style="max-width:180px">
         <option value="all">All types</option>
         <option value="customer">Customer refunds</option>
         <option value="supplier">Supplier refunds</option>
       </select>
-      <select class="input" id="refund-status-filter" style="max-width:160px">
+      <select class="input" id="refund-status-filter" aria-label="Filter refunds by status" style="max-width:160px">
         <option value="all">All statuses</option>
         <option value="paid">Paid</option>
         <option value="void">Void</option>
@@ -110,15 +110,15 @@ export async function render(container) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Refunds</caption>
           <thead>
             <tr>
-              <th>Refund</th>
-              <th>Party</th>
-              <th>Source</th>
-              <th class="num">Amount</th>
-              <th>Status</th>
-              <th></th>
+              <th scope="col">Refund</th>
+              <th scope="col">Party</th>
+              <th scope="col">Source</th>
+              <th scope="col" class="num">Amount</th>
+              <th scope="col">Status</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="refund-body"></tbody>

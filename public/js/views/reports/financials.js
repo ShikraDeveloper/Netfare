@@ -85,13 +85,13 @@ export function trialBalance(data) {
     <div class="report-card">
       ${reportHeader('Trial Balance', `As of ${fmtDate(data.as_of, { long: true })}`, company)}
       <div class="table-wrap">
-        <table class="report-table">
+        <table class="report-table"><caption class="sr-only">Trial balance</caption>
           <thead>
             <tr>
-              <th>Code</th>
-              <th>Account</th>
-              <th class="num">Debit</th>
-              <th class="num">Credit</th>
+              <th scope="col">Code</th>
+              <th scope="col">Account</th>
+              <th scope="col" class="num">Debit</th>
+              <th scope="col" class="num">Credit</th>
             </tr>
           </thead>
           <tbody>

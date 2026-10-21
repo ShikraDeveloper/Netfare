@@ -10,11 +10,17 @@
     "restore": "node scripts/restore.js",
     "backup": "node scripts/backup.js",
     "check": "node scripts/check.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test test/e2e/*.test.js",
+    "test:all": "npm test && npm run test:e2e"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
     "chart.js": "^4.4.9",
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "axe-core": "^4.14.0",
+    "playwright-core": "^1.64.1"
   }
 }

@@ -22,16 +22,16 @@ export function agingReport(data, kind) {
     <div class="report-card">
       ${reportHeader(title, `As of ${fmtDate(data.as_of, { long: true })}`, company)}
       <div class="table-wrap">
-        <table class="report-table">
+        <table class="report-table"><caption class="sr-only">${title}</caption>
           <thead>
             <tr>
-              <th>${kind === 'ar' ? 'Customer' : 'Vendor'}</th>
-              <th class="num">Current</th>
-              <th class="num">1–30 days</th>
-              <th class="num">31–60 days</th>
-              <th class="num">61–90 days</th>
-              <th class="num">90+ days</th>
-              <th class="num">Total</th>
+              <th scope="col">${kind === 'ar' ? 'Customer' : 'Vendor'}</th>
+              <th scope="col" class="num">Current</th>
+              <th scope="col" class="num">1–30 days</th>
+              <th scope="col" class="num">31–60 days</th>
+              <th scope="col" class="num">61–90 days</th>
+              <th scope="col" class="num">90+ days</th>
+              <th scope="col" class="num">Total</th>
             </tr>
           </thead>
           <tbody>

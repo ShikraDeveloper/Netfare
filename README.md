@@ -21,7 +21,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Banking & cash deposits** — at the end of the day, move cash sales from **1000 Cash** into a bank account with a dedicated deposit entry. The deposit posts Dr Bank / Cr Cash, tracks the slip reference and can be voided without deleting history.
 - **Date filters & pagination** — bookings, visas, invoices, bills, refunds, credit notes, journal entries and cheques can be narrowed to a date range, with filtered totals and a one-click reset. The main list views — including customers, vendors, portals, bookings, visas, cheques and compliance — paginate in the browser with a selectable page size.
 - **Grouped navigation** — Travel, Sales, Purchases, Treasury, Compliance and Accounting are separated in the sidebar so the daily workflow stays short and predictable.
-- **Accessibility** — skip link, keyboard focus rings, modal focus trapping/restore, labelled dialogs and busy-state announcements are built in.
+- **Accessibility** — skip link, keyboard focus rings, keyboard-openable table rows, modal focus trapping/restore, labelled dialogs and busy-state announcements are built in. Every data table has a screen-reader caption and scoped column headers, and the browser suite runs an axe WCAG 2.1 AA audit across the main pages in both light and dark themes.
 - **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings and visas. Files are stored in the local SQLite database, so full database backups include them.
 - **Double-entry ledger** — every document posts balanced journal entries automatically. A general journal supports manual accruals and adjustments.
 - **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging.
@@ -31,7 +31,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 
 ## Requirements
 
-- Node.js 18 or newer (20+ recommended)
+- Node.js 20 or newer (required by the browser test runner; the app itself also runs on Node 18)
 - npm
 
 ## Setup
@@ -46,11 +46,15 @@ Then open **http://127.0.0.1:4173**.
 Run the automated checks with:
 
 ```bash
-npm test
-npm run check
+npm test          # backend/API tests
+npm run test:e2e  # browser end-to-end and accessibility tests
+npm run test:all  # both suites
+npm run check     # syntax-check every JavaScript file
 ```
 
 `npm run check` syntax-checks every server, browser and script JavaScript file without starting the app.
+
+The browser suite uses the locally installed Google Chrome (override with `CHROME_PATH` if needed) and `playwright-core`, so it does not download another browser. It starts a temporary server with its own throwaway SQLite data directory, loads the demo agency, seeds extra pagination fixtures, and then verifies navigation, keyboard row opening, table captions/scopes, pagination and filter resets, modal focus trapping, theme persistence and light-only printing. It finishes with an axe-core WCAG 2.1 AA audit of the main list, detail, treasury, compliance and report pages in both light and dark themes, including colour contrast.
 
 For development with auto-reload:
 

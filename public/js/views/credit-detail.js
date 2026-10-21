@@ -72,8 +72,8 @@ export async function render(container, { params = [] } = {}) {
       </div>
       ${applications.length ? `
         <div class="table-wrap">
-          <table class="data">
-            <thead><tr><th>Applied date</th><th>Invoice</th><th class="num">Amount</th><th>Journal</th><th></th></tr></thead>
+          <table class="data"><caption class="sr-only">Credit note applications</caption>
+            <thead><tr><th scope="col">Applied date</th><th scope="col">Invoice</th><th scope="col" class="num">Amount</th><th scope="col">Journal</th><th scope="col"></th></tr></thead>
             <tbody>
               ${applications.map((application) => `
                 <tr>

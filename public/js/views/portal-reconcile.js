@@ -229,8 +229,8 @@ export async function render(container, { params, query } = {}) {
           ${selectField('Balance column', 'balance', parsed, mapping.balance, { allowNone: true, noneLabel: '— statement has no balance —' })}
 
           <div class="field">
-            <label>Amount layout</label>
-            <select class="input" data-map="layout">
+            <label for="map-layout">Amount layout</label>
+            <select class="input" id="map-layout" data-map="layout">
               <option value="separate" ${mapping.layout === 'separate' ? 'selected' : ''}>Separate money in / money out columns</option>
               <option value="single" ${mapping.layout === 'single' ? 'selected' : ''}>One signed amount column</option>
             </select>
@@ -242,8 +242,8 @@ export async function render(container, { params, query } = {}) {
           ` : `
             ${selectField('Amount column', 'amount', parsed, mapping.amount, { allowNone: true })}
             <div class="field">
-              <label>Positive amounts mean</label>
-              <select class="input" data-map="sign">
+              <label for="map-sign">Positive amounts mean</label>
+              <select class="input" id="map-sign" data-map="sign">
                 <option value="positive_in" ${mapping.sign === 'positive_in' ? 'selected' : ''}>Money in (top-up)</option>
                 <option value="positive_out" ${mapping.sign === 'positive_out' ? 'selected' : ''}>Money out (usage)</option>
               </select>
@@ -251,8 +251,8 @@ export async function render(container, { params, query } = {}) {
           `}
 
           <div class="field">
-            <label>Date format</label>
-            <select class="input" data-map="dateFormat">
+            <label for="map-dateFormat">Date format</label>
+            <select class="input" id="map-dateFormat" data-map="dateFormat">
               <option value="auto" ${mapping.dateFormat === 'auto' ? 'selected' : ''}>Auto detect</option>
               <option value="dmy" ${mapping.dateFormat === 'dmy' ? 'selected' : ''}>DD/MM/YYYY</option>
               <option value="mdy" ${mapping.dateFormat === 'mdy' ? 'selected' : ''}>MM/DD/YYYY</option>
@@ -263,7 +263,7 @@ export async function render(container, { params, query } = {}) {
 
         <div class="recon-preview-wrap">
           <div class="doc-label">Preview</div>
-          <div class="table-wrap"><table class="data recon-preview" id="rc-preview"></table></div>
+          <div class="table-wrap"><table class="data recon-preview" id="rc-preview"><caption class="sr-only">Statement preview</caption></table></div>
           <div class="hint" id="rc-preview-note"></div>
         </div>
 
@@ -301,12 +301,12 @@ export async function render(container, { params, query } = {}) {
     table.innerHTML = `
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Description</th>
-          <th>Reference</th>
-          <th class="num">Money in</th>
-          <th class="num">Money out</th>
-          <th class="num">Balance</th>
+          <th scope="col">Date</th>
+          <th scope="col">Description</th>
+          <th scope="col">Reference</th>
+          <th scope="col" class="num">Money in</th>
+          <th scope="col" class="num">Money out</th>
+          <th scope="col" class="num">Balance</th>
         </tr>
       </thead>
       <tbody>
@@ -452,15 +452,15 @@ export async function render(container, { params, query } = {}) {
         </div>
         <div class="table-wrap">
           ${result.matched.length ? `
-            <table class="data recon-table">
+            <table class="data recon-table"><caption class="sr-only">Matched statement lines</caption>
               <thead>
                 <tr>
-                  <th>Statement date</th>
-                  <th>Statement line</th>
-                  <th class="num">In</th>
-                  <th class="num">Out</th>
-                  <th>Ledger entry</th>
-                  <th>Match</th>
+                  <th scope="col">Statement date</th>
+                  <th scope="col">Statement line</th>
+                  <th scope="col" class="num">In</th>
+                  <th scope="col" class="num">Out</th>
+                  <th scope="col">Ledger entry</th>
+                  <th scope="col">Match</th>
                 </tr>
               </thead>
               <tbody>
@@ -490,14 +490,14 @@ export async function render(container, { params, query } = {}) {
         </div>
         <div class="table-wrap">
           ${result.missing_in_books.length ? `
-            <table class="data recon-table">
+            <table class="data recon-table"><caption class="sr-only">Unmatched statement lines</caption>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Statement line</th>
-                  <th class="num">In</th>
-                  <th class="num">Out</th>
-                  <th>Action</th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Statement line</th>
+                  <th scope="col" class="num">In</th>
+                  <th scope="col" class="num">Out</th>
+                  <th scope="col">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -532,15 +532,15 @@ export async function render(container, { params, query } = {}) {
         </div>
         <div class="table-wrap">
           ${result.missing_on_statement.length ? `
-            <table class="data recon-table">
+            <table class="data recon-table"><caption class="sr-only">Ledger movements for matching</caption>
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Reference</th>
-                  <th>Ledger movement</th>
-                  <th class="num">In</th>
-                  <th class="num">Out</th>
-                  <th></th>
+                  <th scope="col">Date</th>
+                  <th scope="col">Reference</th>
+                  <th scope="col">Ledger movement</th>
+                  <th scope="col" class="num">In</th>
+                  <th scope="col" class="num">Out</th>
+                  <th scope="col"></th>
                 </tr>
               </thead>
               <tbody>

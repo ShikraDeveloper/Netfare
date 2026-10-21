@@ -213,7 +213,15 @@ export async function render(container, { query } = {}) {
             <span>${fmtMoney(total)}</span>
           </div>
           <div class="table-wrap">
-            <table class="data">
+            <table class="data"><caption class="sr-only">${TYPE_LABELS[type]} accounts</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Code</th>
+                  <th scope="col">Account</th>
+                  <th scope="col" class="num">Balance</th>
+                  <th scope="col"></th>
+                </tr>
+              </thead>
               <tbody>${rows.map(accountRow).join('')}</tbody>
             </table>
           </div>

@@ -366,9 +366,9 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="booking-search" type="search" placeholder="Search bookings, customers, PNR…" autocomplete="off">
+        <input class="input" id="booking-search" type="search" placeholder="Search bookings, customers, PNR…" aria-label="Search bookings, customers or PNR" autocomplete="off">
       </div>
-      <select class="input" id="booking-status" style="max-width:170px">
+      <select class="input" id="booking-status" aria-label="Filter bookings by status" style="max-width:170px">
         <option value="all">All statuses</option>
         <option value="draft">Draft</option>
         <option value="confirmed">Confirmed</option>
@@ -382,17 +382,17 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Bookings</caption>
           <thead>
             <tr>
-              <th>Booking</th>
-              <th>Customer</th>
-              <th>Travel</th>
-              <th>Status</th>
-              <th class="num">Sale</th>
-              <th class="num">Cost</th>
-              <th class="num">Margin</th>
-              <th></th>
+              <th scope="col">Booking</th>
+              <th scope="col">Customer</th>
+              <th scope="col">Travel</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">Sale</th>
+              <th scope="col" class="num">Cost</th>
+              <th scope="col" class="num">Margin</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="booking-body"></tbody>

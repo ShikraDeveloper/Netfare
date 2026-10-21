@@ -219,7 +219,7 @@ export function initials(name) {
     .join('') || '?';
 }
 
-const AVATAR_COLORS = ['#0b1b2e', '#25638f', '#1c7a5a', '#b47a0a', '#b85c3d', '#6d5bb5', '#0e7490', '#a76a00'];
+const AVATAR_COLORS = ['#0b1b2e', '#25638f', '#1c7a5a', '#8d5a00', '#b85c3d', '#6d5bb5', '#0e7490', '#8a5a00'];
 
 export function avatar(name, size = 36) {
   const text = initials(name);

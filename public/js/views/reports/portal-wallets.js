@@ -21,17 +21,17 @@ export function portalWallets(data) {
     <div class="report-card">
       ${reportHeader('Portal Wallets', 'Live balances', company)}
       <div class="table-wrap">
-        <table class="report-table">
+        <table class="report-table"><caption class="sr-only">Portal wallet balances</caption>
           <thead>
             <tr>
-              <th>Portal</th>
-              <th>Supplier</th>
-              <th>Terms</th>
-              <th class="num">Topped up</th>
-              <th class="num">Used</th>
-              <th class="num">Withdrawn</th>
-              <th class="num">Balance</th>
-              <th class="num">Payable</th>
+              <th scope="col">Portal</th>
+              <th scope="col">Supplier</th>
+              <th scope="col">Terms</th>
+              <th scope="col" class="num">Topped up</th>
+              <th scope="col" class="num">Used</th>
+              <th scope="col" class="num">Withdrawn</th>
+              <th scope="col" class="num">Balance</th>
+              <th scope="col" class="num">Payable</th>
             </tr>
           </thead>
           <tbody>

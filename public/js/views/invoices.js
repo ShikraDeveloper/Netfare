@@ -83,9 +83,9 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="invoice-search" type="search" placeholder="Search invoices or customers…" autocomplete="off">
+        <input class="input" id="invoice-search" type="search" placeholder="Search invoices or customers…" aria-label="Search invoices or customers" autocomplete="off">
       </div>
-      <select class="input" id="invoice-status" style="max-width:170px">
+      <select class="input" id="invoice-status" aria-label="Filter invoices by status" style="max-width:170px">
         <option value="all">All statuses</option>
         <option value="outstanding">Outstanding</option>
         <option value="draft">Draft</option>
@@ -101,16 +101,16 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Invoices</caption>
           <thead>
             <tr>
-              <th>Invoice</th>
-              <th>Customer</th>
-              <th>Due date</th>
-              <th>Status</th>
-              <th class="num">Total</th>
-              <th class="num">Balance</th>
-              <th></th>
+              <th scope="col">Invoice</th>
+              <th scope="col">Customer</th>
+              <th scope="col">Due date</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">Total</th>
+              <th scope="col" class="num">Balance</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="invoice-body"></tbody>

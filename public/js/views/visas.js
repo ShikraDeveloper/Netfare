@@ -287,9 +287,9 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="visa-search" type="search" placeholder="Search visas, applicants, passports…" autocomplete="off">
+        <input class="input" id="visa-search" type="search" placeholder="Search visas, applicants, passports…" aria-label="Search visas, applicants or passports" autocomplete="off">
       </div>
-      <select class="input" id="visa-status" style="max-width:170px">
+      <select class="input" id="visa-status" aria-label="Filter visas by status" style="max-width:170px">
         <option value="all">All statuses</option>
         ${STATUS_OPTIONS.map((status) => `<option value="${status}">${status.charAt(0).toUpperCase()}${status.slice(1)}</option>`).join('')}
       </select>
@@ -300,17 +300,17 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data visa-table">
+        <table class="data visa-table"><caption class="sr-only">Visa applications</caption>
           <thead>
             <tr>
-              <th>Application</th>
-              <th>Applicant</th>
-              <th>Travel</th>
-              <th>Status</th>
-              <th class="num">Sale</th>
-              <th class="num">Cost</th>
-              <th class="num">Margin</th>
-              <th></th>
+              <th scope="col">Application</th>
+              <th scope="col">Applicant</th>
+              <th scope="col">Travel</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">Sale</th>
+              <th scope="col" class="num">Cost</th>
+              <th scope="col" class="num">Margin</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="visa-body"></tbody>

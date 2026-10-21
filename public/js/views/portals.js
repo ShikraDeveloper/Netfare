@@ -173,14 +173,14 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="portal-search" type="search" placeholder="Search portals, suppliers, references…" autocomplete="off">
+        <input class="input" id="portal-search" type="search" placeholder="Search portals, suppliers, references…" aria-label="Search portals, suppliers or references" autocomplete="off">
       </div>
-      <select class="input" id="portal-settlement" style="max-width:180px">
+      <select class="input" id="portal-settlement" aria-label="Filter portals by settlement terms" style="max-width:180px">
         <option value="all">All terms</option>
         <option value="prepaid">Prepaid wallets</option>
         <option value="credit">Credit accounts</option>
       </select>
-      <select class="input" id="portal-status" style="max-width:170px">
+      <select class="input" id="portal-status" aria-label="Filter portals by status" style="max-width:170px">
         <option value="all">All portals</option>
         <option value="active">Active only</option>
         <option value="archived">Archived</option>
@@ -191,15 +191,15 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Supplier portals</caption>
           <thead>
             <tr>
-              <th>Portal</th>
-              <th>Supplier</th>
-              <th>Terms</th>
-              <th class="num">Available</th>
-              <th class="num">Payable</th>
-              <th></th>
+              <th scope="col">Portal</th>
+              <th scope="col">Supplier</th>
+              <th scope="col">Terms</th>
+              <th scope="col" class="num">Available</th>
+              <th scope="col" class="num">Payable</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="portal-body"></tbody>

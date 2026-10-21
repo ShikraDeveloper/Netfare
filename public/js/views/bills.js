@@ -83,9 +83,9 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="bill-search" type="search" placeholder="Search bills or vendors…" autocomplete="off">
+        <input class="input" id="bill-search" type="search" placeholder="Search bills or vendors…" aria-label="Search bills or vendors" autocomplete="off">
       </div>
-      <select class="input" id="bill-status" style="max-width:170px">
+      <select class="input" id="bill-status" aria-label="Filter bills by status" style="max-width:170px">
         <option value="all">All statuses</option>
         <option value="outstanding">Outstanding</option>
         <option value="draft">Draft</option>
@@ -101,16 +101,16 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Bills</caption>
           <thead>
             <tr>
-              <th>Bill</th>
-              <th>Vendor</th>
-              <th>Due date</th>
-              <th>Status</th>
-              <th class="num">Total</th>
-              <th class="num">Balance</th>
-              <th></th>
+              <th scope="col">Bill</th>
+              <th scope="col">Vendor</th>
+              <th scope="col">Due date</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">Total</th>
+              <th scope="col" class="num">Balance</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="bill-body"></tbody>

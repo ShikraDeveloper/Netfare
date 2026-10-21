@@ -39,16 +39,16 @@ export function dailySales(data) {
         </div>
       </div>
       <div class="table-wrap">
-        <table class="report-table daily-sales-table">
+        <table class="report-table daily-sales-table"><caption class="sr-only">Daily sales register</caption>
           <thead>
             <tr>
-              <th>Invoice</th>
-              <th>Customer</th>
-              <th class="num">Sale</th>
-              <th class="num">Cost</th>
-              <th class="num">Margin</th>
-              <th class="num">Paid</th>
-              <th class="num">Balance</th>
+              <th scope="col">Invoice</th>
+              <th scope="col">Customer</th>
+              <th scope="col" class="num">Sale</th>
+              <th scope="col" class="num">Cost</th>
+              <th scope="col" class="num">Margin</th>
+              <th scope="col" class="num">Paid</th>
+              <th scope="col" class="num">Balance</th>
             </tr>
           </thead>
           <tbody>

@@ -67,15 +67,15 @@ export async function render(container, { params = [], query = new URLSearchPara
       </div>
 
       <div class="table-wrap">
-        <table class="data statement-table">
+        <table class="data statement-table"><caption class="sr-only">Account statement</caption>
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Reference</th>
-              <th>Description</th>
-              <th class="num">Debit</th>
-              <th class="num">Credit</th>
-              <th class="num">Balance</th>
+              <th scope="col">Date</th>
+              <th scope="col">Reference</th>
+              <th scope="col">Description</th>
+              <th scope="col" class="num">Debit</th>
+              <th scope="col" class="num">Credit</th>
+              <th scope="col" class="num">Balance</th>
             </tr>
           </thead>
           <tbody>

@@ -235,16 +235,16 @@ export async function render(container, { params, query } = {}) {
 
         <div class="doc-items-wrap">
           <div class="doc-label" style="margin-bottom:8px">${isCredit ? (hasCreditRefunds ? 'Bills, payments & refunds' : 'Bills & payments') : 'Ledger movements'}</div>
-          <table class="doc-items ledger-table">
+          <table class="doc-items ledger-table"><caption class="sr-only">Portal ledger</caption>
             <thead>
               <tr>
-                <th style="width:12%">Date</th>
-                <th style="width:15%">Reference</th>
-                <th>Description</th>
-                <th class="num" style="width:12%">${isCredit ? 'Paid' : 'Debit'}</th>
-                <th class="num" style="width:12%">${isCredit ? (hasCreditRefunds ? 'Billed / refunded' : 'Billed') : 'Credit'}</th>
-                <th class="num" style="width:13%">Balance</th>
-                <th class="ledger-toggle-col"></th>
+                <th scope="col" style="width:12%">Date</th>
+                <th scope="col" style="width:15%">Reference</th>
+                <th scope="col">Description</th>
+                <th scope="col" class="num" style="width:12%">${isCredit ? 'Paid' : 'Debit'}</th>
+                <th scope="col" class="num" style="width:12%">${isCredit ? (hasCreditRefunds ? 'Billed / refunded' : 'Billed') : 'Credit'}</th>
+                <th scope="col" class="num" style="width:13%">Balance</th>
+                <th scope="col" class="ledger-toggle-col"></th>
               </tr>
             </thead>
             <tbody>${rowsHtml}</tbody>

@@ -21,16 +21,16 @@ export function bookingMargin(data) {
     <div class="report-card">
       ${reportHeader('Booking Margin', periodLabel(data.from, data.to), company)}
       <div class="table-wrap">
-        <table class="report-table">
+        <table class="report-table"><caption class="sr-only">Booking margin report</caption>
           <thead>
             <tr>
-              <th>Booking</th>
-              <th>Customer</th>
-              <th>Destination</th>
-              <th class="num">Sale</th>
-              <th class="num">Cost</th>
-              <th class="num">Margin</th>
-              <th class="num">Margin %</th>
+              <th scope="col">Booking</th>
+              <th scope="col">Customer</th>
+              <th scope="col">Destination</th>
+              <th scope="col" class="num">Sale</th>
+              <th scope="col" class="num">Cost</th>
+              <th scope="col" class="num">Margin</th>
+              <th scope="col" class="num">Margin %</th>
             </tr>
           </thead>
           <tbody>
@@ -82,18 +82,18 @@ export function visaMargin(data) {
     <div class="report-card">
       ${reportHeader('Visa Margin', periodLabel(data.from, data.to), company)}
       <div class="table-wrap">
-        <table class="report-table">
+        <table class="report-table"><caption class="sr-only">Visa margin report</caption>
           <thead>
             <tr>
-              <th>Visa</th>
-              <th>Applicant</th>
-              <th>Destination</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th class="num">Sale</th>
-              <th class="num">Cost</th>
-              <th class="num">Margin</th>
-              <th class="num">Margin %</th>
+              <th scope="col">Visa</th>
+              <th scope="col">Applicant</th>
+              <th scope="col">Destination</th>
+              <th scope="col">Type</th>
+              <th scope="col">Status</th>
+              <th scope="col" class="num">Sale</th>
+              <th scope="col" class="num">Cost</th>
+              <th scope="col" class="num">Margin</th>
+              <th scope="col" class="num">Margin %</th>
             </tr>
           </thead>
           <tbody>

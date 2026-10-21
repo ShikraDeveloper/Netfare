@@ -321,9 +321,9 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="cheque-search" type="search" placeholder="Search cheque, vendor or bank…" autocomplete="off">
+        <input class="input" id="cheque-search" type="search" placeholder="Search cheque, vendor or bank…" aria-label="Search cheques, vendors or banks" autocomplete="off">
       </div>
-      <select class="input" id="cheque-status" style="max-width:160px">
+      <select class="input" id="cheque-status" aria-label="Filter cheques by status" style="max-width:160px">
         <option value="all">All statuses</option>
         ${STATUSES.map((status) => `<option value="${status}">${status.charAt(0).toUpperCase()}${status.slice(1)}</option>`).join('')}
       </select>
@@ -336,17 +336,17 @@ export async function render(container, { query } = {}) {
 
     <div class="card">
       <div class="table-wrap">
-        <table class="data">
+        <table class="data"><caption class="sr-only">Post-dated cheque register</caption>
           <thead>
             <tr>
-              <th>Cheque date</th>
-              <th>Cheque</th>
-              <th>Vendor / item</th>
-              <th class="num">Amount</th>
-              <th>Bank</th>
-              <th>Status</th>
-              <th>Bill / payment</th>
-              <th></th>
+              <th scope="col">Cheque date</th>
+              <th scope="col">Cheque</th>
+              <th scope="col">Vendor / item</th>
+              <th scope="col" class="num">Amount</th>
+              <th scope="col">Bank</th>
+              <th scope="col">Status</th>
+              <th scope="col">Bill / payment</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody id="cheque-body"></tbody>
