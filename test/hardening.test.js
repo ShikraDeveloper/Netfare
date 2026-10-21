@@ -81,6 +81,28 @@ test('legacy VAT account cleanup is one-time and leaves user accounts alone', ()
   assertBalanced();
 });
 
+test('renaming an adopted system account does not block startup', () => {
+  assert.equal(account('1450').is_system, 1);
+  db.prepare("UPDATE accounts SET name = 'Supplier Credits - Airlines' WHERE code = '1450'").run();
+
+  runMigrations(db);
+
+  assert.equal(account('1450').name, 'Supplier Credits - Airlines');
+  assert.equal(account('1450').is_system, 1);
+  db.prepare("UPDATE accounts SET name = 'Supplier Credits' WHERE code = '1450'").run();
+});
+
+test('a user account occupying a required account code still blocks startup', () => {
+  db.prepare("UPDATE accounts SET name = 'My Supplier Credits', is_system = 0 WHERE code = '1450'").run();
+  try {
+    assert.throws(() => runMigrations(db), /already used/);
+  } finally {
+    db.prepare("UPDATE accounts SET name = 'Supplier Credits', is_system = 1 WHERE code = '1450'").run();
+  }
+  runMigrations(db);
+  assert.equal(account('1450').is_system, 1);
+});
+
 test('opening balances reverse instead of deleting reconciled journal lines', () => {
   const bank = account('1010');
   const first = openingBalances.saveOpeningBalances(db, {

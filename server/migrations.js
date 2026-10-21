@@ -176,14 +176,16 @@ db.exec(`
 db.prepare('UPDATE compliance_items SET anchor_date = next_due_date WHERE anchor_date IS NULL').run();
 db.prepare('UPDATE post_dated_cheques SET anchor_date = cheque_date WHERE anchor_date IS NULL').run();
 
-// Required travel accounts are guarded by name. Never rename an account that
-// already uses one of these codes; stop with a clear error instead.
+// Required travel accounts are guarded by name only when they are first
+// adopted. Once an account is a system account, its name may be customised;
+// the stable code still identifies it. A user-created account already using
+// this code is never renamed or adopted automatically.
 function ensureRequiredAccount(code, name) {
   const account = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
   if (!account) {
     throw new Error(`Required account ${code} ${name} is missing. Restore the default chart of accounts before starting.`);
   }
-  if (account.name !== name) {
+  if (!account.is_system && account.name !== name) {
     throw new Error(
       `Account code ${code} is already used by "${account.name}". Ledgerly requires ${code} to be "${name}". `
       + 'Rename the existing account code before starting; Ledgerly will never rename your accounts.',
