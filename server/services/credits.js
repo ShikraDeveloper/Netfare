@@ -20,10 +20,12 @@ const creditSelect = `
   SELECT cn.*, c.name AS customer_name, c.email AS customer_email,
          c.phone AS customer_phone, c.address AS customer_address,
          a.code AS revenue_account_code, a.name AS revenue_account_name,
+         cc.number AS cancellation_number,
          (cn.amount_cents - cn.applied_cents) AS remaining_cents
   FROM credit_notes cn
   JOIN customers c ON c.id = cn.customer_id
   JOIN accounts a ON a.id = cn.revenue_account_id
+  LEFT JOIN cancellations cc ON cc.id = cn.cancellation_id
 `;
 
 function serializeCredit(row) {
@@ -112,6 +114,65 @@ function createCredit(db, payload = {}) {
       source_id: creditId,
       lines: [
         { account_id: revenueAccount.id, debit_cents: amount, credit_cents: 0, description: `Credit note ${number}` },
+        { account_id: credits.id, debit_cents: 0, credit_cents: amount, description: `Credit note ${number}` },
+      ],
+    });
+    db.prepare('UPDATE credit_notes SET journal_entry_id = ? WHERE id = ?').run(entryId, creditId);
+    return getCredit(db, creditId);
+  })();
+}
+
+// A cancellation refund converted into store credit does not touch revenue a
+// second time. It moves the liability from Refund Payable to Customer Credits.
+function createCreditFromCancellation(db, payload = {}) {
+  return db.transaction(() => {
+    const cancellation = db.prepare('SELECT * FROM cancellations WHERE id = ?').get(Number(payload.cancellation_id));
+    if (!cancellation) throw notFound('Cancellation not found');
+    const customer = assertCustomer(db, cancellation.customer_id);
+    const creditDate = dateISO(payload.credit_date || todayISO(), 'Credit date');
+    if (creditDate < cancellation.cancellation_date) {
+      throw bad('Credit date cannot be before the cancellation date');
+    }
+    const amount = cents(payload.amount_cents, 'Credit amount', { min: 1 });
+    const refundDue = cancellation.refund_due_cents
+      - db.prepare(`
+        SELECT COALESCE(SUM(amount_cents), 0) AS total FROM refunds
+        WHERE cancellation_id = ? AND status = 'paid'
+      `).get(cancellation.id).total
+      - db.prepare(`
+        SELECT COALESCE(SUM(amount_cents), 0) AS total FROM credit_notes
+        WHERE cancellation_id = ? AND status = 'issued'
+      `).get(cancellation.id).total;
+    if (amount > refundDue) {
+      throw bad(`Credit amount exceeds the unrefunded cancellation balance of ${(Math.max(0, refundDue) / 100).toFixed(2)}`);
+    }
+    const revenueAccount = systemAccount(db, '4330', 'Cancellation Charges Income');
+    const number = allocateNumber(db, 'credit', creditDate);
+    const info = db.prepare(`
+      INSERT INTO credit_notes (
+        number, customer_id, credit_date, amount_cents, revenue_account_id,
+        cancellation_id, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      number,
+      customer.id,
+      creditDate,
+      amount,
+      revenueAccount.id,
+      cancellation.id,
+      optionalStr(payload.notes, 'Notes', 2000) || `Refund converted to credit for ${cancellation.number}`,
+    );
+    const creditId = Number(info.lastInsertRowid);
+    const credits = systemAccount(db, '2450', 'Customer Credits');
+    const refundPayable = systemAccount(db, '2500', 'Refund Payable');
+    const entryId = postEntry(db, {
+      entry_date: creditDate,
+      memo: `Cancellation ${cancellation.number} refund converted to customer credit ${number}`,
+      reference: cancellation.number,
+      source_type: 'credit_note',
+      source_id: creditId,
+      lines: [
+        { account_id: refundPayable.id, debit_cents: amount, credit_cents: 0, description: `Cancellation ${cancellation.number}` },
         { account_id: credits.id, debit_cents: 0, credit_cents: amount, description: `Credit note ${number}` },
       ],
     });
@@ -218,6 +279,7 @@ module.exports = {
   listCredits,
   getCredit,
   createCredit,
+  createCreditFromCancellation,
   applyCredit,
   deleteCreditApplication,
   voidCredit,

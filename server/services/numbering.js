@@ -72,6 +72,24 @@ function allocateNumber(db, kind, dateStr) {
       next: settings.next_credit_number,
       column: 'next_credit_number',
     },
+    supplier_credit: {
+      table: 'supplier_credit_notes',
+      prefix: settings.supplier_credit_prefix || 'SCN',
+      next: settings.next_supplier_credit_number,
+      column: 'next_supplier_credit_number',
+    },
+    cancellation: {
+      table: 'cancellations',
+      prefix: settings.cancellation_prefix || 'CNC',
+      next: settings.next_cancellation_number,
+      column: 'next_cancellation_number',
+    },
+    portal_credit: {
+      table: 'portal_credits',
+      prefix: settings.portal_credit_prefix || 'PCR',
+      next: settings.next_portal_credit_number,
+      column: 'next_portal_credit_number',
+    },
   };
   const config = configs[kind];
   if (!config) throw new Error(`Unknown document kind: ${kind}`);

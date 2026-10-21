@@ -57,7 +57,7 @@ function getInvoice(db, id) {
     ORDER BY p.payment_date, p.id
   `).all(id).map((payment) => ({
     ...payment,
-    refundable_cents: payment.advance_id
+    refundable_cents: payment.advance_id || payment.status === 'void'
       ? 0
       : Math.max(0, payment.amount_cents - payment.refunded_cents),
   }));
@@ -295,11 +295,33 @@ function voidInvoice(db, id) {
   })();
 }
 
+// Cancellation voids the invoice but deliberately keeps every receipt and
+// refund in place. The caller must first reverse applied credit notes.
+function voidInvoiceForCancellation(db, id, { entryDate, memo } = {}) {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+  if (!invoice) throw notFound('Invoice not found');
+  if (invoice.status === 'void') return getInvoice(db, id);
+  if (invoice.status === 'draft') throw bad('Only a sent invoice can be cancelled');
+  if (invoice.credit_applied_cents > 0) {
+    throw bad('Reverse applied customer credits before cancelling this invoice');
+  }
+  if (invoice.journal_entry_id) {
+    reverseEntry(db, invoice.journal_entry_id, {
+      entry_date: entryDate || todayISO(),
+      memo: memo || `Cancel invoice ${invoice.number}`,
+      source_type: 'void',
+    });
+  }
+  db.prepare(`UPDATE invoices SET status = 'void', updated_at = datetime('now') WHERE id = ?`).run(id);
+  return getInvoice(db, id);
+}
+
 function deleteInvoice(db, id) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status !== 'draft') throw bad('Only draft invoices can be deleted. Void it instead.');
+    db.prepare("DELETE FROM attachments WHERE entity_type = 'invoice' AND entity_id = ?").run(id);
     db.prepare('DELETE FROM invoices WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -372,22 +394,29 @@ function deleteInvoicePayment(db, paymentId) {
   return db.transaction(() => {
     const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId);
     if (!payment) throw notFound('Payment not found');
+    if (payment.status === 'void') throw bad('That payment is already void');
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(payment.invoice_id);
     if (!invoice) throw notFound('Invoice not found');
+    if (invoice.status === 'void') {
+      throw bad('Payments cannot be voided on a void invoice. The cancellation already accounts for the money received.');
+    }
     const refundCount = db.prepare(`
       SELECT COUNT(*) AS c FROM refunds WHERE payment_id = ? AND status = 'paid'
     `).get(paymentId).c;
     if (refundCount > 0) {
-      throw bad('This payment has refunds. Void the refunds before removing the payment or cancelling the invoice.');
+      throw bad('This payment has refunds. Void the refunds before voiding the payment.');
     }
+    let voidEntryId = null;
     if (payment.journal_entry_id) {
-      reverseEntry(db, payment.journal_entry_id, {
+      voidEntryId = reverseEntry(db, payment.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Reverse payment ${payment.number}`,
+        memo: `Void payment ${payment.number}`,
         source_type: 'void',
       });
     }
-    db.prepare('DELETE FROM payments WHERE id = ?').run(paymentId);
+    db.prepare(`
+      UPDATE payments SET status = 'void', void_entry_id = ?, voided_at = datetime('now') WHERE id = ?
+    `).run(voidEntryId, paymentId);
     db.prepare(`
       UPDATE invoices SET amount_paid_cents = MAX(0, amount_paid_cents - ?), updated_at = datetime('now') WHERE id = ?
     `).run(payment.amount_cents, payment.invoice_id);
@@ -395,7 +424,9 @@ function deleteInvoicePayment(db, paymentId) {
       const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(payment.advance_id);
       if (advance) {
         const applied = Math.max(0, advance.applied_cents - payment.amount_cents);
-        const status = applied + advance.refunded_cents >= advance.amount_cents ? 'applied' : 'open';
+        let status = 'open';
+        if (advance.refunded_cents > 0 && applied + advance.refunded_cents >= advance.amount_cents) status = 'refunded';
+        else if (applied + advance.refunded_cents >= advance.amount_cents) status = 'applied';
         db.prepare('UPDATE customer_advances SET applied_cents = ?, status = ? WHERE id = ?').run(applied, status, advance.id);
       }
     }
@@ -410,6 +441,7 @@ module.exports = {
   updateInvoice,
   finalizeInvoice,
   voidInvoice,
+  voidInvoiceForCancellation,
   deleteInvoice,
   recordInvoicePayment,
   deleteInvoicePayment,

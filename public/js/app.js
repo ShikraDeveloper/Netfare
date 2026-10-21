@@ -10,6 +10,10 @@ import * as bookingsView from './views/bookings.js';
 import * as bookingDetailView from './views/booking-detail.js';
 import * as visasView from './views/visas.js';
 import * as visaDetailView from './views/visa-detail.js';
+import * as cancellationsView from './views/cancellations.js';
+import * as cancellationDetailView from './views/cancellation-detail.js';
+import * as supplierCreditsView from './views/supplier-credits.js';
+import * as supplierCreditDetailView from './views/supplier-credit-detail.js';
 import * as portalsView from './views/portals.js';
 import * as portalDetailView from './views/portal-detail.js';
 import * as portalLedgerView from './views/portal-ledger.js';
@@ -44,6 +48,7 @@ const NAV_GROUPS = [
     items: [
       { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings' },
       { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas' },
+      { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
       { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets' },
     ],
   },
@@ -59,6 +64,7 @@ const NAV_GROUPS = [
     label: 'Purchases',
     items: [
       { section: 'bills', href: '#/bills', icon: 'bill', label: 'Bills & expenses' },
+      { section: 'supplier-credits', href: '#/supplier-credits', icon: 'bill', label: 'Supplier credits' },
       { section: 'vendors', href: '#/vendors', icon: 'vendors', label: 'Vendors' },
     ],
   },
@@ -104,6 +110,10 @@ const ROUTES = [
   { pattern: /^\/bookings\/(\d+)$/, view: bookingDetailView, section: 'bookings' },
   { pattern: /^\/visas$/, view: visasView, section: 'visas' },
   { pattern: /^\/visas\/(\d+)$/, view: visaDetailView, section: 'visas' },
+  { pattern: /^\/cancellations$/, view: cancellationsView, section: 'cancellations' },
+  { pattern: /^\/cancellations\/(\d+)$/, view: cancellationDetailView, section: 'cancellations' },
+  { pattern: /^\/supplier-credits$/, view: supplierCreditsView, section: 'supplier-credits' },
+  { pattern: /^\/supplier-credits\/(\d+)$/, view: supplierCreditDetailView, section: 'supplier-credits' },
   { pattern: /^\/portals$/, view: portalsView, section: 'portals' },
   { pattern: /^\/portals\/(\d+)\/ledger$/, view: portalLedgerView, section: 'portals' },
   { pattern: /^\/portals\/(\d+)\/reconcile$/, view: portalReconcileView, section: 'portals' },

@@ -24,11 +24,13 @@ function creditPortalLedger(db, portal, options = {}) {
         FROM bill_payments p
         JOIN bills b ON b.id = p.bill_id
         JOIN accounts a ON a.id = p.payment_account_id
-        WHERE p.vendor_id = ? AND b.status = 'received'
+        WHERE p.vendor_id = ? AND b.status = 'received' AND p.status = 'posted'
         ORDER BY p.payment_date, p.id
       `).all(vendorId)
     : [];
 
+  // Old supplier refunds reduced a bill payment and reopened A/P. Supplier
+  // credit refunds settle 1450 and must not appear as A/P activity.
   const supplierRefunds = vendorId
     ? db.prepare(`
         SELECT r.*, b.number AS bill_number, a.name AS account_name
@@ -36,14 +38,43 @@ function creditPortalLedger(db, portal, options = {}) {
         JOIN bills b ON b.id = r.bill_id
         JOIN accounts a ON a.id = r.account_id
         WHERE r.party_id = ? AND r.refund_type = 'supplier' AND r.status = 'paid'
+          AND r.supplier_credit_note_id IS NULL
         ORDER BY r.refund_date, r.id
       `).all(vendorId)
     : [];
+
+  const supplierCredits = vendorId
+    ? db.prepare(`
+        SELECT scn.*
+        FROM supplier_credit_notes scn
+        WHERE scn.vendor_id = ? AND scn.status = 'issued'
+        ORDER BY scn.credit_date, scn.id
+      `).all(vendorId)
+    : [];
+
+  const creditApplications = vendorId
+    ? db.prepare(`
+        SELECT sca.*, scn.number AS credit_number, scn.credit_date,
+               b.number AS bill_number
+        FROM supplier_credit_applications sca
+        JOIN supplier_credit_notes scn ON scn.id = sca.credit_note_id
+        JOIN bills b ON b.id = sca.bill_id
+        WHERE scn.vendor_id = ?
+        ORDER BY sca.applied_date, sca.id
+      `).all(vendorId)
+    : [];
+
+  const openSupplierCredits = supplierCredits.reduce(
+    (sum, credit) => sum + Math.max(0, credit.amount_cents - credit.applied_cents - credit.refunded_cents - credit.portal_settled_cents),
+    0,
+  );
 
   const entryIds = [
     ...bills.map((bill) => bill.journal_entry_id),
     ...payments.map((payment) => payment.journal_entry_id),
     ...supplierRefunds.map((refund) => refund.journal_entry_id),
+    ...supplierCredits.map((credit) => credit.journal_entry_id),
+    ...creditApplications.map((application) => application.journal_entry_id),
   ].filter(Boolean);
 
   const linesByEntry = new Map();
@@ -116,6 +147,35 @@ function creditPortalLedger(db, portal, options = {}) {
       source_id: refund.id,
       lines: linesByEntry.get(refund.journal_entry_id) || [],
     })),
+    ...creditApplications.map((application) => ({
+      key: `supplier-credit-app-${application.id}`,
+      kind: 'supplier_credit_applied',
+      date: application.applied_date,
+      order: 3,
+      reference: application.credit_number,
+      description: `Supplier credit applied · Bill ${application.bill_number}`,
+      detail: `Credit ${application.credit_number}`,
+      debit_cents: application.amount_cents,
+      credit_cents: 0,
+      entry_id: application.journal_entry_id || null,
+      bill_id: application.bill_id,
+      source_id: application.id,
+      lines: linesByEntry.get(application.journal_entry_id) || [],
+    })),
+    ...supplierCredits.map((credit) => ({
+      key: `supplier-credit-${credit.id}`,
+      kind: 'supplier_credit',
+      date: credit.credit_date,
+      order: 4,
+      reference: credit.number,
+      description: 'Supplier credit issued',
+      detail: credit.bill_id ? 'Credited against a bill' : 'Standalone credit',
+      debit_cents: 0,
+      credit_cents: 0,
+      entry_id: credit.journal_entry_id || null,
+      source_id: credit.id,
+      lines: linesByEntry.get(credit.journal_entry_id) || [],
+    })),
   ].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.order !== b.order) return a.order - b.order;
@@ -147,6 +207,7 @@ function creditPortalLedger(db, portal, options = {}) {
   const periodBills = rows.filter((row) => row.kind === 'bill').length;
   const periodPayments = rows.filter((row) => row.kind === 'bill_payment').length;
   const periodRefunds = rows.filter((row) => row.kind === 'supplier_refund').length;
+  const periodCredits = rows.filter((row) => row.kind === 'supplier_credit_applied').length;
 
   return {
     mode: 'credit',
@@ -161,6 +222,7 @@ function creditPortalLedger(db, portal, options = {}) {
       is_active: portal.is_active,
       balance_cents: portal.balance_cents,
       topup_total_cents: portal.topup_total_cents,
+      credit_total_cents: portal.credit_total_cents,
       refunded_total_cents: portal.refunded_total_cents,
       consumed_total_cents: portal.consumed_total_cents,
       outstanding_ap_cents: portal.outstanding_ap_cents,
@@ -176,6 +238,7 @@ function creditPortalLedger(db, portal, options = {}) {
     total_credit_cents: totalCreditCents,
     closing_cents: closingCents,
     current_balance_cents: portal.outstanding_ap_cents,
+    unapplied_supplier_credits_cents: openSupplierCredits,
     account_code: AP,
     account_name: 'Accounts Payable',
     rows,
@@ -183,9 +246,11 @@ function creditPortalLedger(db, portal, options = {}) {
       bills: bills.length,
       payments: payments.length,
       refunds: supplierRefunds.length,
+      credits: supplierCredits.length,
       period_bills: periodBills,
       period_payments: periodPayments,
       period_refunds: periodRefunds,
+      period_credits: periodCredits,
       topups: 0,
       settlements: 0,
     },
@@ -201,6 +266,7 @@ function portalLedger(db, portalId, options = {}) {
 
   const activityDates = [
     ...portal.topups.map((topup) => topup.topup_date),
+    ...portal.credits.map((credit) => credit.credit_date),
     ...portal.refunds.map((refund) => refund.refund_date),
     ...portal.settlements.map((settlement) => settlement.payment_date),
   ].filter(Boolean).sort();
@@ -214,6 +280,7 @@ function portalLedger(db, portalId, options = {}) {
 
   const entryIds = [
     ...portal.topups.map((topup) => topup.journal_entry_id),
+    ...portal.credits.map((credit) => credit.journal_entry_id),
     ...portal.refunds.map((refund) => refund.journal_entry_id),
     ...portal.settlements.map((settlement) => settlement.journal_entry_id),
   ].filter(Boolean);
@@ -255,6 +322,19 @@ function portalLedger(db, portalId, options = {}) {
       credit_cents: 0,
       entry_id: topup.journal_entry_id || null,
       source_id: topup.id,
+    })),
+    ...portal.credits.map((credit) => ({
+      key: `portal-credit-${credit.id}`,
+      kind: 'portal_credit',
+      date: credit.credit_date,
+      order: 0,
+      reference: credit.number,
+      description: 'Supplier credit added to wallet',
+      detail: [credit.supplier_credit_number, credit.bill_number ? `Bill ${credit.bill_number}` : ''].filter(Boolean).join(' · '),
+      debit_cents: credit.amount_cents,
+      credit_cents: 0,
+      entry_id: credit.journal_entry_id || null,
+      source_id: credit.id,
     })),
     ...portal.refunds.map((refund) => ({
       key: `refund-${refund.id}`,
@@ -318,8 +398,9 @@ function portalLedger(db, portalId, options = {}) {
   const allPortalBalanceCents = db.prepare(`
     SELECT
       (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_topups)
+      + (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_credits)
       - (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_refunds)
-      - (SELECT COALESCE(SUM(amount_cents), 0) FROM bill_payments WHERE portal_id IS NOT NULL)
+      - (SELECT COALESCE(SUM(amount_cents), 0) FROM bill_payments WHERE portal_id IS NOT NULL AND status = 'posted')
       AS balance
   `).get().balance;
 
@@ -336,6 +417,7 @@ function portalLedger(db, portalId, options = {}) {
       is_active: portal.is_active,
       balance_cents: portal.balance_cents,
       topup_total_cents: portal.topup_total_cents,
+      credit_total_cents: portal.credit_total_cents,
       refunded_total_cents: portal.refunded_total_cents,
       consumed_total_cents: portal.consumed_total_cents,
       outstanding_ap_cents: portal.outstanding_ap_cents,
@@ -356,6 +438,7 @@ function portalLedger(db, portalId, options = {}) {
     rows,
     counts: {
       topups: portal.topups.length,
+      credits: portal.credits.length,
       refunds: portal.refunds.length,
       settlements: portal.settlements.length,
     },

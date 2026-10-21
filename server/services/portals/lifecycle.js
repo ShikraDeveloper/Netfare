@@ -53,23 +53,35 @@ function getPortal(db, id) {
     ORDER BY r.refund_date DESC, r.id DESC
   `).all(id);
 
+  result.credits = db.prepare(`
+    SELECT pc.*, scn.number AS supplier_credit_number, b.number AS bill_number
+    FROM portal_credits pc
+    LEFT JOIN supplier_credit_notes scn ON scn.id = pc.supplier_credit_note_id
+    LEFT JOIN bills b ON b.id = pc.bill_id
+    WHERE pc.portal_id = ?
+    ORDER BY pc.credit_date DESC, pc.id DESC
+  `).all(id);
+
   result.settlements = db.prepare(`
-    SELECT bp.id, bp.number, bp.payment_date, bp.amount_cents, bp.reference, bp.journal_entry_id,
+    SELECT bp.id, bp.number, bp.payment_date, bp.amount_cents, bp.reference, bp.status,
+           bp.journal_entry_id,
            b.id AS bill_id, b.number AS bill_number, b.total_cents AS bill_total_cents,
            b.status AS bill_status, b.booking_id AS booking_id, b.visa_id AS visa_id,
            v.name AS vendor_name
     FROM bill_payments bp
     JOIN bills b ON b.id = bp.bill_id
     JOIN vendors v ON v.id = bp.vendor_id
-    WHERE bp.portal_id = ?
+    WHERE bp.portal_id = ? AND bp.status = 'posted'
     ORDER BY bp.payment_date DESC, bp.id DESC
   `).all(id);
 
   result.open_bills = portal.vendor_id ? db.prepare(`
-    SELECT b.id, b.number, b.bill_date, b.total_cents, b.amount_paid_cents,
-           (b.total_cents - b.amount_paid_cents) AS balance_cents, b.booking_id, b.visa_id
+    SELECT b.id, b.number, b.bill_date, b.total_cents, b.amount_paid_cents, b.credit_applied_cents,
+           (b.total_cents - b.amount_paid_cents - b.credit_applied_cents) AS balance_cents,
+           b.booking_id, b.visa_id
     FROM bills b
-    WHERE b.vendor_id = ? AND b.status = 'received' AND b.total_cents > b.amount_paid_cents
+    WHERE b.vendor_id = ? AND b.status = 'received'
+      AND b.total_cents > b.amount_paid_cents + b.credit_applied_cents
     ORDER BY b.bill_date, b.id
   `).all(portal.vendor_id) : [];
 
@@ -91,6 +103,7 @@ function portalReport(db) {
     .map((portal) => serializePortal(portal, agg, outstanding));
   const totals = rows.reduce((acc, row) => {
     acc.topup_total_cents += row.topup_total_cents;
+    acc.credit_total_cents += row.credit_total_cents;
     acc.refunded_total_cents += row.refunded_total_cents;
     acc.consumed_total_cents += row.consumed_total_cents;
     acc.balance_cents += row.balance_cents;
@@ -98,6 +111,7 @@ function portalReport(db) {
     return acc;
   }, {
     topup_total_cents: 0,
+    credit_total_cents: 0,
     refunded_total_cents: 0,
     consumed_total_cents: 0,
     balance_cents: 0,
@@ -172,6 +186,7 @@ function normalizePortal(db, payload, existing = null) {
 function createPortal(db, payload) {
   return db.transaction(() => {
     const data = normalizePortal(db, payload);
+    if (!data.vendor_id) throw bad('Link this portal to a supplier');
     const info = db.prepare(`
       INSERT INTO supplier_portals (name, portal_type, settlement, vendor_id, login_ref, notes, credit_limit_cents, is_active)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -194,6 +209,7 @@ function updatePortal(db, id, payload) {
     const existing = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(id);
     if (!existing) throw notFound('Portal not found');
     const data = normalizePortal(db, payload, existing);
+    if (!data.vendor_id) throw bad('Link this portal to a supplier');
     db.prepare(`
       UPDATE supplier_portals SET name = ?, portal_type = ?, settlement = ?, vendor_id = ?,
         login_ref = ?, notes = ?, credit_limit_cents = ?, is_active = ?, updated_at = datetime('now')
@@ -218,9 +234,10 @@ function deletePortal(db, id) {
     const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(id);
     if (!portal) throw notFound('Portal not found');
     const topups = db.prepare('SELECT COUNT(*) AS c FROM portal_topups WHERE portal_id = ?').get(id).c;
+    const credits = db.prepare('SELECT COUNT(*) AS c FROM portal_credits WHERE portal_id = ?').get(id).c;
     const refunds = db.prepare('SELECT COUNT(*) AS c FROM portal_refunds WHERE portal_id = ?').get(id).c;
     const settlements = db.prepare('SELECT COUNT(*) AS c FROM bill_payments WHERE portal_id = ?').get(id).c;
-    if (topups || refunds || settlements) {
+    if (topups || credits || refunds || settlements) {
       throw bad('This portal has activity. Archive it instead of deleting.');
     }
     db.prepare('DELETE FROM supplier_portals WHERE id = ?').run(id);

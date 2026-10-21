@@ -9,7 +9,6 @@ const {
   cents,
   dateISO,
   todayISO,
-  addDays,
 } = require('../util');
 
 const STATUSES = ['planned', 'issued', 'cleared', 'bounced', 'cancelled'];
@@ -37,14 +36,6 @@ function addMonths(dateStr, months) {
   const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
   const day = d === currentLastDay ? lastDay : Math.min(d, lastDay);
   return `${target.getUTCFullYear()}-${pad2(target.getUTCMonth() + 1)}-${pad2(day)}`;
-}
-
-function nextDate(dateStr, frequency) {
-  if (frequency === 'weekly') return addDays(dateStr, 7);
-  if (frequency === 'monthly') return addMonths(dateStr, 1);
-  if (frequency === 'quarterly') return addMonths(dateStr, 3);
-  if (frequency === 'yearly') return addMonths(dateStr, 12);
-  return null;
 }
 
 function dateDiffDays(from, to) {
@@ -193,8 +184,8 @@ function createBatch(db, payload = {}) {
     const insert = db.prepare(`
       INSERT INTO post_dated_cheques (
         compliance_item_id, vendor_id, cheque_number, cheque_date, amount_cents,
-        bank_name, status, reference, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        bank_name, status, reference, notes, anchor_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const duplicate = db.prepare(`
       SELECT id FROM post_dated_cheques
@@ -203,18 +194,18 @@ function createBatch(db, payload = {}) {
     `);
 
     const created = [];
-    let date = startDate;
+    const step = frequency === 'monthly' ? 1 : frequency === 'quarterly' ? 3 : 12;
     for (let i = 0; i < count; i += 1) {
       const chequeNumber = incrementChequeNumber(firstNumber, i);
       if (duplicate.get(chequeNumber, bankName, bankName)) {
         throw bad(`Cheque ${chequeNumber} already exists${bankName ? ` for ${bankName}` : ''}`);
       }
+      const date = addMonths(startDate, step * i);
       const info = insert.run(
         item.id, item.vendor_id, chequeNumber, date, amount,
-        bankName, status, reference, notes,
+        bankName, status, reference, notes, startDate,
       );
       created.push(getCheque(db, Number(info.lastInsertRowid)));
-      date = nextDate(date, frequency);
     }
     return { cheques: created, count: created.length };
   })();
@@ -261,6 +252,9 @@ function deleteCheque(db, id) {
   return db.transaction(() => {
     const cheque = db.prepare('SELECT * FROM post_dated_cheques WHERE id = ?').get(id);
     if (!cheque) throw notFound('Cheque not found');
+    if (cheque.bill_payment_id || cheque.bill_id) {
+      throw bad('This cheque is linked to a payment. Void the payment before deleting the cheque.');
+    }
     db.prepare('DELETE FROM post_dated_cheques WHERE id = ?').run(id);
     return { deleted: true };
   })();

@@ -137,7 +137,7 @@ export async function render(container, { params } = {}) {
           <div class="payment-icon">${icon('cash', 15)}</div>
           <div class="payment-main">
             <strong>${esc(payment.method || 'Payment')}</strong>
-            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}</span>
+            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
             ${payment.advance_id ? '<span class="cell-sub">Applied from customer advance</span>' : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
@@ -147,7 +147,7 @@ export async function render(container, { params } = {}) {
             ${refunded > 0 ? `<div class="cell-sub">net ${fmtMoney(payment.amount_cents - refunded)}</div>` : ''}
           </div>
           ${refundable > 0 && invoice.status === 'sent' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Refund payment">${icon('arrowUp', 16)}</button>` : ''}
-          ${refunded > 0 ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Remove payment">${icon('trash', 16)}</button>`}
+          ${refunded > 0 || invoice.status !== 'sent' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;
     }).join('')
@@ -449,14 +449,14 @@ export async function render(container, { params } = {}) {
     button.addEventListener('click', async (event) => {
       event.stopPropagation();
       const confirmed = await confirmDialog({
-        title: 'Remove this payment?',
-        message: 'The payment will be removed from the invoice and a reversing journal entry will be posted so your ledger stays balanced.',
-        confirmLabel: 'Remove payment',
+        title: 'Void this payment?',
+        message: 'The payment will be voided and a reversing journal entry will be posted. The payment record and its audit trail are kept, and the invoice balance will reopen.',
+        confirmLabel: 'Void payment',
       });
       if (!confirmed) return;
       try {
         await api.del(`/invoices/payments/${button.dataset.deletePayment}`);
-        toast('Payment removed');
+        toast('Payment voided');
         refresh();
       } catch (error) {
         toast(error.message, 'error');

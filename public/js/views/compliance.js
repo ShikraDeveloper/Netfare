@@ -13,7 +13,7 @@ import { kpi, rowHtml } from './compliance/shared.js';
 import { openComplianceModal, openGenerateBillModal } from './compliance/modal.js';
 
 export async function render(container, { query } = {}) {
-  const data = await api.get('/compliance', { auto: 1 });
+  const data = await api.get('/compliance');
   const summary = data.summary;
   const items = data.items;
 

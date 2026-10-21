@@ -159,6 +159,11 @@ const STATUS_LABELS = {
   cleared: 'Cleared',
   bounced: 'Bounced',
   posted: 'Posted',
+  cancellation: 'Cancellation',
+  open: 'Open',
+  used: 'Used',
+  refunded: 'Refunded',
+  applied: 'Applied',
 };
 
 export const PORTAL_TYPES = [
@@ -195,7 +200,13 @@ const SOURCE_LABELS = {
   supplier_refund: 'Supplier refund',
   credit_note: 'Credit note',
   credit_applied: 'Credit applied',
-  cash_deposit: 'Cash deposit',
+  cancellation: 'Cancellation',
+  cancellation_received: 'Cancellation money held',
+  cancellation_charge: 'Cancellation charge',
+  cancellation_refund: 'Cancellation refund',
+  supplier_credit: 'Supplier credit',
+  supplier_credit_applied: 'Supplier credit applied',
+  portal_credit: 'Portal credit',
   cash_deposit: 'Cash deposit',
   manual: 'Manual',
   opening: 'Opening',

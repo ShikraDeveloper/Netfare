@@ -1,9 +1,16 @@
 'use strict';
 
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../../util');
-const { systemAccount, postEntry, reverseEntry } = require('../../accounting');
+const { systemAccount, postEntry, reverseEntry, billBalanceCents } = require('../../accounting');
 const { allocateNumber } = require('../numbering');
-const { SUPPLIER_ADVANCES, AP, assertAccount, lockBalance } = require('./common');
+const {
+  SUPPLIER_ADVANCES,
+  AP,
+  assertAccount,
+  balanceAsOf,
+  lockBalance,
+  canRemoveTopup,
+} = require('./common');
 const { getPortal, portalForVendor } = require('./lifecycle');
 
 function topUp(db, payload) {
@@ -11,6 +18,8 @@ function topUp(db, payload) {
     const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(payload.portal_id));
     if (!portal) throw bad('Choose a portal');
     if (!portal.is_active) throw bad('That portal is archived');
+    if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
+    if (portal.settlement !== 'prepaid') throw bad('Only prepaid portals accept top-ups. Use the supplier ledger for credit accounts.');
 
     const amount = cents(payload.amount_cents, 'Top-up amount', { min: 1 });
     const date = dateISO(payload.topup_date || todayISO(), 'Top-up date');
@@ -57,6 +66,9 @@ function deleteTopup(db, id) {
     if (balance < topup.amount_cents) {
       throw bad('Part of this top-up has already been used. Withdraw the remaining balance instead of deleting.');
     }
+    if (!canRemoveTopup(db, topup)) {
+      throw bad('Deleting this top-up would make the wallet negative on a past date. Withdraw the remaining balance instead.');
+    }
     if (topup.journal_entry_id) {
       reverseEntry(db, topup.journal_entry_id, {
         entry_date: todayISO(),
@@ -74,16 +86,19 @@ function refundPortal(db, id, payload = {}) {
     const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(id);
     if (!portal) throw notFound('Portal not found');
 
-    const balance = lockBalance(db, id);
-    if (balance <= 0) throw bad('This portal has no available balance to withdraw');
+    if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
+    if (portal.settlement !== 'prepaid') throw bad('Only prepaid portal wallets can be withdrawn');
+
+    const date = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    const balance = Math.min(lockBalance(db, id), balanceAsOf(db, id, date));
+    if (balance <= 0) throw bad('This portal has no available balance to withdraw on that date');
     const amount = payload.amount_cents == null
       ? balance
       : cents(payload.amount_cents, 'Withdrawal amount', { min: 1 });
-    if (amount > balance) throw bad('Withdrawal is more than the available portal balance');
+    if (amount > balance) throw bad('Withdrawal is more than the available portal balance on that date');
 
     const account = assertAccount(db, payload.payment_account_id, 'refund account');
     const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
-    const date = dateISO(payload.refund_date || todayISO(), 'Refund date');
 
     const info = db.prepare(`
       INSERT INTO portal_refunds (portal_id, refund_date, amount_cents, method, reference, notes, payment_account_id)
@@ -121,7 +136,7 @@ function settleBillFromPortal(db, payload) {
     if (!bill) throw bad('Choose a bill');
     if (bill.status !== 'received') throw bad('Only received bills can be settled from a portal');
 
-    const billBalance = Math.max(0, bill.total_cents - bill.amount_paid_cents);
+    const billBalance = billBalanceCents(bill);
     if (billBalance <= 0) throw bad('That bill is already fully paid');
 
     const portal = payload.portal_id
@@ -129,12 +144,18 @@ function settleBillFromPortal(db, payload) {
       : portalForVendor(db, bill.vendor_id);
     if (!portal) throw bad('No portal is linked to this supplier');
     if (!portal.is_active) throw bad('That portal is archived');
-    if (portal.vendor_id && portal.vendor_id !== bill.vendor_id) {
-      throw bad(`Portal "${portal.name}" belongs to a different supplier`);
+    if (!portal.vendor_id || portal.vendor_id !== bill.vendor_id) {
+      throw bad(`Portal "${portal.name}" is not linked to this bill's supplier`);
+    }
+    if (portal.settlement !== 'prepaid') {
+      throw bad('Only a prepaid portal wallet can settle a bill. Pay credit-account bills through Accounts Payable.');
     }
 
-    const available = lockBalance(db, portal.id);
-    if (available <= 0) throw bad(`Portal "${portal.name}" has no available balance`);
+    const date = dateISO(payload.settle_date || todayISO(), 'Settlement date');
+    if (date < bill.bill_date) throw bad('Settlement date cannot be before the bill date');
+
+    const available = Math.min(lockBalance(db, portal.id), balanceAsOf(db, portal.id, date));
+    if (available <= 0) throw bad(`Portal "${portal.name}" has no available balance on that date`);
 
     const requested = payload.amount_cents == null
       ? billBalance
@@ -142,7 +163,6 @@ function settleBillFromPortal(db, payload) {
     const amount = Math.min(requested, billBalance, available);
     if (amount <= 0) throw bad('Nothing to settle from this portal');
 
-    const date = dateISO(payload.settle_date || todayISO(), 'Settlement date');
     const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
     const ap = systemAccount(db, AP, 'Accounts Payable');
     const number = allocateNumber(db, 'bill_payment', date);
@@ -192,9 +212,9 @@ function autoSettleBill(db, billId, settleDate) {
   const portal = portalForVendor(db, bill.vendor_id);
   if (!portal || portal.settlement !== 'prepaid') return null;
 
-  const billBalance = Math.max(0, bill.total_cents - bill.amount_paid_cents);
+  const billBalance = billBalanceCents(bill);
   if (billBalance <= 0) return null;
-  const available = lockBalance(db, portal.id);
+  const available = Math.min(lockBalance(db, portal.id), balanceAsOf(db, portal.id, settleDate || bill.bill_date));
   if (available <= 0) {
     return { settled_cents: 0, portal_id: portal.id, portal_name: portal.name, shortfall_cents: billBalance };
   }
@@ -209,10 +229,74 @@ function autoSettleBill(db, billId, settleDate) {
   return { ...result, shortfall_cents: Math.max(0, billBalance - amount) };
 }
 
+// A supplier credit on a prepaid portal becomes wallet value without any cash
+// moving. Internally the supplier credit is settled into Supplier Advances.
+function recordPortalCredit(db, payload = {}) {
+  const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(payload.portal_id));
+  if (!portal) throw bad('Choose a portal');
+  if (!portal.is_active) throw bad('That portal is archived');
+  if (!portal.vendor_id) throw bad('Link this portal to a supplier before recording a credit');
+  if (portal.settlement !== 'prepaid') throw bad('Only prepaid portals accept wallet credits');
+  const amount = cents(payload.amount_cents, 'Portal credit amount', { min: 1 });
+  const date = dateISO(payload.credit_date || todayISO(), 'Credit date');
+
+  let note = null;
+  if (payload.supplier_credit_note_id) {
+    note = db.prepare('SELECT * FROM supplier_credit_notes WHERE id = ?').get(Number(payload.supplier_credit_note_id));
+    if (!note) throw bad('Choose a valid supplier credit note');
+    if (note.status !== 'issued') throw bad('That supplier credit is void');
+    if (note.vendor_id !== portal.vendor_id) throw bad('The supplier credit belongs to a different supplier');
+    if (date < note.credit_date) throw bad('Portal credit date cannot be before the supplier credit date');
+    const remaining = note.amount_cents - note.applied_cents - note.refunded_cents - note.portal_settled_cents;
+    if (amount > remaining) throw bad('Portal credit exceeds the remaining supplier credit');
+  }
+  if (payload.bill_id) {
+    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(Number(payload.bill_id));
+    if (!bill) throw bad('Choose a valid bill');
+    if (bill.vendor_id !== portal.vendor_id) throw bad('The bill belongs to a different supplier');
+  }
+
+  const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+  const supplierCredits = systemAccount(db, '1450', 'Supplier Credits');
+  const number = allocateNumber(db, 'portal_credit', date);
+  const info = db.prepare(`
+    INSERT INTO portal_credits (
+      number, portal_id, credit_date, amount_cents, bill_id, supplier_credit_note_id, notes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    number,
+    portal.id,
+    date,
+    amount,
+    payload.bill_id ? Number(payload.bill_id) : null,
+    note ? note.id : null,
+    optionalStr(payload.notes, 'Notes', 2000),
+  );
+  const creditId = Number(info.lastInsertRowid);
+  const entryId = postEntry(db, {
+    entry_date: date,
+    memo: `Portal credit ${number} — ${portal.name}`,
+    reference: number,
+    source_type: 'portal_credit',
+    source_id: creditId,
+    lines: [
+      { account_id: supplierAdvances.id, debit_cents: amount, credit_cents: 0, description: `Portal credit ${number} · ${portal.name}` },
+      { account_id: supplierCredits.id, debit_cents: 0, credit_cents: amount, description: `Portal credit ${number}` },
+    ],
+  });
+  db.prepare('UPDATE portal_credits SET journal_entry_id = ? WHERE id = ?').run(entryId, creditId);
+  if (note) {
+    db.prepare('UPDATE supplier_credit_notes SET portal_settled_cents = portal_settled_cents + ? WHERE id = ?')
+      .run(amount, note.id);
+  }
+  return db.prepare('SELECT * FROM portal_credits WHERE id = ?').get(creditId);
+}
+
 module.exports = {
   topUp,
   deleteTopup,
   refundPortal,
   settleBillFromPortal,
   autoSettleBill,
+  recordPortalCredit,
 };

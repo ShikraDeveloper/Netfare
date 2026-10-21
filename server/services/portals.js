@@ -16,6 +16,7 @@ module.exports = {
   refundPortal: money.refundPortal,
   settleBillFromPortal: money.settleBillFromPortal,
   autoSettleBill: money.autoSettleBill,
+  recordPortalCredit: money.recordPortalCredit,
   portalForVendor: lifecycle.portalForVendor,
   portalReport: lifecycle.portalReport,
   portalStats: lifecycle.portalStats,

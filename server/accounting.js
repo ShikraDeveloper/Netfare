@@ -5,6 +5,7 @@ const { bad, dateISO, cents, todayISO } = require('./util');
 const SYSTEM_CODES = {
   AR: '1100',
   SUPPLIER_ADVANCES: '1400',
+  SUPPLIER_CREDITS: '1450',
   AP: '2000',
   CUSTOMER_ADVANCES: '2400',
   CUSTOMER_CREDITS: '2450',
@@ -12,7 +13,20 @@ const SYSTEM_CODES = {
   RETAINED_EARNINGS: '3100',
   OPENING_BALANCE_EQUITY: '3900',
   SERVICE_CHARGE: '4300',
+  CANCELLATION_INCOME: '4330',
 };
+
+// Accounts that are maintained by a subledger. Manual journals may not post
+// to them because doing so breaks aging, statements and reconciliation.
+const CONTROL_ACCOUNT_CODES = new Set([
+  SYSTEM_CODES.AR,
+  SYSTEM_CODES.SUPPLIER_ADVANCES,
+  SYSTEM_CODES.SUPPLIER_CREDITS,
+  SYSTEM_CODES.AP,
+  SYSTEM_CODES.CUSTOMER_ADVANCES,
+  SYSTEM_CODES.CUSTOMER_CREDITS,
+  SYSTEM_CODES.REFUND_PAYABLE,
+]);
 
 function getSettings(db) {
   return db.prepare('SELECT * FROM settings WHERE id = 1').get();
@@ -130,6 +144,22 @@ function invoiceBalanceCents(invoice) {
   return Math.max(0, invoice.total_cents - invoice.amount_paid_cents - (invoice.credit_applied_cents || 0));
 }
 
+function billBalanceCents(bill) {
+  return Math.max(0, bill.total_cents - bill.amount_paid_cents - (bill.credit_applied_cents || 0));
+}
+
+function assertManualEntryAccounts(db, lines) {
+  if (!Array.isArray(lines)) return;
+  for (const line of lines) {
+    const accountId = Number(line?.account_id);
+    if (!Number.isInteger(accountId) || accountId <= 0) continue;
+    const account = db.prepare('SELECT code, name FROM accounts WHERE id = ?').get(accountId);
+    if (account && CONTROL_ACCOUNT_CODES.has(account.code)) {
+      throw bad(`Manual entries cannot post to control account ${account.code} ${account.name}. Use the related invoice, bill, refund or credit screen.`);
+    }
+  }
+}
+
 function invoiceDisplayStatus(invoice, today = todayISO()) {
   if (invoice.status === 'draft') return 'draft';
   if (invoice.status === 'void') return 'void';
@@ -142,13 +172,15 @@ function invoiceDisplayStatus(invoice, today = todayISO()) {
 function billDisplayStatus(bill, today = todayISO()) {
   if (bill.status === 'draft') return 'draft';
   if (bill.status === 'void') return 'void';
-  if (bill.total_cents <= bill.amount_paid_cents) return 'paid';
-  if (bill.amount_paid_cents > 0) return bill.due_date < today ? 'overdue' : 'partial';
+  const settled = bill.amount_paid_cents + (bill.credit_applied_cents || 0);
+  if (bill.total_cents <= settled) return 'paid';
+  if (settled > 0) return bill.due_date < today ? 'overdue' : 'partial';
   return bill.due_date < today ? 'overdue' : 'received';
 }
 
 module.exports = {
   SYSTEM_CODES,
+  CONTROL_ACCOUNT_CODES,
   getSettings,
   accountByCode,
   isCashAccount,
@@ -158,6 +190,8 @@ module.exports = {
   reverseEntry,
   getEntryWithLines,
   invoiceBalanceCents,
+  billBalanceCents,
   invoiceDisplayStatus,
   billDisplayStatus,
+  assertManualEntryAccounts,
 };

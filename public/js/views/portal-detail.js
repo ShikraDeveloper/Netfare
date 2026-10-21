@@ -92,9 +92,23 @@ export async function render(container, { params, query } = {}) {
       source: 'portal_topup',
       deleteId: topup.id,
     })),
+    ...portal.credits.map((credit) => ({
+      date: credit.credit_date,
+      order: 1,
+      ref: credit.number,
+      label: `Supplier credit${credit.supplier_credit_number ? ` ${credit.supplier_credit_number}` : ''}`,
+      detail: [
+        credit.bill_number ? `Bill ${credit.bill_number}` : '',
+        credit.notes || 'Credited to this wallet',
+      ].filter(Boolean).join(' · '),
+      inCents: credit.amount_cents,
+      outCents: 0,
+      source: 'portal_credit',
+      deleteId: null,
+    })),
     ...portal.refunds.map((refund) => ({
       date: refund.refund_date,
-      order: 1,
+      order: 2,
       ref: '',
       label: 'Withdrawal to bank',
       detail: `${refund.method || 'Withdrawal'}${refund.payment_account_name ? ` · ${refund.payment_account_name}` : ''}${refund.reference ? ` · ${refund.reference}` : ''}`,
@@ -105,7 +119,7 @@ export async function render(container, { params, query } = {}) {
     })),
     ...portal.settlements.map((settlement) => ({
       date: settlement.payment_date,
-      order: 2,
+      order: 3,
       ref: settlement.number,
       label: `${settlement.bill_number} · ${settlement.vendor_name}`,
       detail: settlement.booking_id
@@ -187,10 +201,10 @@ export async function render(container, { params, query } = {}) {
   const walletHistory = ledger
     .slice()
     .reverse()
-    .filter((row) => row.source === 'portal_topup' || row.source === 'portal_refund')
+    .filter((row) => ['portal_topup', 'portal_credit', 'portal_refund'].includes(row.source))
     .map((row) => `
       <div class="payment-item">
-        <div class="payment-icon">${icon(row.source === 'portal_topup' ? 'wallet' : 'arrowUp', 15)}</div>
+        <div class="payment-icon">${icon(row.source === 'portal_topup' ? 'wallet' : row.source === 'portal_credit' ? 'bill' : 'arrowUp', 15)}</div>
         <div class="payment-main">
           <strong>${esc(row.label)}</strong>
           <span>${esc(fmtDate(row.date))} · ${esc(row.detail)}</span>
@@ -267,7 +281,7 @@ export async function render(container, { params, query } = {}) {
   const walletCards = isCredit ? '' : `
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Wallet movements</h2><p>Top-ups and withdrawals</p></div>
+        <div class="card-title"><h2>Wallet movements</h2><p>Top-ups, credits and withdrawals</p></div>
         <div style="display:flex;gap:6px">
           ${canWithdraw ? `<button class="btn btn-secondary btn-sm" data-action="withdraw">${icon('arrowUp', 14)} Withdraw</button>` : ''}
           ${portal.is_active ? `<button class="btn btn-primary btn-sm" data-action="topup">${icon('plus', 14)} Top up</button>` : ''}

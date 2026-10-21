@@ -16,6 +16,7 @@ import {
   toCents,
 } from '../ui.js';
 import { openBookingModal } from './bookings.js';
+import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 import { advanceModalBody, applyModalBody, depositAccounts, refundModalBody } from './job-modals.js';
@@ -88,7 +89,7 @@ export async function render(container, { params } = {}) {
       <div class="payment-amount">${fmtMoney(advance.remaining_cents)} <small class="muted">left</small></div>
       <div style="display:flex;gap:4px">
         ${advance.remaining_cents > 0 ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
-        ${advance.remaining_cents > 0 && advance.applied_cents === 0 ? `<button class="icon-btn danger" data-delete-advance="${advance.id}" title="Delete advance">${icon('trash', 16)}</button>` : ''}
+        ${advance.remaining_cents > 0 && advance.applied_cents === 0 && !advance.refunded_cents ? `<button class="icon-btn danger" data-delete-advance="${advance.id}" title="Delete advance">${icon('trash', 16)}</button>` : ''}
       </div>
     </div>
   `).join('');
@@ -99,7 +100,7 @@ export async function render(container, { params } = {}) {
           <div class="payment-icon">${icon('cash', 15)}</div>
           <div class="payment-main">
             <strong>${esc(payment.method || 'Payment')}</strong>
-            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}</span>
+            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
           </div>
           <div class="payment-amount">${fmtMoney(payment.amount_cents)}</div>
         </div>
@@ -123,6 +124,31 @@ export async function render(container, { params } = {}) {
         </div>
       `).join('')
     : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'Supplier bills are created automatically when you confirm this booking.' : 'No supplier bills linked.'}</div>`;
+
+  const cancellation = booking.cancellation;
+  const cancellationCard = cancellation
+    ? `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><h2>Cancellation</h2><p>${esc(cancellation.number)} · ${esc(fmtDate(cancellation.cancellation_date))}</p></div>
+          <a class="card-link" href="#/cancellations/${cancellation.id}">Open note ${icon('chevron', 12)}</a>
+        </div>
+        <div class="card-body">
+          <div class="detail-list">
+            <div><span>Cancellation charges</span><strong>${fmtMoney(cancellation.customer_charges_cents)}</strong></div>
+            <div><span>Money held</span><strong>${fmtMoney(cancellation.received_cents)}</strong></div>
+            <div><span>Supplier credit</span><strong>${fmtMoney(cancellation.supplier_credit_total_cents)}</strong></div>
+            <div><span>Refund remaining</span><strong>${fmtMoney(cancellation.refund_remaining_cents)}</strong></div>
+          </div>
+          ${cancellation.refund_remaining_cents > 0 ? `
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <a class="btn btn-primary btn-sm" href="#/cancellations/${cancellation.id}">${icon('arrowUp', 14)} Pay refund or convert to credit</a>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `
+    : '';
 
   const invoiceCard = invoice
     ? `
@@ -234,6 +260,8 @@ export async function render(container, { params } = {}) {
         <div class="card-body" style="padding:6px 20px">${billRows}</div>
       </div>
 
+      ${cancellationCard}
+
       <div class="card">
         <div class="card-head">
           <div class="card-title"><h2>Customer advances</h2><p>${booking.advances.length ? `${booking.advances.length} advance${booking.advances.length === 1 ? '' : 's'}` : 'No advances recorded'}</p></div>
@@ -336,20 +364,12 @@ export async function render(container, { params } = {}) {
 
   const cancelButton = document.querySelector('[data-action="cancel"]');
   if (cancelButton) {
-    cancelButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
-        title: `Cancel ${booking.number}?`,
-        message: 'The customer invoice and supplier bills will be reversed. Any payments already received will be refunded with reversing entries, and applied advances returned to Customer Advances.',
-        confirmLabel: 'Cancel booking',
+    cancelButton.addEventListener('click', () => {
+      openCancellationModal({
+        job: booking,
+        sourceType: 'booking',
+        onDone: () => refresh(),
       });
-      if (!confirmed) return;
-      try {
-        await api.post(`/bookings/${id}/cancel`, {});
-        toast(`${booking.number} cancelled with reversing entries`);
-        refresh();
-      } catch (error) {
-        toast(error.message, 'error');
-      }
     });
   }
 

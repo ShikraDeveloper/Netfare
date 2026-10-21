@@ -63,6 +63,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           <strong>${fmtMoney(data.closing_balance_cents)}</strong>
           <small>As of ${esc(fmtDate(data.to, { long: true }))}</small>
           ${data.unapplied_credits_cents > 0 ? `<small>Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</small>` : ''}
+          ${data.unapplied_supplier_credits_cents > 0 ? `<small>Open supplier credits: ${fmtMoney(data.unapplied_supplier_credits_cents)}</small>` : ''}
         </div>
       </div>
 

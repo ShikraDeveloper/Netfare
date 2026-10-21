@@ -15,14 +15,19 @@ const {
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 
-function accountBalance(db, accountId) {
+function accountBalanceAsOf(db, accountId, asOf) {
   const row = db.prepare(`
     SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS balance
     FROM journal_lines l
+    JOIN journal_entries e ON e.id = l.entry_id
     JOIN accounts a ON a.id = l.account_id
-    WHERE l.account_id = ? AND a.type = 'asset'
-  `).get(accountId);
+    WHERE l.account_id = ? AND a.type = 'asset' AND e.entry_date <= ?
+  `).get(accountId, asOf);
   return row.balance;
+}
+
+function accountBalance(db, accountId) {
+  return accountBalanceAsOf(db, accountId, '9999-12-31');
 }
 
 function cashBalances(db) {
@@ -120,9 +125,13 @@ function createDeposit(db, payload = {}) {
       throw bad('Cash deposits must move between cash or bank accounts');
     }
     if (from.id === to.id) throw bad('Cash and bank accounts must be different');
-    const available = accountBalance(db, from.id);
-    if (amount > available) {
-      throw bad(`Deposit exceeds the available ${from.name} balance of ${(available / 100).toFixed(2)}`);
+    const availableOnDate = accountBalanceAsOf(db, from.id, depositDate);
+    if (amount > availableOnDate) {
+      throw bad(`Deposit exceeds the ${from.name} balance on ${depositDate} of ${(availableOnDate / 100).toFixed(2)}`);
+    }
+    const availableToday = accountBalanceAsOf(db, from.id, todayISO());
+    if (amount > availableToday) {
+      throw bad(`Deposit exceeds the available ${from.name} balance of ${(availableToday / 100).toFixed(2)}`);
     }
     const number = allocateNumber(db, 'deposit', depositDate);
     const info = db.prepare(`

@@ -129,7 +129,7 @@ export async function render(container, { params } = {}) {
           <div class="payment-icon">${icon('cash', 15)}</div>
           <div class="payment-main">
             <strong>${esc(payment.method || 'Payment')}</strong>
-            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}</span>
+            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
             ${payment.portal_id ? `<span class="cell-sub">Paid from ${esc(payment.portal_name || 'supplier wallet')}</span>` : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
@@ -139,7 +139,7 @@ export async function render(container, { params } = {}) {
             ${refunded > 0 ? `<div class="cell-sub">net ${fmtMoney(payment.amount_cents - refunded)}</div>` : ''}
           </div>
           ${refundable > 0 && bill.status === 'received' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Record supplier refund">${icon('arrowUp', 16)}</button>` : ''}
-          ${refunded > 0 ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Remove payment">${icon('trash', 16)}</button>`}
+          ${refunded > 0 || bill.status !== 'received' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;
     }).join('')
@@ -240,6 +240,7 @@ export async function render(container, { params } = {}) {
             <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(bill.subtotal_cents)}</span></div>
             <div class="totals-row total"><span>Total</span><span>${fmtMoney(bill.total_cents)}</span></div>
             ${bill.amount_paid_cents > 0 ? `<div class="totals-row"><span>Paid</span><span>−${fmtMoney(bill.amount_paid_cents)}</span></div>` : ''}
+            ${bill.credit_applied_cents > 0 ? `<div class="totals-row"><span>Supplier credits applied</span><span>−${fmtMoney(bill.credit_applied_cents)}</span></div>` : ''}
             <div class="totals-row balance"><span>Balance due</span><span>${fmtMoney(bill.balance_cents)}</span></div>
           </div>
         </div>
@@ -264,6 +265,31 @@ export async function render(container, { params } = {}) {
         <div class="card-body">${journalHtml}</div>
       </div>
     </div>
+
+    ${bill.supplier_credits.length ? `
+      <div class="card no-print" style="margin-top:16px">
+        <div class="card-head">
+          <div class="card-title"><h2>Supplier credits</h2><p>${fmtMoney(bill.credit_applied_cents)} applied · ${fmtMoney(bill.supplier_credits.reduce((sum, credit) => sum + credit.remaining_cents, 0))} still open</p></div>
+          <a class="card-link" href="#/supplier-credits">All supplier credits ${icon('chevron', 12)}</a>
+        </div>
+        <div class="table-wrap">
+          <table class="data"><caption class="sr-only">Supplier credits linked to this bill</caption>
+            <thead><tr><th scope="col">Credit</th><th scope="col">Date</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Remaining</th><th scope="col">Status</th></tr></thead>
+            <tbody>
+              ${bill.supplier_credits.map((credit) => `
+                <tr class="clickable" data-credit-id="${credit.id}">
+                  <td><a href="#/supplier-credits/${credit.id}">${esc(credit.number)}</a></td>
+                  <td>${esc(fmtDate(credit.credit_date))}</td>
+                  <td class="num">${fmtMoney(credit.amount_cents)}</td>
+                  <td class="num">${fmtMoney(credit.remaining_cents)}</td>
+                  <td>${statusBadge(credit.remaining_cents > 0 ? 'open' : 'used')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
 
     ${attachmentSection({ entityType: 'bill', entityId: id, attachments })}
   `;
@@ -427,14 +453,14 @@ export async function render(container, { params } = {}) {
     button.addEventListener('click', async (event) => {
       event.stopPropagation();
       const confirmed = await confirmDialog({
-        title: 'Remove this payment?',
-        message: 'The payment will be removed from the bill and a reversing journal entry will be posted so your ledger stays balanced.',
-        confirmLabel: 'Remove payment',
+        title: 'Void this payment?',
+        message: 'The payment will be voided and a reversing journal entry will be posted. The payment record and its audit trail are kept, and the bill balance will reopen.',
+        confirmLabel: 'Void payment',
       });
       if (!confirmed) return;
       try {
         await api.del(`/bills/payments/${button.dataset.deletePayment}`);
-        toast('Payment removed');
+        toast('Payment voided');
         refresh();
       } catch (error) {
         toast(error.message, 'error');

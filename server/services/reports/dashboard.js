@@ -51,8 +51,8 @@ function dashboard(db) {
     FROM invoices WHERE status = 'sent' AND total_cents > amount_paid_cents + credit_applied_cents
   `).get();
   const ap = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS total, COUNT(*) AS count
-    FROM bills WHERE status = 'received' AND total_cents > amount_paid_cents
+    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total, COUNT(*) AS count
+    FROM bills WHERE status = 'received' AND total_cents > amount_paid_cents + credit_applied_cents
   `).get();
 
   const overdueAr = db.prepare(`
@@ -61,9 +61,22 @@ function dashboard(db) {
     WHERE status = 'sent' AND total_cents > amount_paid_cents + credit_applied_cents AND due_date < ?
   `).get(today);
   const overdueAp = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS total
-    FROM bills WHERE status = 'received' AND total_cents > amount_paid_cents AND due_date < ?
+    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total
+    FROM bills WHERE status = 'received' AND total_cents > amount_paid_cents + credit_applied_cents AND due_date < ?
   `).get(today);
+
+  const openSupplierCredits = db.prepare(`
+    SELECT COALESCE(SUM(amount_cents - applied_cents - refunded_cents - portal_settled_cents), 0) AS total,
+           COUNT(*) AS count
+    FROM supplier_credit_notes
+    WHERE status = 'issued' AND amount_cents > applied_cents + refunded_cents + portal_settled_cents
+  `).get();
+  const refundPayable = -db.prepare(`
+    SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS total
+    FROM journal_lines l
+    JOIN accounts a ON a.id = l.account_id
+    WHERE a.code = '2500'
+  `).get().total;
 
   const currentMonthStart = start;
   const chartMonths = [];
@@ -122,7 +135,7 @@ function dashboard(db) {
   `).all().map((row) => ({
     ...row,
     status_display: billDisplayStatus(row, today),
-    balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents),
+    balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
   }));
 
   const recentBookings = db.prepare(`
@@ -169,6 +182,9 @@ function dashboard(db) {
     ap_count: ap.count,
     overdue_ar_cents: overdueAr.total,
     overdue_ap_cents: overdueAp.total,
+    supplier_credits_cents: openSupplierCredits.total,
+    supplier_credit_count: openSupplierCredits.count,
+    refund_payable_cents: refundPayable,
     chart: chartMonths,
     expense_breakdown: expenseBreakdown,
     recent_invoices: recentInvoices,

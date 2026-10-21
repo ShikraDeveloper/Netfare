@@ -16,9 +16,19 @@ import {
   toCents,
 } from '../ui.js';
 import { openVisaModal, visaTypeLabel } from './visas.js';
+import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 import { advanceModalBody, applyModalBody, depositAccounts, refundModalBody } from './job-modals.js';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 
 function statusSteps(visa) {
   if (['rejected', 'cancelled'].includes(visa.status)) {
@@ -28,9 +38,9 @@ function statusSteps(visa) {
         <div class="visa-outcome-icon">${icon(rejected ? 'alert' : 'x', 18)}</div>
         <div>
           <strong>${rejected ? 'Application rejected' : 'Application cancelled'}</strong>
-          <p>${rejected
-    ? 'The customer invoice and supplier bills were reversed. If the embassy keeps its fee, record it as an expense.'
-    : 'The customer invoice and supplier bills were reversed with the cancellation.'}</p>
+          <p>${visa.cancellation
+    ? `Cancellation ${escapeHtml(visa.cancellation.number)} was recorded. Receipts and supplier payments stay in the ledger, and any refund or supplier credit is tracked on the cancellation note.`
+    : 'The customer invoice and supplier bills were reversed under the earlier cancellation logic.'}</p>
         </div>
       </div>
     `;
@@ -136,7 +146,7 @@ export async function render(container, { params } = {}) {
       <div class="payment-amount">${fmtMoney(advance.remaining_cents)} <small class="muted">left</small></div>
       <div style="display:flex;gap:4px">
         ${advance.remaining_cents > 0 ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
-        ${advance.remaining_cents > 0 && advance.applied_cents === 0 ? `<button class="icon-btn danger" data-delete-advance="${advance.id}" title="Delete advance">${icon('trash', 16)}</button>` : ''}
+        ${advance.remaining_cents > 0 && advance.applied_cents === 0 && !advance.refunded_cents ? `<button class="icon-btn danger" data-delete-advance="${advance.id}" title="Delete advance">${icon('trash', 16)}</button>` : ''}
       </div>
     </div>
   `).join('');
@@ -147,7 +157,7 @@ export async function render(container, { params } = {}) {
           <div class="payment-icon">${icon('cash', 15)}</div>
           <div class="payment-main">
             <strong>${esc(payment.method || 'Payment')}</strong>
-            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}</span>
+            <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
           </div>
           <div class="payment-amount">${fmtMoney(payment.amount_cents)}</div>
         </div>
@@ -171,6 +181,31 @@ export async function render(container, { params } = {}) {
         </div>
       `).join('')
     : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'Supplier bills are created automatically when you submit this application.' : 'No supplier bills linked.'}</div>`;
+
+  const cancellation = visa.cancellation;
+  const cancellationCard = cancellation
+    ? `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title"><h2>Cancellation</h2><p>${esc(cancellation.number)} · ${esc(fmtDate(cancellation.cancellation_date))}</p></div>
+          <a class="card-link" href="#/cancellations/${cancellation.id}">Open note ${icon('chevron', 12)}</a>
+        </div>
+        <div class="card-body">
+          <div class="detail-list">
+            <div><span>Cancellation charges</span><strong>${fmtMoney(cancellation.customer_charges_cents)}</strong></div>
+            <div><span>Money held</span><strong>${fmtMoney(cancellation.received_cents)}</strong></div>
+            <div><span>Supplier credit</span><strong>${fmtMoney(cancellation.supplier_credit_total_cents)}</strong></div>
+            <div><span>Refund remaining</span><strong>${fmtMoney(cancellation.refund_remaining_cents)}</strong></div>
+          </div>
+          ${cancellation.refund_remaining_cents > 0 ? `
+            <div style="margin-top:14px;display:flex;gap:8px">
+              <a class="btn btn-primary btn-sm" href="#/cancellations/${cancellation.id}">${icon('arrowUp', 14)} Pay refund or convert to credit</a>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `
+    : '';
 
   const invoiceCard = invoice
     ? `
@@ -292,6 +327,8 @@ export async function render(container, { params } = {}) {
         <div class="card-body" style="padding:6px 20px">${billRows}</div>
       </div>
 
+      ${cancellationCard}
+
       <div class="card">
         <div class="card-head">
           <div class="card-title"><h2>Customer advances</h2><p>${visa.advances.length ? `${visa.advances.length} advance${visa.advances.length === 1 ? '' : 's'}` : 'No advances recorded'}</p></div>
@@ -407,39 +444,24 @@ export async function render(container, { params } = {}) {
 
   const rejectButton = document.querySelector('[data-action="reject"]');
   if (rejectButton) {
-    rejectButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
-        title: `Reject ${visa.number}?`,
-        message: 'The customer invoice and supplier bills will be reversed. If the embassy or supplier keeps its fee, record it as an expense afterwards.',
-        confirmLabel: 'Reject application',
+    rejectButton.addEventListener('click', () => {
+      openCancellationModal({
+        job: visa,
+        sourceType: 'visa',
+        action: 'reject',
+        onDone: () => refresh(),
       });
-      if (!confirmed) return;
-      try {
-        await api.post(`/visas/${id}/reject`, {});
-        toast(`${visa.number} rejected with reversing entries`);
-        refresh();
-      } catch (error) {
-        toast(error.message, 'error');
-      }
     });
   }
 
   const cancelButton = document.querySelector('[data-action="cancel"]');
   if (cancelButton) {
-    cancelButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
-        title: `Cancel ${visa.number}?`,
-        message: 'The customer invoice and supplier bills will be reversed. Any payments already received will be reversed, and applied advances returned to Customer Advances.',
-        confirmLabel: 'Cancel application',
+    cancelButton.addEventListener('click', () => {
+      openCancellationModal({
+        job: visa,
+        sourceType: 'visa',
+        onDone: () => refresh(),
       });
-      if (!confirmed) return;
-      try {
-        await api.post(`/visas/${id}/cancel`, {});
-        toast(`${visa.number} cancelled with reversing entries`);
-        refresh();
-      } catch (error) {
-        toast(error.message, 'error');
-      }
     });
   }
 

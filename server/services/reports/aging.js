@@ -5,9 +5,10 @@ const { dateISO, todayISO } = require('../../util');
 function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName, asOf) {
   const today = asOf ? dateISO(asOf, 'As-of date') : todayISO();
   const dateColumn = table === 'invoices' ? 'issue_date' : 'bill_date';
-  const creditExpr = table === 'invoices' ? 'd.credit_applied_cents' : '0';
+  const creditExpr = 'd.credit_applied_cents';
   const rows = db.prepare(`
     SELECT d.id, d.number, d.${dateColumn} AS document_date, d.due_date, d.total_cents, d.amount_paid_cents,
+           d.credit_applied_cents,
            p.id AS party_id, p.name AS party_name,
            d.total_cents - d.amount_paid_cents - ${creditExpr} AS balance_cents
     FROM ${table} d
@@ -60,6 +61,9 @@ function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName
       number: row.number,
       document_date: row.document_date,
       due_date: row.due_date,
+      total_cents: row.total_cents,
+      amount_paid_cents: row.amount_paid_cents,
+      credit_applied_cents: row.credit_applied_cents,
       balance_cents: row.balance_cents,
       days_overdue: daysOverdue,
     });

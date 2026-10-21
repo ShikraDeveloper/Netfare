@@ -33,7 +33,7 @@ router.post('/:id/travel', (req, res) => {
 });
 
 router.post('/:id/cancel', (req, res) => {
-  res.json(service.cancelBooking(db, Number(req.params.id)));
+  res.json(service.cancelBooking(db, Number(req.params.id), req.body || {}));
 });
 
 module.exports = router;

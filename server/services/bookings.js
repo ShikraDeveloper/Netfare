@@ -14,6 +14,7 @@ const { isPurchaseAccount } = require('../accounting');
 const invoiceService = require('./invoices');
 const billService = require('./bills');
 const portalService = require('./portals');
+const cancellationService = require('./cancellations');
 
 const bookingSelect = `
   SELECT b.*, c.name AS customer_name, c.email AS customer_email,
@@ -113,11 +114,16 @@ function getBooking(db, id) {
     ? db.prepare('SELECT * FROM invoices WHERE id = ?').get(booking.invoice_id)
     : null;
   if (booking.invoice) {
-    booking.invoice.balance_cents = Math.max(0, booking.invoice.total_cents - booking.invoice.amount_paid_cents - (booking.invoice.credit_applied_cents || 0));
+    booking.invoice.balance_cents = booking.invoice.status === 'sent'
+      ? Math.max(0, booking.invoice.total_cents - booking.invoice.amount_paid_cents - (booking.invoice.credit_applied_cents || 0))
+      : 0;
   }
 
   booking.bills = db.prepare(`
-    SELECT b.*, v.name AS vendor_name, p.name AS portal_name, p.settlement AS portal_settlement
+    SELECT b.*, v.name AS vendor_name, p.name AS portal_name, p.settlement AS portal_settlement,
+      (SELECT COALESCE(SUM(scn.amount_cents), 0)
+       FROM supplier_credit_notes scn
+       WHERE scn.bill_id = b.id AND scn.status = 'issued') AS supplier_credit_total_cents
     FROM bills b
     JOIN vendors v ON v.id = b.vendor_id
     LEFT JOIN supplier_portals p ON p.id = b.portal_id
@@ -125,8 +131,14 @@ function getBooking(db, id) {
     ORDER BY b.id
   `).all(id).map((bill) => ({
     ...bill,
-    balance_cents: Math.max(0, bill.total_cents - bill.amount_paid_cents),
+    balance_cents: bill.status === 'received'
+      ? Math.max(0, bill.total_cents - bill.amount_paid_cents - (bill.credit_applied_cents || 0))
+      : 0,
+    supplier_credit_available_cents: bill.status === 'received'
+      ? Math.max(0, bill.total_cents - (bill.supplier_credit_total_cents || 0))
+      : 0,
   }));
+  booking.cancellation = cancellationService.getCancellationForSource(db, 'booking', id);
 
   booking.payments = booking.invoice
     ? db.prepare(`
@@ -268,6 +280,7 @@ function deleteBooking(db, id) {
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!booking) throw notFound('Booking not found');
     if (booking.status !== 'draft') throw bad('Only draft bookings can be deleted. Cancel it instead.');
+    db.prepare("DELETE FROM attachments WHERE entity_type = 'booking' AND entity_id = ?").run(id);
     db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -362,41 +375,28 @@ function markTravelled(db, id) {
   })();
 }
 
-function cancelBooking(db, id) {
-  return db.transaction(() => {
-    const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
-    if (!booking) throw notFound('Booking not found');
-    if (booking.status === 'cancelled') throw bad('Booking is already cancelled');
-
-    if (booking.status !== 'draft' && booking.invoice_id) {
-      const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(booking.invoice_id);
-      if (invoice && invoice.status === 'sent') {
-        const payments = db.prepare('SELECT id FROM payments WHERE invoice_id = ?').all(invoice.id);
-        for (const payment of payments) invoiceService.deleteInvoicePayment(db, payment.id);
-        invoiceService.voidInvoice(db, invoice.id);
-      }
-    }
-
-    if (booking.status !== 'draft') {
-      const bills = db.prepare('SELECT * FROM bills WHERE booking_id = ?').all(id);
-      for (const bill of bills) {
-        if (bill.status !== 'received') continue;
-        const payments = db.prepare('SELECT id FROM bill_payments WHERE bill_id = ?').all(bill.id);
-        for (const payment of payments) billService.deleteBillPayment(db, payment.id);
-        billService.voidBill(db, bill.id);
-      }
-    }
-
-    db.prepare("UPDATE bookings SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?").run(id);
-    return getBooking(db, id);
-  })();
+function cancelBooking(db, id, payload = {}) {
+  cancellationService.cancelSource(db, {
+    sourceType: 'booking',
+    sourceId: id,
+    payload,
+    finalStatus: 'cancelled',
+  });
+  return getBooking(db, id);
 }
 
 function bookingStats(db, from, to) {
   const rows = db.prepare('SELECT * FROM bookings').all();
   const inRange = rows.filter((row) => (!from || row.booking_date >= from) && (!to || row.booking_date <= to));
-  const sale = inRange.reduce((sum, row) => sum + row.sale_total_cents, 0);
-  const cost = inRange.reduce((sum, row) => sum + row.cost_total_cents, 0);
+  let sale = 0;
+  let cost = 0;
+  for (const row of inRange) {
+    const adjustment = cancellationService.cancellationAdjustment(
+      db, 'booking', row.id, row.sale_total_cents, row.cost_total_cents,
+    );
+    sale += adjustment ? adjustment.sale_total_cents : row.sale_total_cents;
+    cost += adjustment ? adjustment.cost_total_cents : row.cost_total_cents;
+  }
   const counts = { total: rows.length, draft: 0, confirmed: 0, travelled: 0, cancelled: 0 };
   for (const row of rows) counts[row.status] = (counts[row.status] || 0) + 1;
   return {
@@ -418,7 +418,18 @@ function bookingMarginReport(db, from, to) {
     WHERE ${where.join(' AND ')}
     ORDER BY b.booking_date DESC, b.id DESC
   `).all(...params);
-  const serialised = rows.map(serializeBooking);
+  const serialised = rows.map((row) => {
+    const base = serializeBooking(row);
+    const adjustment = cancellationService.cancellationAdjustment(
+      db, 'booking', row.id, row.sale_total_cents, row.cost_total_cents,
+    );
+    if (!adjustment) return base;
+    return {
+      ...base,
+      ...adjustment,
+      margin_cents: adjustment.sale_total_cents - adjustment.cost_total_cents,
+    };
+  });
   const totals = serialised.reduce((acc, row) => {
     acc.sale_cents += row.sale_total_cents;
     acc.cost_cents += row.cost_total_cents;

@@ -60,6 +60,17 @@ function addMonths(dateStr, months) {
   return `${target.getUTCFullYear()}-${pad2(target.getUTCMonth() + 1)}-${pad2(day)}`;
 }
 
+// Schedule from the original anchor day so a 31st-of-month item does not
+// drift permanently to the 28th after passing through February.
+function scheduledDate(anchorDate, frequency, index = 0) {
+  if (!anchorDate) return null;
+  if (frequency === 'weekly') return addDays(anchorDate, 7 * index);
+  if (frequency === 'monthly') return addMonths(anchorDate, index);
+  if (frequency === 'quarterly') return addMonths(anchorDate, 3 * index);
+  if (frequency === 'yearly') return addMonths(anchorDate, 12 * index);
+  return null;
+}
+
 function nextDate(dateStr, frequency) {
   if (frequency === 'weekly') return addDays(dateStr, 7);
   if (frequency === 'monthly') return addMonths(dateStr, 1);
@@ -148,15 +159,9 @@ function summarize(items) {
   };
 }
 
-function listCompliance(db, { kind, status, due, search, from, to, auto } = {}) {
-  let generated = [];
-  let errors = [];
-  if (auto === true || auto === '1' || auto === 'true') {
-    const run = runDueBills(db);
-    generated = run.generated;
-    errors = run.errors;
-  }
-
+function listCompliance(db, { kind, status, due, search, from, to } = {}) {
+  const generated = [];
+  const errors = [];
   const today = todayISO();
   let items = rawItems(db).map((item) => serializeItem(item, today));
 
@@ -232,7 +237,23 @@ function normalizePayload(db, payload = {}, existing = null) {
   const frequency = String(payload.frequency ?? existing?.frequency ?? defaultFrequency(kind));
   if (!FREQUENCIES.includes(frequency)) throw bad('Choose a valid frequency');
 
-  const nextDueDate = dateISO(payload.next_due_date ?? existing?.next_due_date, 'Next due date');
+  let nextDueDate = dateISO(payload.next_due_date ?? existing?.next_due_date, 'Next due date');
+  const reanchor = Boolean(existing)
+    && payload.next_due_date !== undefined
+    && payload.next_due_date !== existing.next_due_date
+    && payload.anchor_date === undefined;
+  const anchorDate = dateISO(
+    payload.anchor_date ?? (reanchor ? nextDueDate : existing?.anchor_date ?? nextDueDate),
+    'Anchor date',
+  );
+  let periodIndex = payload.period_index !== undefined
+    ? Math.round(num(payload.period_index, 'Period index', { min: 0 }))
+    : (reanchor ? 0 : Number(existing?.period_index || 0));
+  if (!Number.isInteger(periodIndex) || periodIndex < 0) throw bad('Period index must be zero or greater');
+  if (existing && payload.frequency !== undefined && payload.frequency !== existing.frequency
+    && payload.next_due_date === undefined && payload.anchor_date === undefined) {
+    nextDueDate = scheduledDate(anchorDate, frequency, periodIndex) || anchorDate;
+  }
   const endRaw = payload.end_date !== undefined ? payload.end_date : existing?.end_date;
   const endDate = endRaw ? dateISO(endRaw, 'End date') : null;
   if (endDate && endDate < nextDueDate) throw bad('End date cannot be before the next due date');
@@ -295,6 +316,8 @@ function normalizePayload(db, payload = {}, existing = null) {
     variable_amount: variableAmount ? 1 : 0,
     payment_method: paymentMethod,
     frequency,
+    anchor_date: anchorDate,
+    period_index: periodIndex,
     next_due_date: nextDueDate,
     end_date: endDate,
     status,
@@ -310,13 +333,14 @@ function createCompliance(db, payload = {}) {
     const info = db.prepare(`
       INSERT INTO compliance_items (
         name, kind, category, vendor_id, account_id, amount_cents, variable_amount,
-        payment_method, frequency, next_due_date, end_date, status,
+        payment_method, frequency, anchor_date, period_index, next_due_date, end_date, status,
         auto_create_bill, reminder_days, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name, data.kind, data.category, data.vendor_id, data.account_id,
       data.amount_cents, data.variable_amount, data.payment_method,
-      data.frequency, data.next_due_date, data.end_date, data.status,
+      data.frequency, data.anchor_date, data.period_index,
+      data.next_due_date, data.end_date, data.status,
       data.auto_create_bill, data.reminder_days, data.notes,
     );
     const id = Number(info.lastInsertRowid);
@@ -337,13 +361,14 @@ function updateCompliance(db, id, payload = {}) {
       UPDATE compliance_items SET
         name = ?, kind = ?, category = ?, vendor_id = ?, account_id = ?,
         amount_cents = ?, variable_amount = ?, payment_method = ?,
-        frequency = ?, next_due_date = ?, end_date = ?, status = ?,
+        frequency = ?, anchor_date = ?, period_index = ?, next_due_date = ?, end_date = ?, status = ?,
         auto_create_bill = ?, reminder_days = ?, notes = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       data.name, data.kind, data.category, data.vendor_id, data.account_id,
       data.amount_cents, data.variable_amount, data.payment_method,
-      data.frequency, data.next_due_date, data.end_date, data.status,
+      data.frequency, data.anchor_date, data.period_index,
+      data.next_due_date, data.end_date, data.status,
       data.auto_create_bill, data.reminder_days, data.notes, id,
     );
     db.prepare(`
@@ -402,14 +427,15 @@ function generateBill(db, id, payload = {}) {
       }],
     });
 
-    const next = nextDate(item.next_due_date, item.frequency);
+    const nextPeriod = Number(item.period_index || 0) + 1;
+    const next = scheduledDate(item.anchor_date || item.next_due_date, item.frequency, nextPeriod);
     const done = !next || (item.end_date && next > item.end_date);
     db.prepare(`
       UPDATE compliance_items SET
-        last_generated_date = ?, next_due_date = COALESCE(?, next_due_date),
+        last_generated_date = ?, period_index = ?, next_due_date = COALESCE(?, next_due_date),
         status = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(billDate, next, done ? 'done' : item.status, id);
+    `).run(billDate, nextPeriod, next, done ? 'done' : item.status, id);
     db.prepare(`
       INSERT INTO compliance_logs (item_id, action, event_date, detail, bill_id)
       VALUES (?, 'bill_generated', ?, ?, ?)
@@ -423,10 +449,12 @@ function advanceAfterDate(db, id, action, eventDate, detail) {
   const item = db.prepare('SELECT * FROM compliance_items WHERE id = ?').get(id);
   if (!item) throw notFound('Compliance item not found');
   if (item.status !== 'active') throw bad('Activate this compliance item first');
-  const next = nextDate(item.next_due_date, item.frequency);
+  const nextPeriod = Number(item.period_index || 0) + 1;
+  const next = scheduledDate(item.anchor_date || item.next_due_date, item.frequency, nextPeriod);
   const done = !next || (item.end_date && next > item.end_date);
   db.prepare(`
     UPDATE compliance_items SET
+      period_index = ?,
       next_due_date = COALESCE(?, next_due_date),
       status = ?,
       ${action === 'completed' ? 'last_completed_date = ?,' : ''}
@@ -434,8 +462,8 @@ function advanceAfterDate(db, id, action, eventDate, detail) {
     WHERE id = ?
   `).run(...(
     action === 'completed'
-      ? [next, done ? 'done' : item.status, eventDate, id]
-      : [next, done ? 'done' : item.status, id]
+      ? [nextPeriod, next, done ? 'done' : item.status, eventDate, id]
+      : [nextPeriod, next, done ? 'done' : item.status, id]
   ));
   db.prepare(`
     INSERT INTO compliance_logs (item_id, action, event_date, detail)
@@ -516,4 +544,5 @@ module.exports = {
   runDueBills,
   complianceStats,
   nextDate,
+  scheduledDate,
 };

@@ -33,6 +33,13 @@ function getAdvance(db, id) {
     WHERE a.id = ?
   `).get(id);
   if (!advance) throw notFound('Advance not found');
+  advance.refunds = db.prepare(`
+    SELECT r.*, a.name AS account_name
+    FROM refunds r
+    JOIN accounts a ON a.id = r.account_id
+    WHERE r.advance_id = ?
+    ORDER BY r.refund_date, r.id
+  `).all(advance.id);
   return serializeAdvance(advance);
 }
 
@@ -228,7 +235,29 @@ function refundAdvance(db, id, payload = {}) {
     const refunded = advance.refunded_cents + amount;
     const status = advance.applied_cents + refunded >= advance.amount_cents ? 'refunded' : 'open';
     db.prepare('UPDATE customer_advances SET refunded_cents = ?, status = ? WHERE id = ?').run(refunded, status, id);
-    return { advance: getAdvance(db, id), journal_entry_id: entryId };
+    const number = allocateNumber(db, 'refund', refundDate);
+    const refundInfo = db.prepare(`
+      INSERT INTO refunds (
+        number, refund_type, status, party_id, advance_id, refund_date,
+        amount_cents, method, reference, notes, account_id, journal_entry_id
+      ) VALUES (?, 'customer', 'paid', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      number,
+      advance.customer_id,
+      advance.id,
+      refundDate,
+      amount,
+      optionalStr(payload.method, 'Refund method', 100) || 'Bank transfer',
+      advance.number,
+      optionalStr(payload.notes, 'Notes', 2000) || `Refund of advance ${advance.number}`,
+      account.id,
+      entryId,
+    );
+    return {
+      advance: getAdvance(db, id),
+      refund_id: Number(refundInfo.lastInsertRowid),
+      journal_entry_id: entryId,
+    };
   })();
 }
 

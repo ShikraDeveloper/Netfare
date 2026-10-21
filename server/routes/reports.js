@@ -7,6 +7,7 @@ const reports = require('../services/reports');
 const bookings = require('../services/bookings');
 const visas = require('../services/visas');
 const portals = require('../services/portals');
+const reconciliation = require('../services/reconciliation');
 
 router.get('/dashboard', (req, res) => {
   res.json(reports.dashboard(db));
@@ -50,6 +51,10 @@ router.get('/ar-aging', (req, res) => {
 
 router.get('/ap-aging', (req, res) => {
   res.json(reports.apAging(db, req.query.as_of));
+});
+
+router.get('/reconciliation', (req, res) => {
+  res.json(reconciliation.reconciliationSummary(db));
 });
 
 module.exports = router;

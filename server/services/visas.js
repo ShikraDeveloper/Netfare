@@ -14,6 +14,7 @@ const { isPurchaseAccount } = require('../accounting');
 const invoiceService = require('./invoices');
 const billService = require('./bills');
 const portalService = require('./portals');
+const cancellationService = require('./cancellations');
 
 const VISA_TYPES = ['tourist', 'visit', 'business', 'transit', 'student', 'work', 'other'];
 const OPEN_STATUSES = ['draft', 'submitted', 'approved'];
@@ -129,7 +130,10 @@ function getVisa(db, id) {
   }
 
   visa.bills = db.prepare(`
-    SELECT b.*, vd.name AS vendor_name, p.name AS portal_name, p.settlement AS portal_settlement
+    SELECT b.*, vd.name AS vendor_name, p.name AS portal_name, p.settlement AS portal_settlement,
+      (SELECT COALESCE(SUM(scn.amount_cents), 0)
+       FROM supplier_credit_notes scn
+       WHERE scn.bill_id = b.id AND scn.status = 'issued') AS supplier_credit_total_cents
     FROM bills b
     JOIN vendors vd ON vd.id = b.vendor_id
     LEFT JOIN supplier_portals p ON p.id = b.portal_id
@@ -138,9 +142,13 @@ function getVisa(db, id) {
   `).all(id).map((bill) => ({
     ...bill,
     balance_cents: bill.status === 'received'
-      ? Math.max(0, bill.total_cents - bill.amount_paid_cents)
+      ? Math.max(0, bill.total_cents - bill.amount_paid_cents - (bill.credit_applied_cents || 0))
+      : 0,
+    supplier_credit_available_cents: bill.status === 'received'
+      ? Math.max(0, bill.total_cents - (bill.supplier_credit_total_cents || 0))
       : 0,
   }));
+  visa.cancellation = cancellationService.getCancellationForSource(db, 'visa', id);
 
   visa.payments = visa.invoice
     ? db.prepare(`
@@ -310,6 +318,7 @@ function deleteVisa(db, id) {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
     if (visa.status !== 'draft') throw bad('Only draft visa applications can be deleted. Cancel it instead.');
+    db.prepare("DELETE FROM attachments WHERE entity_type = 'visa' AND entity_id = ?").run(id);
     db.prepare('DELETE FROM visa_applications WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -417,49 +426,29 @@ function issueVisa(db, id) {
   })();
 }
 
-function reverseDocuments(db, visaId) {
-  const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(visaId);
-  if (visa.invoice_id) {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(visa.invoice_id);
-    if (invoice && invoice.status === 'sent') {
-      const payments = db.prepare('SELECT id FROM payments WHERE invoice_id = ?').all(invoice.id);
-      for (const payment of payments) invoiceService.deleteInvoicePayment(db, payment.id);
-      invoiceService.voidInvoice(db, invoice.id);
-    }
+function rejectVisa(db, id, payload = {}) {
+  const visa = db.prepare('SELECT status FROM visa_applications WHERE id = ?').get(Number(id));
+  if (!visa) throw notFound('Visa application not found');
+  if (!['submitted', 'approved'].includes(visa.status)) {
+    throw bad('Only submitted or approved applications can be rejected');
   }
-
-  const bills = db.prepare('SELECT * FROM bills WHERE visa_id = ?').all(visaId);
-  for (const bill of bills) {
-    if (bill.status !== 'received') continue;
-    const payments = db.prepare('SELECT id FROM bill_payments WHERE bill_id = ?').all(bill.id);
-    for (const payment of payments) billService.deleteBillPayment(db, payment.id);
-    billService.voidBill(db, bill.id);
-  }
+  cancellationService.cancelSource(db, {
+    sourceType: 'visa',
+    sourceId: id,
+    payload,
+    finalStatus: 'rejected',
+  });
+  return getVisa(db, id);
 }
 
-function rejectVisa(db, id) {
-  return db.transaction(() => {
-    const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
-    if (!visa) throw notFound('Visa application not found');
-    if (!['submitted', 'approved'].includes(visa.status)) {
-      throw bad('Only submitted or approved applications can be rejected');
-    }
-    reverseDocuments(db, id);
-    db.prepare("UPDATE visa_applications SET status = 'rejected', updated_at = datetime('now') WHERE id = ?").run(id);
-    return getVisa(db, id);
-  })();
-}
-
-function cancelVisa(db, id) {
-  return db.transaction(() => {
-    const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
-    if (!visa) throw notFound('Visa application not found');
-    if (visa.status === 'cancelled') throw bad('Visa application is already cancelled');
-    if (visa.status === 'rejected') throw bad('Rejected applications cannot be cancelled');
-    if (visa.status !== 'draft') reverseDocuments(db, id);
-    db.prepare("UPDATE visa_applications SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?").run(id);
-    return getVisa(db, id);
-  })();
+function cancelVisa(db, id, payload = {}) {
+  cancellationService.cancelSource(db, {
+    sourceType: 'visa',
+    sourceId: id,
+    payload,
+    finalStatus: 'cancelled',
+  });
+  return getVisa(db, id);
 }
 
 function visaMarginReport(db, from, to) {
@@ -468,10 +457,25 @@ function visaMarginReport(db, from, to) {
   const rows = db.prepare(`
     ${visaSelect}
     WHERE v.application_date >= ? AND v.application_date <= ?
-      AND v.status NOT IN ('rejected', 'cancelled')
     ORDER BY v.application_date DESC, v.id DESC
   `).all(start, end);
-  const serialised = rows.map(serializeVisa);
+  const serialised = rows.map((row) => {
+    const base = serializeVisa(row);
+    const adjustment = cancellationService.cancellationAdjustment(
+      db, 'visa', row.id, row.sale_total_cents, row.cost_total_cents,
+    );
+    if (adjustment) {
+      return {
+        ...base,
+        ...adjustment,
+        margin_cents: adjustment.sale_total_cents - adjustment.cost_total_cents,
+      };
+    }
+    // Jobs cancelled or rejected before cancellations were tracked keep their
+    // historical treatment (excluded from margin reporting).
+    if (row.status === 'rejected' || row.status === 'cancelled') return null;
+    return base;
+  }).filter(Boolean);
   const totals = serialised.reduce((acc, row) => {
     acc.sale_cents += row.sale_total_cents;
     acc.cost_cents += row.cost_total_cents;
@@ -485,10 +489,20 @@ function visaMarginReport(db, from, to) {
 function visaStats(db, from, to) {
   const rows = db.prepare('SELECT * FROM visa_applications').all();
   const inRange = rows.filter((row) => (!from || row.application_date >= from) && (!to || row.application_date <= to));
-  const sale = inRange.filter((row) => row.status !== 'cancelled' && row.status !== 'rejected')
-    .reduce((sum, row) => sum + row.sale_total_cents, 0);
-  const cost = inRange.filter((row) => row.status !== 'cancelled' && row.status !== 'rejected')
-    .reduce((sum, row) => sum + row.cost_total_cents, 0);
+  let sale = 0;
+  let cost = 0;
+  for (const row of inRange) {
+    const adjustment = cancellationService.cancellationAdjustment(
+      db, 'visa', row.id, row.sale_total_cents, row.cost_total_cents,
+    );
+    if (adjustment) {
+      sale += adjustment.sale_total_cents;
+      cost += adjustment.cost_total_cents;
+    } else if (row.status !== 'cancelled' && row.status !== 'rejected') {
+      sale += row.sale_total_cents;
+      cost += row.cost_total_cents;
+    }
+  }
   const counts = {
     total: rows.length,
     draft: 0,

@@ -26,7 +26,8 @@ router.get('/backup', (req, res) => {
   const tables = [
     'settings', 'accounts', 'customers', 'vendors', 'invoices', 'invoice_items', 'payments',
     'bills', 'bill_items', 'bill_payments', 'bookings', 'booking_items', 'visa_applications', 'visa_items', 'customer_advances',
-    'supplier_portals', 'portal_topups', 'portal_refunds', 'refunds',
+    'cancellations', 'supplier_credit_notes', 'supplier_credit_items', 'supplier_credit_applications',
+    'supplier_portals', 'portal_topups', 'portal_refunds', 'portal_credits', 'refunds',
     'compliance_items', 'compliance_logs', 'post_dated_cheques', 'cash_deposits',
     'credit_notes', 'credit_applications', 'bank_reconciliations', 'bank_reconciliation_lines', 'attachments',
     'journal_entries', 'journal_lines',

@@ -20,12 +20,13 @@ function customerTransactions(db, customerId) {
     SELECT 'payment', p.id, p.number, p.payment_date, NULL, p.amount_cents, 'paid', p.method, i.number
     FROM payments p
     JOIN invoices i ON i.id = p.invoice_id
-    WHERE p.customer_id = ? AND i.status <> 'void'
+    WHERE p.customer_id = ? AND i.status <> 'void' AND p.status = 'posted'
     UNION ALL
     SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(i.number, '')
     FROM refunds r
     LEFT JOIN invoices i ON i.id = r.invoice_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
+      AND r.cancellation_id IS NULL
     UNION ALL
     SELECT 'credit', ca.id, cn.number, ca.applied_date, NULL, ca.amount_cents, 'applied', 'Credit note', i.number
     FROM credit_applications ca
@@ -78,14 +79,22 @@ function vendorTransactions(db, vendorId) {
     SELECT 'payment', p.id, p.number, p.payment_date, NULL, p.amount_cents, 'paid', p.method, b.number
     FROM bill_payments p
     JOIN bills b ON b.id = p.bill_id
-    WHERE p.vendor_id = ? AND b.status <> 'void'
+    WHERE p.vendor_id = ? AND b.status <> 'void' AND p.status = 'posted'
     UNION ALL
     SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(b.number, '')
     FROM refunds r
     LEFT JOIN bills b ON b.id = r.bill_id
     WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
+      AND r.supplier_credit_note_id IS NULL
+    UNION ALL
+    SELECT 'supplier_credit', sca.id, scn.number, sca.applied_date, NULL,
+           sca.amount_cents, 'applied', 'Supplier credit', b.number
+    FROM supplier_credit_applications sca
+    JOIN supplier_credit_notes scn ON scn.id = sca.credit_note_id
+    JOIN bills b ON b.id = sca.bill_id
+    WHERE scn.vendor_id = ? AND scn.status = 'issued'
     ORDER BY date, kind, id
-  `).all(vendorId, vendorId, vendorId).map((row) => {
+  `).all(vendorId, vendorId, vendorId, vendorId).map((row) => {
     if (row.kind === 'bill') {
       return {
         ...row,
@@ -98,6 +107,14 @@ function vendorTransactions(db, vendorId) {
       return {
         ...row,
         description: `Payment ${row.reference}${row.related ? ` · ${row.related}` : ''}`,
+        debit_cents: row.amount_cents,
+        credit_cents: 0,
+      };
+    }
+    if (row.kind === 'supplier_credit') {
+      return {
+        ...row,
+        description: `Supplier credit ${row.reference}${row.related ? ` · ${row.related}` : ''}`,
         debit_cents: row.amount_cents,
         credit_cents: 0,
       };
@@ -143,7 +160,10 @@ function buildStatement(db, { kind, partyId, from, to }) {
         SELECT COALESCE(SUM(amount_cents - applied_cents), 0) AS total
         FROM credit_notes WHERE customer_id = ? AND status = 'issued'
       `).get(partyId).total
-    : 0;
+    : db.prepare(`
+        SELECT COALESCE(SUM(amount_cents - applied_cents - refunded_cents - portal_settled_cents), 0) AS total
+        FROM supplier_credit_notes WHERE vendor_id = ? AND status = 'issued'
+      `).get(partyId).total;
   return {
     kind,
     party,
@@ -152,7 +172,8 @@ function buildStatement(db, { kind, partyId, from, to }) {
     to: range.to,
     opening_balance_cents: opening,
     closing_balance_cents: balance,
-    unapplied_credits_cents: unappliedCredits,
+    unapplied_credits_cents: kind === 'customer' ? unappliedCredits : 0,
+    unapplied_supplier_credits_cents: kind === 'vendor' ? unappliedCredits : 0,
     total_debit_cents: totals.debit_cents,
     total_credit_cents: totals.credit_cents,
     transactions,

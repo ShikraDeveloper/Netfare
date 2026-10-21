@@ -11,6 +11,56 @@ import {
   toast,
 } from '../ui.js';
 
+function sourceInfo(refund, isCustomer) {
+  switch (refund.source_type) {
+    case 'cancellation':
+      return {
+        label: 'Cancellation note',
+        href: `#/cancellations/${refund.document_id}`,
+        icon: 'x',
+        amountLabel: 'Refund due at cancellation',
+        description: 'Refund of cancellation balance',
+        voidMessage: 'the cancellation refund will become available again by {amount}.',
+      };
+    case 'supplier_credit':
+      return {
+        label: 'Supplier credit',
+        href: `#/supplier-credits/${refund.document_id}`,
+        icon: 'bill',
+        amountLabel: 'Supplier credit',
+        description: 'Cash refund of supplier credit',
+        voidMessage: 'the supplier credit will become available again by {amount}.',
+      };
+    case 'advance':
+      return {
+        label: 'Customer advance',
+        href: '',
+        icon: 'wallet',
+        amountLabel: 'Advance amount',
+        description: 'Refund of customer advance',
+        voidMessage: 'the advance balance will be restored by {amount}.',
+      };
+    case 'bill':
+      return {
+        label: 'Bill',
+        href: `#/bills/${refund.document_id}`,
+        icon: 'bill',
+        amountLabel: 'Original payment',
+        description: 'Refund received from supplier',
+        voidMessage: 'the bill balance will be restored by {amount}.',
+      };
+    default:
+      return {
+        label: isCustomer ? 'Invoice' : 'Bill',
+        href: isCustomer ? `#/invoices/${refund.document_id}` : `#/bills/${refund.document_id}`,
+        icon: isCustomer ? 'invoice' : 'bill',
+        amountLabel: 'Original payment',
+        description: isCustomer ? 'Refund of customer payment' : 'Refund received from supplier',
+        voidMessage: `the ${isCustomer ? 'invoice' : 'bill'} balance will be restored by {amount}.`,
+      };
+  }
+}
+
 function entryHtml(entry, emptyText) {
   if (!entry) {
     return `<div class="muted" style="font-size:12.5px;line-height:1.6">${esc(emptyText)}</div>`;
@@ -42,12 +92,13 @@ export async function render(container, { params } = {}) {
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const isCustomer = refund.refund_type === 'customer';
-  const sourceHref = isCustomer ? `#/invoices/${refund.invoice_id}` : `#/bills/${refund.bill_id}`;
-  const sourceLabel = isCustomer ? 'Invoice' : 'Bill';
+  const source = sourceInfo(refund, isCustomer);
 
   const actions = [
     `<a class="btn btn-ghost" href="#/refunds"><span>All refunds</span></a>`,
-    `<a class="btn btn-secondary" href="${sourceHref}">${icon(isCustomer ? 'invoice' : 'bill', 15)}<span>${esc(refund.document_number || sourceLabel)}</span></a>`,
+    source.href
+      ? `<a class="btn btn-secondary" href="${source.href}">${icon(source.icon, 15)}<span>${esc(refund.document_number || source.label)}</span></a>`
+      : `<span class="btn btn-secondary" aria-disabled="true">${icon(source.icon, 15)}<span>${esc(refund.document_number || source.label)}</span></span>`,
     `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
   ];
   if (refund.status === 'paid') {
@@ -68,11 +119,11 @@ export async function render(container, { params } = {}) {
       </div>
       <div class="card-body">
         <div class="detail-list">
-          <div><span>Original ${sourceLabel.toLowerCase()}</span><strong><a href="${sourceHref}">${esc(refund.document_number || '—')}</a></strong></div>
-          <div><span>Payment</span><strong>${esc(refund.payment_number || '—')}</strong></div>
+          <div><span>${esc(source.label)}</span><strong>${source.href ? `<a href="${source.href}">${esc(refund.document_number || '—')}</a>` : esc(refund.document_number || '—')}</strong></div>
+          ${refund.payment_number ? `<div><span>Payment</span><strong>${esc(refund.payment_number)}</strong></div>` : ''}
           <div><span>Account</span><strong>${esc(refund.account_code ? `${refund.account_code} · ${refund.account_name}` : refund.account_name || '—')}</strong></div>
           <div><span>Reference</span><strong>${esc(refund.reference || '—')}</strong></div>
-          <div><span>Original payment</span><strong>${fmtMoney(refund.source_amount_cents)}</strong></div>
+          <div><span>${esc(source.amountLabel)}</span><strong>${fmtMoney(refund.source_amount_cents)}</strong></div>
           <div><span>Previously refunded</span><strong>${fmtMoney(refund.refunded_before_cents)}</strong></div>
           <div><span>Refunded now</span><strong>${fmtMoney(refund.amount_cents)}</strong></div>
           <div><span>Remaining refundable</span><strong>${fmtMoney(refund.remaining_refundable_cents)}</strong></div>
@@ -112,9 +163,9 @@ export async function render(container, { params } = {}) {
             <div class="doc-party-detail">${esc([refund.party_address, refund.party_email, refund.party_phone].filter(Boolean).join('\n'))}</div>
           </div>
           <div>
-            <div class="doc-label">Original ${sourceLabel.toLowerCase()}</div>
-            <div class="doc-party-name"><a href="${sourceHref}">${esc(refund.document_number || '—')}</a></div>
-            <div class="doc-party-detail">Payment ${esc(refund.payment_number || '—')}\nRefund ${esc(refund.number)}</div>
+            <div class="doc-label">${esc(source.label)}</div>
+            <div class="doc-party-name">${source.href ? `<a href="${source.href}">${esc(refund.document_number || '—')}</a>` : esc(refund.document_number || '—')}</div>
+            <div class="doc-party-detail">${refund.payment_number ? `Payment ${esc(refund.payment_number)}\n` : ''}Refund ${esc(refund.number)}</div>
           </div>
         </div>
 
@@ -123,14 +174,14 @@ export async function render(container, { params } = {}) {
             <thead>
               <tr>
                 <th scope="col" style="width:56%">Description</th>
-                <th scope="col">Original ${sourceLabel.toLowerCase()}</th>
+                <th scope="col">${esc(source.label)}</th>
                 <th scope="col" class="num">Amount</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>${isCustomer ? 'Refund of customer payment' : 'Refund received from supplier'}</td>
-                <td>${esc(refund.document_number || '—')}<div class="cell-sub">${esc(refund.payment_number || '')}</div></td>
+                <td>${esc(source.description)}</td>
+                <td>${esc(refund.document_number || '—')}${refund.payment_number ? `<div class="cell-sub">${esc(refund.payment_number)}</div>` : ''}</td>
                 <td class="num amount">${fmtMoney(refund.amount_cents)}</td>
               </tr>
             </tbody>
@@ -142,7 +193,7 @@ export async function render(container, { params } = {}) {
             ${refund.notes ? `<strong>Notes</strong>${esc(refund.notes)}` : ''}
           </div>
           <div class="doc-totals">
-            <div class="totals-row"><span>Original payment</span><span>${fmtMoney(refund.source_amount_cents)}</span></div>
+            <div class="totals-row"><span>${esc(source.amountLabel)}</span><span>${fmtMoney(refund.source_amount_cents)}</span></div>
             <div class="totals-row"><span>Previously refunded</span><span>${fmtMoney(refund.refunded_before_cents)}</span></div>
             <div class="totals-row total"><span>Refunded now</span><span>${fmtMoney(refund.amount_cents)}</span></div>
             <div class="totals-row balance"><span>Remaining refundable</span><span>${fmtMoney(refund.remaining_refundable_cents)}</span></div>
@@ -184,7 +235,7 @@ export async function render(container, { params } = {}) {
     voidButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: `Void ${refund.number}?`,
-        message: `A reversing journal entry will be posted and the ${sourceLabel.toLowerCase()} balance will be restored by ${fmtMoney(refund.amount_cents)}. The refund stays in your records for the audit trail.`,
+        message: `A reversing journal entry will be posted and ${source.voidMessage.replace('{amount}', fmtMoney(refund.amount_cents))} The refund stays in your records for the audit trail.`,
         confirmLabel: 'Void refund',
       });
       if (!confirmed) return;

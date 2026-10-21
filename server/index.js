@@ -19,10 +19,10 @@ app.use((req, res, next) => {
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
     "img-src 'self' data: blob:",
-    "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
+    "connect-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -71,25 +71,27 @@ const server = app.listen(PORT, HOST, () => {
 });
 
 let shuttingDown = false;
-function shutdown() {
+function shutdown(exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
   server.close(() => {
     try { db.close(); } catch { /* already closed */ }
-    process.exit(0);
+    process.exit(exitCode);
   });
   setTimeout(() => {
     try { db.close(); } catch { /* already closed */ }
-    process.exit(0);
+    process.exit(exitCode);
   }, 1500).unref();
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGTERM', () => shutdown(0));
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled promise rejection:', error);
+  process.exitCode = 1;
 });
 process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
-  shutdown();
+  process.exitCode = 1;
+  shutdown(1);
 });

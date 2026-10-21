@@ -464,6 +464,10 @@ function resetAll(db) {
     db.prepare('DELETE FROM attachments').run();
     db.prepare('DELETE FROM credit_applications').run();
     db.prepare('DELETE FROM credit_notes').run();
+    db.prepare('DELETE FROM supplier_credit_applications').run();
+    db.prepare('DELETE FROM supplier_credit_items').run();
+    db.prepare('DELETE FROM portal_credits').run();
+    db.prepare('DELETE FROM supplier_credit_notes').run();
     db.prepare('DELETE FROM cash_deposits').run();
     db.prepare('DELETE FROM post_dated_cheques').run();
     db.prepare('DELETE FROM compliance_logs').run();
@@ -475,6 +479,7 @@ function resetAll(db) {
     db.prepare('DELETE FROM portal_topups').run();
     db.prepare('DELETE FROM portal_refunds').run();
     db.prepare('DELETE FROM supplier_portals').run();
+    db.prepare('DELETE FROM cancellations').run();
     db.prepare('DELETE FROM booking_items').run();
     db.prepare('DELETE FROM visa_items').run();
     db.prepare('DELETE FROM invoice_items').run();
@@ -491,10 +496,13 @@ function resetAll(db) {
       UPDATE settings SET next_invoice_number = 1, next_bill_number = 1, next_payment_number = 1,
         next_booking_number = 1, next_visa_number = 1, next_advance_number = 1, next_topup_number = 1,
         next_refund_number = 1, next_deposit_number = 1, next_credit_number = 1,
+        next_supplier_credit_number = 1, next_cancellation_number = 1, next_portal_credit_number = 1,
         updated_at = datetime('now') WHERE id = 1
     `).run();
     db.prepare(`DELETE FROM sqlite_sequence WHERE name IN
       ('bank_reconciliations', 'bank_reconciliation_lines', 'attachments', 'credit_notes', 'credit_applications',
+       'supplier_credit_notes', 'supplier_credit_items', 'supplier_credit_applications', 'portal_credits',
+       'cancellations',
        'cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',
        'bookings', 'booking_items', 'visa_applications', 'visa_items', 'customer_advances',
        'supplier_portals', 'portal_topups', 'portal_refunds', 'journal_lines', 'journal_entries',

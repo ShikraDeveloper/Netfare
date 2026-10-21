@@ -16,6 +16,12 @@ module.exports = `CREATE TABLE IF NOT EXISTS settings (
   next_refund_number INTEGER NOT NULL DEFAULT 1,
   next_deposit_number INTEGER NOT NULL DEFAULT 1,
   next_credit_number INTEGER NOT NULL DEFAULT 1,
+  supplier_credit_prefix TEXT NOT NULL DEFAULT 'SCN',
+  next_supplier_credit_number INTEGER NOT NULL DEFAULT 1,
+  cancellation_prefix TEXT NOT NULL DEFAULT 'CNC',
+  next_cancellation_number INTEGER NOT NULL DEFAULT 1,
+  portal_credit_prefix TEXT NOT NULL DEFAULT 'PCR',
+  next_portal_credit_number INTEGER NOT NULL DEFAULT 1,
   fiscal_year_start_month INTEGER NOT NULL DEFAULT 1,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -89,6 +95,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   total_cents INTEGER NOT NULL DEFAULT 0,
   amount_paid_cents INTEGER NOT NULL DEFAULT 0,
   credit_applied_cents INTEGER NOT NULL DEFAULT 0,
+  cancellation_id INTEGER,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -118,7 +125,10 @@ CREATE TABLE IF NOT EXISTS payments (
   cheque_date TEXT,
   bank_name TEXT NOT NULL DEFAULT '',
   deposit_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -134,6 +144,7 @@ CREATE TABLE IF NOT EXISTS bills (
   subtotal_cents INTEGER NOT NULL DEFAULT 0,
   total_cents INTEGER NOT NULL DEFAULT 0,
   amount_paid_cents INTEGER NOT NULL DEFAULT 0,
+  credit_applied_cents INTEGER NOT NULL DEFAULT 0,
   portal_id INTEGER,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -165,7 +176,10 @@ CREATE TABLE IF NOT EXISTS bill_payments (
   bank_name TEXT NOT NULL DEFAULT '',
   payment_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   portal_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -250,6 +264,7 @@ CREATE TABLE IF NOT EXISTS credit_notes (
   amount_cents INTEGER NOT NULL,
   applied_cents INTEGER NOT NULL DEFAULT 0,
   revenue_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  cancellation_id INTEGER,
   notes TEXT NOT NULL DEFAULT '',
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
@@ -334,6 +349,9 @@ CREATE TABLE IF NOT EXISTS refunds (
   payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL,
   bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
   bill_payment_id INTEGER REFERENCES bill_payments(id) ON DELETE SET NULL,
+  cancellation_id INTEGER,
+  supplier_credit_note_id INTEGER,
+  advance_id INTEGER,
   refund_date TEXT NOT NULL,
   amount_cents INTEGER NOT NULL,
   method TEXT NOT NULL DEFAULT 'Bank transfer',
@@ -342,6 +360,76 @@ CREATE TABLE IF NOT EXISTS refunds (
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS cancellations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  source_type TEXT NOT NULL CHECK (source_type IN ('booking', 'visa')),
+  source_id INTEGER NOT NULL,
+  cancellation_date TEXT NOT NULL,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+  cancellation_invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+  customer_charges_cents INTEGER NOT NULL DEFAULT 0,
+  received_cents INTEGER NOT NULL DEFAULT 0,
+  supplier_credit_total_cents INTEGER NOT NULL DEFAULT 0,
+  refund_due_cents INTEGER NOT NULL DEFAULT 0,
+  reason TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS supplier_credit_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE RESTRICT,
+  bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
+  booking_id INTEGER REFERENCES bookings(id) ON DELETE SET NULL,
+  visa_id INTEGER REFERENCES visa_applications(id) ON DELETE SET NULL,
+  cancellation_id INTEGER REFERENCES cancellations(id) ON DELETE SET NULL,
+  credit_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued', 'void')),
+  amount_cents INTEGER NOT NULL,
+  applied_cents INTEGER NOT NULL DEFAULT 0,
+  refunded_cents INTEGER NOT NULL DEFAULT 0,
+  portal_settled_cents INTEGER NOT NULL DEFAULT 0,
+  notes TEXT NOT NULL DEFAULT '',
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS supplier_credit_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  credit_note_id INTEGER NOT NULL REFERENCES supplier_credit_notes(id) ON DELETE CASCADE,
+  description TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS supplier_credit_applications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  credit_note_id INTEGER NOT NULL REFERENCES supplier_credit_notes(id) ON DELETE CASCADE,
+  bill_id INTEGER NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
+  applied_date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS portal_credits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  portal_id INTEGER NOT NULL REFERENCES supplier_portals(id) ON DELETE RESTRICT,
+  credit_date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
+  supplier_credit_note_id INTEGER REFERENCES supplier_credit_notes(id) ON DELETE SET NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -357,6 +445,8 @@ CREATE TABLE IF NOT EXISTS compliance_items (
   payment_method TEXT NOT NULL DEFAULT 'Bank transfer',
   frequency TEXT NOT NULL DEFAULT 'monthly' CHECK (frequency IN ('weekly', 'monthly', 'quarterly', 'yearly', 'once')),
   next_due_date TEXT NOT NULL,
+  anchor_date TEXT,
+  period_index INTEGER NOT NULL DEFAULT 0,
   end_date TEXT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'done')),
   auto_create_bill INTEGER NOT NULL DEFAULT 0,
@@ -384,6 +474,8 @@ CREATE TABLE IF NOT EXISTS post_dated_cheques (
   vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE RESTRICT,
   cheque_number TEXT NOT NULL,
   cheque_date TEXT NOT NULL,
+  anchor_date TEXT,
+  batch_index INTEGER NOT NULL DEFAULT 0,
   amount_cents INTEGER NOT NULL,
   bank_name TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'issued', 'cleared', 'bounced', 'cancelled')),
@@ -464,4 +556,15 @@ CREATE INDEX IF NOT EXISTS idx_credit_notes_date ON credit_notes(credit_date);
 CREATE INDEX IF NOT EXISTS idx_credit_applications_note ON credit_applications(credit_note_id);
 CREATE INDEX IF NOT EXISTS idx_credit_applications_invoice ON credit_applications(invoice_id);
 CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
+-- Indexes for columns added to existing tables belong in migrations.js, after
+-- ALTER TABLE has added those columns. Creating them here breaks old databases.
+CREATE INDEX IF NOT EXISTS idx_cancellations_source ON cancellations(source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_cancellations_date ON cancellations(cancellation_date);
+CREATE INDEX IF NOT EXISTS idx_supplier_credits_vendor ON supplier_credit_notes(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_credits_bill ON supplier_credit_notes(bill_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_credits_source ON supplier_credit_notes(booking_id, visa_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_credit_items_note ON supplier_credit_items(credit_note_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_note ON supplier_credit_applications(credit_note_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_bill ON supplier_credit_applications(bill_id);
+CREATE INDEX IF NOT EXISTS idx_portal_credits_portal ON portal_credits(portal_id);
 `;

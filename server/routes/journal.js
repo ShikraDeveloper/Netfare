@@ -3,7 +3,7 @@
 const router = require('express').Router();
 const db = require('../db');
 const { notFound, str, optionalStr, dateISO } = require('../util');
-const { postEntry, getEntryWithLines } = require('../accounting');
+const { postEntry, getEntryWithLines, assertManualEntryAccounts } = require('../accounting');
 const journalService = require('../services/journal');
 
 router.get('/', (req, res) => {
@@ -43,12 +43,14 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   const body = req.body || {};
   const memo = str(body.memo, 'Memo', { max: 500 });
+  const lines = Array.isArray(body.lines) ? body.lines : [];
+  assertManualEntryAccounts(db, lines);
   const entryId = db.transaction(() => postEntry(db, {
     entry_date: body.entry_date,
     memo,
     reference: optionalStr(body.reference, 'Reference', 100),
     source_type: 'manual',
-    lines: Array.isArray(body.lines) ? body.lines : [],
+    lines,
   }))();
   res.status(201).json(getEntryWithLines(db, entryId));
 });

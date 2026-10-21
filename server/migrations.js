@@ -54,13 +54,21 @@ ensureColumn('settings', 'next_visa_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_refund_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_credit_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'supplier_credit_prefix', "TEXT NOT NULL DEFAULT 'SCN'");
+ensureColumn('settings', 'next_supplier_credit_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'cancellation_prefix', "TEXT NOT NULL DEFAULT 'CNC'");
+ensureColumn('settings', 'next_cancellation_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'portal_credit_prefix', "TEXT NOT NULL DEFAULT 'PCR'");
+ensureColumn('settings', 'next_portal_credit_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'setup_version', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('invoices', 'booking_id', 'INTEGER');
 ensureColumn('invoices', 'visa_id', 'INTEGER');
 ensureColumn('invoices', 'credit_applied_cents', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('invoices', 'cancellation_id', 'INTEGER');
 ensureColumn('bills', 'booking_id', 'INTEGER');
 ensureColumn('bills', 'visa_id', 'INTEGER');
 ensureColumn('bills', 'portal_id', 'INTEGER');
+ensureColumn('bills', 'credit_applied_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'variable_amount', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'payment_method', "TEXT NOT NULL DEFAULT 'Bank transfer'");
 ensureColumn('bills', 'default_payment_method', "TEXT NOT NULL DEFAULT 'Bank transfer'");
@@ -69,10 +77,24 @@ ensureColumn('payments', 'advance_id', 'INTEGER');
 ensureColumn('payments', 'cheque_number', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('payments', 'cheque_date', 'TEXT');
 ensureColumn('payments', 'bank_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('payments', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
+ensureColumn('payments', 'void_entry_id', 'INTEGER');
+ensureColumn('payments', 'voided_at', 'TEXT');
 ensureColumn('bill_payments', 'portal_id', 'INTEGER');
 ensureColumn('bill_payments', 'cheque_number', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('bill_payments', 'cheque_date', 'TEXT');
 ensureColumn('bill_payments', 'bank_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('bill_payments', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
+ensureColumn('bill_payments', 'void_entry_id', 'INTEGER');
+ensureColumn('bill_payments', 'voided_at', 'TEXT');
+ensureColumn('credit_notes', 'cancellation_id', 'INTEGER');
+ensureColumn('refunds', 'cancellation_id', 'INTEGER');
+ensureColumn('refunds', 'supplier_credit_note_id', 'INTEGER');
+ensureColumn('refunds', 'advance_id', 'INTEGER');
+ensureColumn('compliance_items', 'anchor_date', 'TEXT');
+ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
+ensureColumn('post_dated_cheques', 'batch_index', 'INTEGER NOT NULL DEFAULT 0');
 
 // VAT/tax support was removed. Drop legacy columns on existing databases.
 dropColumn('settings', 'tax_rate');
@@ -135,7 +157,43 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_pdc_status_date ON post_dated_cheques(status, cheque_date);
   CREATE INDEX IF NOT EXISTS idx_cash_deposits_date ON cash_deposits(deposit_date);
   CREATE INDEX IF NOT EXISTS idx_cash_deposits_status ON cash_deposits(status);
+  CREATE INDEX IF NOT EXISTS idx_cancellations_source ON cancellations(source_type, source_id);
+  CREATE INDEX IF NOT EXISTS idx_cancellations_date ON cancellations(cancellation_date);
+  CREATE INDEX IF NOT EXISTS idx_supplier_credits_vendor ON supplier_credit_notes(vendor_id);
+  CREATE INDEX IF NOT EXISTS idx_supplier_credits_bill ON supplier_credit_notes(bill_id);
+  CREATE INDEX IF NOT EXISTS idx_supplier_credits_source ON supplier_credit_notes(booking_id, visa_id);
+  CREATE INDEX IF NOT EXISTS idx_supplier_credit_items_note ON supplier_credit_items(credit_note_id);
+  CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_note ON supplier_credit_applications(credit_note_id);
+  CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_bill ON supplier_credit_applications(bill_id);
+  CREATE INDEX IF NOT EXISTS idx_portal_credits_portal ON portal_credits(portal_id);
+  CREATE INDEX IF NOT EXISTS idx_refunds_cancellation ON refunds(cancellation_id);
+  CREATE INDEX IF NOT EXISTS idx_refunds_supplier_credit ON refunds(supplier_credit_note_id);
+  CREATE INDEX IF NOT EXISTS idx_refunds_advance ON refunds(advance_id);
 `);
+
+// Keep the original day-of-month for schedules. Existing items start from
+// their current due date; future periods are calculated from this anchor.
+db.prepare('UPDATE compliance_items SET anchor_date = next_due_date WHERE anchor_date IS NULL').run();
+db.prepare('UPDATE post_dated_cheques SET anchor_date = cheque_date WHERE anchor_date IS NULL').run();
+
+// Required travel accounts are guarded by name. Never rename an account that
+// already uses one of these codes; stop with a clear error instead.
+function ensureRequiredAccount(code, name) {
+  const account = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
+  if (!account) {
+    throw new Error(`Required account ${code} ${name} is missing. Restore the default chart of accounts before starting.`);
+  }
+  if (account.name !== name) {
+    throw new Error(
+      `Account code ${code} is already used by "${account.name}". Ledgerly requires ${code} to be "${name}". `
+      + 'Rename the existing account code before starting; Ledgerly will never rename your accounts.',
+    );
+  }
+  if (!account.is_system) db.prepare('UPDATE accounts SET is_system = 1 WHERE id = ?').run(account.id);
+}
+
+ensureRequiredAccount('1450', 'Supplier Credits');
+ensureRequiredAccount('4330', 'Cancellation Charges Income');
 
 // Travel account labels are name-aware and safe to check on every start.
 db.prepare("UPDATE accounts SET name = 'Ticket Sales' WHERE code = '4000' AND name = 'Sales Revenue'").run();

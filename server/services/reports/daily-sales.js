@@ -3,13 +3,14 @@
 const { dateISO, todayISO } = require('../../util');
 const { invoiceDisplayStatus } = require('../../accounting');
 const { cashBalances } = require('./aging');
+const cancellationService = require('../cancellations');
 
 function dailySales(db, from, to) {
   const start = dateISO(from, 'From date');
   const end = dateISO(to, 'To date');
   const today = todayISO();
 
-  const rows = db.prepare(`
+  const invoices = db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
            i.total_cents, i.amount_paid_cents, i.credit_applied_cents, i.booking_id, i.visa_id,
            c.name AS customer_name,
@@ -24,22 +25,30 @@ function dailySales(db, from, to) {
     JOIN customers c ON c.id = i.customer_id
     LEFT JOIN bookings b ON b.id = i.booking_id
     LEFT JOIN visa_applications v ON v.id = i.visa_id
-    WHERE i.status = 'sent' AND i.issue_date >= ? AND i.issue_date <= ?
+    WHERE i.status = 'sent' AND i.cancellation_id IS NULL
+      AND i.issue_date >= ? AND i.issue_date <= ?
     ORDER BY i.issue_date, i.id
   `).all(start, end);
 
-  const days = [];
-  const totals = {
-    invoice_count: 0,
-    sale_cents: 0,
-    cost_cents: 0,
-    margin_cents: 0,
-    paid_cents: 0,
-    balance_cents: 0,
-  };
+  const cancellations = db.prepare(`
+    SELECT cc.*, c.name AS customer_name,
+           b.number AS booking_number, b.destination,
+           v.number AS visa_number, v.destination_country, v.visa_type,
+           v.applicant_name,
+           ci.amount_paid_cents AS cancellation_invoice_paid_cents,
+           ci.credit_applied_cents AS cancellation_invoice_credit_cents,
+           ci.status AS cancellation_invoice_status
+    FROM cancellations cc
+    JOIN customers c ON c.id = cc.customer_id
+    LEFT JOIN bookings b ON cc.source_type = 'booking' AND b.id = cc.source_id
+    LEFT JOIN visa_applications v ON cc.source_type = 'visa' AND v.id = cc.source_id
+    LEFT JOIN invoices ci ON ci.id = cc.cancellation_invoice_id
+    WHERE cc.cancellation_date >= ? AND cc.cancellation_date <= ?
+    ORDER BY cc.cancellation_date, cc.id
+  `).all(start, end);
 
-  let day = null;
-  for (const row of rows) {
+  const items = [];
+  for (const row of invoices) {
     const kind = row.booking_id ? 'booking' : row.visa_id ? 'visa' : 'direct';
     const cost = kind === 'booking'
       ? (row.booking_cost_cents || 0)
@@ -54,7 +63,7 @@ function dailySales(db, from, to) {
       particulars = [row.destination_country, type ? `${type} visa` : ''].filter(Boolean).join(' · ');
     }
 
-    const item = {
+    items.push({
       id: row.id,
       number: row.number,
       issue_date: row.issue_date,
@@ -69,11 +78,77 @@ function dailySales(db, from, to) {
       paid_cents: row.amount_paid_cents,
       balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
       status_display: invoiceDisplayStatus(row, today),
-    };
+      is_cancellation: false,
+    });
+  }
 
-    if (!day || day.date !== row.issue_date) {
+  for (const row of cancellations) {
+    const retainedCost = cancellationService.retainedCostCents(db, row.source_type === 'booking'
+      ? { bookingId: row.source_id }
+      : { visaId: row.source_id });
+    const sale = row.customer_charges_cents || 0;
+    const heldApplied = Math.min(row.received_cents || 0, sale);
+    const invoiceOpen = row.cancellation_invoice_status === 'sent';
+    const invoicePaid = invoiceOpen ? row.cancellation_invoice_paid_cents || 0 : 0;
+    const invoiceCredits = invoiceOpen ? row.cancellation_invoice_credit_cents || 0 : 0;
+    const paid = heldApplied + invoicePaid;
+    // If the shortfall invoice was voided, only the charges taken from money
+    // already received remain recognised income.
+    const recognizedSale = row.cancellation_invoice_id && !invoiceOpen ? heldApplied : sale;
+    const particulars = [
+      `Cancellation ${row.number}`,
+      row.source_type === 'booking' ? row.booking_number : row.visa_number,
+      row.reason || '',
+    ].filter(Boolean).join(' · ');
+
+    items.push({
+      id: row.id,
+      number: row.cancellation_invoice_id
+        ? db.prepare('SELECT number FROM invoices WHERE id = ?').get(row.cancellation_invoice_id)?.number || row.number
+        : row.number,
+      issue_date: row.cancellation_date,
+      customer_name: row.customer_name,
+      kind: row.source_type,
+      reference: row.source_type === 'booking' ? row.booking_number : row.visa_number,
+      reference_id: row.source_id,
+      particulars,
+      sale_cents: recognizedSale,
+      cost_cents: retainedCost,
+      margin_cents: recognizedSale - retainedCost,
+      paid_cents: paid,
+      balance_cents: invoiceOpen ? Math.max(0, sale - paid - invoiceCredits) : 0,
+      status_display: 'cancellation',
+      is_cancellation: true,
+      cancellation_id: row.id,
+      cancellation_number: row.number,
+      received_cents: row.received_cents || 0,
+      refund_due_cents: row.refund_due_cents || 0,
+      supplier_credit_total_cents: row.supplier_credit_total_cents || 0,
+      retained_cost_cents: retainedCost,
+    });
+  }
+
+  items.sort((a, b) => {
+    if (a.issue_date !== b.issue_date) return a.issue_date < b.issue_date ? -1 : 1;
+    if (a.is_cancellation !== b.is_cancellation) return a.is_cancellation ? 1 : -1;
+    return a.id - b.id;
+  });
+
+  const days = [];
+  const totals = {
+    invoice_count: 0,
+    sale_cents: 0,
+    cost_cents: 0,
+    margin_cents: 0,
+    paid_cents: 0,
+    balance_cents: 0,
+  };
+
+  let day = null;
+  for (const item of items) {
+    if (!day || day.date !== item.issue_date) {
       day = {
-        date: row.issue_date,
+        date: item.issue_date,
         invoice_count: 0,
         sale_cents: 0,
         cost_cents: 0,

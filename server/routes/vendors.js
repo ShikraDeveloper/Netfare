@@ -9,7 +9,7 @@ function listVendors() {
   return db.prepare(`
     SELECT v.*,
       (SELECT COUNT(*) FROM bills b WHERE b.vendor_id = v.id) AS bill_count,
-      (SELECT COALESCE(SUM(b.total_cents - b.amount_paid_cents), 0)
+      (SELECT COALESCE(SUM(b.total_cents - b.amount_paid_cents - b.credit_applied_cents), 0)
        FROM bills b WHERE b.vendor_id = v.id AND b.status = 'received') AS outstanding_cents,
       (SELECT COALESCE(SUM(b.total_cents), 0)
        FROM bills b WHERE b.vendor_id = v.id AND b.status <> 'void') AS total_billed_cents
@@ -62,15 +62,43 @@ router.put('/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM vendors WHERE id = ?').get(id));
 });
 
-router.delete('/:id', (req, res) => {
-  const id = Number(req.params.id);
+function deleteVendor(id) {
   const existing = db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
   if (!existing) throw notFound('Vendor not found');
   const count = db.prepare('SELECT COUNT(*) AS c FROM bills WHERE vendor_id = ?').get(id).c;
-  if (count > 0) throw bad('This vendor has bills. Archive them instead of deleting.');
+  if (count > 0) throw bad('This vendor has bills. Archive it instead of deleting.');
+  const bookingItems = db.prepare(`
+    SELECT COUNT(*) AS c FROM booking_items
+    WHERE item_type = 'cost' AND vendor_id = ?
+  `).get(id).c;
+  if (bookingItems > 0) {
+    throw bad('This vendor is used on a booking cost line. Archive it instead of deleting.');
+  }
+  const visaItems = db.prepare(`
+    SELECT COUNT(*) AS c FROM visa_items
+    WHERE item_type = 'cost' AND vendor_id = ?
+  `).get(id).c;
+  if (visaItems > 0) {
+    throw bad('This vendor is used on a visa cost line. Archive it instead of deleting.');
+  }
+  const cheques = db.prepare('SELECT COUNT(*) AS c FROM post_dated_cheques WHERE vendor_id = ?').get(id).c;
+  if (cheques > 0) throw bad('This vendor has post-dated cheques. Archive it instead of deleting.');
+  const credits = db.prepare('SELECT COUNT(*) AS c FROM supplier_credit_notes WHERE vendor_id = ?').get(id).c;
+  if (credits > 0) throw bad('This vendor has supplier credit notes. Archive it instead of deleting.');
+  const portals = db.prepare('SELECT COUNT(*) AS c FROM supplier_portals WHERE vendor_id = ?').get(id).c;
+  if (portals > 0) throw bad('This supplier is linked to a portal. Archive it instead of deleting.');
+  const refunds = db.prepare(`
+    SELECT COUNT(*) AS c FROM refunds WHERE refund_type = 'supplier' AND party_id = ?
+  `).get(id).c;
+  if (refunds > 0) throw bad('This vendor has supplier refunds. Archive it instead of deleting.');
   db.prepare('DELETE FROM vendors WHERE id = ?').run(id);
-  res.json({ deleted: true });
+  return { deleted: true };
+}
+
+router.delete('/:id', (req, res) => {
+  res.json(deleteVendor(Number(req.params.id)));
 });
 
 module.exports = router;
 module.exports.listVendors = listVendors;
+module.exports.deleteVendor = deleteVendor;

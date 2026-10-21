@@ -37,11 +37,11 @@ router.post('/:id/issue', (req, res) => {
 });
 
 router.post('/:id/reject', (req, res) => {
-  res.json(service.rejectVisa(db, Number(req.params.id)));
+  res.json(service.rejectVisa(db, Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/cancel', (req, res) => {
-  res.json(service.cancelVisa(db, Number(req.params.id)));
+  res.json(service.cancelVisa(db, Number(req.params.id), req.body || {}));
 });
 
 module.exports = router;

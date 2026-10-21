@@ -16,6 +16,7 @@ const {
   isPurchaseAccount,
   postEntry,
   reverseEntry,
+  billBalanceCents,
   billDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
@@ -33,7 +34,7 @@ function serializeBill(bill, today = todayISO()) {
   return {
     ...bill,
     status_display: billDisplayStatus(bill, today),
-    balance_cents: Math.max(0, bill.total_cents - bill.amount_paid_cents),
+    balance_cents: billBalanceCents(bill),
   };
 }
 
@@ -60,10 +61,23 @@ function getBill(db, id) {
     ORDER BY p.payment_date, p.id
   `).all(id).map((payment) => ({
     ...payment,
-    refundable_cents: payment.portal_id
+    refundable_cents: payment.portal_id || payment.status === 'void'
       ? 0
       : Math.max(0, payment.amount_cents - payment.refunded_cents),
   }));
+  bill.supplier_credits = db.prepare(`
+    SELECT scn.*, (scn.amount_cents - scn.applied_cents - scn.refunded_cents - scn.portal_settled_cents) AS remaining_cents
+    FROM supplier_credit_notes scn
+    WHERE scn.bill_id = ? AND scn.status = 'issued'
+    ORDER BY scn.credit_date, scn.id
+  `).all(id);
+  bill.credit_applications = db.prepare(`
+    SELECT sca.*, scn.number AS credit_number
+    FROM supplier_credit_applications sca
+    JOIN supplier_credit_notes scn ON scn.id = sca.credit_note_id
+    WHERE sca.bill_id = ?
+    ORDER BY sca.applied_date, sca.id
+  `).all(id);
   if (bill.journal_entry_id) {
     bill.journal_entry = db.prepare(`
       SELECT e.*, (
@@ -276,6 +290,7 @@ function voidBill(db, id) {
       throw bad('Void the refunds on this bill before voiding it.');
     }
     if (bill.amount_paid_cents > 0) throw bad('Remove payments from this bill before voiding it');
+    if (bill.credit_applied_cents > 0) throw bad('Reverse supplier credit applications from this bill before voiding it');
     if (bill.status === 'received' && bill.journal_entry_id) {
       reverseEntry(db, bill.journal_entry_id, {
         entry_date: todayISO(),
@@ -293,6 +308,7 @@ function deleteBill(db, id) {
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
     if (!bill) throw notFound('Bill not found');
     if (bill.status !== 'draft') throw bad('Only draft bills can be deleted. Void it instead.');
+    db.prepare("DELETE FROM attachments WHERE entity_type = 'bill' AND entity_id = ?").run(id);
     db.prepare('DELETE FROM bills WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -304,7 +320,7 @@ function recordBillPayment(db, billId, payload) {
     if (!bill) throw notFound('Bill not found');
     if (bill.status !== 'received') throw bad('Payments can only be recorded against received bills');
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
-    const balance = bill.total_cents - bill.amount_paid_cents;
+    const balance = billBalanceCents(bill);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);
     const paymentDate = dateISO(payload.payment_date || todayISO(), 'Payment date');
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.payment_account_id));
@@ -375,26 +391,30 @@ function deleteBillPayment(db, paymentId) {
   return db.transaction(() => {
     const payment = db.prepare('SELECT * FROM bill_payments WHERE id = ?').get(paymentId);
     if (!payment) throw notFound('Payment not found');
+    if (payment.status === 'void') throw bad('That payment is already void');
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(payment.bill_id);
     if (!bill) throw notFound('Bill not found');
     const refundCount = db.prepare(`
       SELECT COUNT(*) AS c FROM refunds WHERE bill_payment_id = ? AND status = 'paid'
     `).get(paymentId).c;
     if (refundCount > 0) {
-      throw bad('This payment has refunds. Void the refunds before removing the payment or cancelling the bill.');
+      throw bad('This payment has refunds. Void the refunds before voiding the payment.');
     }
     chequeService.unlinkPayment(db, paymentId);
+    let voidEntryId = null;
     if (payment.journal_entry_id) {
-      reverseEntry(db, payment.journal_entry_id, {
+      voidEntryId = reverseEntry(db, payment.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Reverse bill payment ${payment.number}`,
+        memo: `Void bill payment ${payment.number}`,
         source_type: 'void',
       });
     }
-    db.prepare('DELETE FROM bill_payments WHERE id = ?').run(paymentId);
+    db.prepare(`
+      UPDATE bill_payments SET status = 'void', void_entry_id = ?, voided_at = datetime('now') WHERE id = ?
+    `).run(voidEntryId, paymentId);
     if (payment.portal_id) {
       const remaining = db.prepare(
-        'SELECT COUNT(*) AS c FROM bill_payments WHERE bill_id = ? AND portal_id IS NOT NULL',
+        "SELECT COUNT(*) AS c FROM bill_payments WHERE bill_id = ? AND portal_id IS NOT NULL AND status = 'posted'",
       ).get(payment.bill_id).c;
       if (!remaining) {
         db.prepare("UPDATE bills SET portal_id = NULL, updated_at = datetime('now') WHERE id = ?").run(payment.bill_id);

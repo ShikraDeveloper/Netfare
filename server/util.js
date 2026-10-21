@@ -40,7 +40,8 @@ function num(value, field, { min = -Infinity, max = Infinity, fallback } = {}) {
 }
 
 function cents(value, field, { min = 0, max = 1_000_000_000_00 } = {}) {
-  const n = Math.round(num(value, field, { min, max }));
+  const n = num(value, field, { min, max });
+  if (!Number.isInteger(n)) throw bad(`${field} must be a whole number of cents`);
   return n;
 }
 

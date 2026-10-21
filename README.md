@@ -7,11 +7,12 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Travel bookings** — every booking is a job with a customer, sale items (what the traveller pays), supplier cost items (what the airline/hotel/visa supplier charges you), and live profit margin. Confirming a booking automatically creates the customer invoice and the supplier bills and posts them to the ledger.
 - **Visa applications** — a dedicated visa workflow beside bookings: applicant and passport details, destination, embassy reference, sale/cost lines and live margin. Submitting posts the customer invoice and supplier bills; approve and issue milestones track the application, while rejection or cancellation reverses the documents.
 - **Supplier portals & wallets** — track the money you hold with airline logins, IATA agencies, consolidators and GDS accounts. Top up a prepaid portal, spend it on bookings, or run a supplier on credit; every movement is posted to the ledger. Prepaid wallets reconcile against the supplier's own statement, while credit accounts show a full bills, payments and supplier-refund ledger and statement.
-- **Booking lifecycle** — `draft → confirmed → travelled`, plus cancellation with full reversing entries (`cancelled`).
+- **Booking lifecycle** — `draft → confirmed → travelled`, plus a cancellation workflow that reverses the sale, keeps every receipt and supplier payment, and records any cancellation charge, refund or credit.
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
-- **Refunds** — refund a customer payment or record money returned by a supplier, in full or in part. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
-- **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging.
+- **Refunds** — refund a customer payment, a cancellation balance, an advance, or a supplier credit. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
+- **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging. A cancellation refund can also be converted into customer credit.
+- **Supplier credit notes** — record a credit from a supplier standalone or against a bill, optionally linked to a booking, visa or cancellation. Apply it to any open bill for the same supplier, refund the unused balance in cash, or move a prepaid-portal credit into the portal wallet. **1450 Supplier Credits** always equals the total unused supplier credit.
 - **Opening balances** — a guided balance-sheet page creates one balanced opening journal entry. Enter each account as a debit or credit; the difference posts automatically to **3900 Opening Balance Equity**. Replacing or clearing balances posts a reversal, so reconciled lines and audit history are never deleted.
 - **Bank reconciliation** — reconcile any active cash or bank account against a statement closing balance. Tick cleared transactions, see the cleared balance and difference, keep a reconciliation history, and reopen the latest reconciliation when a correction is needed.
 - **Customer & vendor statements** — printable statements with opening balance, invoices or bills, payments, refunds, applied credits and a running balance. Filter by period and print directly from the browser.
@@ -198,27 +199,39 @@ An advance is money received before the trip is settled. It is held in the **240
 | --- | --- |
 | Record advance | Dr deposit (bank/cash) · Cr Customer Advances |
 | Apply to invoice | Dr Customer Advances · Cr Accounts Receivable, and the invoice balance drops |
-| Refund advance | Dr Customer Advances · Cr deposit (bank/cash) |
+| Refund advance | Dr Customer Advances · Cr deposit (bank/cash), and a voidable refund document is created |
 
 ### Payment refunds
 
-Use **Refunds** (or the refund action beside a payment on an invoice or bill) to send money back to a customer or record money returned by a supplier. A refund is always linked to the original payment and can be full or partial. The original payment row stays in place for the audit trail, and the refunded amount is tracked separately.
+Use **Refunds** (or the refund action beside a payment on an invoice or bill) to send money back to a customer or record money returned by a supplier, in full or in part. Refunds keep the original payment row and post their own journal entry. Cancellation refunds and advance refunds are linked to their own source document, so the remaining balance and void action stay accurate.
 
 | Action | Effect |
 | --- | --- |
 | Refund a customer payment | Dr Accounts Receivable · Cr Bank/Cash account, and the invoice balance increases |
-| Record a supplier refund | Dr Bank/Cash account · Cr Accounts Payable, and the bill balance increases |
-| Void a refund | Reverses the refund entry and restores the invoice or bill paid balance |
+| Record a supplier refund | Dr Bank/Cash account · Cr **1450 Supplier Credits**, and a supplier credit note is created; the bill stays paid |
+| Refund a cancellation balance | Dr **2500 Refund Payable** · Cr Bank/Cash account |
+| Convert a cancellation balance to credit | Dr **2500 Refund Payable** · Cr **2450 Customer Credits** |
+| Refund an unused supplier credit | Dr **1450 Supplier Credits** · Cr Bank/Cash account |
+| Void a refund | Reverses the refund entry and restores the relevant invoice, bill, advance, cancellation or supplier-credit balance |
 
 - Refund numbers use **REF-YYYY-####**.
-- The engine refuses refunds larger than the payment's remaining refundable amount. It also refuses to remove a payment, void its invoice or bill, or cancel the linked booking/visa while a refund is active. Void the refund first.
-- A customer payment funded by an advance must be refunded through **Advances**, not the refund engine. A bill payment made from a supplier wallet must be restored through the portal.
-- Customer refunds and supplier refunds have their own list and printable voucher under **Accounting → Refunds**.
-- Supplier refunds also appear on the linked credit portal's supplier statement as a credit to Accounts Payable, so the statement matches the general ledger.
+- The engine refuses refunds larger than the source's remaining refundable amount. It also refuses to remove a payment, void its invoice or bill, or cancel the linked booking/visa while a refund is active. Void the refund first.
+- A customer payment funded by an advance must be refunded through **Advances**, not the payment refund engine. A bill payment made from a supplier wallet must be restored through the portal.
+- Customer and supplier refunds have their own list and printable voucher under **Accounting → Refunds**.
+- Supplier credits, not Accounts Payable, are used for money returned by a supplier. **1450 Supplier Credits** must equal the total unused supplier credit on the supplier-credit list.
+- **2500 Refund Payable** must equal the total unpaid cancellation refund. The reconciliation report checks both balances.
 
 ### Refunds & cancellations
 
-Cancelling a booking still reverses the customer invoice and every supplier bill. Payments already received are reversed with reversing entries, and any applied advance returns to Customer Advances where it can be refunded. Cancellation does **not** create a refund document automatically; use **Refunds** when money is actually returned outside the cancellation reversal. Original journal entries are preserved (nothing is silently deleted) so the audit trail stays intact.
+Cancelling a booking or visa does **not** delete the invoice, a bill, a payment or a receipt. Ledgerly records a cancellation document and posts every cancellation entry on the cancellation date you choose:
+
+1. Any applied customer credit notes are reversed back to their notes.
+2. The sent invoice is voided with a reversing entry, while its receipts stay intact.
+3. Money actually received (cash/bank payments less active refunds, plus applied advances) is moved from Accounts Receivable to **2500 Refund Payable**.
+4. Cancellation charges are recognised in **4330 Cancellation Charges Income**. If the charges are more than the amount held, a cancellation invoice is issued for the shortfall.
+5. Supplier bills are retained at their original cost unless you enter a per-bill creditable amount. A supplier credit note is created for that amount and automatically applied to the bill's unpaid balance first; any remainder stays open in **1450 Supplier Credits**. A prepaid-portal credit is added to the portal wallet.
+
+The cancellation screen shows the resulting customer refund, cancellation income and retained supplier cost. The remaining refund can be paid later from **2500 Refund Payable**, converted to customer credit, or left open. Unapplied customer advances stay in **2400 Customer Advances**. A printable cancellation note is available from the booking or visa.
 
 ### Compliance engine
 
@@ -227,7 +240,7 @@ Cancelling a booking still reverses the customer invoice and every supplier bill
 - **Recurring bills** — office rent, utilities, salaries, internet, software, insurance, trade-licence instalments and similar costs. Set the vendor, expense account, amount, frequency, next due date and optional end date.
 - **Variable amounts** — for Etihad WE, DEWA, phone or other bills that change every month, tick **Amount varies each period**. The stored amount becomes an estimate, auto-draft is disabled, and **Create bill** opens a form where you enter the actual amount, bill date and due date for that period.
 - **Filings & renewals** — corporate tax, payroll, trade licence, lease, insurance, vehicle registration and visa quota. Set the frequency and reminder window; amounts are optional estimates.
-- **Auto-create draft bills** — for fixed recurring costs only. When enabled, opening Compliance (or pressing **Run due bills**) creates draft bills for every missed period up to today. The draft bill is not posted to the ledger until you review it and receive it under **Bills**.
+- **Auto-create draft bills** — for fixed recurring costs only. When enabled, pressing **Run due bills** on Compliance (or `POST /compliance/run-due`) creates draft bills for every missed period up to today. Opening the list never writes data. Monthly schedules stay on the original anchor day (31 January → 28/29 February → 31 March). The draft bill is not posted to the ledger until you review it and receive it under **Bills**.
 - **Payment method** — set a default method on each recurring item. Office rent can default to **Cheque**; the generated bill’s payment form then opens with Cheque selected and asks for cheque number, cheque date and bank. Cheque payments post through the normal Dr Accounts Payable / Cr Bank entry.
 - **Reminders** — each item has a reminder window in days. The page shows overdue, due soon and active counts; the dashboard shows a compliance alert when something needs attention.
 - **Actions** — create a draft bill, mark a filing/renewal complete, skip one period, pause/resume, edit or delete. Completing or skipping advances the next due date automatically; month-end dates stay at month-end.
@@ -273,6 +286,7 @@ The default chart includes these system accounts, which the posting engine depen
 | --- | --- | --- |
 | 1100 | Accounts Receivable | asset (receivable) |
 | 1400 | Supplier Advances | asset |
+| 1450 | Supplier Credits | asset |
 | 2000 | Accounts Payable | liability (payable) |
 | 2400 | Customer Advances | liability |
 | 2450 | Customer Credits | liability |
@@ -280,10 +294,11 @@ The default chart includes these system accounts, which the posting engine depen
 | 3100 | Retained Earnings | equity |
 | 3900 | Opening Balance Equity | equity |
 | 4300 | Service Charges & Markup | revenue |
+| 4330 | Cancellation Charges Income | revenue |
 
 Travel-specific defaults also include revenue accounts **4000 Ticket Sales**, **4100 Tour & Package Sales**, **4310 Commission Income**, **4320 Visa & Documentation Revenue**, and cost accounts **5000 Air Ticket Cost**, **5100 Hotel & Tour Cost**, **5120 Visa & Supplier Cost**.
 
-You can rename accounts and add your own under **Chart of accounts**, but don't archive the system accounts above or posting will fail with a clear error. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
+You can rename ordinary accounts and add your own under **Chart of accounts**, but the system accounts above must keep their code and name. Don't archive them or posting will fail with a clear error. Manual journal entries cannot post to control accounts **1100, 1400, 1450, 2000, 2400, 2450 or 2500**; use the related invoice, bill, refund, advance, credit or cancellation screen. Opening balances remain exempt. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
 
 ### Automatic postings
 
@@ -301,7 +316,16 @@ You can rename accounts and add your own under **Chart of accounts**, but don't 
 | Refund a customer payment | Accounts Receivable | Bank/Cash account |
 | Issue a customer credit note | Revenue account | Customer Credits |
 | Apply a customer credit to an invoice | Customer Credits | Accounts Receivable |
-| Record a supplier refund | Bank/Cash account | Accounts Payable |
+| Record a supplier refund | Bank/Cash account | **1450 Supplier Credits** |
+| Issue a supplier credit note | **1450 Supplier Credits** | Bill cost accounts |
+| Apply a supplier credit to a bill | Accounts Payable | **1450 Supplier Credits** |
+| Move a supplier credit to a prepaid portal | Supplier Advances | **1450 Supplier Credits** |
+| Refund an unused supplier credit | **1450 Supplier Credits** | Bank/Cash account |
+| Cancel an invoice and hold receipts | Accounts Receivable | **2500 Refund Payable** |
+| Recognise cancellation charges | **2500 Refund Payable** | **4330 Cancellation Charges Income** |
+| Cancellation shortfall invoice | Accounts Receivable | **4330 Cancellation Charges Income** |
+| Refund a cancellation balance | **2500 Refund Payable** | Bank/Cash account |
+| Convert a cancellation balance to credit | **2500 Refund Payable** | **2450 Customer Credits** |
 | Deposit cash into the bank | Bank account | Cash account |
 | Void a customer or supplier refund | Reverses the refund entry | Reverses the refund entry |
 | Top up a supplier portal | Supplier Advances | Bank/Cash account |
@@ -397,11 +421,17 @@ All endpoints are under `/api`:
 | GET | `/customers/:id/statement`, `/vendors/:id/statement` | Printable customer/vendor statement (optional `from`/`to`) |
 | GET/POST | `/attachments` | List or upload a local attachment (`entity_type`, `entity_id`, raw body, `filename`) |
 | GET/DELETE | `/attachments/:id/download`, `/attachments/:id` | Download or remove an attachment |
-| GET/POST | `/refunds` | Customer and supplier refunds (`refund_type`, `payment_id` or `bill_payment_id`, amount, date, account) |
+| GET/POST | `/supplier-credits` | Supplier credit notes (`vendor_id`, optional `bill_id`, `booking_id`, `visa_id`, `credit_date`, `amount_cents` or `items`) |
+| GET | `/supplier-credits/:id`, `/supplier-credits/reconciliation` | Credit detail or **1450** reconciliation |
+| POST | `/supplier-credits/:id/apply`, `/supplier-credits/:id/refund`, `/supplier-credits/:id/void` | Apply to a bill, refund in cash, or void an unused credit |
+| DELETE | `/supplier-credits/applications/:id` | Reverse a supplier credit application |
+| GET | `/cancellations`, `/cancellations/:id` | Cancellation documents and their refunds, credits and supplier credits |
+| POST | `/cancellations/:id/refund`, `/cancellations/:id/convert-to-credit` | Pay the remaining refund or convert it to customer credit |
+| GET/POST | `/refunds` | Customer and supplier refunds (`refund_type`, payment or credit source, amount, date, account) |
 | GET | `/refunds/sources?type=customer\|supplier` | Payments with a remaining refundable amount |
 | GET | `/refunds/:id` | Refund voucher with its journal entry |
 | POST | `/refunds/:id/void` | Reverse a refund and restore the source balance |
-| GET/POST | `/compliance` | Compliance items (`kind`: `recurring_bill`, `filing` or `renewal`); pass `auto=1` to generate due draft bills |
+| GET/POST | `/compliance` | Compliance items (`kind`: `recurring_bill`, `filing` or `renewal`) |
 | GET/PUT/DELETE | `/compliance/:id` | Compliance item, activity log, update or delete |
 | POST | `/compliance/:id/generate`, `/compliance/:id/complete`, `/compliance/:id/skip` | Create a draft bill, mark complete, or skip one period |
 | POST | `/compliance/run-due` | Generate draft bills for all due auto-create recurring items |
@@ -412,7 +442,7 @@ All endpoints are under `/api`:
 | POST | `/cash/deposits/:id/void` | Reverse a cash deposit |
 | GET/POST/PUT | `/customers`, `/vendors`, `/accounts` | Master data |
 | GET/POST/DELETE | `/journal-entries` | General journal |
-| GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging` | Reports |
+| GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging`, `/reconciliation` | Reports; `/reconciliation` checks 1400, 1450, 2450 and 2500 against their subledgers |
 | GET/PUT | `/settings` | Company settings |
 | GET | `/admin/backup` | JSON data export |
 | GET | `/admin/backup/database` | Full SQLite database backup download |
