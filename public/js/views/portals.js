@@ -79,9 +79,11 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
       </div>
       <div class="field full">
         <label for="pt-vendor">Linked supplier</label>
-        <select class="input" id="pt-vendor" name="vendor_id">
+        <input class="input" id="pt-vendor-search" type="search" placeholder="Search suppliers by name, email or phone…" aria-label="Search suppliers" autocomplete="off">
+        <select class="input" id="pt-vendor" name="vendor_id" aria-label="Matching suppliers" style="margin-top:8px">
           ${optionsHtml(vendors, { selected: portal?.vendor_id, placeholder: 'No supplier linked' })}
         </select>
+        <div class="hint" id="pt-vendor-search-hint">Type to narrow the supplier list.</div>
         <div class="hint">Link the supplier you bill for this portal. When you confirm a booking, that supplier's bill settles from the wallet automatically.</div>
       </div>
       <div class="field">
@@ -109,6 +111,41 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
     subtitle: 'Track the money you hold with airline logins and agency portals.',
     body,
     submitLabel: isEdit ? 'Save portal' : 'Create portal',
+    onMount(overlay) {
+      const search = overlay.querySelector('#pt-vendor-search');
+      const select = overlay.querySelector('#pt-vendor');
+      const hint = overlay.querySelector('#pt-vendor-search-hint');
+      if (!search || !select || !hint) return;
+
+      let selected = portal?.vendor_id ? String(portal.vendor_id) : '';
+      const searchable = (vendor) => [vendor.name, vendor.email, vendor.phone]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      function renderVendorOptions() {
+        const term = search.value.trim().toLowerCase();
+        const matches = vendors.filter((vendor) => !term || searchable(vendor).includes(term));
+        if (selected && !matches.some((vendor) => String(vendor.id) === selected)) selected = '';
+
+        select.innerHTML = optionsHtml(matches, { selected, placeholder: 'No supplier linked' });
+        select.disabled = matches.length === 0;
+
+        if (!vendors.length) {
+          hint.textContent = 'No active suppliers yet. Add a vendor first, or leave this portal unlinked.';
+        } else if (!term) {
+          hint.textContent = `${vendors.length} active supplier${vendors.length === 1 ? '' : 's'}. Type to narrow the list.`;
+        } else if (!matches.length) {
+          hint.textContent = `No suppliers match "${search.value.trim()}".`;
+        } else {
+          hint.textContent = `${matches.length} of ${vendors.length} suppliers match.`;
+        }
+      }
+
+      search.addEventListener('input', renderVendorOptions);
+      select.addEventListener('change', () => { selected = select.value; });
+      renderVendorOptions();
+    },
     async onSubmit(form) {
       const values = new FormData(form);
       const name = String(values.get('name') || '').trim();

@@ -407,6 +407,37 @@ test('modal trap, escape close and focus restore', async () => {
   assertNoConsoleErrors();
 });
 
+test('supplier portal vendor picker searches active vendors', async () => {
+  const vendors = await getJson(baseUrl, '/api/vendors');
+  const vendor = vendors.find((row) => row.is_active);
+  assert.ok(vendor, 'Demo data should include an active vendor');
+
+  await openRoute('/portals');
+  await page.locator('[data-action="new-portal"]').first().click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+
+  const search = dialog.locator('#pt-vendor-search');
+  const select = dialog.locator('#pt-vendor');
+  const hint = dialog.locator('#pt-vendor-search-hint');
+
+  await search.fill(vendor.name);
+  assert.ok(
+    (await select.locator('option').allInnerTexts()).includes(vendor.name),
+    'Vendor search should keep matching suppliers in the picker',
+  );
+  assert.match(await hint.innerText(), /suppliers? match/i);
+
+  await search.fill('zzzz-no-vendor');
+  assert.equal(await select.isDisabled(), true);
+  assert.match(await hint.innerText(), /No suppliers match/i);
+
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  assert.equal(await dialog.count(), 0);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
