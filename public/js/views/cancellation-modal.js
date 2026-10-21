@@ -59,6 +59,13 @@ export function cancellationModalBody(job) {
         <textarea class="input" id="cancel-notes" name="notes" rows="2" maxlength="2000" placeholder="Internal notes for the cancellation note"></textarea>
       </div>
       <div class="field full">
+        <div class="form-note">
+          <strong>This cannot be undone.</strong> Recording a cancellation creates a permanent cancellation note,
+          voids the customer invoice and keeps every receipt intact. Check the date, charges and supplier credit
+          amounts before saving.
+        </div>
+      </div>
+      <div class="field full">
         <label>Supplier bills</label>
         ${bills.length
     ? `${bills.map(billCreditRow).join('')}

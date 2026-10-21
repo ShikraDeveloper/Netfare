@@ -233,6 +233,8 @@ Cancelling a booking or visa does **not** delete the invoice, a bill, a payment 
 
 The cancellation screen shows the resulting customer refund, cancellation income and retained supplier cost. The remaining refund can be paid later from **2500 Refund Payable**, converted to customer credit, or left open. Unapplied customer advances stay in **2400 Customer Advances**. A printable cancellation note is available from the booking or visa.
 
+A recorded cancellation **cannot be undone**. There is no undo button: the cancellation note, voided customer invoice and linked refunds or credits remain in the audit trail. If a cancellation was recorded by mistake, do not edit the database directly. Review the cancellation note and any refunds or credits it created; unused credits can be voided, and a refund can be voided only if the money has been recovered. Then create a new booking or invoice for the reinstated trip and ask your accountant to review adjusting entries.
+
 ### Compliance engine
 
 **Accounting → Compliance** combines recurring overheads and a UAE compliance calendar.
@@ -298,7 +300,7 @@ The default chart includes these system accounts, which the posting engine depen
 
 Travel-specific defaults also include revenue accounts **4000 Ticket Sales**, **4100 Tour & Package Sales**, **4310 Commission Income**, **4320 Visa & Documentation Revenue**, and cost accounts **5000 Air Ticket Cost**, **5100 Hotel & Tour Cost**, **5120 Visa & Supplier Cost**.
 
-You can rename ordinary accounts and add your own under **Chart of accounts**, but the system accounts above must keep their code and name. Don't archive them or posting will fail with a clear error. Manual journal entries cannot post to control accounts **1100, 1400, 1450, 2000, 2400, 2450 or 2500**; use the related invoice, bill, refund, advance, credit or cancellation screen. Opening balances remain exempt. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
+You can rename accounts and add your own under **Chart of accounts**. System accounts must keep their code; their display names can be customised. Don't archive them or posting will fail with a clear error. Manual journal entries cannot post to control accounts **1100, 1400, 1450, 2000, 2400, 2450 or 2500**; use the related invoice, bill, refund, advance, credit or cancellation screen. Opening balances remain exempt. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
 
 ### Automatic postings
 
