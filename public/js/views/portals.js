@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { activeVendors } from '../store.js';
 import {
   avatar,
@@ -204,6 +205,7 @@ export async function render(container, { query } = {}) {
           <tbody id="portal-body"></tbody>
         </table>
       </div>
+      <div id="portal-pagination"></div>
     </div>
   `;
 
@@ -212,12 +214,39 @@ export async function render(container, { query } = {}) {
   const statusSelect = container.querySelector('#portal-status');
   const body = container.querySelector('#portal-body');
   const countEl = container.querySelector('#portal-count');
+  const paginationEl = container.querySelector('#portal-pagination');
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="6">${emptyState({
+    iconName: 'search',
+    title: 'No matching portals',
+    message: 'Try a different search term or filter.',
+  })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(portalRow).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const settlement = settlementSelect.value;
     const status = statusSelect.value;
-    const filtered = portals.filter((portal) => {
+    filtered = portals.filter((portal) => {
       if (settlement !== 'all' && portal.settlement !== settlement) return false;
       if (status === 'active' && !portal.is_active) return false;
       if (status === 'archived' && portal.is_active) return false;
@@ -226,15 +255,7 @@ export async function render(container, { query } = {}) {
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} shown`;
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="6">${emptyState({
-    iconName: 'search',
-    title: 'No matching portals',
-    message: 'Try a different search term or filter.',
-  })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(portalRow).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);

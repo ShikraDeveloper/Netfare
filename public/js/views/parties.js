@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { refreshMeta } from '../store.js';
 import {
   avatar,
@@ -188,6 +189,7 @@ export async function renderPartyView(container, { query = new URLSearchParams()
           <tbody id="party-body"></tbody>
         </table>
       </div>
+      <div id="party-pagination"></div>
     </div>
   `;
 
@@ -195,25 +197,44 @@ export async function renderPartyView(container, { query = new URLSearchParams()
   const archivedToggle = container.querySelector('#show-archived');
   const body = container.querySelector('#party-body');
   const countEl = container.querySelector('#party-count');
+  const paginationEl = container.querySelector('#party-pagination');
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
 
-  function applyFilters() {
-    const term = searchInput.value.trim().toLowerCase();
-    const showArchived = archivedToggle.checked;
-    const filtered = parties.filter((party) => {
-      if (!showArchived && !party.is_active) return false;
-      if (!term) return true;
-      return [party.name, party.email, party.phone, party.notes].some((value) => String(value || '').toLowerCase().includes(term));
-    });
-    countEl.textContent = `${filtered.length} shown`;
-    if (!filtered.length) {
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
       body.innerHTML = `<tr><td colspan="5">${emptyState({
     iconName: 'search',
     title: `No matching ${config.singular}s`,
     message: 'Try a different search term or show archived records.',
   })}</td></tr>`;
-      return;
+    } else {
+      body.innerHTML = rows.map((party) => partyRow(party, config)).join('');
     }
-    body.innerHTML = filtered.map((party) => partyRow(party, config)).join('');
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
+
+  function applyFilters() {
+    page = 1;
+    const term = searchInput.value.trim().toLowerCase();
+    const showArchived = archivedToggle.checked;
+    filtered = parties.filter((party) => {
+      if (!showArchived && !party.is_active) return false;
+      if (!term) return true;
+      return [party.name, party.email, party.phone, party.notes].some((value) => String(value || '').toLowerCase().includes(term));
+    });
+    countEl.textContent = `${filtered.length} shown`;
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);

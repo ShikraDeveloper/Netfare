@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   bindDateRange,
   centsToInput,
@@ -351,6 +352,7 @@ export async function render(container, { query } = {}) {
           <tbody id="cheque-body"></tbody>
         </table>
       </div>
+      <div id="cheque-pagination"></div>
     </div>
   `;
 
@@ -358,13 +360,40 @@ export async function render(container, { query } = {}) {
   const statusSelect = container.querySelector('#cheque-status');
   const body = container.querySelector('#cheque-body');
   const countEl = container.querySelector('#cheque-count');
+  const paginationEl = container.querySelector('#cheque-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="8">${emptyState({
+        iconName: 'search',
+        title: 'No matching cheques',
+        message: 'Try a different search, status or cheque date range.',
+      })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(rowHtml).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const status = statusSelect.value;
     const { from, to } = dateRange.values();
-    const filtered = cheques.filter((cheque) => {
+    filtered = cheques.filter((cheque) => {
       if (status !== 'all' && cheque.status !== status) return false;
       if (!inDateRange(cheque.cheque_date, from, to)) return false;
       if (!term) return true;
@@ -380,15 +409,7 @@ export async function render(container, { query } = {}) {
       ].some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} shown`;
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="8">${emptyState({
-        iconName: 'search',
-        title: 'No matching cheques',
-        message: 'Try a different search, status or cheque date range.',
-      })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(rowHtml).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);

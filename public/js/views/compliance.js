@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   confirmDialog,
   emptyState,
@@ -129,6 +130,7 @@ export async function render(container, { query } = {}) {
           <tbody id="compliance-body"></tbody>
         </table>
       </div>
+      <div id="compliance-pagination"></div>
     </div>
   `;
 
@@ -138,13 +140,40 @@ export async function render(container, { query } = {}) {
   const statusSelect = container.querySelector('#compliance-status');
   const body = container.querySelector('#compliance-body');
   const countEl = container.querySelector('#compliance-count');
+  const paginationEl = container.querySelector('#compliance-pagination');
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="7">${emptyState({
+        iconName: 'search',
+        title: 'No matching compliance items',
+        message: 'Try a different search, type, status or due filter.',
+      })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(rowHtml).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const kind = kindSelect.value;
     const due = dueSelect.value;
     const status = statusSelect.value;
-    const filtered = items.filter((item) => {
+    filtered = items.filter((item) => {
       if (kind !== 'all' && item.kind !== kind) return false;
       if (status !== 'all' && item.status !== status) return false;
       if (due === 'overdue' && item.due_state !== 'overdue') return false;
@@ -155,15 +184,7 @@ export async function render(container, { query } = {}) {
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} shown`;
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="7">${emptyState({
-        iconName: 'search',
-        title: 'No matching compliance items',
-        message: 'Try a different search, type, status or due filter.',
-      })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(rowHtml).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);

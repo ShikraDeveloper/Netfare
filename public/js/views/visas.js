@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { activeCustomers, store } from '../store.js';
 import {
   bindDateRange,
@@ -315,6 +316,7 @@ export async function render(container, { query } = {}) {
           <tbody id="visa-body"></tbody>
         </table>
       </div>
+      <div id="visa-pagination"></div>
     </div>
   `;
 
@@ -323,13 +325,40 @@ export async function render(container, { query } = {}) {
   const body = container.querySelector('#visa-body');
   const countEl = container.querySelector('#visa-count');
   const salesEl = container.querySelector('#visa-sales');
+  const paginationEl = container.querySelector('#visa-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
+  let page = 1;
+  let pageSize = DEFAULT_PAGE_SIZE;
+  let filtered = [];
+
+  function renderPage() {
+    const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
+    page = Math.min(Math.max(1, page), pages);
+    const start = (page - 1) * pageSize;
+    const rows = filtered.slice(start, start + pageSize);
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="8">${emptyState({
+    iconName: 'search',
+    title: 'No matching visa applications',
+    message: 'Try a different search term, status or date range.',
+  })}</td></tr>`;
+    } else {
+      body.innerHTML = rows.map(visaRow).join('');
+    }
+    paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
+    bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
+      page = nextPage;
+      pageSize = nextSize;
+      renderPage();
+    });
+  }
 
   function applyFilters() {
+    page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const status = statusSelect.value;
     const { from, to } = dateRange.values();
-    const filtered = visas.filter((visa) => {
+    filtered = visas.filter((visa) => {
       if (!inDateRange(visa.application_date, from, to)) return false;
       if (status !== 'all' && visa.status !== status) return false;
       if (!term) return true;
@@ -359,15 +388,7 @@ export async function render(container, { query } = {}) {
     if (subtitleEl) {
       subtitleEl.textContent = `${filtered.length} application${filtered.length === 1 ? '' : 's'} · ${active} in progress · ${issued} issued · ${fmtMoney(filteredMargin)} margin`;
     }
-    if (!filtered.length) {
-      body.innerHTML = `<tr><td colspan="8">${emptyState({
-    iconName: 'search',
-    title: 'No matching visa applications',
-    message: 'Try a different search term, status or date range.',
-  })}</td></tr>`;
-      return;
-    }
-    body.innerHTML = filtered.map(visaRow).join('');
+    renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);
