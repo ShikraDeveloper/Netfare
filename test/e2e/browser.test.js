@@ -347,6 +347,35 @@ test('data tables expose captions and column scopes', async () => {
   }
 });
 
+test('customer statement shows summary cards, presets and clean ledger rows', async () => {
+  const customers = await getJson(baseUrl, '/api/customers');
+  const customer = customers.find((row) => row.invoice_count > 0);
+  assert.ok(customer, 'Demo data should include a customer with an invoice');
+
+  await openRoute(`/customers/${customer.id}/statement`);
+  const kpis = await page.locator('.kpi-grid .kpi').allInnerTexts();
+  assert.equal(kpis.length, 4, 'Statement should show four summary cards');
+  assert.match(kpis[1], /Invoiced/, 'Customer debits should be labelled Invoiced');
+  assert.match(kpis[2], /Received/, 'Customer credits should be labelled Received');
+  assert.equal(await page.locator('.statement-presets [data-statement-preset]').count(), 3);
+  assert.match(await page.locator('.statement-status').innerText(), /Settled|Payment due|Credit balance/);
+
+  const ledgerText = await page.locator('.statement-table tbody').innerText();
+  assert.match(ledgerText, /Invoice raised/, 'Invoice descriptions should not repeat the reference');
+  assert.doesNotMatch(ledgerText, /Invoice INV-/);
+  assert.ok(await page.locator('.statement-desc-dot').count() > 0, 'Ledger rows should carry a type marker');
+
+  await page.locator('[data-statement-preset="year"]').click();
+  await page.waitForFunction(() => document.querySelector('[data-statement-preset="year"]')?.getAttribute('aria-pressed') === 'true');
+  assert.match(await page.locator('#date-from').inputValue(), /^\d{4}-01-01$/);
+
+  await page.emulateMedia({ media: 'print' });
+  assert.equal(await page.locator('.kpi-grid').isVisible(), false, 'Summary cards should not print');
+  assert.equal(await page.locator('.statement-card').isVisible(), true, 'The statement document should print');
+  await page.emulateMedia({ media: 'screen' });
+  assertNoConsoleErrors();
+});
+
 test('pagination, page-size and filter reset work on compliance and cheques', async () => {
   for (const route of ['/compliance', '/cheques']) {
     await openRoute(route);

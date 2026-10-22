@@ -8,7 +8,80 @@ import {
   icon,
   printPage,
   setHeader,
+  todayISO,
 } from '../ui.js';
+
+const CUSTOMER_TITLES = {
+  invoice: 'Invoice raised',
+  payment: 'Payment received',
+  credit: 'Credit applied',
+  refund: 'Refund issued',
+};
+
+const VENDOR_TITLES = {
+  bill: 'Supplier bill',
+  payment: 'Payment made',
+  supplier_credit: 'Supplier credit applied',
+  refund: 'Supplier refund received',
+};
+
+const KIND_TONES = {
+  invoice: 'blue',
+  payment: 'green',
+  credit: 'amber',
+  refund: 'red',
+  bill: 'blue',
+  supplier_credit: 'amber',
+};
+
+function transactionTitle(row, kind) {
+  return (kind === 'customer' ? CUSTOMER_TITLES : VENDOR_TITLES)[row.kind] || row.description;
+}
+
+function transactionDetail(row, kind) {
+  const parts = [];
+  if (row.kind === 'invoice' || row.kind === 'bill') {
+    if (row.due_date) parts.push(`Due ${fmtDate(row.due_date)}`);
+  } else {
+    if (row.method) parts.push(row.method);
+    if (row.related) parts.push(`Against ${row.related}`);
+  }
+  return parts.join(' · ');
+}
+
+function summaryCard(label, valueCents, meta, iconName, color) {
+  return `
+    <div class="kpi">
+      <div class="kpi-top">
+        <span class="kpi-label">${esc(label)}</span>
+        <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
+      </div>
+      <div class="kpi-value">${fmtMoney(valueCents)}</div>
+      <div class="kpi-meta">${esc(meta)}</div>
+    </div>
+  `;
+}
+
+function presetRange(preset) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const today = todayISO();
+  if (preset === 'month') return { from: `${year}-${month}-01`, to: today };
+  if (preset === 'year') return { from: `${year}-01-01`, to: today };
+  return { from: '', to: today };
+}
+
+function markActivePreset(container) {
+  const from = container.querySelector('#date-from')?.value || '';
+  const to = container.querySelector('#date-to')?.value || '';
+  container.querySelectorAll('[data-statement-preset]').forEach((button) => {
+    const range = presetRange(button.dataset.statementPreset);
+    const active = range.from === from && range.to === to;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
 
 export async function render(container, { params = [], query = new URLSearchParams(), kind = 'customer' } = {}) {
   const partyId = Number(params[0]);
@@ -20,6 +93,20 @@ export async function render(container, { params = [], query = new URLSearchPara
   });
   const partyLabel = kind === 'customer' ? 'Customer' : 'Vendor';
   const balanceLabel = kind === 'customer' ? 'Amount due' : 'Balance payable';
+  const debitLabel = kind === 'customer' ? 'Invoiced' : 'Paid';
+  const creditLabel = kind === 'customer' ? 'Received' : 'Billed';
+  const debitCount = data.transactions.filter((row) => row.debit_cents > 0).length;
+  const creditCount = data.transactions.filter((row) => row.credit_cents > 0).length;
+  const transactionCount = data.transactions.length;
+  const transactionText = `${transactionCount} transaction${transactionCount === 1 ? '' : 's'}`;
+  const closing = data.closing_balance_cents;
+  const closingStatus = closing === 0
+    ? { text: 'Settled', className: 'settled' }
+    : closing > 0
+      ? { text: kind === 'customer' ? 'Payment due' : 'Payable', className: 'due' }
+      : { text: kind === 'customer' ? 'Credit balance' : 'Advance paid', className: 'credit' };
+  const balanceColor = closing > 0 ? 'amber' : closing < 0 ? 'blue' : 'green';
+  const openingMeta = data.from ? `At ${fmtDate(data.from)}` : 'Start of history';
 
   setHeader({
     title: `${data.party.name} statement`,
@@ -31,10 +118,20 @@ export async function render(container, { params = [], query = new URLSearchPara
   });
 
   container.innerHTML = `
+    <div class="kpi-grid no-print">
+      ${summaryCard('Opening balance', data.opening_balance_cents, openingMeta, 'wallet', 'indigo')}
+      ${summaryCard(debitLabel, data.total_debit_cents, `${debitCount} debit entr${debitCount === 1 ? 'y' : 'ies'} in period`, 'invoice', 'blue')}
+      ${summaryCard(creditLabel, data.total_credit_cents, `${creditCount} credit entr${creditCount === 1 ? 'y' : 'ies'} in period`, 'check', 'green')}
+      ${summaryCard(balanceLabel, closing, `${closingStatus.text} · ${transactionText}`, 'bill', balanceColor)}
+    </div>
+
     <div class="toolbar statement-toolbar no-print">
       ${dateRangeHtml({ from: data.from, to: data.to, label: 'Period' })}
-      <div class="spacer"></div>
-      <span class="muted" style="font-size:12px">${data.transactions.length} transaction${data.transactions.length === 1 ? '' : 's'} in this period</span>
+      <div class="statement-presets" role="group" aria-label="Statement period presets">
+        <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="month" aria-pressed="false">This month</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="year" aria-pressed="false">This year</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="all" aria-pressed="false">All time</button>
+      </div>
     </div>
 
     <div class="card statement-card">
@@ -47,7 +144,7 @@ export async function render(container, { params = [], query = new URLSearchPara
         <div class="statement-head-right">
           <div class="statement-doc-type">${kind === 'customer' ? 'Statement of account' : 'Supplier statement'}</div>
           <div class="statement-period">${esc(periodLabel(data.from, data.to))}</div>
-          <div class="statement-generated">Generated ${esc(fmtDate(new Date().toISOString().slice(0, 10), { long: true }))}</div>
+          <div class="statement-generated">Generated ${esc(fmtDate(todayISO(), { long: true }))}</div>
         </div>
       </div>
 
@@ -60,7 +157,10 @@ export async function render(container, { params = [], query = new URLSearchPara
         </div>
         <div class="statement-balance-box">
           <span>${balanceLabel}</span>
-          <strong>${fmtMoney(data.closing_balance_cents)}</strong>
+          <div class="statement-balance-value">
+            <strong>${fmtMoney(closing)}</strong>
+            <span class="statement-status ${closingStatus.className}">${closingStatus.text}</span>
+          </div>
           <small>As of ${esc(fmtDate(data.to, { long: true }))}</small>
           ${data.unapplied_credits_cents > 0 ? `<small>Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</small>` : ''}
           ${data.unapplied_supplier_credits_cents > 0 ? `<small>Open supplier credits: ${fmtMoney(data.unapplied_supplier_credits_cents)}</small>` : ''}
@@ -69,6 +169,14 @@ export async function render(container, { params = [], query = new URLSearchPara
 
       <div class="table-wrap">
         <table class="data statement-table"><caption class="sr-only">Account statement</caption>
+          <colgroup>
+            <col style="width:12%">
+            <col style="width:17%">
+            <col>
+            <col style="width:12%">
+            <col style="width:12%">
+            <col style="width:14%">
+          </colgroup>
           <thead>
             <tr>
               <th scope="col">Date</th>
@@ -88,16 +196,27 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td class="num"></td>
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
-            ${data.transactions.length ? data.transactions.map((row) => `
-              <tr>
-                <td class="nowrap">${esc(fmtDate(row.date))}</td>
-                <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
-                <td>${esc(row.description)}${row.method ? `<div class="cell-sub">${esc(row.method)}</div>` : ''}</td>
-                <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '—'}</td>
-                <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '—'}</td>
-                <td class="num">${fmtMoney(row.balance_cents)}</td>
-              </tr>
-            `).join('') : `
+            ${data.transactions.length ? data.transactions.map((row) => {
+              const detail = transactionDetail(row, kind);
+              return `
+                <tr>
+                  <td class="nowrap">${esc(fmtDate(row.date))}</td>
+                  <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
+                  <td>
+                    <div class="statement-desc">
+                      <span class="statement-desc-dot ${KIND_TONES[row.kind] || 'slate'}" aria-hidden="true"></span>
+                      <div>
+                        <div class="statement-desc-title">${esc(transactionTitle(row, kind))}</div>
+                        ${detail ? `<div class="cell-sub">${esc(detail).replace(/-/g, '&#8209;')}</div>` : ''}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '<span class="statement-zero">—</span>'}</td>
+                  <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '<span class="statement-zero">—</span>'}</td>
+                  <td class="num">${fmtMoney(row.balance_cents)}</td>
+                </tr>
+              `;
+            }).join('') : `
               <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
             `}
             <tr class="statement-total">
@@ -112,7 +231,7 @@ export async function render(container, { params = [], query = new URLSearchPara
 
       <div class="statement-foot">
         <p>Please review this statement and contact us if anything looks incorrect.</p>
-        <p>${esc(data.company.company_name || '')}${data.company.company_email ? ` · ${esc(data.company.company_email)}` : ''}</p>
+        <p>${esc([data.company.company_name, data.company.company_email, data.company.company_phone].filter(Boolean).join(' · '))}</p>
       </div>
     </div>
   `;
@@ -124,6 +243,20 @@ export async function render(container, { params = [], query = new URLSearchPara
     const qs = next.toString();
     location.hash = `#/${routeBase}/${partyId}/statement${qs ? `?${qs}` : ''}`;
   });
+
+  container.querySelectorAll('[data-statement-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const range = presetRange(button.dataset.statementPreset);
+      const fromInput = container.querySelector('#date-from');
+      const toInput = container.querySelector('#date-to');
+      if (!fromInput || !toInput) return;
+      fromInput.value = range.from;
+      toInput.value = range.to;
+      const apply = container.querySelector('[data-date-apply]');
+      if (apply) apply.click();
+    });
+  });
+  markActivePreset(container);
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);
