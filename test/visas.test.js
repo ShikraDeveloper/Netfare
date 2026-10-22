@@ -13,6 +13,7 @@ const db = require('../server/db');
 const visaService = require('../server/services/visas');
 const invoiceService = require('../server/services/invoices');
 const portalService = require('../server/services/portals');
+const statements = require('../server/services/statements');
 
 function account(code) {
   const row = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
@@ -104,6 +105,38 @@ test('a submitted visa invoice carries the visitor applicant details', () => {
   assert.equal(invoice.visa_duration_days, 60);
   assert.equal(invoice.visa_reference, 'REF-9');
   assert.match(invoice.terms, /60 days/);
+});
+
+test('customer statement carries the invoice item and visa applicant details', () => {
+  const customerId = insertCustomer('Statement Visa Customer');
+  const visitor = visaService.createVisa(db, visaPayload(customerId, {
+    applicant_is_customer: false,
+    applicant_name: 'Statement Visitor',
+    nationality: 'Indian',
+    passport_number: 'P7654321',
+    passport_expiry: '2031-04-05',
+    date_of_birth: '1991-06-07',
+    duration_days: 30,
+    reference: 'REF-STMT',
+  }));
+
+  const submitted = visaService.submitVisa(db, visitor.id);
+  const statement = statements.customerStatement(db, customerId, {});
+  const invoiceRow = statement.transactions.find((row) => row.kind === 'invoice' && row.id === submitted.invoice_id);
+  assert.ok(invoiceRow, 'statement should include the submitted invoice');
+  assert.equal(invoiceRow.items.length, 1);
+  assert.equal(invoiceRow.items[0].description, 'Visa service');
+  assert.equal(invoiceRow.items[0].quantity, 1);
+  assert.equal(invoiceRow.visa.applicant_name, 'Statement Visitor');
+  assert.equal(invoiceRow.visa.applicant_is_customer, 0);
+  assert.equal(invoiceRow.visa.nationality, 'Indian');
+  assert.equal(invoiceRow.visa.passport_number, 'P7654321');
+  assert.equal(invoiceRow.visa.passport_expiry, '2031-04-05');
+  assert.equal(invoiceRow.visa.date_of_birth, '1991-06-07');
+  assert.equal(invoiceRow.visa.number, visitor.number);
+  assert.equal(invoiceRow.visa.visa_type, 'tourist');
+  assert.equal(invoiceRow.visa.duration_days, 30);
+  assert.equal(invoiceRow.visa.reference, 'REF-STMT');
 });
 
 test('portal settlements show the linked visa applicant', () => {

@@ -376,6 +376,32 @@ test('customer statement shows summary cards, presets and clean ledger rows', as
   assertNoConsoleErrors();
 });
 
+test('customer statement shows the visa applicant and invoice item', async () => {
+  const visas = await getJson(baseUrl, '/api/visas');
+  const visitor = visas.find((visa) => Number(visa.applicant_is_customer) === 0 && visa.invoice_id);
+  assert.ok(visitor, 'Demo data should include a visitor visa with an invoice');
+  const invoice = await getJson(baseUrl, `/api/invoices/${visitor.invoice_id}`);
+
+  await openRoute(`/customers/${visitor.customer_id}/statement`);
+  const invoiceRow = page.locator('.statement-table tbody tr').filter({ hasText: invoice.number }).first();
+  await invoiceRow.waitFor();
+  const applicantText = (await invoiceRow.locator('.statement-visa').innerText()).replace(/\u2011/g, '-');
+  assert.ok(applicantText.includes(visitor.applicant_name), 'Statement should name the visa applicant');
+  assert.match(applicantText, /Visitor/);
+  if (visitor.nationality) assert.ok(applicantText.includes(visitor.nationality));
+  if (visitor.passport_number) assert.ok(applicantText.includes(visitor.passport_number));
+  assert.ok(applicantText.includes(visitor.number), 'Statement should show the visa number');
+  assert.ok(
+    (await invoiceRow.locator('.statement-item-line').first().innerText()).includes(invoice.items[0].description),
+    'Statement should show the invoice item',
+  );
+  assert.ok(
+    (await page.locator('.statement-parties').innerText()).includes(invoice.customer_name),
+    'Bill To should stay with the paying customer',
+  );
+  assertNoConsoleErrors();
+});
+
 test('pagination, page-size and filter reset work on compliance and cheques', async () => {
   for (const route of ['/compliance', '/cheques']) {
     await openRoute(route);

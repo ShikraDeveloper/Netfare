@@ -10,7 +10,7 @@ function normalizeRange({ from, to } = {}) {
 }
 
 function customerTransactions(db, customerId) {
-  return db.prepare(`
+  const rows = db.prepare(`
     SELECT 'invoice' AS kind, i.id, i.number AS reference, i.issue_date AS date,
            i.due_date, i.total_cents AS amount_cents, i.status,
            '' AS method, '' AS related
@@ -66,6 +66,46 @@ function customerTransactions(db, customerId) {
       credit_cents: 0,
     };
   });
+
+  const itemsByInvoice = new Map();
+  const itemRows = db.prepare(`
+    SELECT ii.invoice_id, ii.description, ii.quantity, ii.unit_price_cents, ii.amount_cents
+    FROM invoice_items ii
+    JOIN invoices i ON i.id = ii.invoice_id
+    WHERE i.customer_id = ? AND i.status = 'sent'
+    ORDER BY ii.invoice_id, ii.sort_order, ii.id
+  `).all(customerId);
+  for (const item of itemRows) {
+    if (!itemsByInvoice.has(item.invoice_id)) itemsByInvoice.set(item.invoice_id, []);
+    itemsByInvoice.get(item.invoice_id).push({
+      description: item.description,
+      quantity: item.quantity,
+      unit_price_cents: item.unit_price_cents,
+      amount_cents: item.amount_cents,
+    });
+  }
+
+  const visasByInvoice = new Map();
+  const visaRows = db.prepare(`
+    SELECT i.id AS invoice_id, v.id, v.number, v.visa_type, v.destination_country,
+           v.duration_days, v.applicant_name, v.applicant_is_customer, v.nationality,
+           v.passport_number, v.passport_expiry, v.date_of_birth, v.reference
+    FROM invoices i
+    JOIN visa_applications v ON v.id = i.visa_id
+    WHERE i.customer_id = ? AND i.status = 'sent' AND i.visa_id IS NOT NULL
+  `).all(customerId);
+  for (const visa of visaRows) {
+    const { invoice_id: invoiceId, ...details } = visa;
+    visasByInvoice.set(invoiceId, details);
+  }
+
+  return rows.map((row) => row.kind === 'invoice'
+    ? {
+        ...row,
+        items: itemsByInvoice.get(row.id) || [],
+        visa: visasByInvoice.get(row.id) || null,
+      }
+    : row);
 }
 
 function vendorTransactions(db, vendorId) {

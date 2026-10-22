@@ -49,6 +49,55 @@ function transactionDetail(row, kind) {
   return parts.join(' · ');
 }
 
+function transactionItemsHtml(row) {
+  const items = Array.isArray(row.items) ? row.items : [];
+  if (!items.length) return '';
+  const visible = items.slice(0, 3);
+  const lines = visible.map((item) => {
+    const quantity = Number(item.quantity) || 1;
+    const label = quantity === 1 ? item.description : `${quantity} × ${item.description}`;
+    return `<div class="statement-item-line">${esc(label)}</div>`;
+  });
+  const remaining = items.length - visible.length;
+  if (remaining > 0) {
+    lines.push(`<div class="statement-item-line statement-item-more">+${remaining} more item${remaining === 1 ? '' : 's'}</div>`);
+  }
+  return lines.join('');
+}
+
+function titleCase(value) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+}
+
+function visaDetailsHtml(row) {
+  const visa = row.visa;
+  if (!visa || !visa.applicant_name) return '';
+  const applicantMeta = [];
+  if (visa.nationality) applicantMeta.push(visa.nationality);
+  if (visa.passport_number) applicantMeta.push(`Passport ${visa.passport_number}`);
+  if (visa.passport_expiry) applicantMeta.push(`Exp ${fmtDate(visa.passport_expiry)}`);
+  if (visa.date_of_birth) applicantMeta.push(`DOB ${fmtDate(visa.date_of_birth)}`);
+  const visaMeta = [];
+  if (visa.number) visaMeta.push(visa.number);
+  if (visa.visa_type) visaMeta.push(titleCase(visa.visa_type));
+  if (visa.destination_country) visaMeta.push(visa.destination_country);
+  if (Number(visa.duration_days) > 0) visaMeta.push(`${visa.duration_days} days`);
+  if (visa.reference) visaMeta.push(`Ref ${visa.reference}`);
+  const applicantType = Number(visa.applicant_is_customer) ? 'customer' : 'visitor';
+  const applicantLabel = applicantType === 'customer' ? 'Customer' : 'Visitor';
+  return `
+    <div class="statement-visa">
+      <div class="statement-visa-head">
+        <span class="statement-visa-label">Visa applicant</span>
+        <span class="statement-visa-name">${esc(visa.applicant_name)}</span>
+        <span class="statement-visa-tag ${applicantType}">${applicantLabel}</span>
+      </div>
+      ${applicantMeta.length ? `<div class="statement-visa-meta">${esc(applicantMeta.join(' · ')).replace(/-/g, '&#8209;')}</div>` : ''}
+      ${visaMeta.length ? `<div class="statement-visa-meta">${esc(visaMeta.join(' · ')).replace(/-/g, '&#8209;')}</div>` : ''}
+    </div>
+  `;
+}
+
 function summaryCard(label, valueCents, meta, iconName, color) {
   return `
     <div class="kpi">
@@ -205,9 +254,11 @@ export async function render(container, { params = [], query = new URLSearchPara
                   <td>
                     <div class="statement-desc">
                       <span class="statement-desc-dot ${KIND_TONES[row.kind] || 'slate'}" aria-hidden="true"></span>
-                      <div>
+                      <div class="statement-desc-content">
                         <div class="statement-desc-title">${esc(transactionTitle(row, kind))}</div>
+                        ${transactionItemsHtml(row)}
                         ${detail ? `<div class="cell-sub">${esc(detail).replace(/-/g, '&#8209;')}</div>` : ''}
+                        ${visaDetailsHtml(row)}
                       </div>
                     </div>
                   </td>
