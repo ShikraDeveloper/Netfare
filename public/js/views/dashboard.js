@@ -343,7 +343,7 @@ export async function render(container, { query } = {}) {
     : emptyState({
       iconName: 'wallet',
       title: 'No portal top-ups yet',
-      message: 'Top up an airline or agency wallet to track the balance you hold there.',
+      message: 'Top up an airline, agency or visa-agent wallet to track the balance you hold there.',
       action: '<button class="btn btn-secondary btn-sm" data-action="new-portal">Add a portal</button>',
     });
 

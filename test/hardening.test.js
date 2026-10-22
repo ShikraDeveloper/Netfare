@@ -206,6 +206,75 @@ test('legacy visa applicants are classified once when the flag column is added',
   ]);
 });
 
+test('legacy supplier portals gain the visa agent type without losing data', () => {
+  // Rebuild the current table with the original CHECK to imitate an older file.
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`
+        DROP TABLE IF EXISTS supplier_portals_legacy;
+        CREATE TABLE supplier_portals_legacy (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          portal_type TEXT NOT NULL DEFAULT 'other' CHECK (portal_type IN ('airline', 'iata_agency', 'consolidator', 'gds', 'other')),
+          settlement TEXT NOT NULL DEFAULT 'prepaid' CHECK (settlement IN ('prepaid', 'credit')),
+          vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
+          login_ref TEXT NOT NULL DEFAULT '',
+          notes TEXT NOT NULL DEFAULT '',
+          credit_limit_cents INTEGER NOT NULL DEFAULT 0,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO supplier_portals_legacy (
+          id, name, portal_type, settlement, vendor_id, login_ref, notes,
+          credit_limit_cents, is_active, created_at, updated_at
+        )
+          SELECT
+            id, name, portal_type, settlement, vendor_id, login_ref, notes,
+            credit_limit_cents, is_active, created_at, updated_at
+          FROM supplier_portals;
+        DROP TABLE supplier_portals;
+        ALTER TABLE supplier_portals_legacy RENAME TO supplier_portals;
+      `);
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+
+  const vendorId = Number(db.prepare('INSERT INTO vendors (name) VALUES (?)').run('Visa Agent Migration Vendor').lastInsertRowid);
+  const portalId = Number(db.prepare(`
+    INSERT INTO supplier_portals (name, portal_type, vendor_id)
+    VALUES (?, 'airline', ?)
+  `).run('Legacy Airline Portal', vendorId).lastInsertRowid);
+  const topupId = Number(db.prepare(`
+    INSERT INTO portal_topups (number, portal_id, topup_date, amount_cents, deposit_account_id)
+    VALUES (?, ?, '2026-04-01', 100000, ?)
+  `).run('HARDEN-TOPUP-1', portalId, account('1010').id).lastInsertRowid);
+
+  assert.throws(
+    () => db.prepare("UPDATE supplier_portals SET portal_type = 'visa_agent' WHERE id = ?").run(portalId),
+    /CHECK constraint failed/,
+  );
+
+  runMigrations(db);
+
+  const tableSql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'supplier_portals'").get().sql;
+  assert.match(tableSql, /'visa_agent'/);
+  assert.equal(db.prepare('SELECT portal_type, vendor_id FROM supplier_portals WHERE id = ?').get(portalId).vendor_id, vendorId);
+  assert.equal(db.prepare('SELECT portal_id FROM portal_topups WHERE id = ?').get(topupId).portal_id, portalId);
+  assert.deepEqual(db.prepare('PRAGMA foreign_key_check').all(), []);
+
+  db.prepare("UPDATE supplier_portals SET portal_type = 'visa_agent' WHERE id = ?").run(portalId);
+  assert.equal(db.prepare('SELECT portal_type FROM supplier_portals WHERE id = ?').get(portalId).portal_type, 'visa_agent');
+  const { normalizePortal } = require('../server/services/portals/lifecycle');
+  assert.equal(normalizePortal(db, { name: 'Visa Desk', portal_type: 'visa_agent', vendor_id: vendorId }).portal_type, 'visa_agent');
+
+  db.prepare('DELETE FROM portal_topups WHERE id = ?').run(topupId);
+  db.prepare('DELETE FROM supplier_portals WHERE id = ?').run(portalId);
+  db.prepare('DELETE FROM vendors WHERE id = ?').run(vendorId);
+});
+
 test('backup retention protects safety and automatic backups and downloads are temporary', () => {
   const backupDir = backupService.backupDir;
   fs.rmSync(backupDir, { recursive: true, force: true });

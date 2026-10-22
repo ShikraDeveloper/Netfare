@@ -172,6 +172,7 @@ export const PORTAL_TYPES = [
   ['iata_agency', 'IATA agency'],
   ['consolidator', 'Consolidator'],
   ['gds', 'GDS'],
+  ['visa_agent', 'Visa Agent'],
   ['other', 'Other'],
 ];
 

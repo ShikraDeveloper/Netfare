@@ -11,7 +11,7 @@ export function portalWallets(data) {
         ${emptyState({
     iconName: 'wallet',
     title: 'No portals yet',
-    message: 'Add the airline logins and IATA agency portals you use to track top-ups and balances.',
+    message: 'Add the airline, IATA, consolidator, GDS or visa-agent portals you use to track top-ups and balances.',
   })}
       </div>
     `;

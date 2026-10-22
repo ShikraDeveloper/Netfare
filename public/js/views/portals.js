@@ -108,7 +108,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
 
   return openModal({
     title: isEdit ? `Edit ${portal.name}` : 'New supplier portal',
-    subtitle: 'Track the money you hold with airline logins and agency portals.',
+    subtitle: 'Track money held with airlines, IATA agencies, consolidators, GDS and visa agents.',
     body,
     submitLabel: isEdit ? 'Save portal' : 'Create portal',
     onMount(overlay) {
@@ -196,7 +196,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'wallet',
     title: 'No portals yet',
-    message: 'Add the airline logins and IATA agency portals you use, then top them up. Confirming a booking spends the linked supplier\'s wallet automatically.',
+    message: 'Add the airline, IATA, consolidator, GDS or visa-agent portals you use, then top them up. Confirming a booking spends the linked supplier\'s wallet automatically.',
     action: '<button class="btn btn-primary" data-action="new-portal">Add your first portal</button>',
   })}
       </div>

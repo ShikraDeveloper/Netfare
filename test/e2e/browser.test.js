@@ -423,6 +423,13 @@ test('supplier portal vendor picker searches active vendors', async () => {
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
 
+  const typeOptions = await dialog.locator('#pt-type option').evaluateAll((options) => options.map((option) => option.value));
+  assert.ok(typeOptions.includes('visa_agent'), 'Portal type list should offer Visa Agent');
+  assert.ok(
+    (await dialog.locator('#pt-type option').allInnerTexts()).includes('Visa Agent'),
+    'Visa Agent should have a readable label',
+  );
+
   const search = dialog.locator('#pt-vendor-search');
   const select = dialog.locator('#pt-vendor');
   const hint = dialog.locator('#pt-vendor-search-hint');

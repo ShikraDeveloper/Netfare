@@ -6,7 +6,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 
 - **Travel bookings** — every booking is a job with a customer, sale items (what the traveller pays), supplier cost items (what the airline/hotel/visa supplier charges you), and live profit margin. Confirming a booking automatically creates the customer invoice and the supplier bills and posts them to the ledger.
 - **Visa applications** — a dedicated visa workflow beside bookings: applicant and passport details, destination, embassy reference, sale/cost lines and live margin. Submitting posts the customer invoice and supplier bills; approve and issue milestones track the application, while rejection or cancellation reverses the documents.
-- **Supplier portals & wallets** — track the money you hold with airline logins, IATA agencies, consolidators and GDS accounts. Top up a prepaid portal, spend it on bookings, or run a supplier on credit; every movement is posted to the ledger. Prepaid wallets reconcile against the supplier's own statement, while credit accounts show a full bills, payments and supplier-refund ledger and statement.
+- **Supplier portals & wallets** — track the money you hold with airline logins, IATA agencies, consolidators, GDS accounts and visa agents. Top up a prepaid portal, spend it on bookings, or run a supplier on credit; every movement is posted to the ledger. Prepaid wallets reconcile against the supplier's own statement, while credit accounts show a full bills, payments and supplier-refund ledger and statement.
 - **Booking lifecycle** — `draft → confirmed → travelled`, plus a cancellation workflow that reverses the sale, keeps every receipt and supplier payment, and records any cancellation charge, refund or credit.
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
@@ -100,7 +100,7 @@ The reset keeps your chart of accounts and settings and clears customers, vendor
 ## Travel-agency workflow
 
 1. **Create a customer** (the traveller or corporate account).
-2. **Set up your portals** under **Portals & wallets** — one per airline login or IATA agency. Link each to the supplier you bill, and top up the prepaid ones. See [Supplier portals & wallets](#supplier-portals--wallets).
+2. **Set up your portals** under **Portals & wallets** — one per airline login, IATA agency or visa agent. Link each to the supplier you bill, and top up the prepaid ones. See [Supplier portals & wallets](#supplier-portals--wallets).
 3. **Create a booking** under **Bookings** — add sale items (ticket, hotel, package, visa) and cost items (each with the supplier who is charging you). The editor shows the live margin as you type.
 4. **Confirm the booking** — this posts the customer invoice (status `sent`) and one supplier bill per vendor (status `received`) in a single step, keeping the ledger balanced. Bills for suppliers linked to a prepaid portal are settled from that wallet automatically.
 5. **Collect payment** on the invoice, or **record a customer advance** first and **apply** it to the invoice later.
@@ -151,14 +151,14 @@ Draft applications can be edited or deleted; once submitted they are part of the
 
 ### Supplier portals & wallets
 
-Most airlines and IATA agencies work on a **deposit**: you top up a balance in their portal first, then issue tickets and services against it. Ledgerly models each portal as its own account so you always know how much money is sitting with each supplier.
+Most airlines, IATA agencies and visa agents work on a **deposit**: you top up a balance in their portal first, then issue tickets and services against it. Ledgerly models each portal as its own account so you always know how much money is sitting with each supplier.
 
 Create portals under **Portals & wallets** (Travel group). Each portal has:
 
 | Field | Purpose |
 | --- | --- |
 | Name | e.g. `Emirates Trade`, `Amadeus via XYZ` |
-| Type | Airline / BSP, IATA agency, consolidator, GDS, other |
+| Type | Airline / BSP, IATA agency, consolidator, GDS, visa agent, other |
 | How you settle | **Prepaid wallet** (top up first) or **Credit account** (book now, pay later) |
 | Linked supplier | The vendor whose bills this portal pays. For prepaid portals, confirming a booking then settles that supplier's bill from the wallet automatically. |
 | Credit limit | Optional cap for credit accounts |

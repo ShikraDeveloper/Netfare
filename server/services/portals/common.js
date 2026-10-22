@@ -6,7 +6,7 @@ const { isCashAccount } = require('../../accounting');
 const SUPPLIER_ADVANCES = '1400';
 const AP = '2000';
 
-const PORTAL_TYPES = ['airline', 'iata_agency', 'consolidator', 'gds', 'other'];
+const PORTAL_TYPES = ['airline', 'iata_agency', 'consolidator', 'gds', 'visa_agent', 'other'];
 const SETTLEMENTS = ['prepaid', 'credit'];
 
 const portalSelect = `

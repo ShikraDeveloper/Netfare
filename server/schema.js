@@ -319,7 +319,7 @@ CREATE TABLE IF NOT EXISTS customer_advances (
 CREATE TABLE IF NOT EXISTS supplier_portals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
-  portal_type TEXT NOT NULL DEFAULT 'other' CHECK (portal_type IN ('airline', 'iata_agency', 'consolidator', 'gds', 'other')),
+  portal_type TEXT NOT NULL DEFAULT 'other' CHECK (portal_type IN ('airline', 'iata_agency', 'consolidator', 'gds', 'visa_agent', 'other')),
   settlement TEXT NOT NULL DEFAULT 'prepaid' CHECK (settlement IN ('prepaid', 'credit')),
   vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
   login_ref TEXT NOT NULL DEFAULT '',

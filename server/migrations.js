@@ -44,6 +44,50 @@ function protectReconciledLines() {
   }
 }
 
+// Supplier portals originally allowed only airline, IATA, consolidator, GDS
+// and other. Rebuild the table once so visa agents can be recorded as well,
+// preserving portal IDs and every wallet row that references them.
+function allowVisaAgentPortals() {
+  const table = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'supplier_portals'",
+  ).get();
+  if (!table || String(table.sql).includes("'visa_agent'")) return;
+
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`
+        DROP TABLE IF EXISTS supplier_portals_new;
+        CREATE TABLE supplier_portals_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          portal_type TEXT NOT NULL DEFAULT 'other' CHECK (portal_type IN ('airline', 'iata_agency', 'consolidator', 'gds', 'visa_agent', 'other')),
+          settlement TEXT NOT NULL DEFAULT 'prepaid' CHECK (settlement IN ('prepaid', 'credit')),
+          vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
+          login_ref TEXT NOT NULL DEFAULT '',
+          notes TEXT NOT NULL DEFAULT '',
+          credit_limit_cents INTEGER NOT NULL DEFAULT 0,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO supplier_portals_new (
+          id, name, portal_type, settlement, vendor_id, login_ref, notes,
+          credit_limit_cents, is_active, created_at, updated_at
+        )
+          SELECT
+            id, name, portal_type, settlement, vendor_id, login_ref, notes,
+            credit_limit_cents, is_active, created_at, updated_at
+          FROM supplier_portals;
+        DROP TABLE supplier_portals;
+        ALTER TABLE supplier_portals_new RENAME TO supplier_portals;
+      `);
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 ensureColumn('settings', 'booking_prefix', "TEXT NOT NULL DEFAULT 'BK'");
 ensureColumn('settings', 'next_booking_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_advance_number', 'INTEGER NOT NULL DEFAULT 1');
@@ -140,6 +184,7 @@ dropColumn('visa_applications', 'tax_rate');
 dropColumn('compliance_items', 'tax_rate');
 
 protectReconciledLines();
+allowVisaAgentPortals();
 
 // Retire the old VAT accounts exactly once. A user-created account at 1300 or
 // 2200 must never be renamed or deleted by later startups.
