@@ -63,6 +63,16 @@ async function getJson(baseUrl, endpoint) {
   return response.json();
 }
 
+async function postJson(baseUrl, endpoint, body = {}, expectedStatus = 201) {
+  const response = await fetch(`${baseUrl}${endpoint}`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  assert.equal(response.status, expectedStatus, `${endpoint} should return ${expectedStatus}`);
+  return response.json();
+}
+
 function seedListFixtures(dataDir) {
   const db = new Database(path.join(dataDir, 'accounting.db'));
   db.pragma('busy_timeout = 5000');
@@ -507,6 +517,65 @@ test('invoice shows a separate visa applicant section for a visitor', async () =
     (await page.locator('.doc-parties').first().innerText()).includes(visitor.customer_name),
     'Bill To should stay with the paying customer',
   );
+  assertNoConsoleErrors();
+});
+
+test('supplier portal statement shows the linked visa applicant', async () => {
+  const [customers, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const bank = accounts.find((account) => account.code === '1010');
+  const revenue = accounts.find((account) => account.code === '4320');
+  const visaCost = accounts.find((account) => account.code === '5120');
+  assert.ok(customers[0] && bank && revenue && visaCost);
+
+  const vendor = await postJson(baseUrl, '/api/vendors', { name: 'E2E Visa Supplier' });
+  const portal = await postJson(baseUrl, '/api/portals', {
+    name: 'E2E Visa Portal',
+    portal_type: 'visa_agent',
+    settlement: 'prepaid',
+    vendor_id: vendor.id,
+  });
+  await postJson(baseUrl, `/api/portals/${portal.id}/topups`, {
+    topup_date: '2026-10-20',
+    amount_cents: 30_000,
+    deposit_account_id: bank.id,
+    method: 'Bank transfer',
+  });
+
+  const visa = await postJson(baseUrl, '/api/visas', {
+    customer_id: customers[0].id,
+    application_date: '2026-10-20',
+    due_date: '2026-10-20',
+    destination_country: 'UAE',
+    visa_type: 'tourist',
+    duration_days: 30,
+    applicant_is_customer: false,
+    applicant_name: 'Portal Visitor',
+    nationality: 'Pakistani',
+    passport_number: 'AX9999999',
+    sale_items: [{
+      description: 'E2E visa sale',
+      quantity: 1,
+      unit_price_cents: 35_000,
+      account_id: revenue.id,
+    }],
+    cost_items: [{
+      description: 'E2E visa supplier cost',
+      quantity: 1,
+      unit_price_cents: 30_000,
+      account_id: visaCost.id,
+      vendor_id: vendor.id,
+    }],
+  });
+  await postJson(baseUrl, `/api/visas/${visa.id}/submit`, {}, 200);
+
+  await openRoute(`/portals/${portal.id}`);
+  const statementText = await page.locator('.doc-items-wrap').innerText();
+  assert.ok(statementText.includes(visa.number), 'Statement should show the visa number');
+  assert.match(statementText, /Applicant:\s*Portal Visitor/i);
+  assert.match(statementText, /Passport\s+AX9999999/i);
   assertNoConsoleErrors();
 });
 

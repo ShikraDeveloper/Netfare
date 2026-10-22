@@ -12,6 +12,7 @@ process.env.LEDGERLY_DATA_DIR = tempDir;
 const db = require('../server/db');
 const visaService = require('../server/services/visas');
 const invoiceService = require('../server/services/invoices');
+const portalService = require('../server/services/portals');
 
 function account(code) {
   const row = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
@@ -21,6 +22,10 @@ function account(code) {
 
 function insertCustomer(name) {
   return Number(db.prepare('INSERT INTO customers (name) VALUES (?)').run(name).lastInsertRowid);
+}
+
+function insertVendor(name) {
+  return Number(db.prepare('INSERT INTO vendors (name) VALUES (?)').run(name).lastInsertRowid);
 }
 
 function visaPayload(customerId, overrides = {}) {
@@ -99,6 +104,48 @@ test('a submitted visa invoice carries the visitor applicant details', () => {
   assert.equal(invoice.visa_duration_days, 60);
   assert.equal(invoice.visa_reference, 'REF-9');
   assert.match(invoice.terms, /60 days/);
+});
+
+test('portal settlements show the linked visa applicant', () => {
+  const customerId = insertCustomer('Portal Visa Customer');
+  const vendorId = insertVendor('Portal Visa Supplier');
+  const portal = portalService.createPortal(db, {
+    name: 'Portal Visa Supplier',
+    portal_type: 'visa_agent',
+    settlement: 'prepaid',
+    vendor_id: vendorId,
+  });
+  portalService.topUp(db, {
+    portal_id: portal.id,
+    topup_date: '2026-10-20',
+    amount_cents: 30_000,
+    deposit_account_id: account('1010').id,
+    method: 'Bank transfer',
+  });
+
+  const visa = visaService.createVisa(db, visaPayload(customerId, {
+    applicant_is_customer: false,
+    applicant_name: 'Portal Visitor',
+    nationality: 'Pakistani',
+    passport_number: 'AX9999999',
+    cost_items: [{
+      description: 'Visa supplier cost',
+      quantity: 1,
+      unit_price_cents: 30_000,
+      account_id: account('5120').id,
+      vendor_id: vendorId,
+    }],
+  }));
+  visaService.submitVisa(db, visa.id);
+
+  const refreshed = portalService.getPortal(db, portal.id);
+  assert.equal(refreshed.settlements.length, 1);
+  const settlement = refreshed.settlements[0];
+  assert.equal(settlement.visa_id, visa.id);
+  assert.equal(settlement.visa_number, visa.number);
+  assert.equal(settlement.visa_applicant_name, 'Portal Visitor');
+  assert.equal(settlement.visa_nationality, 'Pakistani');
+  assert.equal(settlement.visa_passport_number, 'AX9999999');
 });
 
 test('visa duration is optional, editable and must be whole days', () => {

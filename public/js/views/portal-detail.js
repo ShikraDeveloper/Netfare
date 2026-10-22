@@ -13,6 +13,17 @@ import {
 } from '../ui.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
+
+function visaApplicantLine(row) {
+  if (!row.visa_id) return '';
+  return [
+    row.visa_number ? `Visa ${row.visa_number}` : '',
+    row.visa_applicant_name ? `Applicant: ${row.visa_applicant_name}` : '',
+    row.visa_nationality,
+    row.visa_passport_number ? `Passport ${row.visa_passport_number}` : '',
+  ].filter(Boolean).join(' · ');
+}
+
 export async function render(container, { params, query } = {}) {
   const id = Number(params?.[0]);
   const portal = await api.get(`/portals/${id}`);
@@ -136,6 +147,11 @@ export async function render(container, { params, query } = {}) {
       billId: settlement.bill_id,
       deleteId: settlement.id,
       deletable: true,
+      visa_id: settlement.visa_id,
+      visa_number: settlement.visa_number,
+      visa_applicant_name: settlement.visa_applicant_name,
+      visa_nationality: settlement.visa_nationality,
+      visa_passport_number: settlement.visa_passport_number,
     })),
   ].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
@@ -193,6 +209,7 @@ export async function render(container, { params, query } = {}) {
           <td>
             <div>${esc(row.label)}</div>
             <div class="cell-sub">${esc(row.detail)}</div>
+            ${row.visa_id ? `<div class="cell-sub">${esc(visaApplicantLine(row))}</div>` : ''}
           </td>
           <td class="num">${row.inCents ? fmtMoney(row.inCents) : ''}</td>
           <td class="num">${row.outCents ? fmtMoney(row.outCents) : ''}</td>
@@ -224,6 +241,7 @@ export async function render(container, { params, query } = {}) {
           <div class="payment-main">
             <strong>${esc(settlement.bill_number)} · ${esc(settlement.vendor_name)}</strong>
             <span>${esc(fmtDate(settlement.payment_date))} · ${esc(settlement.number)}${settlement.booking_id ? ' · from a booking' : settlement.visa_id ? ' · from a visa' : ''}</span>
+            ${settlement.visa_id ? `<span>${esc(visaApplicantLine(settlement))}</span>` : ''}
           </div>
           <div class="payment-amount">${fmtMoney(settlement.amount_cents)}</div>
           <button class="icon-btn danger" data-void-settlement="${settlement.id}" title="Void this wallet settlement">${icon('trash', 16)}</button>
@@ -239,6 +257,7 @@ export async function render(container, { params, query } = {}) {
           <div class="payment-main">
             <strong>${esc(bill.number)} · ${esc(fmtDate(bill.bill_date))}</strong>
             <span>Total ${fmtMoney(bill.total_cents)} · Paid ${fmtMoney(bill.amount_paid_cents)}${bill.booking_id ? ' · from a booking' : bill.visa_id ? ' · from a visa' : ''}</span>
+            ${bill.visa_id ? `<span>${esc(visaApplicantLine(bill))}</span>` : ''}
           </div>
           <div class="payment-amount">${fmtMoney(bill.balance_cents)} <small class="muted">due</small></div>
           <a class="icon-btn" href="#/bills/${bill.id}" title="Open bill">${icon('chevron', 16)}</a>

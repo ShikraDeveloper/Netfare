@@ -67,10 +67,13 @@ function getPortal(db, id) {
            bp.journal_entry_id,
            b.id AS bill_id, b.number AS bill_number, b.total_cents AS bill_total_cents,
            b.status AS bill_status, b.booking_id AS booking_id, b.visa_id AS visa_id,
+           va.number AS visa_number, va.applicant_name AS visa_applicant_name,
+           va.nationality AS visa_nationality, va.passport_number AS visa_passport_number,
            v.name AS vendor_name
     FROM bill_payments bp
     JOIN bills b ON b.id = bp.bill_id
     JOIN vendors v ON v.id = bp.vendor_id
+    LEFT JOIN visa_applications va ON va.id = b.visa_id
     WHERE bp.portal_id = ? AND bp.status = 'posted'
     ORDER BY bp.payment_date DESC, bp.id DESC
   `).all(id);
@@ -78,8 +81,11 @@ function getPortal(db, id) {
   result.open_bills = portal.vendor_id ? db.prepare(`
     SELECT b.id, b.number, b.bill_date, b.total_cents, b.amount_paid_cents, b.credit_applied_cents,
            (b.total_cents - b.amount_paid_cents - b.credit_applied_cents) AS balance_cents,
-           b.booking_id, b.visa_id
+           b.booking_id, b.visa_id,
+           va.number AS visa_number, va.applicant_name AS visa_applicant_name,
+           va.nationality AS visa_nationality, va.passport_number AS visa_passport_number
     FROM bills b
+    LEFT JOIN visa_applications va ON va.id = b.visa_id
     WHERE b.vendor_id = ? AND b.status = 'received'
       AND b.total_cents > b.amount_paid_cents + b.credit_applied_cents
     ORDER BY b.bill_date, b.id
