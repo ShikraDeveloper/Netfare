@@ -309,7 +309,7 @@ function loadDemo(db) {
     // (invoice + supplier bill) → approved → issued, with a rejected example.
     const visaPlans = [
       {
-        customer: 'Aisha Khan', country: 'Saudi Arabia', type: 'tourist', applicant: 'Aisha Khan',
+        customer: 'Aisha Khan', country: 'Saudi Arabia', type: 'tourist', duration: 30, applicant: 'Aisha Khan',
         nationality: 'Indian', passport: 'P4821993', expiryDays: 1250, birthDays: 11_200, ref: 'KSA-88214',
         application: 25, travel: -20, status: 'submitted', pay: 'partial',
         sale: [
@@ -321,7 +321,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Gulf Tech FZE', country: 'United Arab Emirates', type: 'business', applicant: 'Omar Haddad',
+        customer: 'Gulf Tech FZE', country: 'United Arab Emirates', type: 'business', duration: 60, applicant: 'Omar Haddad',
         nationality: 'Lebanese', passport: 'LR902144', expiryDays: 820, birthDays: 14_600, ref: 'UAE-BIZ-4471',
         application: 18, travel: 12, status: 'approved', pay: 'full',
         sale: [
@@ -333,7 +333,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Fatima Al Zaabi', country: 'France (Schengen)', type: 'tourist', applicant: 'Fatima Al Zaabi',
+        customer: 'Fatima Al Zaabi', country: 'France (Schengen)', type: 'tourist', duration: 90, applicant: 'Fatima Al Zaabi',
         nationality: 'Emirati', passport: 'AE771209', expiryDays: 1600, birthDays: 13_400, ref: 'SCH-2026-1180',
         application: 30, travel: 25, status: 'issued', pay: 'full',
         sale: [
@@ -345,7 +345,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Rahul Menon', country: 'United Kingdom', type: 'visit', applicant: 'Rahul Menon',
+        customer: 'Rahul Menon', country: 'United Kingdom', type: 'visit', duration: 180, applicant: 'Rahul Menon',
         nationality: 'Indian', passport: 'P4821993', expiryDays: 1250, birthDays: 11_200, ref: 'UK-VIS-5521',
         application: 6, travel: 45, status: 'draft', pay: 'none',
         sale: [
@@ -357,7 +357,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Corporate Travel Co', country: 'United States', type: 'business', applicant: 'Group — 3 delegates',
+        customer: 'Corporate Travel Co', country: 'United States', type: 'business', duration: 365, applicant: 'Group — 3 delegates',
         nationality: 'Mixed', passport: 'GROUP-US-03', expiryDays: 900, birthDays: 15_000, ref: 'US-B1-9930',
         application: 40, travel: -12, status: 'rejected', pay: 'partial',
         sale: [
@@ -369,7 +369,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Aisha Khan', country: 'Turkey', type: 'tourist', applicant: 'Aisha Khan',
+        customer: 'Aisha Khan', country: 'Turkey', type: 'tourist', duration: 30, applicant: 'Aisha Khan',
         nationality: 'Indian', passport: 'P4821993', expiryDays: 1400, birthDays: 11_200, ref: 'TR-2026-7742',
         application: 3, travel: 45, status: 'submitted', pay: 'none',
         sale: [
@@ -390,6 +390,7 @@ function loadDemo(db) {
         travel_date: plan.travel == null ? null : daysAgo(plan.travel),
         destination_country: plan.country,
         visa_type: plan.type,
+        duration_days: plan.duration,
         applicant_name: plan.applicant,
         nationality: plan.nationality,
         passport_number: plan.passport,

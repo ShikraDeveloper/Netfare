@@ -242,6 +242,7 @@ CREATE TABLE IF NOT EXISTS visa_applications (
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'approved', 'issued', 'rejected', 'cancelled')),
   destination_country TEXT NOT NULL DEFAULT '',
   visa_type TEXT NOT NULL DEFAULT 'tourist',
+  duration_days INTEGER NOT NULL DEFAULT 0,
   applicant_name TEXT NOT NULL DEFAULT '',
   applicant_is_customer INTEGER NOT NULL DEFAULT 1,
   nationality TEXT NOT NULL DEFAULT '',

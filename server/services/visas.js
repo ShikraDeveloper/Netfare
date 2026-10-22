@@ -74,6 +74,14 @@ function normalizeVisaType(value) {
   return type;
 }
 
+function normalizeDurationDays(value, existing = 0) {
+  if (value === undefined) return existing;
+  if (value === null || value === '') return 0;
+  const days = num(value, 'Duration', { min: 1, max: 3650 });
+  if (!Number.isInteger(days)) throw bad('Duration must be a whole number of days');
+  return days;
+}
+
 function normalizeItems(db, items, itemType) {
   if (!Array.isArray(items)) return [];
   return items.map((item, index) => {
@@ -264,6 +272,7 @@ function createVisa(db, payload) {
     const customer = assertCustomer(db, payload.customer_id);
     const applicant = normalizeApplicant(payload, customer);
     const dates = normalizeDates(payload);
+    const durationDays = normalizeDurationDays(payload.duration_days);
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
@@ -273,10 +282,10 @@ function createVisa(db, payload) {
     const number = allocateNumber(db, 'visa', dates.applicationDate);
     const info = db.prepare(`
       INSERT INTO visa_applications (number, customer_id, application_date, due_date, travel_date,
-        status, destination_country, visa_type, applicant_name, applicant_is_customer,
+        status, destination_country, visa_type, duration_days, applicant_name, applicant_is_customer,
         nationality, passport_number, passport_expiry, date_of_birth, reference, notes,
         sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -285,6 +294,7 @@ function createVisa(db, payload) {
       dates.travelDate,
       optionalStr(payload.destination_country, 'Destination country', 120),
       normalizeVisaType(payload.visa_type),
+      durationDays,
       applicant.name,
       applicant.isCustomer,
       optionalStr(payload.nationality, 'Nationality', 80),
@@ -310,6 +320,7 @@ function updateVisa(db, id, payload) {
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
     const applicant = normalizeApplicant(payload, customer);
     const dates = normalizeDates(payload, existing);
+    const durationDays = normalizeDurationDays(payload.duration_days, existing.duration_days || 0);
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
@@ -318,7 +329,7 @@ function updateVisa(db, id, payload) {
 
     db.prepare(`
       UPDATE visa_applications SET customer_id = ?, application_date = ?, due_date = ?, travel_date = ?,
-        destination_country = ?, visa_type = ?, applicant_name = ?, applicant_is_customer = ?,
+        destination_country = ?, visa_type = ?, duration_days = ?, applicant_name = ?, applicant_is_customer = ?,
         nationality = ?, passport_number = ?, passport_expiry = ?, date_of_birth = ?,
         reference = ?, notes = ?, sale_total_cents = ?, cost_total_cents = ?,
         updated_at = datetime('now')
@@ -330,6 +341,7 @@ function updateVisa(db, id, payload) {
       dates.travelDate,
       optionalStr(payload.destination_country, 'Destination country', 120),
       normalizeVisaType(payload.visa_type ?? existing.visa_type),
+      durationDays,
       applicant.name,
       applicant.isCustomer,
       optionalStr(payload.nationality, 'Nationality', 80),
@@ -369,13 +381,21 @@ function submitVisa(db, id) {
     const costItems = items.filter((item) => item.item_type === 'cost');
     if (!saleItems.length) throw bad('Add sale items before submitting this application');
 
+    const visaTypeName = visa.visa_type
+      ? `${visa.visa_type.charAt(0).toUpperCase()}${visa.visa_type.slice(1)}`
+      : '';
+    const visaDetails = [
+      visa.destination_country,
+      visaTypeName ? `${visaTypeName} visa` : '',
+      visa.duration_days ? `${visa.duration_days} days` : '',
+    ].filter(Boolean).join(' · ');
     const invoice = invoiceService.createInvoice(db, {
       customer_id: visa.customer_id,
       issue_date: visa.application_date,
       due_date: visa.due_date || visa.application_date,
       notes: visa.notes,
-      terms: visa.destination_country
-        ? `${visa.destination_country} ${visa.visa_type} visa${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
+      terms: visaDetails
+        ? `${visaDetails}${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
         : '',
       status: 'sent',
       items: saleItems.map((item) => ({

@@ -206,6 +206,25 @@ test('legacy visa applicants are classified once when the flag column is added',
   ]);
 });
 
+test('legacy visa applications gain an optional duration column', () => {
+  const customerId = Number(db.prepare('INSERT INTO customers (name) VALUES (?)').run('Legacy Duration Customer').lastInsertRowid);
+  const visaId = Number(db.prepare(`
+    INSERT INTO visa_applications (number, customer_id, application_date, applicant_name)
+    VALUES (?, ?, '2026-04-01', ?)
+  `).run('HARDEN-DURATION-1', customerId, 'Legacy Duration Customer').lastInsertRowid);
+
+  db.exec('ALTER TABLE visa_applications DROP COLUMN duration_days');
+  runMigrations(db);
+
+  assert.equal(
+    db.prepare('SELECT duration_days FROM visa_applications WHERE id = ?').get(visaId).duration_days,
+    0,
+  );
+
+  db.prepare('DELETE FROM visa_applications WHERE id = ?').run(visaId);
+  db.prepare('DELETE FROM customers WHERE id = ?').run(customerId);
+});
+
 test('legacy supplier portals gain the visa agent type without losing data', () => {
   // Rebuild the current table with the original CHECK to imitate an older file.
   db.pragma('foreign_keys = OFF');

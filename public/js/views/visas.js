@@ -36,6 +36,12 @@ export function visaTypeLabel(type) {
   return VISA_TYPE_LABELS[type] || 'Other';
 }
 
+export function visaDurationLabel(days) {
+  const value = Number(days);
+  if (!Number.isFinite(value) || value <= 0) return '';
+  return `${value} day${value === 1 ? '' : 's'}`;
+}
+
 const STATUS_OPTIONS = ['draft', 'submitted', 'approved', 'issued', 'rejected', 'cancelled'];
 
 function accountIdByCode(code) {
@@ -52,7 +58,11 @@ function defaultAccounts() {
 
 function visaRow(visa) {
   const marginClass = visa.margin_cents >= 0 ? 'margin-positive' : 'margin-negative';
-  const destination = [visa.destination_country, visaTypeLabel(visa.visa_type)].filter(Boolean).join(' · ');
+  const destination = [
+    visa.destination_country,
+    visaTypeLabel(visa.visa_type),
+    visaDurationLabel(visa.duration_days),
+  ].filter(Boolean).join(' · ');
   return `
     <tr class="clickable" data-id="${visa.id}">
       <td>
@@ -129,6 +139,11 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         <select class="input" id="visa-type" name="visa_type">
           ${optionsHtml(Object.entries(VISA_TYPE_LABELS).map(([value, label]) => ({ value, label })), { selected: visa?.visa_type || 'tourist', valueKey: 'value', labelKey: 'label', placeholder: '' })}
         </select>
+      </div>
+      <div class="field">
+        <label for="visa-duration">Duration (days)</label>
+        <input class="input" id="visa-duration" name="duration_days" type="number" min="1" max="3650" step="1" value="${esc(visa?.duration_days || '')}" placeholder="e.g. 30">
+        <div class="hint">Leave blank if the stay length is not fixed.</div>
       </div>
       <div class="field">
         <label for="visa-country">Destination country</label>
@@ -236,6 +251,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         travel_date: values.get('travel_date') || null,
         destination_country: values.get('destination_country'),
         visa_type: values.get('visa_type'),
+        duration_days: values.get('duration_days') || null,
         applicant_is_customer: !applicantOther,
         applicant_name: values.get('applicant_name'),
         nationality: values.get('nationality'),
@@ -422,6 +438,7 @@ export async function render(container, { query } = {}) {
         visa.applicant_name,
         visa.destination_country,
         visa.visa_type,
+        visa.duration_days,
         visa.passport_number,
         visa.nationality,
         visa.reference,

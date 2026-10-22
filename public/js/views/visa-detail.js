@@ -16,7 +16,7 @@ import {
   toCents,
   voidDialog,
 } from '../ui.js';
-import { openVisaModal, visaTypeLabel } from './visas.js';
+import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
@@ -105,10 +105,11 @@ export async function render(container, { params } = {}) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
   }
 
+  const duration = visaDurationLabel(visa.duration_days);
   const subtitleParts = [
     visa.applicant_name || visa.customer_name,
     visa.destination_country || 'No destination',
-    `${visaTypeLabel(visa.visa_type)} visa`,
+    `${visaTypeLabel(visa.visa_type)} visa${duration ? ` · ${duration}` : ''}`,
   ];
   setHeader({
     title: visa.number,
@@ -250,6 +251,7 @@ export async function render(container, { params } = {}) {
               <dt>Application date</dt><dd>${esc(fmtDate(visa.application_date))}</dd>
               <dt>Travel date</dt><dd>${visa.travel_date ? esc(fmtDate(visa.travel_date)) : '—'}</dd>
               <dt>Visa type</dt><dd>${esc(visaTypeLabel(visa.visa_type))}</dd>
+              <dt>Duration</dt><dd>${esc(duration || '—')}</dd>
               <dt>Embassy ref</dt><dd>${esc(visa.reference || '—')}</dd>
             </dl>
           </div>

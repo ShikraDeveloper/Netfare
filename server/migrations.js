@@ -157,6 +157,8 @@ ensureColumn('portal_credits', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (
 ensureColumn('portal_credits', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_credits', 'voided_at', 'TEXT');
 
+ensureColumn('visa_applications', 'duration_days', 'INTEGER NOT NULL DEFAULT 0');
+
 // Existing visa applications did not record whether the applicant was the
 // customer or a visitor. Derive it once when the column is first added.
 const hadVisaApplicantFlag = hasColumn('visa_applications', 'applicant_is_customer');

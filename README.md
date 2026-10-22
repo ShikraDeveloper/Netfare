@@ -131,6 +131,7 @@ Visas live in their own **Visas** section (Travel group) because they carry appl
 | Nationality / passport no. / expiry / date of birth | Applicant details recorded with the application |
 | Application date / travel date | Application date drives invoice dates; travel date is the planned trip |
 | Visa type | Tourist, visit/family, business, transit, student, work, other |
+| Duration | Stay length in days, e.g. `30` or `60`; leave blank if not fixed |
 | Destination country | e.g. `Saudi Arabia`, `France (Schengen)` |
 | Embassy / application reference | The reference on the embassy or visa-centre receipt |
 | Sale items | Visa fee and service charge, coded to revenue (defaults to **4320 Visa & Documentation Revenue**) |
@@ -147,7 +148,7 @@ The lifecycle is **draft → submitted → approved → issued**, with **rejecte
 | Reject | Reverses the invoice and supplier bills (available while submitted or approved). If the embassy keeps its fee, record it as an expense. |
 | Cancel | Reverses the invoice and supplier bills for a customer cancellation, including payments and applied advances. |
 
-Draft applications can be edited or deleted; once submitted they are part of the ledger and can only be rejected or cancelled. When the applicant is someone other than the customer, the invoice is still billed to the paying customer and shows a separate **Visa applicant** section with the applicant’s name, nationality, passport and application details. The detail page shows the invoice, supplier bills, customer advances and payments side by side, and prints as a clean A4 application summary. Advances recorded on a visa are linked to that application, held in **2400 Customer Advances**, and can be applied to its invoice or refunded in the same way as booking advances. **Reports → Visa margin** lists every application in a period with its sale, cost and margin; rejected and cancelled applications are excluded.
+Draft applications can be edited or deleted; once submitted they are part of the ledger and can only be rejected or cancelled. When the applicant is someone other than the customer, the invoice is still billed to the paying customer and shows a separate **Visa applicant** section with the applicant’s name, nationality, passport, duration and application details. The detail page shows the invoice, supplier bills, customer advances and payments side by side, and prints as a clean A4 application summary. Advances recorded on a visa are linked to that application, held in **2400 Customer Advances**, and can be applied to its invoice or refunded in the same way as booking advances. **Reports → Visa margin** lists every application in a period with its sale, cost and margin; rejected and cancelled applications are excluded.
 
 ### Supplier portals & wallets
 

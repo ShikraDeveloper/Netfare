@@ -45,6 +45,7 @@ function attachVisaDetails(db, invoice) {
     SELECT number AS visa_number,
            destination_country AS visa_destination_country,
            visa_type AS visa_type,
+           duration_days AS visa_duration_days,
            applicant_name AS visa_applicant_name,
            applicant_is_customer AS visa_applicant_is_customer,
            nationality AS visa_nationality,

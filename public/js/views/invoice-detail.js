@@ -21,7 +21,7 @@ import {
 } from '../ui.js';
 import { openInvoiceModal } from './invoices.js';
 import { openRefundModal } from './refund-modal.js';
-import { visaTypeLabel } from './visas.js';
+import { visaDurationLabel, visaTypeLabel } from './visas.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 function visaApplicantHtml(invoice) {
@@ -39,7 +39,11 @@ function visaApplicantHtml(invoice) {
 
   const application = [
     invoice.visa_number,
-    [invoice.visa_destination_country, `${visaTypeLabel(invoice.visa_type)} visa`].filter(Boolean).join(' · '),
+    [
+      invoice.visa_destination_country,
+      `${visaTypeLabel(invoice.visa_type)} visa`,
+      visaDurationLabel(invoice.visa_duration_days),
+    ].filter(Boolean).join(' · '),
     invoice.visa_reference ? `Ref ${invoice.visa_reference}` : '',
   ].filter(Boolean).join(' · ');
 
@@ -249,7 +253,7 @@ export async function render(container, { params } = {}) {
             <div class="doc-party-detail">${esc([invoice.customer_address, invoice.customer_email, invoice.customer_phone].filter(Boolean).join('\n'))}</div>
           </div>
           <div>
-            <div class="doc-label">Payment terms</div>
+            <div class="doc-label">${invoice.visa_id && invoice.terms ? 'Visa details' : 'Payment terms'}</div>
             <div class="doc-terms">${esc(invoice.terms || `Payment due by ${fmtDate(invoice.due_date, { long: true })}.`)}</div>
           </div>
         </div>

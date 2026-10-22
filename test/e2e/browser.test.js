@@ -461,6 +461,11 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   const applicant = dialog.locator('#visa-applicant');
   const other = dialog.locator('#visa-applicant-other');
   const hint = dialog.locator('#visa-applicant-hint');
+  const duration = dialog.locator('#visa-duration');
+
+  assert.equal(await duration.getAttribute('type'), 'number');
+  await duration.fill('30');
+  assert.equal(await duration.inputValue(), '30');
 
   await customer.selectOption({ index: 1 });
   const customerName = (await customer.locator('option:checked').innerText()).trim();
@@ -497,6 +502,7 @@ test('invoice shows a separate visa applicant section for a visitor', async () =
   const applicantText = await section.innerText();
   assert.ok(applicantText.includes(visitor.applicant_name), 'Invoice should name the visa applicant');
   assert.match(applicantText, /Passport:/i);
+  assert.match(applicantText, /60 days/);
   assert.ok(
     (await page.locator('.doc-parties').first().innerText()).includes(visitor.customer_name),
     'Bill To should stay with the paying customer',

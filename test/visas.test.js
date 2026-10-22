@@ -79,6 +79,7 @@ test('a submitted visa invoice carries the visitor applicant details', () => {
     passport_number: 'P1234567',
     passport_expiry: '2030-05-01',
     date_of_birth: '1990-02-03',
+    duration_days: 60,
     reference: 'REF-9',
   }));
 
@@ -95,7 +96,34 @@ test('a submitted visa invoice carries the visitor applicant details', () => {
   assert.equal(invoice.visa_date_of_birth, '1990-02-03');
   assert.equal(invoice.visa_destination_country, 'UAE');
   assert.equal(invoice.visa_type, 'tourist');
+  assert.equal(invoice.visa_duration_days, 60);
   assert.equal(invoice.visa_reference, 'REF-9');
+  assert.match(invoice.terms, /60 days/);
+});
+
+test('visa duration is optional, editable and must be whole days', () => {
+  const customerId = insertCustomer('Duration Customer');
+
+  const created = visaService.createVisa(db, visaPayload(customerId, { duration_days: 30 }));
+  assert.equal(created.duration_days, 30);
+
+  const updated = visaService.updateVisa(db, created.id, visaPayload(customerId, { duration_days: 60 }));
+  assert.equal(updated.duration_days, 60);
+
+  const cleared = visaService.updateVisa(db, created.id, visaPayload(customerId, { duration_days: null }));
+  assert.equal(cleared.duration_days, 0);
+
+  const defaulted = visaService.createVisa(db, visaPayload(customerId));
+  assert.equal(defaulted.duration_days, 0);
+
+  assert.throws(
+    () => visaService.createVisa(db, visaPayload(customerId, { duration_days: 1.5 })),
+    /whole number of days/i,
+  );
+  assert.throws(
+    () => visaService.createVisa(db, visaPayload(customerId, { duration_days: 0 })),
+    /at least 1/i,
+  );
 });
 
 test('a visitor applicant requires a name', () => {
