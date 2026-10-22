@@ -11,6 +11,7 @@ process.env.LEDGERLY_DATA_DIR = tempDir;
 
 const db = require('../server/db');
 const visaService = require('../server/services/visas');
+const invoiceService = require('../server/services/invoices');
 
 function account(code) {
   const row = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
@@ -67,6 +68,34 @@ test('visa applications track whether the applicant is the customer', () => {
   }));
   assert.equal(updated.applicant_is_customer, 1);
   assert.equal(updated.applicant_name, 'Priya Gulati');
+});
+
+test('a submitted visa invoice carries the visitor applicant details', () => {
+  const customerId = insertCustomer('Sponsor Customer');
+  const visitor = visaService.createVisa(db, visaPayload(customerId, {
+    applicant_is_customer: false,
+    applicant_name: 'Rahul Visitor',
+    nationality: 'Indian',
+    passport_number: 'P1234567',
+    passport_expiry: '2030-05-01',
+    date_of_birth: '1990-02-03',
+    reference: 'REF-9',
+  }));
+
+  const submitted = visaService.submitVisa(db, visitor.id);
+  const invoice = invoiceService.getInvoice(db, submitted.invoice_id);
+
+  assert.equal(invoice.customer_name, 'Sponsor Customer');
+  assert.equal(invoice.visa_number, visitor.number);
+  assert.equal(invoice.visa_applicant_name, 'Rahul Visitor');
+  assert.equal(invoice.visa_applicant_is_customer, 0);
+  assert.equal(invoice.visa_nationality, 'Indian');
+  assert.equal(invoice.visa_passport_number, 'P1234567');
+  assert.equal(invoice.visa_passport_expiry, '2030-05-01');
+  assert.equal(invoice.visa_date_of_birth, '1990-02-03');
+  assert.equal(invoice.visa_destination_country, 'UAE');
+  assert.equal(invoice.visa_type, 'tourist');
+  assert.equal(invoice.visa_reference, 'REF-9');
 });
 
 test('a visitor applicant requires a name', () => {

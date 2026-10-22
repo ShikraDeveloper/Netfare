@@ -36,9 +36,32 @@ function serializeInvoice(invoice, today = todayISO()) {
   };
 }
 
+// A visa invoice is billed to the customer, but the applicant may be someone
+// else. Keep the applicant details on the detail response so the document can
+// show a separate "Visa applicant" section without changing the ledger party.
+function attachVisaDetails(db, invoice) {
+  if (!invoice.visa_id) return invoice;
+  const visa = db.prepare(`
+    SELECT number AS visa_number,
+           destination_country AS visa_destination_country,
+           visa_type AS visa_type,
+           applicant_name AS visa_applicant_name,
+           applicant_is_customer AS visa_applicant_is_customer,
+           nationality AS visa_nationality,
+           passport_number AS visa_passport_number,
+           passport_expiry AS visa_passport_expiry,
+           date_of_birth AS visa_date_of_birth,
+           reference AS visa_reference
+    FROM visa_applications
+    WHERE id = ?
+  `).get(invoice.visa_id);
+  return visa ? Object.assign(invoice, visa) : invoice;
+}
+
 function getInvoice(db, id) {
   const invoice = db.prepare(`${invoiceSelect} WHERE i.id = ?`).get(id);
   if (!invoice) throw notFound('Invoice not found');
+  attachVisaDetails(db, invoice);
   invoice.items = db.prepare(`
     SELECT ii.*, a.code AS account_code, a.name AS account_name
     FROM invoice_items ii

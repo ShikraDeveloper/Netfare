@@ -486,6 +486,24 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   assertNoConsoleErrors();
 });
 
+test('invoice shows a separate visa applicant section for a visitor', async () => {
+  const visas = await getJson(baseUrl, '/api/visas');
+  const visitor = visas.find((visa) => Number(visa.applicant_is_customer) === 0 && visa.invoice_id);
+  assert.ok(visitor, 'Demo data should include a submitted visa for a visitor');
+
+  await openRoute(`/invoices/${visitor.invoice_id}`);
+  const section = page.locator('.doc-visa-applicant');
+  await section.waitFor();
+  const applicantText = await section.innerText();
+  assert.ok(applicantText.includes(visitor.applicant_name), 'Invoice should name the visa applicant');
+  assert.match(applicantText, /Passport:/i);
+  assert.ok(
+    (await page.locator('.doc-parties').first().innerText()).includes(visitor.customer_name),
+    'Bill To should stay with the paying customer',
+  );
+  assertNoConsoleErrors();
+});
+
 test('void dialog requires remarks, reverses a paid invoice and records the audit log', async () => {
   const [customers, accounts] = await Promise.all([
     getJson(baseUrl, '/api/customers'),

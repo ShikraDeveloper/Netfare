@@ -21,7 +21,44 @@ import {
 } from '../ui.js';
 import { openInvoiceModal } from './invoices.js';
 import { openRefundModal } from './refund-modal.js';
+import { visaTypeLabel } from './visas.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
+
+function visaApplicantHtml(invoice) {
+  if (!invoice.visa_id || Number(invoice.visa_applicant_is_customer) !== 0) return '';
+  const name = String(invoice.visa_applicant_name || '').trim();
+  if (!name) return '';
+
+  const details = [
+    invoice.visa_nationality ? `Nationality: ${invoice.visa_nationality}` : '',
+    invoice.visa_passport_number
+      ? `Passport: ${invoice.visa_passport_number}${invoice.visa_passport_expiry ? ` · expires ${fmtDate(invoice.visa_passport_expiry)}` : ''}`
+      : '',
+    invoice.visa_date_of_birth ? `Date of birth: ${fmtDate(invoice.visa_date_of_birth)}` : '',
+  ].filter(Boolean);
+
+  const application = [
+    invoice.visa_number,
+    [invoice.visa_destination_country, `${visaTypeLabel(invoice.visa_type)} visa`].filter(Boolean).join(' · '),
+    invoice.visa_reference ? `Ref ${invoice.visa_reference}` : '',
+  ].filter(Boolean).join(' · ');
+
+  return `
+    <div class="doc-visa-applicant">
+      <div>
+        <div class="doc-label">Visa applicant</div>
+        <div class="doc-party-name">${esc(name)}</div>
+        ${details.length ? `<div class="doc-party-detail">${esc(details.join('\n'))}</div>` : ''}
+      </div>
+      ${application ? `
+        <div class="doc-visa-application">
+          <div class="doc-label">Visa application</div>
+          <div class="doc-party-detail">${esc(application)}</div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
 
 function paymentModalBody(invoice) {
   const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));
@@ -216,6 +253,8 @@ export async function render(container, { params } = {}) {
             <div class="doc-terms">${esc(invoice.terms || `Payment due by ${fmtDate(invoice.due_date, { long: true })}.`)}</div>
           </div>
         </div>
+
+        ${visaApplicantHtml(invoice)}
 
         <div class="doc-items-wrap">
           <table class="doc-items"><caption class="sr-only">Invoice line items</caption>

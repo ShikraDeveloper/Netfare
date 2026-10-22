@@ -766,6 +766,9 @@ body.modal-open { overflow: hidden; }
 .doc-party-name { font-size: 14px; font-weight: 650; }
 .doc-party-detail { font-size: 12px; color: var(--muted); line-height: 1.65; margin-top: 3px; white-space: pre-line; }
 .doc-terms { font-size: 12px; color: var(--muted); line-height: 1.65; white-space: pre-line; }
+.doc-visa-applicant { display: flex; justify-content: space-between; gap: 24px; padding: 14px 16px; margin: 0 0 24px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+.doc-visa-applicant .doc-label { margin-bottom: 5px; }
+.doc-visa-application { flex: 0 1 320px; text-align: right; }
 
 .doc-items { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 20px; }
 .doc-items th { text-align: left; background: #f8f9fc; padding: 9px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-weight: 700; }
@@ -1092,6 +1095,8 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
   .doc-meta { text-align: left; }
   .doc-meta-grid { text-align: left; }
   .doc-parties { grid-template-columns: 1fr; gap: 18px; }
+  .doc-visa-applicant { flex-direction: column; gap: 10px; }
+  .doc-visa-application { flex: none; text-align: left; }
   .doc-total-area { flex-direction: column-reverse; gap: 20px; }
   .doc-totals { width: 100%; }
   .account-summary { grid-template-columns: repeat(2, 1fr); }
@@ -1203,9 +1208,10 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
   .report-day-cash { font-size: 8px; }
   a { color: inherit !important; text-decoration: none !important; }
   .doc-items thead { display: table-header-group; }
-  .doc-items tr, .doc-parties, .doc-total-area, .doc-foot { page-break-inside: avoid; }
+  .doc-items tr, .doc-parties, .doc-visa-applicant, .doc-total-area, .doc-foot { page-break-inside: avoid; }
   .doc-items td, .doc-items th { border-color: #d8dbe2; }
   .doc-items th { background: #f3f4f7 !important; }
+  .doc-visa-applicant { background: #f8f9fc !important; border-color: #d8dbe2; }
   .doc-head { margin-bottom: 24px; }
   .doc-foot { margin-top: 18px; }
   .ledger-detail { display: table-row !important; }
