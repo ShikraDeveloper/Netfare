@@ -93,6 +93,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
   const saleItems = visa?.sale_items?.length ? visa.sale_items : [{}];
   const costItems = visa?.cost_items?.length ? visa.cost_items : [{}];
   const defaults = defaultAccounts();
+  const applicantIsOther = visa ? Number(visa.applicant_is_customer) === 0 : false;
 
   const body = `
     <div class="form-grid">
@@ -101,6 +102,15 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         <select class="input" id="visa-customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: visa?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
+      </div>
+      <div class="field full">
+        <label class="checkbox-row" for="visa-applicant-other">
+          <input type="checkbox" id="visa-applicant-other" ${applicantIsOther ? 'checked' : ''}>
+          <span>
+            <strong>This visa is for someone else</strong><br>
+            Turn this on to enter a visitor's name and passport details. Leave it off when the customer is travelling.
+          </span>
+        </label>
       </div>
       <div class="field">
         <label for="visa-date">Application date</label>
@@ -130,7 +140,10 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
       </div>
       <div class="field">
         <label for="visa-applicant">Applicant name</label>
-        <input class="input" id="visa-applicant" name="applicant_name" value="${esc(visa?.applicant_name || '')}" placeholder="Defaults to the customer" autocomplete="off">
+        <input class="input" id="visa-applicant" name="applicant_name" value="${esc(visa?.applicant_name || '')}"
+          placeholder="${applicantIsOther ? 'Enter the visitor’s full name' : 'Select a customer to fill this'}"
+          ${applicantIsOther ? 'required' : 'readonly'} autocomplete="off">
+        <div class="hint" id="visa-applicant-hint">${applicantIsOther ? 'Enter the visitor’s full name and passport details below.' : 'Uses the selected customer’s name. Add the passport details below if needed.'}</div>
       </div>
       <div class="field">
         <label for="visa-nationality">Nationality</label>
@@ -212,6 +225,10 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
       if (!sale.length) throw new Error('Add at least one sale item');
       if (sale.some((item) => !item.description || !item.account_id)) throw new Error('Every sale line needs a description and revenue account');
       if (cost.some((item) => !item.description || !item.account_id || !item.vendor_id)) throw new Error('Every cost line needs a description, cost account and supplier');
+      const applicantOther = Boolean(form.querySelector('#visa-applicant-other')?.checked);
+      if (applicantOther && !String(values.get('applicant_name') || '').trim()) {
+        throw new Error('Enter the visitor name');
+      }
       const payload = {
         customer_id: Number(values.get('customer_id')),
         application_date: values.get('application_date'),
@@ -219,6 +236,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         travel_date: values.get('travel_date') || null,
         destination_country: values.get('destination_country'),
         visa_type: values.get('visa_type'),
+        applicant_is_customer: !applicantOther,
         applicant_name: values.get('applicant_name'),
         nationality: values.get('nationality'),
         passport_number: values.get('passport_number'),
@@ -239,11 +257,47 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
       overlay._visaEditor = mountBookingLines(overlay, defaults);
       const customerSelect = overlay.querySelector('#visa-customer');
       const applicant = overlay.querySelector('#visa-applicant');
+      const otherToggle = overlay.querySelector('#visa-applicant-other');
+      const applicantHint = overlay.querySelector('#visa-applicant-hint');
+
+      function customerName() {
+        if (!customerSelect || customerSelect.selectedIndex <= 0) return '';
+        return customerSelect.selectedOptions[0]?.textContent.trim() || '';
+      }
+
+      function syncApplicantMode() {
+        if (!applicant) return;
+        const isOther = Boolean(otherToggle?.checked);
+        applicant.readOnly = !isOther;
+        applicant.required = isOther;
+        applicant.placeholder = isOther ? 'Enter the visitor’s full name' : 'Select a customer to fill this';
+        if (applicantHint) {
+          applicantHint.textContent = isOther
+            ? 'Enter the visitor’s full name and passport details below.'
+            : 'Uses the selected customer’s name. Add the passport details below if needed.';
+        }
+        if (!isOther) {
+          const name = customerName();
+          if (name) applicant.value = name;
+        }
+      }
+
       customerSelect?.addEventListener('change', () => {
-        if (applicant.value.trim()) return;
-        if (customerSelect.selectedIndex <= 0) return;
-        applicant.value = customerSelect.selectedOptions[0]?.textContent.trim() || '';
+        if (!otherToggle?.checked) syncApplicantMode();
       });
+
+      otherToggle?.addEventListener('change', () => {
+        if (otherToggle.checked) {
+          const current = applicant?.value.trim() || '';
+          if (!current || current === customerName()) {
+            if (applicant) applicant.value = '';
+          }
+        }
+        syncApplicantMode();
+        if (otherToggle.checked) applicant?.focus();
+      });
+
+      syncApplicantMode();
     },
   });
 

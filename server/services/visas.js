@@ -8,6 +8,7 @@ const {
   num,
   cents,
   dateISO,
+  isTruthy,
 } = require('../util');
 const { allocateNumber } = require('./numbering');
 const { isPurchaseAccount } = require('../accounting');
@@ -44,6 +45,27 @@ function assertCustomer(db, customerId) {
   if (!customer) throw bad('Choose a customer');
   if (!customer.is_active) throw bad('That customer is archived');
   return customer;
+}
+
+function normalizeApplicant(payload, customer) {
+  const name = optionalStr(payload.applicant_name, 'Applicant name', 160);
+  const hasFlag = payload.applicant_is_customer !== undefined && payload.applicant_is_customer !== null;
+
+  if (hasFlag) {
+    if (isTruthy(payload.applicant_is_customer)) {
+      return { isCustomer: 1, name: customer.name };
+    }
+    if (!name) throw bad('Enter the visitor name');
+    return { isCustomer: 0, name };
+  }
+
+  // Older API callers may not send the flag. Keep their previous behaviour and
+  // infer the distinction from the applicant name.
+  const applicantName = name || customer.name;
+  return {
+    isCustomer: applicantName === customer.name ? 1 : 0,
+    name: applicantName,
+  };
 }
 
 function normalizeVisaType(value) {
@@ -233,6 +255,7 @@ function normalizeDates(payload, existing = {}) {
 function createVisa(db, payload) {
   return db.transaction(() => {
     const customer = assertCustomer(db, payload.customer_id);
+    const applicant = normalizeApplicant(payload, customer);
     const dates = normalizeDates(payload);
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
@@ -243,9 +266,10 @@ function createVisa(db, payload) {
     const number = allocateNumber(db, 'visa', dates.applicationDate);
     const info = db.prepare(`
       INSERT INTO visa_applications (number, customer_id, application_date, due_date, travel_date,
-        status, destination_country, visa_type, applicant_name, nationality, passport_number,
-        passport_expiry, date_of_birth, reference, notes, sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        status, destination_country, visa_type, applicant_name, applicant_is_customer,
+        nationality, passport_number, passport_expiry, date_of_birth, reference, notes,
+        sale_total_cents, cost_total_cents)
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -254,7 +278,8 @@ function createVisa(db, payload) {
       dates.travelDate,
       optionalStr(payload.destination_country, 'Destination country', 120),
       normalizeVisaType(payload.visa_type),
-      optionalStr(payload.applicant_name, 'Applicant name', 160) || customer.name,
+      applicant.name,
+      applicant.isCustomer,
       optionalStr(payload.nationality, 'Nationality', 80),
       optionalStr(payload.passport_number, 'Passport number', 60),
       dates.passportExpiry,
@@ -276,6 +301,7 @@ function updateVisa(db, id, payload) {
     if (!existing) throw notFound('Visa application not found');
     if (existing.status !== 'draft') throw bad('Only draft visa applications can be edited');
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
+    const applicant = normalizeApplicant(payload, customer);
     const dates = normalizeDates(payload, existing);
     const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
     const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
@@ -285,9 +311,10 @@ function updateVisa(db, id, payload) {
 
     db.prepare(`
       UPDATE visa_applications SET customer_id = ?, application_date = ?, due_date = ?, travel_date = ?,
-        destination_country = ?, visa_type = ?, applicant_name = ?, nationality = ?, passport_number = ?,
-        passport_expiry = ?, date_of_birth = ?, reference = ?, notes = ?,
-        sale_total_cents = ?, cost_total_cents = ?, updated_at = datetime('now')
+        destination_country = ?, visa_type = ?, applicant_name = ?, applicant_is_customer = ?,
+        nationality = ?, passport_number = ?, passport_expiry = ?, date_of_birth = ?,
+        reference = ?, notes = ?, sale_total_cents = ?, cost_total_cents = ?,
+        updated_at = datetime('now')
       WHERE id = ?
     `).run(
       customer.id,
@@ -296,7 +323,8 @@ function updateVisa(db, id, payload) {
       dates.travelDate,
       optionalStr(payload.destination_country, 'Destination country', 120),
       normalizeVisaType(payload.visa_type ?? existing.visa_type),
-      optionalStr(payload.applicant_name, 'Applicant name', 160) || customer.name,
+      applicant.name,
+      applicant.isCustomer,
       optionalStr(payload.nationality, 'Nationality', 80),
       optionalStr(payload.passport_number, 'Passport number', 60),
       dates.passportExpiry,

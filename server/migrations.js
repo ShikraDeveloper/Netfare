@@ -96,6 +96,22 @@ ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 ensureColumn('post_dated_cheques', 'batch_index', 'INTEGER NOT NULL DEFAULT 0');
 
+// Existing visa applications did not record whether the applicant was the
+// customer or a visitor. Derive it once when the column is first added.
+const hadVisaApplicantFlag = hasColumn('visa_applications', 'applicant_is_customer');
+ensureColumn('visa_applications', 'applicant_is_customer', 'INTEGER NOT NULL DEFAULT 1');
+if (!hadVisaApplicantFlag) {
+  db.exec(`
+    UPDATE visa_applications
+    SET applicant_is_customer = 0
+    WHERE applicant_name <> ''
+      AND applicant_name <> COALESCE(
+        (SELECT name FROM customers WHERE customers.id = visa_applications.customer_id),
+        ''
+      )
+  `);
+}
+
 // VAT/tax support was removed. Drop legacy columns on existing databases.
 dropColumn('settings', 'tax_rate');
 dropColumn('invoices', 'tax_rate');

@@ -1,0 +1,95 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { test, after } = require('node:test');
+
+const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-visa-test-'));
+process.env.LEDGERLY_DATA_DIR = tempDir;
+
+const db = require('../server/db');
+const visaService = require('../server/services/visas');
+
+function account(code) {
+  const row = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
+  assert.ok(row, `account ${code} exists`);
+  return row;
+}
+
+function insertCustomer(name) {
+  return Number(db.prepare('INSERT INTO customers (name) VALUES (?)').run(name).lastInsertRowid);
+}
+
+function visaPayload(customerId, overrides = {}) {
+  return {
+    customer_id: customerId,
+    application_date: '2026-10-21',
+    due_date: '2026-10-21',
+    destination_country: 'UAE',
+    visa_type: 'tourist',
+    sale_items: [{
+      description: 'Visa service',
+      quantity: 1,
+      unit_price_cents: 35_000,
+      account_id: account('4320').id,
+    }],
+    ...overrides,
+  };
+}
+
+after(() => {
+  try { db.close(); } catch { /* ignore */ }
+  fs.rmSync(tempDir, { recursive: true, force: true });
+});
+
+test('visa applications track whether the applicant is the customer', () => {
+  const customerId = insertCustomer('Priya Gulati');
+
+  const customerVisa = visaService.createVisa(db, visaPayload(customerId, {
+    applicant_is_customer: true,
+    applicant_name: 'Ignored name',
+  }));
+  assert.equal(customerVisa.applicant_is_customer, 1);
+  assert.equal(customerVisa.applicant_name, 'Priya Gulati');
+
+  const visitorVisa = visaService.createVisa(db, visaPayload(customerId, {
+    applicant_is_customer: false,
+    applicant_name: 'Rahul Visitor',
+  }));
+  assert.equal(visitorVisa.applicant_is_customer, 0);
+  assert.equal(visitorVisa.applicant_name, 'Rahul Visitor');
+
+  const updated = visaService.updateVisa(db, visitorVisa.id, visaPayload(customerId, {
+    applicant_is_customer: true,
+    applicant_name: 'Rahul Visitor',
+  }));
+  assert.equal(updated.applicant_is_customer, 1);
+  assert.equal(updated.applicant_name, 'Priya Gulati');
+});
+
+test('a visitor applicant requires a name', () => {
+  const customerId = insertCustomer('Another Customer');
+  assert.throws(
+    () => visaService.createVisa(db, visaPayload(customerId, {
+      applicant_is_customer: false,
+      applicant_name: '   ',
+    })),
+    /enter the visitor name/i,
+  );
+});
+
+test('older callers without the applicant flag keep the previous behaviour', () => {
+  const customerId = insertCustomer('Legacy Caller Customer');
+
+  const named = visaService.createVisa(db, visaPayload(customerId, {
+    applicant_name: 'Legacy Visitor',
+  }));
+  assert.equal(named.applicant_is_customer, 0);
+  assert.equal(named.applicant_name, 'Legacy Visitor');
+
+  const defaulted = visaService.createVisa(db, visaPayload(customerId));
+  assert.equal(defaulted.applicant_is_customer, 1);
+  assert.equal(defaulted.applicant_name, 'Legacy Caller Customer');
+});

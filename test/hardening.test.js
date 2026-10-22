@@ -181,6 +181,31 @@ test('manual journal entries in a reconciliation cannot be deleted', () => {
   assertBalanced();
 });
 
+test('legacy visa applicants are classified once when the flag column is added', () => {
+  const customerId = Number(db.prepare('INSERT INTO customers (name) VALUES (?)').run('Legacy Visa Customer').lastInsertRowid);
+  const insertVisa = db.prepare(`
+    INSERT INTO visa_applications (number, customer_id, application_date, applicant_name)
+    VALUES (?, ?, ?, ?)
+  `);
+
+  db.exec('ALTER TABLE visa_applications DROP COLUMN applicant_is_customer');
+  insertVisa.run('HARDEN-VISA-1', customerId, '2026-01-01', 'Legacy Visa Customer');
+  insertVisa.run('HARDEN-VISA-2', customerId, '2026-01-01', 'Legacy Visitor');
+
+  runMigrations(db);
+
+  const rows = db.prepare(`
+    SELECT number, applicant_is_customer
+    FROM visa_applications
+    WHERE number IN ('HARDEN-VISA-1', 'HARDEN-VISA-2')
+    ORDER BY number
+  `).all();
+  assert.deepEqual(rows, [
+    { number: 'HARDEN-VISA-1', applicant_is_customer: 1 },
+    { number: 'HARDEN-VISA-2', applicant_is_customer: 0 },
+  ]);
+});
+
 test('backup retention protects safety and automatic backups and downloads are temporary', () => {
   const backupDir = backupService.backupDir;
   fs.rmSync(backupDir, { recursive: true, force: true });

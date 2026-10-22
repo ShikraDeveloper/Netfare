@@ -228,6 +228,7 @@ CREATE TABLE IF NOT EXISTS visa_applications (
   destination_country TEXT NOT NULL DEFAULT '',
   visa_type TEXT NOT NULL DEFAULT 'tourist',
   applicant_name TEXT NOT NULL DEFAULT '',
+  applicant_is_customer INTEGER NOT NULL DEFAULT 1,
   nationality TEXT NOT NULL DEFAULT '',
   passport_number TEXT NOT NULL DEFAULT '',
   passport_expiry TEXT,

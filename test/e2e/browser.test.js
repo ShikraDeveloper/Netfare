@@ -438,6 +438,41 @@ test('supplier portal vendor picker searches active vendors', async () => {
   assertNoConsoleErrors();
 });
 
+test('visa applicant toggle separates customer and visitor details', async () => {
+  await openRoute('/visas');
+  await page.locator('[data-action="new-visa"]').first().click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+
+  const customer = dialog.locator('#visa-customer');
+  const applicant = dialog.locator('#visa-applicant');
+  const other = dialog.locator('#visa-applicant-other');
+  const hint = dialog.locator('#visa-applicant-hint');
+
+  await customer.selectOption({ index: 1 });
+  const customerName = (await customer.locator('option:checked').innerText()).trim();
+  assert.ok(customerName);
+  assert.equal(await applicant.inputValue(), customerName, 'customer mode fills the applicant name');
+  assert.equal(await applicant.getAttribute('readonly'), '', 'customer mode keeps the applicant name read-only');
+  assert.match(await hint.innerText(), /customer/i);
+
+  await other.check();
+  assert.equal(await applicant.inputValue(), '', 'visitor mode clears the prefilled customer name');
+  assert.equal(await applicant.getAttribute('readonly'), null, 'visitor mode allows editing the name');
+  assert.equal(await applicant.getAttribute('required'), '', 'visitor mode requires an applicant name');
+  assert.match(await hint.innerText(), /visitor/i);
+
+  await applicant.fill('Rahul Visitor');
+  await other.uncheck();
+  assert.equal(await applicant.inputValue(), customerName, 'switching back restores the customer name');
+  assert.equal(await applicant.getAttribute('readonly'), '', 'switching back makes the name read-only again');
+
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(250);
+  assert.equal(await dialog.count(), 0);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
