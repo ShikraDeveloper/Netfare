@@ -1,6 +1,5 @@
 import { api } from '../api.js';
 import {
-  confirmDialog,
   emptyState,
   esc,
   fmtDate,
@@ -11,6 +10,7 @@ import {
   toCents,
   toast,
   todayISO,
+  voidDialog,
 } from '../ui.js';
 
 export async function render(container, { query = new URLSearchParams() } = {}) {
@@ -101,16 +101,16 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     const button = event.target.closest('[data-delete-recon]');
     if (!button) return;
     const row = rows.find((item) => item.id === Number(button.dataset.deleteRecon));
-    const confirmed = await confirmDialog({
-      title: 'Reopen this reconciliation?',
-      message: `${row.account_name} · ${fmtDate(row.statement_date)} will be removed and its transactions released for reconciliation again.`,
-      confirmLabel: 'Reopen',
-      danger: true,
+    const result = await voidDialog({
+      title: 'Void this reconciliation?',
+      message: `${row.account_name} · ${fmtDate(row.statement_date)} will be reopened and its transactions released for reconciliation again.`,
+      warning: 'This cannot be undone. The reconciliation record is removed, but the action is written to the audit log.',
+      confirmLabel: 'Void reconciliation',
     });
-    if (!confirmed) return;
+    if (!result.confirmed) return;
     try {
-      await api.del(`/bank-reconciliations/${row.id}`);
-      toast('Reconciliation reopened');
+      await api.post(`/bank-reconciliations/${row.id}/void`, { remarks: result.remarks });
+      toast('Reconciliation voided and reopened');
       await render(container, { query });
     } catch (error) {
       toast(error.message, 'error');

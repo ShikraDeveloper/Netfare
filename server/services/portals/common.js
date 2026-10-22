@@ -30,13 +30,13 @@ function aggregates(db) {
   const refunds = new Map();
   const consumed = new Map();
   for (const row of db.prepare(
-    'SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM portal_topups GROUP BY portal_id',
+    "SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM portal_topups WHERE status = 'posted' GROUP BY portal_id",
   ).all()) topups.set(row.portal_id, row.total);
   for (const row of db.prepare(
-    'SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM portal_credits GROUP BY portal_id',
+    "SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM portal_credits WHERE status = 'posted' GROUP BY portal_id",
   ).all()) credits.set(row.portal_id, row.total);
   for (const row of db.prepare(
-    'SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM portal_refunds GROUP BY portal_id',
+    "SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM portal_refunds WHERE status = 'posted' GROUP BY portal_id",
   ).all()) refunds.set(row.portal_id, row.total);
   for (const row of db.prepare(
     "SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM bill_payments WHERE portal_id IS NOT NULL AND status = 'posted' GROUP BY portal_id",
@@ -58,13 +58,13 @@ function outstandingByVendor(db) {
 
 function balanceAsOf(db, portalId, asOf) {
   const topup = db.prepare(
-    'SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_topups WHERE portal_id = ? AND topup_date <= ?',
+    "SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_topups WHERE portal_id = ? AND status = 'posted' AND topup_date <= ?",
   ).get(portalId, asOf).t;
   const credits = db.prepare(
-    'SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_credits WHERE portal_id = ? AND credit_date <= ?',
+    "SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_credits WHERE portal_id = ? AND status = 'posted' AND credit_date <= ?",
   ).get(portalId, asOf).t;
   const refunded = db.prepare(
-    'SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_refunds WHERE portal_id = ? AND refund_date <= ?',
+    "SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_refunds WHERE portal_id = ? AND status = 'posted' AND refund_date <= ?",
   ).get(portalId, asOf).t;
   const consumed = db.prepare(
     "SELECT COALESCE(SUM(amount_cents), 0) AS t FROM bill_payments WHERE portal_id = ? AND status = 'posted' AND payment_date <= ?",
@@ -73,32 +73,44 @@ function balanceAsOf(db, portalId, asOf) {
 }
 
 function lockBalance(db, portalId) {
-  const topup = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_topups WHERE portal_id = ?').get(portalId).t;
-  const credit = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_credits WHERE portal_id = ?').get(portalId).t;
-  const refunded = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_refunds WHERE portal_id = ?').get(portalId).t;
+  const topup = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_topups WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
+  const credit = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_credits WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
+  const refunded = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_refunds WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
   const consumed = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM bill_payments WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
   return topup + credit - refunded - consumed;
 }
 
-// True when removing a top-up would leave the wallet negative on any date.
-function canRemoveTopup(db, topup) {
+// True when removing a movement would leave the wallet negative on any date.
+function canRemoveMovement(db, portalId, { type, id }) {
   const events = new Map();
   const add = (date, delta) => events.set(date, (events.get(date) || 0) + delta);
-  for (const row of db.prepare('SELECT topup_date AS date, amount_cents AS amount FROM portal_topups WHERE portal_id = ? AND id <> ?')
-    .all(topup.portal_id, topup.id)) add(row.date, row.amount);
-  for (const row of db.prepare('SELECT credit_date AS date, amount_cents AS amount FROM portal_credits WHERE portal_id = ?')
-    .all(topup.portal_id)) add(row.date, row.amount);
-  for (const row of db.prepare('SELECT refund_date AS date, amount_cents AS amount FROM portal_refunds WHERE portal_id = ?')
-    .all(topup.portal_id)) add(row.date, -row.amount);
+  for (const row of db.prepare("SELECT id, topup_date AS date, amount_cents AS amount FROM portal_topups WHERE portal_id = ? AND status = 'posted'")
+    .all(portalId)) {
+    if (type !== 'topup' || row.id !== id) add(row.date, row.amount);
+  }
+  for (const row of db.prepare("SELECT id, credit_date AS date, amount_cents AS amount FROM portal_credits WHERE portal_id = ? AND status = 'posted'")
+    .all(portalId)) {
+    if (type !== 'credit' || row.id !== id) add(row.date, row.amount);
+  }
+  for (const row of db.prepare("SELECT refund_date AS date, amount_cents AS amount FROM portal_refunds WHERE portal_id = ? AND status = 'posted'")
+    .all(portalId)) add(row.date, -row.amount);
   for (const row of db.prepare(
     "SELECT payment_date AS date, amount_cents AS amount FROM bill_payments WHERE portal_id = ? AND status = 'posted'",
-  ).all(topup.portal_id)) add(row.date, -row.amount);
+  ).all(portalId)) add(row.date, -row.amount);
   let balance = 0;
   for (const date of [...events.keys()].sort()) {
     balance += events.get(date);
     if (balance < 0) return false;
   }
   return true;
+}
+
+function canRemoveTopup(db, topup) {
+  return canRemoveMovement(db, topup.portal_id, { type: 'topup', id: topup.id });
+}
+
+function canRemoveCredit(db, credit) {
+  return canRemoveMovement(db, credit.portal_id, { type: 'credit', id: credit.id });
 }
 
 function serializePortal(portal, agg, outstanding) {
@@ -141,6 +153,7 @@ module.exports = {
   balanceAsOf,
   lockBalance,
   canRemoveTopup,
+  canRemoveCredit,
   serializePortal,
   assertAccount,
 };

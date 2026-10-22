@@ -3,6 +3,7 @@
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../../util');
 const { systemAccount, postEntry, reverseEntry, billBalanceCents } = require('../../accounting');
 const { allocateNumber } = require('../numbering');
+const audit = require('../audit');
 const {
   SUPPLIER_ADVANCES,
   AP,
@@ -10,6 +11,7 @@ const {
   balanceAsOf,
   lockBalance,
   canRemoveTopup,
+  canRemoveCredit,
 } = require('./common');
 const { getPortal, portalForVendor } = require('./lifecycle');
 
@@ -58,26 +60,122 @@ function topUp(db, payload) {
   })();
 }
 
-function deleteTopup(db, id) {
+function voidTopup(db, id, payload = {}) {
   return db.transaction(() => {
     const topup = db.prepare('SELECT * FROM portal_topups WHERE id = ?').get(id);
     if (!topup) throw notFound('Top-up not found');
+    if (topup.status === 'void') throw bad('This top-up is already void');
     const balance = lockBalance(db, topup.portal_id);
     if (balance < topup.amount_cents) {
-      throw bad('Part of this top-up has already been used. Withdraw the remaining balance instead of deleting.');
+      throw bad('Part of this top-up has already been used. Withdraw the remaining balance instead.');
     }
     if (!canRemoveTopup(db, topup)) {
-      throw bad('Deleting this top-up would make the wallet negative on a past date. Withdraw the remaining balance instead.');
+      throw bad('Voiding this top-up would make the wallet negative on a past date. Withdraw the remaining balance instead.');
     }
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    let voidEntryId = null;
     if (topup.journal_entry_id) {
-      reverseEntry(db, topup.journal_entry_id, {
+      voidEntryId = reverseEntry(db, topup.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Reverse portal top-up ${topup.number}`,
+        memo: audit.withRemarks(`Void portal top-up ${topup.number}`, remarks),
         source_type: 'void',
       });
     }
-    db.prepare('DELETE FROM portal_topups WHERE id = ?').run(id);
+    db.prepare(`
+      UPDATE portal_topups SET status = 'void', void_entry_id = ?, voided_at = datetime('now') WHERE id = ?
+    `).run(voidEntryId, topup.id);
+    audit.record(db, {
+      entity_type: 'portal_topup',
+      entity_id: topup.id,
+      entity_number: topup.number,
+      action: 'void',
+      remarks: remarks || `Voided portal top-up ${topup.number}`,
+      amount_cents: topup.amount_cents,
+      metadata: { portal_id: topup.portal_id },
+    });
     return getPortal(db, topup.portal_id);
+  })();
+}
+
+// Kept as an alias for older clients. A top-up is voided, never deleted, so
+// the audit trail and the original document number survive.
+function deleteTopup(db, id, payload = {}) {
+  return voidTopup(db, id, payload);
+}
+
+function voidPortalRefund(db, id, payload = {}) {
+  return db.transaction(() => {
+    const refund = db.prepare('SELECT * FROM portal_refunds WHERE id = ?').get(id);
+    if (!refund) throw notFound('Portal withdrawal not found');
+    if (refund.status === 'void') throw bad('This portal withdrawal is already void');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    let voidEntryId = null;
+    if (refund.journal_entry_id) {
+      voidEntryId = reverseEntry(db, refund.journal_entry_id, {
+        entry_date: todayISO(),
+        memo: audit.withRemarks(`Void portal withdrawal #${refund.id}`, remarks),
+        source_type: 'void',
+      });
+    }
+    db.prepare(`
+      UPDATE portal_refunds SET status = 'void', void_entry_id = ?, voided_at = datetime('now') WHERE id = ?
+    `).run(voidEntryId, refund.id);
+    audit.record(db, {
+      entity_type: 'portal_refund',
+      entity_id: refund.id,
+      entity_number: `#${refund.id}`,
+      action: 'void',
+      remarks: remarks || `Voided portal withdrawal #${refund.id}`,
+      amount_cents: refund.amount_cents,
+      metadata: { portal_id: refund.portal_id },
+    });
+    return getPortal(db, refund.portal_id);
+  })();
+}
+
+function voidPortalCredit(db, id, payload = {}) {
+  return db.transaction(() => {
+    const credit = db.prepare('SELECT * FROM portal_credits WHERE id = ?').get(id);
+    if (!credit) throw notFound('Portal credit not found');
+    if (credit.status === 'void') throw bad('This portal credit is already void');
+    const balance = lockBalance(db, credit.portal_id);
+    if (balance < credit.amount_cents) {
+      throw bad('This portal credit has already been used. Void the bill settlements from this wallet first.');
+    }
+    if (!canRemoveCredit(db, credit)) {
+      throw bad('Voiding this portal credit would make the wallet negative on a past date. Void the bill settlements from this wallet first.');
+    }
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    let voidEntryId = null;
+    if (credit.journal_entry_id) {
+      voidEntryId = reverseEntry(db, credit.journal_entry_id, {
+        entry_date: todayISO(),
+        memo: audit.withRemarks(`Void portal credit ${credit.number}`, remarks),
+        source_type: 'void',
+      });
+    }
+    db.prepare(`
+      UPDATE portal_credits SET status = 'void', void_entry_id = ?, voided_at = datetime('now') WHERE id = ?
+    `).run(voidEntryId, credit.id);
+    if (credit.supplier_credit_note_id) {
+      db.prepare(`
+        UPDATE supplier_credit_notes SET portal_settled_cents = MAX(0, portal_settled_cents - ?)
+        WHERE id = ?
+      `).run(credit.amount_cents, credit.supplier_credit_note_id);
+    }
+    audit.record(db, {
+      entity_type: 'portal_credit',
+      entity_id: credit.id,
+      entity_number: credit.number,
+      action: 'void',
+      remarks: remarks || `Voided portal credit ${credit.number}`,
+      amount_cents: credit.amount_cents,
+      metadata: {
+        portal_id: credit.portal_id,
+        supplier_credit_note_id: credit.supplier_credit_note_id || null,
+      },
+    });
+    return getPortal(db, credit.portal_id);
   })();
 }
 
@@ -294,7 +392,10 @@ function recordPortalCredit(db, payload = {}) {
 
 module.exports = {
   topUp,
+  voidTopup,
   deleteTopup,
+  voidPortalRefund,
+  voidPortalCredit,
   refundPortal,
   settleBillFromPortal,
   autoSettleBill,

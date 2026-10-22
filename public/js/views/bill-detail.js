@@ -17,6 +17,7 @@ import {
   todayISO,
   toast,
   toCents,
+  voidDialog,
 } from '../ui.js';
 import { openBillModal } from './bills.js';
 import { openRefundModal } from './refund-modal.js';
@@ -92,7 +93,7 @@ export async function render(container, { params } = {}) {
   const company = settings.company_name || 'My Company';
   const isDraft = bill.status === 'draft';
   const canRecordPayment = bill.status === 'received' && bill.balance_cents > 0;
-  const canVoid = bill.status === 'received' && bill.amount_paid_cents === 0;
+  const canVoid = bill.status === 'received';
 
   const actions = [];
   actions.push(`<a class="btn btn-ghost" href="#/bills"><span>All bills</span></a>`);
@@ -353,14 +354,15 @@ export async function render(container, { params } = {}) {
   const voidButton = document.querySelector('[data-action="void"]');
   if (voidButton) {
     voidButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
+      const result = await voidDialog({
         title: `Void ${bill.number}?`,
-        message: 'A reversing journal entry will be posted to cancel this bill. The bill remains in your records for the audit trail.',
+        message: 'A reversing journal entry will be posted to cancel this bill. Any linked payments, refunds and supplier credit applications will also be reversed.',
+        warning: 'This cannot be undone. The bill and every linked reversal are kept permanently in the audit trail.',
         confirmLabel: 'Void bill',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.post(`/bills/${id}/void`, {});
+        await api.post(`/bills/${id}/void`, { remarks: result.remarks });
         toast(`${bill.number} voided with a reversing entry`);
         refresh();
       } catch (error) {
@@ -452,14 +454,15 @@ export async function render(container, { params } = {}) {
   document.querySelectorAll('[data-delete-payment]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.stopPropagation();
-      const confirmed = await confirmDialog({
+      const result = await voidDialog({
         title: 'Void this payment?',
         message: 'The payment will be voided and a reversing journal entry will be posted. The payment record and its audit trail are kept, and the bill balance will reopen.',
+        warning: 'Any supplier refund linked to this payment must be reversed first. This cannot be undone.',
         confirmLabel: 'Void payment',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del(`/bills/payments/${button.dataset.deletePayment}`);
+        await api.del(`/bills/payments/${button.dataset.deletePayment}`, { remarks: result.remarks });
         toast('Payment voided');
         refresh();
       } catch (error) {

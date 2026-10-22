@@ -55,8 +55,12 @@ router.post('/', (req, res) => {
   res.status(201).json(getEntryWithLines(db, entryId));
 });
 
+router.post('/:id/void', (req, res) => {
+  res.json(journalService.voidManualEntry(db, req.params.id, req.body || {}));
+});
+
 router.delete('/:id', (req, res) => {
-  res.json(journalService.deleteManualEntry(db, req.params.id));
+  res.json(journalService.deleteManualEntry(db, req.params.id, req.body || {}));
 });
 
 module.exports = router;

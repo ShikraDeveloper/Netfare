@@ -96,6 +96,23 @@ ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 ensureColumn('post_dated_cheques', 'batch_index', 'INTEGER NOT NULL DEFAULT 0');
 
+// Void audit trail and void metadata. Rows are retained so the audit log can
+// always point back to the original document.
+ensureColumn('journal_entries', 'reversal_of_id', 'INTEGER');
+ensureColumn('journal_entries', 'voided_at', 'TEXT');
+ensureColumn('journal_entries', 'void_entry_id', 'INTEGER');
+ensureColumn('customer_advances', 'void_entry_id', 'INTEGER');
+ensureColumn('customer_advances', 'voided_at', 'TEXT');
+ensureColumn('portal_topups', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
+ensureColumn('portal_topups', 'void_entry_id', 'INTEGER');
+ensureColumn('portal_topups', 'voided_at', 'TEXT');
+ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
+ensureColumn('portal_refunds', 'void_entry_id', 'INTEGER');
+ensureColumn('portal_refunds', 'voided_at', 'TEXT');
+ensureColumn('portal_credits', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
+ensureColumn('portal_credits', 'void_entry_id', 'INTEGER');
+ensureColumn('portal_credits', 'voided_at', 'TEXT');
+
 // Existing visa applications did not record whether the applicant was the
 // customer or a visitor. Derive it once when the column is first added.
 const hadVisaApplicantFlag = hasColumn('visa_applications', 'applicant_is_customer');

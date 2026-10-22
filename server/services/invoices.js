@@ -19,6 +19,7 @@ const {
   invoiceDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const audit = require('./audit');
 
 const invoiceSelect = `
   SELECT i.*, c.name AS customer_name, c.email AS customer_email, c.address AS customer_address,
@@ -270,27 +271,72 @@ function finalizeInvoice(db, id) {
   })();
 }
 
-function voidInvoice(db, id) {
+function voidInvoice(db, id, payload = {}) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status === 'void') throw bad('Invoice is already void');
-    const refundCount = db.prepare(`
-      SELECT COUNT(*) AS c FROM refunds WHERE invoice_id = ? AND status = 'paid'
-    `).get(id).c;
-    if (refundCount > 0) {
-      throw bad('Void the refunds on this invoice before voiding it.');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+
+    // A void must leave no live payment, refund or credit application behind.
+    // Reverse the dependants first, then the invoice itself.
+    const refundService = require('./refunds');
+    const creditService = require('./credits');
+    // Reverse credit applications before refunds. A customer refund checks
+    // against the remaining paid balance, so leaving an applied credit in place
+    // can make a fully reversible invoice look overpaid.
+    const applications = db.prepare('SELECT id FROM credit_applications WHERE invoice_id = ? ORDER BY id').all(invoice.id);
+    for (const application of applications) {
+      creditService.deleteCreditApplication(db, application.id, {
+        remarks: remarks || `Voided with invoice ${invoice.number}`,
+      });
     }
-    if (invoice.amount_paid_cents > 0) throw bad('Remove payments from this invoice before voiding it');
-    if (invoice.credit_applied_cents > 0) throw bad('Remove credit applications from this invoice before voiding it');
-    if (invoice.status === 'sent' && invoice.journal_entry_id) {
-      reverseEntry(db, invoice.journal_entry_id, {
+
+    const refunds = db.prepare(`
+      SELECT id FROM refunds
+      WHERE status = 'paid' AND (
+        invoice_id = ? OR payment_id IN (SELECT id FROM payments WHERE invoice_id = ?)
+      )
+      ORDER BY id
+    `).all(invoice.id, invoice.id);
+    for (const refund of refunds) {
+      refundService.voidRefund(db, refund.id, {
+        remarks: remarks || `Voided with invoice ${invoice.number}`,
+      });
+    }
+
+    const payments = db.prepare("SELECT id FROM payments WHERE invoice_id = ? AND status = 'posted' ORDER BY id").all(invoice.id);
+    for (const payment of payments) {
+      deleteInvoicePayment(db, payment.id, {
+        remarks: remarks || `Voided with invoice ${invoice.number}`,
+      });
+    }
+
+    const fresh = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoice.id);
+    if (fresh.amount_paid_cents > 0 || fresh.credit_applied_cents > 0) {
+      throw bad('Linked payments or credits could not be fully reversed');
+    }
+    if (fresh.status === 'sent' && fresh.journal_entry_id) {
+      reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Void invoice ${invoice.number}`,
+        memo: audit.withRemarks(`Void invoice ${fresh.number}`, remarks),
         source_type: 'void',
       });
     }
     db.prepare(`UPDATE invoices SET status = 'void', updated_at = datetime('now') WHERE id = ?`).run(id);
+    audit.record(db, {
+      entity_type: 'invoice',
+      entity_id: invoice.id,
+      entity_number: invoice.number,
+      action: 'void',
+      remarks: remarks || `Voided invoice ${invoice.number}`,
+      amount_cents: invoice.total_cents,
+      metadata: {
+        refunds_voided: refunds.length,
+        credit_applications_reversed: applications.length,
+        payments_voided: payments.length,
+      },
+    });
     return getInvoice(db, id);
   })();
 }
@@ -390,11 +436,12 @@ function recordInvoicePayment(db, invoiceId, payload) {
   })();
 }
 
-function deleteInvoicePayment(db, paymentId) {
+function deleteInvoicePayment(db, paymentId, payload = {}) {
   return db.transaction(() => {
     const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId);
     if (!payment) throw notFound('Payment not found');
     if (payment.status === 'void') throw bad('That payment is already void');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(payment.invoice_id);
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status === 'void') {
@@ -410,7 +457,7 @@ function deleteInvoicePayment(db, paymentId) {
     if (payment.journal_entry_id) {
       voidEntryId = reverseEntry(db, payment.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Void payment ${payment.number}`,
+        memo: audit.withRemarks(`Void payment ${payment.number}`, remarks),
         source_type: 'void',
       });
     }
@@ -430,6 +477,15 @@ function deleteInvoicePayment(db, paymentId) {
         db.prepare('UPDATE customer_advances SET applied_cents = ?, status = ? WHERE id = ?').run(applied, status, advance.id);
       }
     }
+    audit.record(db, {
+      entity_type: 'payment',
+      entity_id: payment.id,
+      entity_number: payment.number,
+      action: 'void',
+      remarks: remarks || `Voided payment ${payment.number}`,
+      amount_cents: payment.amount_cents,
+      metadata: { invoice_id: invoice.id, invoice_number: invoice.number },
+    });
     return getInvoice(db, invoice.id);
   })();
 }

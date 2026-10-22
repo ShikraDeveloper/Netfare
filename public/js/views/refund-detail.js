@@ -1,7 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
 import {
-  confirmDialog,
   esc,
   fmtDate,
   fmtMoney,
@@ -9,6 +8,7 @@ import {
   setHeader,
   statusBadge,
   toast,
+  voidDialog,
 } from '../ui.js';
 
 function sourceInfo(refund, isCustomer) {
@@ -233,14 +233,15 @@ export async function render(container, { params } = {}) {
   const voidButton = document.querySelector('[data-action="void"]');
   if (voidButton) {
     voidButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
+      const result = await voidDialog({
         title: `Void ${refund.number}?`,
         message: `A reversing journal entry will be posted and ${source.voidMessage.replace('{amount}', fmtMoney(refund.amount_cents))} The refund stays in your records for the audit trail.`,
+        warning: 'This cannot be undone.',
         confirmLabel: 'Void refund',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.post(`/refunds/${id}/void`, {});
+        await api.post(`/refunds/${id}/void`, { remarks: result.remarks });
         toast(`${refund.number} voided with a reversing entry`);
         refresh();
       } catch (error) {

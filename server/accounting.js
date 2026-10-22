@@ -57,7 +57,7 @@ function systemAccount(db, code, label) {
   return account;
 }
 
-function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'manual', source_id = null, lines }) {
+function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'manual', source_id = null, reversal_of_id = null, lines }) {
   const date = dateISO(entry_date, 'Entry date');
   if (!Array.isArray(lines) || lines.length < 2) {
     throw bad('A journal entry needs at least two lines');
@@ -91,15 +91,22 @@ function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'm
   if (totalDebit === 0) throw bad('Entry total must be greater than zero');
 
   const insertEntry = db.prepare(`
-    INSERT INTO journal_entries (entry_date, memo, reference, source_type, source_id)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO journal_entries (entry_date, memo, reference, source_type, source_id, reversal_of_id)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
   const insertLine = db.prepare(`
     INSERT INTO journal_lines (entry_id, account_id, debit_cents, credit_cents, description, sort_order)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
 
-  const info = insertEntry.run(date, String(memo).trim(), String(reference).trim(), source_type, source_id);
+  const info = insertEntry.run(
+    date,
+    String(memo).trim(),
+    String(reference).trim(),
+    source_type,
+    source_id,
+    reversal_of_id,
+  );
   for (const line of normalized) {
     insertLine.run(info.lastInsertRowid, line.account_id, line.debit_cents, line.credit_cents, line.description, line.sort_order);
   }
@@ -117,6 +124,7 @@ function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void' } = 
     reference: entry.reference,
     source_type,
     source_id: entry.source_id,
+    reversal_of_id: entryId,
     lines: lines.map((line) => ({
       account_id: line.account_id,
       debit_cents: line.credit_cents,

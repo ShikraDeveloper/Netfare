@@ -153,6 +153,7 @@ function dashboard(db) {
   const recentTopups = db.prepare(`
     SELECT t.*, p.name AS portal_name, p.settlement AS portal_settlement
     FROM portal_topups t JOIN supplier_portals p ON p.id = t.portal_id
+    WHERE t.status = 'posted'
     ORDER BY t.topup_date DESC, t.id DESC LIMIT 5
   `).all();
 

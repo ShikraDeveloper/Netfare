@@ -20,8 +20,12 @@ router.post('/', (req, res) => {
   res.status(201).json(service.createReconciliation(db, req.body || {}));
 });
 
+router.post('/:id/void', (req, res) => {
+  res.json(service.voidReconciliation(db, Number(req.params.id), req.body || {}));
+});
+
 router.delete('/:id', (req, res) => {
-  res.json(service.deleteReconciliation(db, Number(req.params.id)));
+  res.json(service.deleteReconciliation(db, Number(req.params.id), req.body || {}));
 });
 
 module.exports = router;

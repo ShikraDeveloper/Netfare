@@ -20,8 +20,12 @@ router.put('/:id', (req, res) => {
   res.json(service.updateCheque(db, Number(req.params.id), req.body || {}));
 });
 
+router.post('/:id/void', (req, res) => {
+  res.json(service.voidCheque(db, Number(req.params.id), req.body || {}));
+});
+
 router.delete('/:id', (req, res) => {
-  res.json(service.deleteCheque(db, Number(req.params.id)));
+  res.json(service.deleteCheque(db, Number(req.params.id), req.body || {}));
 });
 
 module.exports = router;

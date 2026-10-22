@@ -30,7 +30,7 @@ router.get('/backup', (req, res) => {
     'supplier_portals', 'portal_topups', 'portal_refunds', 'portal_credits', 'refunds',
     'compliance_items', 'compliance_logs', 'post_dated_cheques', 'cash_deposits',
     'credit_notes', 'credit_applications', 'bank_reconciliations', 'bank_reconciliation_lines', 'attachments',
-    'journal_entries', 'journal_lines',
+    'journal_entries', 'journal_lines', 'audit_logs',
   ];
   const data = {
     app: 'Ledgerly',

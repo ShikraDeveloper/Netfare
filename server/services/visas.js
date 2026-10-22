@@ -197,10 +197,17 @@ function getVisa(db, id) {
     SELECT * FROM customer_advances
     WHERE visa_id = ?
     ORDER BY advance_date, id
-  `).all(id).map((advance) => ({
-    ...advance,
-    remaining_cents: Math.max(0, advance.amount_cents - advance.applied_cents - advance.refunded_cents),
-  }));
+  `).all(id).map((advance) => {
+    const voided = Boolean(advance.voided_at);
+    return {
+      ...advance,
+      status_display: voided ? 'void' : advance.status,
+      voided,
+      remaining_cents: voided
+        ? 0
+        : Math.max(0, advance.amount_cents - advance.applied_cents - advance.refunded_cents),
+    };
+  });
 
   visa.amount_paid_cents = visa.invoice ? visa.invoice.amount_paid_cents : 0;
   visa.balance_cents = visa.invoice

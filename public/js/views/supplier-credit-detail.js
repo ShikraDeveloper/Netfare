@@ -2,7 +2,6 @@ import { api } from '../api.js';
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
-  confirmDialog,
   esc,
   fmtDate,
   fmtMoney,
@@ -14,6 +13,7 @@ import {
   todayISO,
   toast,
   toCents,
+  voidDialog,
 } from '../ui.js';
 
 export async function render(container, { params } = {}) {
@@ -23,13 +23,7 @@ export async function render(container, { params } = {}) {
   const company = settings.company_name || 'My Company';
   const issued = credit.status === 'issued';
   const canApply = issued && credit.remaining_cents > 0;
-  const noActivity = issued
-    && !credit.applications.length
-    && !credit.refunds.length
-    && !credit.portal_credits.length
-    && credit.applied_cents === 0
-    && credit.refunded_cents === 0
-    && credit.portal_settled_cents === 0;
+  const canVoid = issued;
 
   const sourceLink = credit.bill_id
     ? `<a href="#/bills/${credit.bill_id}">${esc(credit.bill_number)}</a>`
@@ -50,7 +44,7 @@ export async function render(container, { params } = {}) {
       <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>
       ${canApply ? `<button class="btn btn-primary" data-action="apply">${icon('bill', 15)}<span>Apply to bill</span></button>` : ''}
       ${canApply ? `<button class="btn btn-secondary" data-action="refund">${icon('arrowUp', 15)}<span>Cash refund</span></button>` : ''}
-      ${noActivity ? `<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>` : ''}
+      ${canVoid ? `<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>` : ''}
     `,
   });
 
@@ -247,15 +241,15 @@ export async function render(container, { params } = {}) {
   const voidButton = document.querySelector('[data-action="void"]');
   if (voidButton) {
     voidButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
+      const result = await voidDialog({
         title: `Void ${credit.number}?`,
-        message: 'The credit note will be reversed. Only an unused supplier credit can be voided.',
+        message: 'The supplier credit will be reversed and any linked bill applications, refunds and portal credits will be reversed automatically.',
+        warning: 'This cannot be undone. The supplier credit and every linked reversal are kept in the audit trail.',
         confirmLabel: 'Void supplier credit',
-        danger: true,
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.post(`/supplier-credits/${id}/void`, {});
+        await api.post(`/supplier-credits/${id}/void`, { remarks: result.remarks });
         toast(`${credit.number} voided`);
         refresh();
       } catch (error) {
@@ -268,15 +262,15 @@ export async function render(container, { params } = {}) {
     button.addEventListener('click', async () => {
       const application = applications.find((row) => row.id === Number(button.dataset.removeApplication));
       if (!application) return;
-      const confirmed = await confirmDialog({
-        title: 'Reverse this supplier credit application?',
+      const result = await voidDialog({
+        title: 'Void this supplier credit application?',
         message: `${fmtMoney(application.amount_cents)} will be removed from ${application.bill_number} and returned to this supplier credit.`,
-        confirmLabel: 'Reverse application',
-        danger: true,
+        warning: 'A reversing journal entry will be posted. This cannot be undone.',
+        confirmLabel: 'Void application',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del(`/supplier-credits/applications/${application.id}`);
+        await api.post(`/supplier-credits/applications/${application.id}/void`, { remarks: result.remarks });
         toast('Supplier credit application reversed');
         refresh();
       } catch (error) {

@@ -3,7 +3,6 @@ import { store } from '../store.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   bindDateRange,
-  confirmDialog,
   dateRangeHtml,
   emptyState,
   esc,
@@ -20,6 +19,7 @@ import {
   todayISO,
   toast,
   toCents,
+  voidDialog,
 } from '../ui.js';
 
 function entryRow(entry) {
@@ -27,7 +27,7 @@ function entryRow(entry) {
     <tr class="clickable" data-id="${entry.id}" tabindex="0">
       <td class="nowrap">${esc(fmtDate(entry.entry_date))}</td>
       <td>
-        <div class="cell-main">${esc(entry.memo || '(no memo)')}</div>
+        <div class="cell-main">${esc(entry.memo || '(no memo)')} ${entry.voided_at ? statusBadge('void') : ''}</div>
         <div class="cell-sub">Entry #${entry.id}${entry.reference ? ` · ${esc(entry.reference)}` : ''}</div>
       </td>
       <td>${sourceBadge(entry.source_type)}</td>
@@ -36,7 +36,7 @@ function entryRow(entry) {
       <td>
         <div class="row-actions">
           <button class="icon-btn" data-view="${entry.id}" title="View entry">${icon('chevron', 16)}</button>
-          ${entry.source_type === 'manual' ? `<button class="icon-btn danger" data-delete="${entry.id}" title="Delete manual entry">${icon('trash', 16)}</button>` : ''}
+          ${entry.source_type === 'manual' && !entry.voided_at ? `<button class="icon-btn danger" data-void="${entry.id}" title="Void manual entry">${icon('trash', 16)}</button>` : ''}
         </div>
       </td>
     </tr>
@@ -366,19 +366,20 @@ export async function render(container, { query } = {}) {
   });
 
   body.addEventListener('click', async (event) => {
-    const deleteButton = event.target.closest('[data-delete]');
-    if (deleteButton) {
+    const voidButton = event.target.closest('[data-void]');
+    if (voidButton) {
       event.stopPropagation();
-      const entry = entries.find((item) => item.id === Number(deleteButton.dataset.delete));
-      const confirmed = await confirmDialog({
-        title: 'Delete this journal entry?',
-        message: `Entry #${entry.id} (“${entry.memo}”) will be permanently deleted. Document-linked entries cannot be deleted here.`,
-        confirmLabel: 'Delete entry',
+      const entry = entries.find((item) => item.id === Number(voidButton.dataset.void));
+      const result = await voidDialog({
+        title: `Void journal entry #${entry.id}?`,
+        message: `Entry #${entry.id} (“${entry.memo}”) will stay in the journal and a reversing entry will be posted.`,
+        warning: 'This cannot be undone. Reopen a bank reconciliation first if this entry is reconciled.',
+        confirmLabel: 'Void entry',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del(`/journal-entries/${entry.id}`);
-        toast('Journal entry deleted');
+        await api.post(`/journal-entries/${entry.id}/void`, { remarks: result.remarks });
+        toast('Journal entry voided with a reversing entry');
         refresh();
       } catch (error) {
         toast(error.message, 'error');

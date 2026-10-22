@@ -34,6 +34,7 @@ import * as bankingView from './views/banking.js';
 import * as bankReconciliationView from './views/bank-reconciliation.js';
 import * as accountsView from './views/accounts.js';
 import * as reportsView from './views/reports.js';
+import * as auditLogsView from './views/audit-logs.js';
 import * as settingsView from './views/settings.js';
 
 const NAV_GROUPS = [
@@ -95,6 +96,7 @@ const NAV_GROUPS = [
   {
     label: 'System',
     items: [
+      { section: 'audit-logs', href: '#/audit-logs', icon: 'shield', label: 'Audit log' },
       { section: 'settings', href: '#/settings', icon: 'settings', label: 'Settings' },
     ],
   },
@@ -134,6 +136,7 @@ const ROUTES = [
   { pattern: /^\/bank-reconciliation$/, view: bankReconciliationView, section: 'bank-reconciliation' },
   { pattern: /^\/accounts$/, view: accountsView, section: 'accounts' },
   { pattern: /^\/reports(?:\/([a-z-]+))?$/, view: reportsView, section: 'reports' },
+  { pattern: /^\/audit-logs$/, view: auditLogsView, section: 'audit-logs' },
   { pattern: /^\/settings$/, view: settingsView, section: 'settings' },
 ];
 

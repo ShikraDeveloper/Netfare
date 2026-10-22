@@ -1,7 +1,8 @@
 'use strict';
 
-const { bad, notFound, dateISO, todayISO, cents } = require('../util');
+const { bad, notFound, dateISO, todayISO, cents, optionalStr } = require('../util');
 const { isCashAccount } = require('../accounting');
+const audit = require('./audit');
 
 function getAccount(db, accountId) {
   const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(accountId));
@@ -167,17 +168,33 @@ function getReconciliation(db, id) {
   return rec;
 }
 
-function deleteReconciliation(db, id) {
-  const rec = db.prepare('SELECT * FROM bank_reconciliations WHERE id = ?').get(Number(id));
-  if (!rec) throw notFound('Reconciliation not found');
-  const later = db.prepare(`
-    SELECT id, statement_date FROM bank_reconciliations
-    WHERE account_id = ? AND (statement_date > ? OR (statement_date = ? AND id > ?))
-    ORDER BY statement_date DESC, id DESC LIMIT 1
-  `).get(rec.account_id, rec.statement_date, rec.statement_date, rec.id);
-  if (later) throw bad(`Reopen the later reconciliation from ${later.statement_date} first`);
-  db.prepare('DELETE FROM bank_reconciliations WHERE id = ?').run(rec.id);
-  return { deleted: true };
+function voidReconciliation(db, id, payload = {}) {
+  return db.transaction(() => {
+    const rec = db.prepare('SELECT * FROM bank_reconciliations WHERE id = ?').get(Number(id));
+    if (!rec) throw notFound('Reconciliation not found');
+    const later = db.prepare(`
+      SELECT id, statement_date FROM bank_reconciliations
+      WHERE account_id = ? AND (statement_date > ? OR (statement_date = ? AND id > ?))
+      ORDER BY statement_date DESC, id DESC LIMIT 1
+    `).get(rec.account_id, rec.statement_date, rec.statement_date, rec.id);
+    if (later) throw bad(`Reopen the later reconciliation from ${later.statement_date} first`);
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    db.prepare('DELETE FROM bank_reconciliations WHERE id = ?').run(rec.id);
+    audit.record(db, {
+      entity_type: 'bank_reconciliation',
+      entity_id: rec.id,
+      entity_number: `#${rec.id}`,
+      action: 'void',
+      remarks: remarks || `Reopened reconciliation #${rec.id}`,
+      amount_cents: rec.cleared_balance_cents,
+      metadata: { account_id: rec.account_id, statement_date: rec.statement_date },
+    });
+    return { deleted: true, voided: true };
+  })();
+}
+
+function deleteReconciliation(db, id, payload = {}) {
+  return voidReconciliation(db, id, payload);
 }
 
 module.exports = {
@@ -185,5 +202,6 @@ module.exports = {
   listReconciliations,
   createReconciliation,
   getReconciliation,
+  voidReconciliation,
   deleteReconciliation,
 };

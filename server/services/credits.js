@@ -15,6 +15,7 @@ const {
   invoiceBalanceCents,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const audit = require('./audit');
 
 const creditSelect = `
   SELECT cn.*, c.name AS customer_name, c.email AS customer_email,
@@ -226,16 +227,17 @@ function applyCredit(db, creditId, payload = {}) {
   })();
 }
 
-function deleteCreditApplication(db, applicationId) {
+function deleteCreditApplication(db, applicationId, payload = {}) {
   return db.transaction(() => {
     const application = db.prepare('SELECT * FROM credit_applications WHERE id = ?').get(Number(applicationId));
     if (!application) throw notFound('Credit application not found');
     const credit = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(application.credit_note_id);
     if (!credit) throw notFound('Credit note not found');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     if (application.journal_entry_id) {
       reverseEntry(db, application.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Reverse credit application ${credit.number}`,
+        memo: audit.withRemarks(`Reverse credit application ${credit.number}`, remarks),
         source_type: 'void',
       });
     }
@@ -247,30 +249,56 @@ function deleteCreditApplication(db, applicationId) {
       UPDATE invoices SET credit_applied_cents = MAX(0, credit_applied_cents - ?), updated_at = datetime('now')
       WHERE id = ?
     `).run(application.amount_cents, application.invoice_id);
+    audit.record(db, {
+      entity_type: 'credit_application',
+      entity_id: application.id,
+      entity_number: credit.number,
+      action: 'void',
+      remarks: remarks || `Reversed credit application ${credit.number}`,
+      amount_cents: application.amount_cents,
+      metadata: { credit_note_id: credit.id, invoice_id: application.invoice_id },
+    });
     return getCredit(db, credit.id);
   })();
 }
 
-function voidCredit(db, creditId) {
+function voidCredit(db, creditId, payload = {}) {
   return db.transaction(() => {
     const credit = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(Number(creditId));
     if (!credit) throw notFound('Credit note not found');
     if (credit.status === 'void') throw bad('This credit note is already void');
-    const applied = db.prepare('SELECT COUNT(*) AS count FROM credit_applications WHERE credit_note_id = ?').get(credit.id).count;
-    if (applied > 0 || credit.applied_cents > 0) {
-      throw bad('Remove all applications before voiding this credit note');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+
+    const applications = db.prepare(
+      'SELECT id FROM credit_applications WHERE credit_note_id = ? ORDER BY id',
+    ).all(credit.id);
+    for (const application of applications) {
+      deleteCreditApplication(db, application.id, {
+        remarks: remarks || `Voided with credit note ${credit.number}`,
+      });
     }
+
+    const fresh = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(credit.id);
     let voidEntryId = null;
-    if (credit.journal_entry_id) {
-      voidEntryId = reverseEntry(db, credit.journal_entry_id, {
+    if (fresh.journal_entry_id) {
+      voidEntryId = reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Void credit note ${credit.number}`,
+        memo: audit.withRemarks(`Void credit note ${fresh.number}`, remarks),
         source_type: 'void',
       });
     }
     db.prepare(`
       UPDATE credit_notes SET status = 'void', void_entry_id = ?, applied_cents = 0 WHERE id = ?
     `).run(voidEntryId, credit.id);
+    audit.record(db, {
+      entity_type: 'credit_note',
+      entity_id: credit.id,
+      entity_number: credit.number,
+      action: 'void',
+      remarks: remarks || `Voided credit note ${credit.number}`,
+      amount_cents: credit.amount_cents,
+      metadata: { applications_reversed: applications.length },
+    });
     return getCredit(db, credit.id);
   })();
 }

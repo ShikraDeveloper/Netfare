@@ -29,7 +29,7 @@ router.post('/:id/finalize', (req, res) => {
 });
 
 router.post('/:id/void', (req, res) => {
-  res.json(service.voidBill(db, Number(req.params.id)));
+  res.json(service.voidBill(db, Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/payments', (req, res) => {
@@ -37,7 +37,7 @@ router.post('/:id/payments', (req, res) => {
 });
 
 router.delete('/payments/:paymentId', (req, res) => {
-  res.json(service.deleteBillPayment(db, Number(req.params.paymentId)));
+  res.json(service.deleteBillPayment(db, Number(req.params.paymentId), req.body || {}));
 });
 
 module.exports = router;

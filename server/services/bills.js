@@ -21,6 +21,7 @@ const {
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const chequeService = require('./cheques');
+const audit = require('./audit');
 
 const billSelect = `
   SELECT b.*, v.name AS vendor_name, v.email AS vendor_email, v.address AS vendor_address,
@@ -278,27 +279,70 @@ function finalizeBill(db, id) {
   })();
 }
 
-function voidBill(db, id) {
+function voidBill(db, id, payload = {}) {
   return db.transaction(() => {
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
     if (!bill) throw notFound('Bill not found');
     if (bill.status === 'void') throw bad('Bill is already void');
-    const refundCount = db.prepare(`
-      SELECT COUNT(*) AS c FROM refunds WHERE bill_id = ? AND status = 'paid'
-    `).get(id).c;
-    if (refundCount > 0) {
-      throw bad('Void the refunds on this bill before voiding it.');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+
+    // Reverse dependants first so the bill and its supplier balance both end at zero.
+    const refundService = require('./refunds');
+    const supplierCreditService = require('./supplier-credits');
+    const refunds = db.prepare(`
+      SELECT id FROM refunds
+      WHERE status = 'paid' AND (
+        bill_id = ? OR bill_payment_id IN (SELECT id FROM bill_payments WHERE bill_id = ?)
+      )
+      ORDER BY id
+    `).all(bill.id, bill.id);
+    for (const refund of refunds) {
+      refundService.voidRefund(db, refund.id, {
+        remarks: remarks || `Voided with bill ${bill.number}`,
+      });
     }
-    if (bill.amount_paid_cents > 0) throw bad('Remove payments from this bill before voiding it');
-    if (bill.credit_applied_cents > 0) throw bad('Reverse supplier credit applications from this bill before voiding it');
-    if (bill.status === 'received' && bill.journal_entry_id) {
-      reverseEntry(db, bill.journal_entry_id, {
+
+    const applications = db.prepare(
+      'SELECT id FROM supplier_credit_applications WHERE bill_id = ? ORDER BY id',
+    ).all(bill.id);
+    for (const application of applications) {
+      supplierCreditService.deleteSupplierCreditApplication(db, application.id, {
+        remarks: remarks || `Voided with bill ${bill.number}`,
+      });
+    }
+
+    const payments = db.prepare("SELECT id FROM bill_payments WHERE bill_id = ? AND status = 'posted' ORDER BY id").all(bill.id);
+    for (const payment of payments) {
+      deleteBillPayment(db, payment.id, {
+        remarks: remarks || `Voided with bill ${bill.number}`,
+      });
+    }
+
+    const fresh = db.prepare('SELECT * FROM bills WHERE id = ?').get(bill.id);
+    if (fresh.amount_paid_cents > 0 || fresh.credit_applied_cents > 0) {
+      throw bad('Linked payments or supplier credits could not be fully reversed');
+    }
+    if (fresh.status === 'received' && fresh.journal_entry_id) {
+      reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Void bill ${bill.number}`,
+        memo: audit.withRemarks(`Void bill ${fresh.number}`, remarks),
         source_type: 'void',
       });
     }
     db.prepare(`UPDATE bills SET status = 'void', updated_at = datetime('now') WHERE id = ?`).run(id);
+    audit.record(db, {
+      entity_type: 'bill',
+      entity_id: bill.id,
+      entity_number: bill.number,
+      action: 'void',
+      remarks: remarks || `Voided bill ${bill.number}`,
+      amount_cents: bill.total_cents,
+      metadata: {
+        refunds_voided: refunds.length,
+        supplier_credit_applications_reversed: applications.length,
+        payments_voided: payments.length,
+      },
+    });
     return getBill(db, id);
   })();
 }
@@ -387,13 +431,17 @@ function recordBillPayment(db, billId, payload) {
   })();
 }
 
-function deleteBillPayment(db, paymentId) {
+function deleteBillPayment(db, paymentId, payload = {}) {
   return db.transaction(() => {
     const payment = db.prepare('SELECT * FROM bill_payments WHERE id = ?').get(paymentId);
     if (!payment) throw notFound('Payment not found');
     if (payment.status === 'void') throw bad('That payment is already void');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(payment.bill_id);
     if (!bill) throw notFound('Bill not found');
+    if (bill.status === 'void') {
+      throw bad('Payments cannot be voided on a void bill. The void already reversed them.');
+    }
     const refundCount = db.prepare(`
       SELECT COUNT(*) AS c FROM refunds WHERE bill_payment_id = ? AND status = 'paid'
     `).get(paymentId).c;
@@ -405,7 +453,7 @@ function deleteBillPayment(db, paymentId) {
     if (payment.journal_entry_id) {
       voidEntryId = reverseEntry(db, payment.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Void bill payment ${payment.number}`,
+        memo: audit.withRemarks(`Void bill payment ${payment.number}`, remarks),
         source_type: 'void',
       });
     }
@@ -423,6 +471,15 @@ function deleteBillPayment(db, paymentId) {
     db.prepare(`
       UPDATE bills SET amount_paid_cents = MAX(0, amount_paid_cents - ?), updated_at = datetime('now') WHERE id = ?
     `).run(payment.amount_cents, payment.bill_id);
+    audit.record(db, {
+      entity_type: 'bill_payment',
+      entity_id: payment.id,
+      entity_number: payment.number,
+      action: 'void',
+      remarks: remarks || `Voided bill payment ${payment.number}`,
+      amount_cents: payment.amount_cents,
+      metadata: { bill_id: bill.id, bill_number: bill.number },
+    });
     return getBill(db, bill.id);
   })();
 }

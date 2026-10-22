@@ -12,8 +12,12 @@ router.post('/', (req, res) => {
   res.json(service.saveOpeningBalances(db, req.body || {}));
 });
 
+router.post('/void', (req, res) => {
+  res.json(service.voidOpeningBalances(db, req.body || {}));
+});
+
 router.delete('/', (req, res) => {
-  res.json(service.clearOpeningBalances(db));
+  res.json(service.clearOpeningBalances(db, req.body || {}));
 });
 
 module.exports = router;

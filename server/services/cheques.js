@@ -10,6 +10,7 @@ const {
   dateISO,
   todayISO,
 } = require('../util');
+const audit = require('./audit');
 
 const STATUSES = ['planned', 'issued', 'cleared', 'bounced', 'cancelled'];
 const BATCH_FREQUENCIES = ['monthly', 'quarterly', 'yearly'];
@@ -217,6 +218,12 @@ function updateCheque(db, id, payload = {}) {
     if (!existing) throw notFound('Cheque not found');
     const status = String(payload.status ?? existing.status);
     if (!STATUSES.includes(status)) throw bad('Choose a valid cheque status');
+    if (existing.status === 'cancelled') {
+      throw bad('This cheque is void and cannot be edited.');
+    }
+    if (status === 'cancelled') {
+      throw bad('Use the void action to cancel this cheque with remarks and an audit entry.');
+    }
     if (existing.bill_payment_id && status !== 'cleared') {
       throw bad('This cheque is linked to a payment. Remove the payment before changing its status.');
     }
@@ -248,13 +255,51 @@ function updateCheque(db, id, payload = {}) {
   })();
 }
 
-function deleteCheque(db, id) {
+function voidCheque(db, id, payload = {}) {
   return db.transaction(() => {
     const cheque = db.prepare('SELECT * FROM post_dated_cheques WHERE id = ?').get(id);
     if (!cheque) throw notFound('Cheque not found');
+    if (cheque.status === 'cancelled') throw bad('This cheque is already void');
+    if (cheque.bill_payment_id || cheque.bill_id) {
+      throw bad('This cheque is linked to a payment. Void the bill payment before voiding the cheque.');
+    }
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    db.prepare(`
+      UPDATE post_dated_cheques SET status = 'cancelled', updated_at = datetime('now') WHERE id = ?
+    `).run(cheque.id);
+    audit.record(db, {
+      entity_type: 'cheque',
+      entity_id: cheque.id,
+      entity_number: cheque.cheque_number,
+      action: 'void',
+      remarks: remarks || `Voided cheque ${cheque.cheque_number}`,
+      amount_cents: cheque.amount_cents,
+      metadata: { vendor_id: cheque.vendor_id, cheque_date: cheque.cheque_date },
+    });
+    return getCheque(db, id);
+  })();
+}
+
+function deleteCheque(db, id, payload = {}) {
+  return db.transaction(() => {
+    const cheque = db.prepare('SELECT * FROM post_dated_cheques WHERE id = ?').get(id);
+    if (!cheque) throw notFound('Cheque not found');
+    if (cheque.status === 'cancelled') {
+      throw bad('This cheque is void and cannot be deleted.');
+    }
     if (cheque.bill_payment_id || cheque.bill_id) {
       throw bad('This cheque is linked to a payment. Void the payment before deleting the cheque.');
     }
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    audit.record(db, {
+      entity_type: 'cheque',
+      entity_id: cheque.id,
+      entity_number: cheque.cheque_number,
+      action: 'delete',
+      remarks: remarks || `Deleted cheque ${cheque.cheque_number}`,
+      amount_cents: cheque.amount_cents,
+      metadata: { vendor_id: cheque.vendor_id, cheque_date: cheque.cheque_date },
+    });
     db.prepare('DELETE FROM post_dated_cheques WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -294,6 +339,7 @@ module.exports = {
   getCheque,
   createBatch,
   updateCheque,
+  voidCheque,
   deleteCheque,
   matchChequePayment,
   unlinkPayment,

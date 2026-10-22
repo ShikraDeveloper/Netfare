@@ -1,7 +1,6 @@
 import { api } from '../api.js';
 import {
   centsToInput,
-  confirmDialog,
   emptyState,
   esc,
   fmtDate,
@@ -12,6 +11,7 @@ import {
   toast,
   todayISO,
   toCents,
+  voidDialog,
 } from '../ui.js';
 
 export async function render(container, { params = [] } = {}) {
@@ -19,7 +19,7 @@ export async function render(container, { params = [] } = {}) {
   const credit = await api.get(`/credits/${id}`);
   const issued = credit.status === 'issued';
   const canApply = issued && credit.remaining_cents > 0;
-  const canVoid = issued && credit.applied_cents === 0;
+  const canVoid = issued;
 
   setHeader({
     title: credit.number,
@@ -107,15 +107,15 @@ export async function render(container, { params = [] } = {}) {
   const voidButton = document.querySelector('[data-action="void-credit"]');
   if (voidButton) {
     voidButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
+      const result = await voidDialog({
         title: `Void ${credit.number}?`,
-        message: 'The credit note and its revenue reversal will be voided. This cannot be undone.',
+        message: 'A reversing journal entry will be posted and any invoice applications will be reversed automatically.',
+        warning: 'This cannot be undone. The credit note and every linked reversal are kept in the audit trail.',
         confirmLabel: 'Void credit note',
-        danger: true,
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.post(`/credits/${id}/void`, {});
+        await api.post(`/credits/${id}/void`, { remarks: result.remarks });
         toast(`${credit.number} voided`);
         render(container, { params: [String(id)] });
       } catch (error) {
@@ -129,15 +129,15 @@ export async function render(container, { params = [] } = {}) {
     const button = event.target.closest('[data-remove-application]');
     if (!button) return;
     const application = applications.find((row) => row.id === Number(button.dataset.removeApplication));
-    const confirmed = await confirmDialog({
-      title: 'Reverse this credit application?',
+    const result = await voidDialog({
+      title: 'Void this credit application?',
       message: `${fmtMoney(application.amount_cents)} will be removed from ${application.invoice_number} and returned to this credit note.`,
-      confirmLabel: 'Reverse application',
-      danger: true,
+      warning: 'A reversing journal entry will be posted. This cannot be undone.',
+      confirmLabel: 'Void application',
     });
-    if (!confirmed) return;
+    if (!result.confirmed) return;
     try {
-      await api.del(`/credits/applications/${application.id}`);
+      await api.post(`/credits/applications/${application.id}/void`, { remarks: result.remarks });
       toast('Credit application reversed');
       render(container, { params: [String(id)] });
     } catch (error) {

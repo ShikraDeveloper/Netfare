@@ -24,8 +24,12 @@ router.post('/:id/apply', (req, res) => {
   res.json(service.applySupplierCredit(db, Number(req.params.id), req.body || {}));
 });
 
+router.post('/applications/:id/void', (req, res) => {
+  res.json(service.deleteSupplierCreditApplication(db, Number(req.params.id), req.body || {}));
+});
+
 router.delete('/applications/:id', (req, res) => {
-  res.json(service.deleteSupplierCreditApplication(db, Number(req.params.id)));
+  res.json(service.deleteSupplierCreditApplication(db, Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/refund', (req, res) => {
@@ -33,7 +37,7 @@ router.post('/:id/refund', (req, res) => {
 });
 
 router.post('/:id/void', (req, res) => {
-  res.json(service.voidSupplierCredit(db, Number(req.params.id)));
+  res.json(service.voidSupplierCredit(db, Number(req.params.id), req.body || {}));
 });
 
 module.exports = router;

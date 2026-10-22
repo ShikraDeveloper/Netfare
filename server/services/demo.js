@@ -490,6 +490,7 @@ function resetAll(db) {
     db.prepare('DELETE FROM visa_applications').run();
     db.prepare('DELETE FROM journal_lines').run();
     db.prepare('DELETE FROM journal_entries').run();
+    db.prepare('DELETE FROM audit_logs').run();
     db.prepare('DELETE FROM customers').run();
     db.prepare('DELETE FROM vendors').run();
     db.prepare(`
@@ -505,7 +506,7 @@ function resetAll(db) {
        'cancellations',
        'cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',
        'bookings', 'booking_items', 'visa_applications', 'visa_items', 'customer_advances',
-       'supplier_portals', 'portal_topups', 'portal_refunds', 'journal_lines', 'journal_entries',
+       'supplier_portals', 'portal_topups', 'portal_refunds', 'journal_lines', 'journal_entries', 'audit_logs',
        'customers', 'vendors')`).run();
     return { cleared: true };
   })();

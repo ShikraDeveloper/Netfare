@@ -18,6 +18,7 @@ const { allocateNumber } = require('./numbering');
 const invoiceService = require('./invoices');
 const creditService = require('./credits');
 const supplierCreditService = require('./supplier-credits');
+const audit = require('./audit');
 
 const SOURCE_TABLES = {
   booking: { table: 'bookings', number: 'booking_number' },
@@ -206,6 +207,15 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
     if (source.status === 'draft' && !invoice) {
       db.prepare(`UPDATE ${SOURCE_TABLES[sourceType].table} SET status = ?, updated_at = datetime('now') WHERE id = ?`)
         .run(expected, Number(sourceId));
+      audit.record(db, {
+        entity_type: sourceType,
+        entity_id: Number(sourceId),
+        entity_number: source.number || `#${sourceId}`,
+        action: 'cancel',
+        remarks: optionalStr(payload.reason, 'Reason', 500) || optionalStr(payload.notes, 'Notes', 2000),
+        amount_cents: 0,
+        metadata: { draft: true },
+      });
       return null;
     }
 
@@ -329,6 +339,23 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
 
     db.prepare(`UPDATE ${SOURCE_TABLES[sourceType].table} SET status = ?, updated_at = datetime('now') WHERE id = ?`)
       .run(expected, Number(sourceId));
+    audit.record(db, {
+      entity_type: 'cancellation',
+      entity_id: cancellationId,
+      entity_number: number,
+      action: 'cancel',
+      remarks: optionalStr(payload.reason, 'Reason', 500)
+        || optionalStr(payload.notes, 'Notes', 2000)
+        || `Cancelled ${sourceType} ${source.number || sourceId}`,
+      amount_cents: customerCharges,
+      metadata: {
+        source_type: sourceType,
+        source_id: Number(sourceId),
+        received_cents: received,
+        refund_due_cents: refundDue,
+        supplier_credit_total_cents: supplierCreditTotal,
+      },
+    });
     return getCancellation(db, cancellationId);
   })();
 }

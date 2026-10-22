@@ -1,7 +1,8 @@
 'use strict';
 
-const { bad, dateISO, cents, todayISO } = require('../util');
+const { bad, dateISO, cents, todayISO, optionalStr } = require('../util');
 const { postEntry, SYSTEM_CODES } = require('../accounting');
+const audit = require('./audit');
 
 const EQUITY_CODE = SYSTEM_CODES.OPENING_BALANCE_EQUITY;
 
@@ -17,13 +18,13 @@ function activeOpeningEntry(db) {
   `).get();
 }
 
-function reverseOpeningEntry(db, entry, entryDate) {
+function reverseOpeningEntry(db, entry, entryDate, remarks = '') {
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entry.id);
   if (!lines.length) return null;
   const date = entryDate > entry.entry_date ? entryDate : entry.entry_date;
   return postEntry(db, {
     entry_date: date,
-    memo: `Reversal of opening balances #${entry.id}`,
+    memo: audit.withRemarks(`Reversal of opening balances #${entry.id}`, remarks),
     reference: entry.reference || 'OPENING',
     source_type: 'opening_balance_reversal',
     source_id: entry.id,
@@ -135,16 +136,37 @@ function saveOpeningBalances(db, payload = {}) {
   })();
 }
 
-function clearOpeningBalances(db) {
+function voidOpeningBalances(db, payload = {}) {
   return db.transaction(() => {
     const existing = activeOpeningEntry(db);
-    if (existing) reverseOpeningEntry(db, existing, todayISO());
+    if (!existing) throw bad('There are no opening balances to void');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    const total = db.prepare(
+      'SELECT COALESCE(SUM(debit_cents), 0) AS total FROM journal_lines WHERE entry_id = ?',
+    ).get(existing.id).total;
+    reverseOpeningEntry(db, existing, todayISO(), remarks);
+    audit.record(db, {
+      entity_type: 'opening_balance',
+      entity_id: existing.id,
+      entity_number: `#${existing.id}`,
+      action: 'void',
+      remarks: remarks || 'Reversed opening balances',
+      amount_cents: total,
+      metadata: { entry_date: existing.entry_date },
+    });
     return getOpeningBalances(db);
   })();
+}
+
+function clearOpeningBalances(db, payload = {}) {
+  const existing = activeOpeningEntry(db);
+  if (!existing) return getOpeningBalances(db);
+  return voidOpeningBalances(db, payload);
 }
 
 module.exports = {
   getOpeningBalances,
   saveOpeningBalances,
+  voidOpeningBalances,
   clearOpeningBalances,
 };

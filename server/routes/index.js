@@ -41,6 +41,7 @@ router.use('/opening-balances', require('./opening-balances'));
 router.use('/bank-reconciliations', require('./bank-reconciliations'));
 router.use('/reports', require('./reports'));
 router.use('/settings', require('./settings'));
+router.use('/audit-logs', require('./audit-logs'));
 router.use('/admin', require('./admin'));
 
 module.exports = router;

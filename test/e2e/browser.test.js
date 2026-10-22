@@ -103,6 +103,11 @@ function seedListFixtures(dataDir) {
            reference, notes, status)
         VALUES ('CD-E2E-1', '2026-10-20', 10000, ?, ?, 'E2E-REF', 'E2E fixture', 'posted')
       `).run(cash.id, bank.id);
+      db.prepare(`
+        INSERT INTO audit_logs
+          (entity_type, entity_number, action, remarks, amount_cents, metadata)
+        VALUES ('invoice', 'E2E-AUDIT-1', 'void', 'E2E audit fixture', 10000, '{}')
+      `).run();
     })();
   } finally {
     db.close();
@@ -300,6 +305,7 @@ test('data tables expose captions and column scopes', async () => {
     '/accounts',
     '/banking',
     '/opening-balances',
+    '/audit-logs',
     '/reports/trial-balance',
     '/reports/daily-sales',
     '/reports/booking-margin',
@@ -473,6 +479,67 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   assertNoConsoleErrors();
 });
 
+test('void dialog requires remarks, reverses a paid invoice and records the audit log', async () => {
+  const [customers, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+  const cash = accounts.find((account) => account.code === '1000');
+  assert.ok(customers[0] && revenue && cash);
+
+  const invoiceResponse = await fetch(`${baseUrl}/api/invoices`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customer_id: customers[0].id,
+      issue_date: '2026-10-22',
+      due_date: '2026-10-22',
+      status: 'sent',
+      items: [{ description: 'E2E void test', quantity: 1, unit_price_cents: 25_000, account_id: revenue.id }],
+    }),
+  });
+  assert.equal(invoiceResponse.status, 201);
+  const invoice = await invoiceResponse.json();
+
+  const paymentResponse = await fetch(`${baseUrl}/api/invoices/${invoice.id}/payments`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      amount_cents: 10_000,
+      payment_date: '2026-10-22',
+      method: 'Cash',
+      deposit_account_id: cash.id,
+    }),
+  });
+  assert.equal(paymentResponse.status, 201);
+
+  await openRoute(`/invoices/${invoice.id}`);
+  await page.locator('[data-action="void"]').click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.equal(await dialog.locator('#void-remarks').getAttribute('required'), '');
+
+  await dialog.locator('[data-submit]').click();
+  await page.waitForTimeout(100);
+  assert.match(await dialog.locator('.modal-error').textContent(), /Enter remarks/i);
+
+  await dialog.locator('#void-remarks').fill('E2E duplicate invoice');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.waitForSelector('.badge-void');
+
+  const voided = await getJson(baseUrl, `/api/invoices/${invoice.id}`);
+  assert.equal(voided.status, 'void');
+  assert.equal(voided.amount_paid_cents, 0);
+  assert.equal(voided.payments[0].status, 'void');
+
+  await openRoute('/audit-logs');
+  await page.waitForFunction(() => document.querySelector('#audit-body')?.textContent.includes('E2E duplicate invoice'));
+  assert.match(await page.locator('#audit-body').innerText(), /Invoice payment/);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -508,6 +575,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     '/bank-reconciliation',
     '/opening-balances',
     '/journal',
+    '/audit-logs',
     '/settings',
     '/reports/income-statement',
     '/reports/balance-sheet',

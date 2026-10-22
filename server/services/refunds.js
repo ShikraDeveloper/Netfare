@@ -16,6 +16,7 @@ const {
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const supplierCreditService = require('./supplier-credits');
+const audit = require('./audit');
 
 const refundSelect = `
   SELECT r.*,
@@ -395,11 +396,12 @@ function voidRefund(db, id, payload = {}) {
     if (voidDate < refund.refund_date) {
       throw bad('Void date cannot be before the refund date');
     }
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
 
     const voidEntryId = refund.journal_entry_id
       ? reverseEntry(db, refund.journal_entry_id, {
           entry_date: voidDate,
-          memo: `Void refund ${refund.number}`,
+          memo: audit.withRemarks(`Void refund ${refund.number}`, remarks),
           source_type: 'void',
         })
       : null;
@@ -454,6 +456,22 @@ function voidRefund(db, id, payload = {}) {
     db.prepare(`
       UPDATE refunds SET status = 'void', void_entry_id = ? WHERE id = ?
     `).run(voidEntryId, id);
+    audit.record(db, {
+      entity_type: 'refund',
+      entity_id: refund.id,
+      entity_number: refund.number,
+      action: 'void',
+      remarks: remarks || `Voided refund ${refund.number}`,
+      amount_cents: refund.amount_cents,
+      metadata: {
+        refund_type: refund.refund_type,
+        invoice_id: refund.invoice_id || null,
+        bill_id: refund.bill_id || null,
+        advance_id: refund.advance_id || null,
+        cancellation_id: refund.cancellation_id || null,
+        supplier_credit_note_id: refund.supplier_credit_note_id || null,
+      },
+    });
     return getRefund(db, id);
   })();
 }

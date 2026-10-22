@@ -397,9 +397,9 @@ function portalLedger(db, portalId, options = {}) {
   `).get(SUPPLIER_ADVANCES);
   const allPortalBalanceCents = db.prepare(`
     SELECT
-      (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_topups)
-      + (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_credits)
-      - (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_refunds)
+      (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_topups WHERE status = 'posted')
+      + (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_credits WHERE status = 'posted')
+      - (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_refunds WHERE status = 'posted')
       - (SELECT COALESCE(SUM(amount_cents), 0) FROM bill_payments WHERE portal_id IS NOT NULL AND status = 'posted')
       AS balance
   `).get().balance;

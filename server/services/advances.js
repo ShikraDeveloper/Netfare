@@ -11,16 +11,23 @@ const {
 } = require('../util');
 const { systemAccount, isCashAccount, postEntry, reverseEntry } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const audit = require('./audit');
 
 const ADVANCE_ACCOUNT = '2400';
 const AR_ACCOUNT = '1100';
 
 function remainingCents(advance) {
+  if (!advance || advance.voided_at) return 0;
   return Math.max(0, advance.amount_cents - advance.applied_cents - advance.refunded_cents);
 }
 
 function serializeAdvance(advance) {
-  return { ...advance, remaining_cents: remainingCents(advance) };
+  return {
+    ...advance,
+    status_display: advance.voided_at ? 'void' : advance.status,
+    voided: Boolean(advance.voided_at),
+    remaining_cents: remainingCents(advance),
+  };
 }
 
 function getAdvance(db, id) {
@@ -142,6 +149,7 @@ function applyAdvance(db, id, payload = {}) {
   return db.transaction(() => {
     const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(id);
     if (!advance) throw notFound('Advance not found');
+    if (advance.voided_at) throw bad('This advance is void');
     const remaining = remainingCents(advance);
     if (remaining <= 0) throw bad('This advance has already been applied or refunded');
 
@@ -204,6 +212,7 @@ function refundAdvance(db, id, payload = {}) {
   return db.transaction(() => {
     const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(id);
     if (!advance) throw notFound('Advance not found');
+    if (advance.voided_at) throw bad('This advance is void');
     const remaining = remainingCents(advance);
     if (remaining <= 0) throw bad('This advance has already been applied or refunded');
 
@@ -261,20 +270,91 @@ function refundAdvance(db, id, payload = {}) {
   })();
 }
 
-function deleteAdvance(db, id) {
+function voidAdvance(db, id, payload = {}) {
   return db.transaction(() => {
     const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(id);
     if (!advance) throw notFound('Advance not found');
-    if (advance.applied_cents > 0 || advance.refunded_cents > 0) {
-      throw bad('This advance has already been applied or refunded. Refund it instead of deleting.');
+    if (advance.voided_at) throw bad('This advance is already void');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+
+    // Refunds and applications are part of the advance. Reverse them first so
+    // the customer advance control account returns to zero.
+    const refundService = require('./refunds');
+    const invoiceService = require('./invoices');
+    const refunds = db.prepare(
+      "SELECT id FROM refunds WHERE advance_id = ? AND status = 'paid' ORDER BY id",
+    ).all(advance.id);
+    for (const refund of refunds) {
+      refundService.voidRefund(db, refund.id, {
+        remarks: remarks || `Voided with advance ${advance.number}`,
+      });
     }
-    if (advance.journal_entry_id) {
-      reverseEntry(db, advance.journal_entry_id, {
+
+    const payments = db.prepare(
+      "SELECT id FROM payments WHERE advance_id = ? AND status = 'posted' ORDER BY id",
+    ).all(advance.id);
+    for (const payment of payments) {
+      invoiceService.deleteInvoicePayment(db, payment.id, {
+        remarks: remarks || `Voided with advance ${advance.number}`,
+      });
+    }
+
+    const fresh = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(advance.id);
+    if (fresh.applied_cents > 0 || fresh.refunded_cents > 0) {
+      throw bad('Linked advance applications or refunds could not be fully reversed');
+    }
+    let voidEntryId = null;
+    if (fresh.journal_entry_id) {
+      voidEntryId = reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Reverse advance ${advance.number}`,
+        memo: audit.withRemarks(`Void customer advance ${fresh.number}`, remarks),
         source_type: 'void',
       });
     }
+    db.prepare(`
+      UPDATE customer_advances SET void_entry_id = ?, voided_at = datetime('now'),
+        applied_cents = 0, refunded_cents = 0 WHERE id = ?
+    `).run(voidEntryId, advance.id);
+    audit.record(db, {
+      entity_type: 'customer_advance',
+      entity_id: advance.id,
+      entity_number: advance.number,
+      action: 'void',
+      remarks: remarks || `Voided customer advance ${advance.number}`,
+      amount_cents: advance.amount_cents,
+      metadata: {
+        refunds_voided: refunds.length,
+        invoice_payments_voided: payments.length,
+      },
+    });
+    return getAdvance(db, id);
+  })();
+}
+
+function deleteAdvance(db, id, payload = {}) {
+  return db.transaction(() => {
+    const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(id);
+    if (!advance) throw notFound('Advance not found');
+    if (advance.voided_at) throw bad('This advance is already void');
+    if (advance.applied_cents > 0 || advance.refunded_cents > 0) {
+      throw bad('This advance has already been applied or refunded. Refund it instead of deleting.');
+    }
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+    if (advance.journal_entry_id) {
+      reverseEntry(db, advance.journal_entry_id, {
+        entry_date: todayISO(),
+        memo: audit.withRemarks(`Reverse advance ${advance.number}`, remarks),
+        source_type: 'void',
+      });
+    }
+    audit.record(db, {
+      entity_type: 'customer_advance',
+      entity_id: advance.id,
+      entity_number: advance.number,
+      action: 'delete',
+      remarks: remarks || `Deleted advance ${advance.number}`,
+      amount_cents: advance.amount_cents,
+    });
     db.prepare('DELETE FROM customer_advances WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -286,5 +366,6 @@ module.exports = {
   createAdvance,
   applyAdvance,
   refundAdvance,
+  voidAdvance,
   deleteAdvance,
 };

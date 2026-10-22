@@ -1,7 +1,6 @@
 import { api } from '../api.js';
 import {
   bindDateRange,
-  confirmDialog,
   dateRangeHtml,
   emptyState,
   esc,
@@ -12,6 +11,7 @@ import {
   setHeader,
   statusBadge,
   toast,
+  voidDialog,
 } from '../ui.js';
 import { openCashDepositModal } from './cash-deposit.js';
 
@@ -181,14 +181,15 @@ export async function render(container, { query } = {}) {
     if (!button) return;
     const deposit = deposits.find((row) => row.id === Number(button.dataset.void));
     if (!deposit) return;
-    const confirmed = await confirmDialog({
+    const result = await voidDialog({
       title: `Void ${deposit.number}?`,
       message: `A reversing entry will move ${fmtMoney(deposit.amount_cents)} back from ${deposit.to_name} to ${deposit.from_name}. The deposit stays in history as void.`,
+      warning: 'This cannot be undone.',
       confirmLabel: 'Void deposit',
     });
-    if (!confirmed) return;
+    if (!result.confirmed) return;
     try {
-      await api.post(`/cash/deposits/${deposit.id}/void`, {});
+      await api.post(`/cash/deposits/${deposit.id}/void`, { remarks: result.remarks });
       toast(`${deposit.number} voided with a reversing entry`);
       await render(container);
     } catch (error) {

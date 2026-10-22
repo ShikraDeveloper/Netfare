@@ -90,7 +90,8 @@ export async function render(container, { params, query } = {}) {
       inCents: topup.amount_cents,
       outCents: 0,
       source: 'portal_topup',
-      deleteId: topup.id,
+      voidKind: 'topup',
+      voidId: topup.id,
     })),
     ...portal.credits.map((credit) => ({
       date: credit.credit_date,
@@ -104,7 +105,8 @@ export async function render(container, { params, query } = {}) {
       inCents: credit.amount_cents,
       outCents: 0,
       source: 'portal_credit',
-      deleteId: null,
+      voidKind: 'credit',
+      voidId: credit.id,
     })),
     ...portal.refunds.map((refund) => ({
       date: refund.refund_date,
@@ -115,7 +117,8 @@ export async function render(container, { params, query } = {}) {
       inCents: 0,
       outCents: refund.amount_cents,
       source: 'portal_refund',
-      deleteId: null,
+      voidKind: 'refund',
+      voidId: refund.id,
     })),
     ...portal.settlements.map((settlement) => ({
       date: settlement.payment_date,
@@ -210,7 +213,7 @@ export async function render(container, { params, query } = {}) {
           <span>${esc(fmtDate(row.date))} · ${esc(row.detail)}</span>
         </div>
         <div class="payment-amount ${row.inCents ? 'margin-positive' : ''}">${row.inCents ? `+${fmtMoney(row.inCents)}` : `−${fmtMoney(row.outCents)}`}</div>
-        ${row.deleteId ? `<button class="icon-btn danger" data-delete-topup="${row.deleteId}" title="Delete top-up">${icon('trash', 16)}</button>` : ''}
+        ${row.voidKind ? `<button class="icon-btn danger" data-void-portal="${row.voidId}" data-void-kind="${row.voidKind}" title="Void ${row.voidKind === 'topup' ? 'top-up' : row.voidKind}">${icon('trash', 16)}</button>` : ''}
       </div>
     `).join('');
 
@@ -223,6 +226,7 @@ export async function render(container, { params, query } = {}) {
             <span>${esc(fmtDate(settlement.payment_date))} · ${esc(settlement.number)}${settlement.booking_id ? ' · from a booking' : settlement.visa_id ? ' · from a visa' : ''}</span>
           </div>
           <div class="payment-amount">${fmtMoney(settlement.amount_cents)}</div>
+          <button class="icon-btn danger" data-void-settlement="${settlement.id}" title="Void this wallet settlement">${icon('trash', 16)}</button>
           <a class="icon-btn" href="#/bills/${settlement.bill_id}" title="Open bill">${icon('chevron', 16)}</a>
         </div>
       `).join('')

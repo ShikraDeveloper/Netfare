@@ -14,6 +14,7 @@ const {
   getEntryWithLines,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const audit = require('./audit');
 
 function accountBalanceAsOf(db, accountId, asOf) {
   const row = db.prepare(`
@@ -172,16 +173,25 @@ function voidDeposit(db, id, payload = {}) {
     if (deposit.status === 'void') throw bad('Cash deposit is already void');
     const voidDate = dateISO(payload.void_date || todayISO(), 'Void date');
     if (voidDate < deposit.deposit_date) throw bad('Void date cannot be before the deposit date');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     const voidEntryId = deposit.journal_entry_id
       ? reverseEntry(db, deposit.journal_entry_id, {
           entry_date: voidDate,
-          memo: `Void cash deposit ${deposit.number}`,
+          memo: audit.withRemarks(`Void cash deposit ${deposit.number}`, remarks),
           source_type: 'void',
         })
       : null;
     db.prepare(`
       UPDATE cash_deposits SET status = 'void', void_entry_id = ? WHERE id = ?
     `).run(voidEntryId, id);
+    audit.record(db, {
+      entity_type: 'cash_deposit',
+      entity_id: deposit.id,
+      entity_number: deposit.number,
+      action: 'void',
+      remarks: remarks || `Voided cash deposit ${deposit.number}`,
+      amount_cents: deposit.amount_cents,
+    });
     return getDeposit(db, id);
   })();
 }

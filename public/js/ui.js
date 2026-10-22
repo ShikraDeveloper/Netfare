@@ -35,6 +35,7 @@ const ICONS = {
   trendUp: '<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
   dollar: '<path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
   file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
   filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54z"/>',
   more: '<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
   archive: '<rect x="2" y="3" width="20" height="5" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
@@ -436,6 +437,39 @@ export function confirmDialog({ title = 'Are you sure?', message = '', confirmLa
         confirmed = true;
       },
       onClose: () => resolve(confirmed),
+    });
+  });
+}
+
+export function voidDialog({
+  title = 'Void this record?',
+  message = '',
+  confirmLabel = 'Void',
+  warning = '',
+} = {}) {
+  return new Promise((resolve) => {
+    let result = { confirmed: false, remarks: '' };
+    openModal({
+      title,
+      body: `
+        ${message ? `<p class="confirm-text">${esc(message)}</p>` : ''}
+        ${warning ? `<div class="form-note" style="border-color:var(--red);color:var(--red)">${esc(warning)}</div>` : ''}
+        <div class="field" style="margin-top:16px">
+          <label for="void-remarks">Remarks <span class="muted">(required)</span></label>
+          <textarea class="input" id="void-remarks" name="remarks" rows="3" maxlength="2000"
+            placeholder="Why is this being voided?" required></textarea>
+          <div class="hint">This reason is saved in the audit log. Posted amounts are reversed and the original record is kept for the audit trail.</div>
+        </div>
+      `,
+      size: 'modal-sm',
+      submitLabel: confirmLabel,
+      danger: true,
+      onSubmit: async (form) => {
+        const remarks = String(new FormData(form).get('remarks') || '').trim();
+        if (!remarks) throw new Error('Enter remarks before voiding');
+        result = { confirmed: true, remarks };
+      },
+      onClose: () => resolve(result),
     });
   });
 }

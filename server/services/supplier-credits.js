@@ -19,6 +19,7 @@ const {
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const portalService = require('./portals');
+const audit = require('./audit');
 
 const creditSelect = `
   SELECT scn.*, v.name AS vendor_name, v.email AS vendor_email,
@@ -76,7 +77,7 @@ function getSupplierCredit(db, id) {
     SELECT pc.*, p.name AS portal_name
     FROM portal_credits pc
     JOIN supplier_portals p ON p.id = pc.portal_id
-    WHERE pc.supplier_credit_note_id = ?
+    WHERE pc.supplier_credit_note_id = ? AND pc.status = 'posted'
     ORDER BY pc.credit_date, pc.id
   `).all(credit.id);
   return serializeCredit(credit);
@@ -394,17 +395,18 @@ function applySupplierCredit(db, creditId, payload = {}) {
   })();
 }
 
-function deleteSupplierCreditApplication(db, applicationId) {
+function deleteSupplierCreditApplication(db, applicationId, payload = {}) {
   return db.transaction(() => {
     const application = db.prepare('SELECT * FROM supplier_credit_applications WHERE id = ?').get(Number(applicationId));
     if (!application) throw notFound('Supplier credit application not found');
     const credit = db.prepare('SELECT * FROM supplier_credit_notes WHERE id = ?').get(application.credit_note_id);
     if (!credit) throw notFound('Supplier credit note not found');
     if (credit.status === 'void') throw bad('This supplier credit is void');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     if (application.journal_entry_id) {
       reverseEntry(db, application.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Reverse supplier credit application ${credit.number}`,
+        memo: audit.withRemarks(`Reverse supplier credit application ${credit.number}`, remarks),
         source_type: 'void',
       });
     }
@@ -416,6 +418,15 @@ function deleteSupplierCreditApplication(db, applicationId) {
       UPDATE bills SET credit_applied_cents = MAX(0, credit_applied_cents - ?), updated_at = datetime('now')
       WHERE id = ?
     `).run(application.amount_cents, application.bill_id);
+    audit.record(db, {
+      entity_type: 'supplier_credit_application',
+      entity_id: application.id,
+      entity_number: credit.number,
+      action: 'void',
+      remarks: remarks || `Reversed supplier credit application ${credit.number}`,
+      amount_cents: application.amount_cents,
+      metadata: { supplier_credit_id: credit.id, bill_id: application.bill_id },
+    });
     return getSupplierCredit(db, credit.id);
   })();
 }
@@ -475,26 +486,47 @@ function refundSupplierCredit(db, creditId, payload = {}) {
   })();
 }
 
-function voidSupplierCredit(db, creditId) {
+function voidSupplierCredit(db, creditId, payload = {}) {
   return db.transaction(() => {
     const credit = db.prepare('SELECT * FROM supplier_credit_notes WHERE id = ?').get(Number(creditId));
     if (!credit) throw notFound('Supplier credit note not found');
     if (credit.status === 'void') throw bad('This supplier credit is already void');
-    const activity = db.prepare(`
-      SELECT
-        (SELECT COUNT(*) FROM supplier_credit_applications WHERE credit_note_id = ?) AS applications,
-        (SELECT COUNT(*) FROM refunds WHERE supplier_credit_note_id = ? AND status = 'paid') AS refunds,
-        (SELECT COUNT(*) FROM portal_credits WHERE supplier_credit_note_id = ?) AS portal_credits
-    `).get(credit.id, credit.id, credit.id);
-    if (activity.applications || activity.refunds || activity.portal_credits
-      || credit.applied_cents || credit.refunded_cents || credit.portal_settled_cents) {
-      throw bad('Only an unused supplier credit can be voided. Reverse its applications, refunds or portal movement first.');
+    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+
+    const applications = db.prepare(
+      'SELECT id FROM supplier_credit_applications WHERE credit_note_id = ? ORDER BY id',
+    ).all(credit.id);
+    for (const application of applications) {
+      deleteSupplierCreditApplication(db, application.id, {
+        remarks: remarks || `Voided with supplier credit ${credit.number}`,
+      });
     }
+
+    const refundService = require('./refunds');
+    const refunds = db.prepare(
+      "SELECT id FROM refunds WHERE supplier_credit_note_id = ? AND status = 'paid' ORDER BY id",
+    ).all(credit.id);
+    for (const refund of refunds) {
+      refundService.voidRefund(db, refund.id, {
+        remarks: remarks || `Voided with supplier credit ${credit.number}`,
+      });
+    }
+
+    const portalCredits = db.prepare(
+      "SELECT id FROM portal_credits WHERE supplier_credit_note_id = ? AND status = 'posted' ORDER BY id",
+    ).all(credit.id);
+    for (const portalCredit of portalCredits) {
+      portalService.voidPortalCredit(db, portalCredit.id, {
+        remarks: remarks || `Voided with supplier credit ${credit.number}`,
+      });
+    }
+
+    const fresh = db.prepare('SELECT * FROM supplier_credit_notes WHERE id = ?').get(credit.id);
     let voidEntryId = null;
-    if (credit.journal_entry_id) {
-      voidEntryId = reverseEntry(db, credit.journal_entry_id, {
+    if (fresh.journal_entry_id) {
+      voidEntryId = reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
-        memo: `Void supplier credit ${credit.number}`,
+        memo: audit.withRemarks(`Void supplier credit ${fresh.number}`, remarks),
         source_type: 'void',
       });
     }
@@ -502,6 +534,19 @@ function voidSupplierCredit(db, creditId) {
       UPDATE supplier_credit_notes SET status = 'void', void_entry_id = ?, applied_cents = 0,
         refunded_cents = 0, portal_settled_cents = 0 WHERE id = ?
     `).run(voidEntryId, credit.id);
+    audit.record(db, {
+      entity_type: 'supplier_credit',
+      entity_id: credit.id,
+      entity_number: credit.number,
+      action: 'void',
+      remarks: remarks || `Voided supplier credit ${credit.number}`,
+      amount_cents: credit.amount_cents,
+      metadata: {
+        applications_reversed: applications.length,
+        refunds_voided: refunds.length,
+        portal_credits_voided: portalCredits.length,
+      },
+    });
     return getSupplierCredit(db, credit.id);
   })();
 }

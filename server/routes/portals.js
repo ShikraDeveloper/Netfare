@@ -18,8 +18,20 @@ router.post('/settle-bill', (req, res) => {
   res.json(service.settleBillFromPortal(db, req.body || {}));
 });
 
+router.post('/topups/:id/void', (req, res) => {
+  res.json(service.voidTopup(db, Number(req.params.id), req.body || {}));
+});
+
 router.delete('/topups/:id', (req, res) => {
-  res.json(service.deleteTopup(db, Number(req.params.id)));
+  res.json(service.deleteTopup(db, Number(req.params.id), req.body || {}));
+});
+
+router.post('/refunds/:id/void', (req, res) => {
+  res.json(service.voidPortalRefund(db, Number(req.params.id), req.body || {}));
+});
+
+router.post('/credits/:id/void', (req, res) => {
+  res.json(service.voidPortalCredit(db, Number(req.params.id), req.body || {}));
 });
 
 router.get('/:id', (req, res) => {

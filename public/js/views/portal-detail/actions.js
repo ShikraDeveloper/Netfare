@@ -6,6 +6,7 @@ import {
   openModal,
   toast,
   toCents,
+  voidDialog,
 } from '../../ui.js';
 import { settleModalBody, topUpModalBody, withdrawModalBody } from './modals.js';
 
@@ -97,17 +98,46 @@ export function bindPortalActions({ portal, id, refresh, refreshIncluding }) {
     return modal;
   });
 
-  document.querySelectorAll('[data-delete-topup]').forEach((button) => {
+  const labels = {
+    topup: 'top-up',
+    refund: 'withdrawal',
+    credit: 'portal credit',
+  };
+
+  document.querySelectorAll('[data-void-portal]').forEach((button) => {
     button.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
-        title: 'Delete this top-up?',
-        message: 'The top-up will be reversed and removed. You can only delete a top-up that has not been used yet.',
-        confirmLabel: 'Delete top-up',
+      const kind = button.dataset.voidKind;
+      const result = await voidDialog({
+        title: `Void this ${labels[kind] || 'movement'}?`,
+        message: 'A reversing journal entry will restore the wallet balance. The original movement stays in the audit trail.',
+        warning: kind === 'topup'
+          ? 'Only an unused top-up can be voided. If any of it has been spent, withdraw the remaining balance instead.'
+          : 'If this movement has already been consumed, void the related bill settlement first.',
+        confirmLabel: `Void ${labels[kind] || 'movement'}`,
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del(`/portals/topups/${button.dataset.deleteTopup}`);
-        toast('Top-up deleted');
+        await api.post(`/portals/${kind === 'topup' ? 'topups' : kind === 'refund' ? 'refunds' : 'credits'}/${button.dataset.voidPortal}/void`, { remarks: result.remarks });
+        toast('Portal movement voided with a reversing entry');
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-void-settlement]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const result = await voidDialog({
+        title: 'Void this wallet settlement?',
+        message: 'The bill payment will be reversed and the amount will return to the wallet balance.',
+        warning: 'This cannot be undone. The bill and the wallet both keep an audit trail.',
+        confirmLabel: 'Void settlement',
+      });
+      if (!result.confirmed) return;
+      try {
+        await api.del(`/bills/payments/${button.dataset.voidSettlement}`, { remarks: result.remarks });
+        toast('Wallet settlement voided with a reversing entry');
         refresh();
       } catch (error) {
         toast(error.message, 'error');

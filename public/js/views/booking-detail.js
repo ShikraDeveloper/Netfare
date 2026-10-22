@@ -14,6 +14,7 @@ import {
   todayISO,
   toast,
   toCents,
+  voidDialog,
 } from '../ui.js';
 import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -83,13 +84,13 @@ export async function render(container, { params } = {}) {
     <div class="payment-item">
       <div class="payment-icon">${icon('wallet', 15)}</div>
       <div class="payment-main">
-        <strong>${esc(advance.number)} · ${statusBadge(advance.status)}</strong>
+        <strong>${esc(advance.number)} · ${statusBadge(advance.status_display || advance.status)}</strong>
         <span>${esc(fmtDate(advance.advance_date))} · ${esc(advance.method || 'Advance')}${advance.reference ? ` · ${esc(advance.reference)}` : ''} · Received ${fmtMoney(advance.amount_cents)}</span>
       </div>
       <div class="payment-amount">${fmtMoney(advance.remaining_cents)} <small class="muted">left</small></div>
       <div style="display:flex;gap:4px">
         ${advance.remaining_cents > 0 ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
-        ${advance.remaining_cents > 0 && advance.applied_cents === 0 && !advance.refunded_cents ? `<button class="icon-btn danger" data-delete-advance="${advance.id}" title="Delete advance">${icon('trash', 16)}</button>` : ''}
+        ${!advance.voided ? `<button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance">${icon('trash', 16)}</button>` : ''}
       </div>
     </div>
   `).join('');
@@ -458,17 +459,19 @@ export async function render(container, { params } = {}) {
     });
   });
 
-  document.querySelectorAll('[data-delete-advance]').forEach((button) => {
+  document.querySelectorAll('[data-void-advance]').forEach((button) => {
     button.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
-        title: 'Delete this advance?',
-        message: 'The advance will be reversed and removed. Use this only for a mistake that has not been applied to any invoice.',
-        confirmLabel: 'Delete advance',
+      const advance = booking.advances.find((item) => item.id === Number(button.dataset.voidAdvance));
+      const result = await voidDialog({
+        title: `Void ${advance ? advance.number : 'this advance'}?`,
+        message: 'The advance will be reversed. Any refunds or invoice applications funded by this advance will also be reversed.',
+        warning: 'This cannot be undone. The advance stays in history as void and the reversal is written to the audit log.',
+        confirmLabel: 'Void advance',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del(`/advances/${button.dataset.deleteAdvance}`);
-        toast('Advance deleted');
+        await api.post(`/advances/${button.dataset.voidAdvance}/void`, { remarks: result.remarks });
+        toast('Advance voided with a reversing entry');
         refresh();
       } catch (error) {
         toast(error.message, 'error');

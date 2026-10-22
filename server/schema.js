@@ -69,6 +69,21 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   reference TEXT NOT NULL DEFAULT '',
   source_type TEXT NOT NULL DEFAULT 'manual',
   source_id INTEGER,
+  reversal_of_id INTEGER,
+  voided_at TEXT,
+  void_entry_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity_type TEXT NOT NULL,
+  entity_id INTEGER,
+  entity_number TEXT NOT NULL DEFAULT '',
+  action TEXT NOT NULL DEFAULT 'void',
+  remarks TEXT NOT NULL DEFAULT '',
+  amount_cents INTEGER,
+  metadata TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -296,6 +311,8 @@ CREATE TABLE IF NOT EXISTS customer_advances (
   reference TEXT NOT NULL DEFAULT '',
   deposit_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -324,6 +341,9 @@ CREATE TABLE IF NOT EXISTS portal_topups (
   notes TEXT NOT NULL DEFAULT '',
   deposit_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -337,6 +357,9 @@ CREATE TABLE IF NOT EXISTS portal_refunds (
   notes TEXT NOT NULL DEFAULT '',
   payment_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -431,6 +454,9 @@ CREATE TABLE IF NOT EXISTS portal_credits (
   supplier_credit_note_id INTEGER REFERENCES supplier_credit_notes(id) ON DELETE SET NULL,
   notes TEXT NOT NULL DEFAULT '',
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -534,6 +560,9 @@ CREATE TABLE IF NOT EXISTS bank_reconciliation_lines (
   journal_line_id INTEGER NOT NULL UNIQUE REFERENCES journal_lines(id) ON DELETE RESTRICT
 );
 
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_lines_entry ON journal_lines(entry_id);
 CREATE INDEX IF NOT EXISTS idx_lines_account ON journal_lines(account_id);
 CREATE INDEX IF NOT EXISTS idx_entries_date ON journal_entries(entry_date);

@@ -12,8 +12,12 @@ router.post('/', (req, res) => {
   res.status(201).json(service.createCredit(db, req.body || {}));
 });
 
+router.post('/applications/:applicationId/void', (req, res) => {
+  res.json(service.deleteCreditApplication(db, Number(req.params.applicationId), req.body || {}));
+});
+
 router.delete('/applications/:applicationId', (req, res) => {
-  res.json(service.deleteCreditApplication(db, Number(req.params.applicationId)));
+  res.json(service.deleteCreditApplication(db, Number(req.params.applicationId), req.body || {}));
 });
 
 router.get('/:id', (req, res) => {
@@ -25,7 +29,7 @@ router.post('/:id/apply', (req, res) => {
 });
 
 router.post('/:id/void', (req, res) => {
-  res.json(service.voidCredit(db, Number(req.params.id)));
+  res.json(service.voidCredit(db, Number(req.params.id), req.body || {}));
 });
 
 module.exports = router;

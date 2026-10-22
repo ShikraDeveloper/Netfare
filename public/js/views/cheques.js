@@ -19,6 +19,7 @@ import {
   todayISO,
   toast,
   toCents,
+  voidDialog,
 } from '../ui.js';
 
 const STATUSES = ['planned', 'issued', 'cleared', 'bounced', 'cancelled'];
@@ -27,7 +28,6 @@ const STATUS_OPTIONS = [
   { value: 'issued', label: 'Issued' },
   { value: 'cleared', label: 'Cleared' },
   { value: 'bounced', label: 'Bounced' },
-  { value: 'cancelled', label: 'Cancelled' },
 ];
 const FREQUENCIES = [
   { value: 'monthly', label: 'Monthly' },
@@ -72,8 +72,8 @@ function rowHtml(cheque) {
       <td>
         <div class="row-actions">
           ${primary}
-          <button class="icon-btn" data-edit="${cheque.id}" title="Edit cheque">${icon('edit', 15)}</button>
-          <button class="icon-btn danger" data-delete="${cheque.id}" title="Delete cheque">${icon('trash', 15)}</button>
+          ${cheque.status !== 'cancelled' ? `<button class="icon-btn" data-edit="${cheque.id}" title="Edit cheque">${icon('edit', 15)}</button>` : ''}
+          ${cheque.status !== 'cancelled' ? `<button class="icon-btn danger" data-void-cheque="${cheque.id}" title="Void cheque">${icon('trash', 15)}</button>` : ''}
         </div>
       </td>
     </tr>
@@ -461,19 +461,22 @@ export async function render(container, { query } = {}) {
       }
       return;
     }
-    const del = event.target.closest('[data-delete]');
-    if (del) {
-      const cheque = cheques.find((row) => row.id === Number(del.dataset.delete));
+    const voidButton = event.target.closest('[data-void-cheque]');
+    if (voidButton) {
+      const cheque = cheques.find((row) => row.id === Number(voidButton.dataset.voidCheque));
       if (!cheque) return;
-      const confirmed = await confirmDialog({
-        title: `Delete cheque ${cheque.cheque_number}?`,
-        message: 'The cheque will be removed from the register. Any bill payment already recorded stays in the ledger.',
-        confirmLabel: 'Delete cheque',
+      const result = await voidDialog({
+        title: `Void cheque ${cheque.cheque_number}?`,
+        message: 'The cheque will be marked cancelled and kept in the register for the audit trail.',
+        warning: cheque.payment_number
+          ? 'This cheque is linked to a bill payment. Void the bill payment first so the ledger is reversed correctly.'
+          : 'This cannot be undone.',
+        confirmLabel: 'Void cheque',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del(`/cheques/${cheque.id}`);
-        toast(`Cheque ${cheque.cheque_number} deleted`);
+        await api.post(`/cheques/${cheque.id}/void`, { remarks: result.remarks });
+        toast(`Cheque ${cheque.cheque_number} voided`);
         await render(container);
       } catch (error) {
         toast(error.message, 'error');

@@ -1,7 +1,6 @@
 import { api } from '../api.js';
 import {
   centsToInput,
-  confirmDialog,
   esc,
   fmtMoney,
   icon,
@@ -9,6 +8,7 @@ import {
   toCents,
   toast,
   todayISO,
+  voidDialog,
 } from '../ui.js';
 
 const TYPE_LABELS = {
@@ -164,16 +164,16 @@ export async function render(container) {
   const clearButton = document.querySelector('[data-action="clear-opening"]');
   if (clearButton) {
     clearButton.addEventListener('click', async () => {
-      const confirmed = await confirmDialog({
-        title: 'Clear opening balances?',
-        message: 'This removes the opening-balance journal entry. Live transactions are not affected.',
-        confirmLabel: 'Clear balances',
-        danger: true,
+      const result = await voidDialog({
+        title: 'Void opening balances?',
+        message: 'A reversing entry will be posted for the opening-balance journal entry. Live transactions are not affected.',
+        warning: 'This cannot be undone. The original entry and reversal stay in the audit trail.',
+        confirmLabel: 'Void balances',
       });
-      if (!confirmed) return;
+      if (!result.confirmed) return;
       try {
-        await api.del('/opening-balances');
-        toast('Opening balances cleared');
+        await api.post('/opening-balances/void', { remarks: result.remarks });
+        toast('Opening balances voided with a reversing entry');
         await render(container);
       } catch (error) {
         toast(error.message, 'error');

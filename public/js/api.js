@@ -40,7 +40,10 @@ export const api = {
   put(path, body) {
     return request(path, { method: 'PUT', body: JSON.stringify(body || {}) });
   },
-  del(path) {
-    return request(path, { method: 'DELETE' });
+  del(path, body) {
+    return request(path, {
+      method: 'DELETE',
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
   },
 };

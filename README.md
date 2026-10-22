@@ -11,6 +11,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
 - **Refunds** — refund a customer payment, a cancellation balance, an advance, or a supplier credit. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
+- **Void & audit trail** — every void asks for remarks, reverses the document and its linked payments, refunds, credits or journal entry, and keeps the original in history. A searchable **Audit log** under **System** records each void with its entity, amount, remarks, action and timestamp.
 - **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging. A cancellation refund can also be converted into customer credit.
 - **Supplier credit notes** — record a credit from a supplier standalone or against a bill, optionally linked to a booking, visa or cancellation. Apply it to any open bill for the same supplier, refund the unused balance in cash, or move a prepaid-portal credit into the portal wallet. **1450 Supplier Credits** always equals the total unused supplier credit.
 - **Opening balances** — a guided balance-sheet page creates one balanced opening journal entry. Enter each account as a debit or credit; the difference posts automatically to **3900 Opening Balance Equity**. Replacing or clearing balances posts a reversal, so reconciled lines and audit history are never deleted.
@@ -215,7 +216,7 @@ Use **Refunds** (or the refund action beside a payment on an invoice or bill) to
 | Void a refund | Reverses the refund entry and restores the relevant invoice, bill, advance, cancellation or supplier-credit balance |
 
 - Refund numbers use **REF-YYYY-####**.
-- The engine refuses refunds larger than the source's remaining refundable amount. It also refuses to remove a payment, void its invoice or bill, or cancel the linked booking/visa while a refund is active. Void the refund first.
+- The engine refuses refunds larger than the source's remaining refundable amount. Voiding an invoice, bill, credit note, supplier credit or advance reverses its linked payments, refunds and credit applications first, so a document with activity can still be voided as one operation. A payment with an active refund still requires the refund to be voided first. A void is rejected if a linked portal movement can no longer be reversed safely (for example, a top-up that has already been spent).
 - A customer payment funded by an advance must be refunded through **Advances**, not the payment refund engine. A bill payment made from a supplier wallet must be restored through the portal.
 - Customer and supplier refunds have their own list and printable voucher under **Accounting → Refunds**.
 - Supplier credits, not Accounts Payable, are used for money returned by a supplier. **1450 Supplier Credits** must equal the total unused supplier credit on the supplier-credit list.
@@ -408,25 +409,28 @@ All endpoints are under `/api`:
 | GET | `/portals/:id/ledger` | Per-portal supplier ledger: wallet movements with GL 1400 reconciliation for prepaid portals, or supplier bills, payments and refunds with an A/P running balance for credit accounts (optional `from`/`to`) |
 | POST | `/portals/:id/reconcile` | Compare an imported portal statement (`rows`) against a prepaid portal's wallet ledger: matches, missing lines, balance check |
 | POST | `/portals/:id/topups`, `/portals/:id/refund`, `/portals/settle-bill` | Top up, withdraw, or settle a bill from a wallet |
-| POST | `/advances/:id/apply`, `/advances/:id/refund` | Apply or refund an advance |
+| POST | `/portals/topups/:id/void`, `/portals/refunds/:id/void`, `/portals/credits/:id/void` | Void a wallet top-up, refund or portal credit |
+| POST | `/advances/:id/apply`, `/advances/:id/refund`, `/advances/:id/void` | Apply, refund or void an advance |
 | GET/POST/PUT/DELETE | `/invoices`, `/bills` | Documents |
-| POST | `/invoices/:id/finalize`, `/invoices/:id/void` | Post / reverse |
+| POST | `/invoices/:id/finalize`, `/invoices/:id/void` | Post / void with cascade |
 | POST/DELETE | `/invoices/:id/payments`, `/invoices/payments/:id` | Payments |
 | GET/POST | `/credits` | Customer credit notes |
 | GET | `/credits/:id` | Credit note with invoice applications |
-| POST | `/credits/:id/apply`, `/credits/:id/void` | Apply credit to an invoice or void an unused credit |
-| DELETE | `/credits/applications/:id` | Reverse a credit application |
+| POST | `/credits/:id/apply`, `/credits/:id/void` | Apply credit to an invoice or void with application reversal |
+| POST/DELETE | `/credits/applications/:id/void`, `/credits/applications/:id` | Reverse a credit application |
 | GET/POST/DELETE | `/opening-balances` | Read, save or clear the single opening-balance journal entry |
+| POST | `/opening-balances/void` | Void opening balances with a reversal |
 | GET/POST | `/bank-reconciliations` | Reconciliation history and save a reconciliation |
 | GET | `/bank-reconciliations/workspace` | Uncleared bank lines, cleared balance and ledger balance through a statement date |
 | GET/DELETE | `/bank-reconciliations/:id` | Reconciliation detail or reopen the latest one |
+| POST | `/bank-reconciliations/:id/void` | Void a reconciliation and release its lines |
 | GET | `/customers/:id/statement`, `/vendors/:id/statement` | Printable customer/vendor statement (optional `from`/`to`) |
 | GET/POST | `/attachments` | List or upload a local attachment (`entity_type`, `entity_id`, raw body, `filename`) |
 | GET/DELETE | `/attachments/:id/download`, `/attachments/:id` | Download or remove an attachment |
 | GET/POST | `/supplier-credits` | Supplier credit notes (`vendor_id`, optional `bill_id`, `booking_id`, `visa_id`, `credit_date`, `amount_cents` or `items`) |
 | GET | `/supplier-credits/:id`, `/supplier-credits/reconciliation` | Credit detail or **1450** reconciliation |
-| POST | `/supplier-credits/:id/apply`, `/supplier-credits/:id/refund`, `/supplier-credits/:id/void` | Apply to a bill, refund in cash, or void an unused credit |
-| DELETE | `/supplier-credits/applications/:id` | Reverse a supplier credit application |
+| POST | `/supplier-credits/:id/apply`, `/supplier-credits/:id/refund`, `/supplier-credits/:id/void` | Apply to a bill, refund in cash, or void with cascade |
+| POST/DELETE | `/supplier-credits/applications/:id/void`, `/supplier-credits/applications/:id` | Reverse a supplier credit application |
 | GET | `/cancellations`, `/cancellations/:id` | Cancellation documents and their refunds, credits and supplier credits |
 | POST | `/cancellations/:id/refund`, `/cancellations/:id/convert-to-credit` | Pay the remaining refund or convert it to customer credit |
 | GET/POST | `/refunds` | Customer and supplier refunds (`refund_type`, payment or credit source, amount, date, account) |
@@ -439,12 +443,15 @@ All endpoints are under `/api`:
 | POST | `/compliance/run-due` | Generate draft bills for all due auto-create recurring items |
 | GET/POST | `/cheques`, `/cheques/batch` | Post-dated cheque register and batch creation for a recurring compliance item |
 | GET/PUT/DELETE | `/cheques/:id` | Cheque detail, edit/status changes or delete |
+| POST | `/cheques/:id/void` | Void a cheque and record an audit entry |
 | GET/POST | `/cash/deposits` | Cash deposit history and new cash-to-bank deposit |
 | GET | `/cash/accounts` | Active cash/bank accounts with balances |
 | POST | `/cash/deposits/:id/void` | Reverse a cash deposit |
 | GET/POST/PUT | `/customers`, `/vendors`, `/accounts` | Master data |
 | GET/POST/DELETE | `/journal-entries` | General journal |
+| POST | `/journal-entries/:id/void` | Reverse a manual journal entry with remarks |
 | GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging`, `/reconciliation` | Reports; `/reconciliation` checks 1400, 1450, 2450 and 2500 against their subledgers |
+| GET | `/audit-logs`, `/audit-logs/:id` | Searchable void/audit history |
 | GET/PUT | `/settings` | Company settings |
 | GET | `/admin/backup` | JSON data export |
 | GET | `/admin/backup/database` | Full SQLite database backup download |

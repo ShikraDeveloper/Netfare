@@ -41,7 +41,7 @@ function getPortal(db, id) {
     SELECT t.*, a.name AS deposit_account_name
     FROM portal_topups t
     JOIN accounts a ON a.id = t.deposit_account_id
-    WHERE t.portal_id = ?
+    WHERE t.portal_id = ? AND t.status = 'posted'
     ORDER BY t.topup_date DESC, t.id DESC
   `).all(id);
 
@@ -49,7 +49,7 @@ function getPortal(db, id) {
     SELECT r.*, a.name AS payment_account_name
     FROM portal_refunds r
     JOIN accounts a ON a.id = r.payment_account_id
-    WHERE r.portal_id = ?
+    WHERE r.portal_id = ? AND r.status = 'posted'
     ORDER BY r.refund_date DESC, r.id DESC
   `).all(id);
 
@@ -58,7 +58,7 @@ function getPortal(db, id) {
     FROM portal_credits pc
     LEFT JOIN supplier_credit_notes scn ON scn.id = pc.supplier_credit_note_id
     LEFT JOIN bills b ON b.id = pc.bill_id
-    WHERE pc.portal_id = ?
+    WHERE pc.portal_id = ? AND pc.status = 'posted'
     ORDER BY pc.credit_date DESC, pc.id DESC
   `).all(id);
 
