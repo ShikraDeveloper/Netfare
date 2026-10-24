@@ -488,6 +488,9 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .source-portal_settle { background: #eff6ff; color: #1d4ed8; }
 .source-customer_refund { background: #fef2f2; color: #b91c1c; }
 .source-supplier_refund { background: #ecfdf5; color: #047857; }
+.source-cancellation { background: #fef2f2; color: #b91c1c; }
+.source-supplier_credit { background: #ecfdf5; color: #047857; }
+.source-standalone { background: #f1f3f7; color: #64748b; }
 .source-cash_deposit { background: #ecfeff; color: #0e7490; }
 .source-cash_deposit { background: #eff6ff; color: #1d4ed8; }
 .source-void { background: #f1f3f7; color: #64748b; }

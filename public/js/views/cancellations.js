@@ -12,6 +12,16 @@ import {
   setHeader,
 } from '../ui.js';
 
+function settlementBadge(cancellation) {
+  if (Number(cancellation.refund_remaining_cents) > 0) {
+    return '<span class="badge badge-partial">Refund due</span>';
+  }
+  if (Number(cancellation.refund_due_cents) > 0) {
+    return '<span class="badge badge-paid">Settled</span>';
+  }
+  return '<span class="badge badge-draft">No refund</span>';
+}
+
 function cancellationRow(cancellation) {
   return `
     <tr class="clickable" data-id="${cancellation.id}" tabindex="0">
@@ -28,6 +38,7 @@ function cancellationRow(cancellation) {
       <td class="num">${fmtMoney(cancellation.received_cents)}</td>
       <td class="num">${fmtMoney(cancellation.supplier_credit_total_cents)}</td>
       <td class="num ${cancellation.refund_remaining_cents ? 'amount-due' : 'muted'}">${fmtMoney(cancellation.refund_remaining_cents)}</td>
+      <td>${settlementBadge(cancellation)}</td>
       <td class="chev">${icon('chevron', 16)}</td>
     </tr>
   `;
@@ -37,10 +48,11 @@ export async function render(container) {
   const cancellations = await api.get('/cancellations');
   const refundRemaining = cancellations.reduce((sum, cancellation) => sum + cancellation.refund_remaining_cents, 0);
   const supplierCredits = cancellations.reduce((sum, cancellation) => sum + cancellation.supplier_credit_total_cents, 0);
+  const refundDueCount = cancellations.filter((cancellation) => cancellation.refund_remaining_cents > 0).length;
 
   setHeader({
-    title: 'Cancellations',
-    subtitle: `${cancellations.length} cancellation${cancellations.length === 1 ? '' : 's'} · ${fmtMoney(refundRemaining)} refundable · ${fmtMoney(supplierCredits)} supplier credit`,
+    title: 'Cancellations & settlements',
+    subtitle: `${cancellations.length} cancellation${cancellations.length === 1 ? '' : 's'} · ${refundDueCount} with refund due · ${fmtMoney(refundRemaining)} refundable · ${fmtMoney(supplierCredits)} supplier credit`,
   });
 
   if (!cancellations.length) {
@@ -79,6 +91,7 @@ export async function render(container) {
               <th scope="col" class="num">Held</th>
               <th scope="col" class="num">Supplier credit</th>
               <th scope="col" class="num">Refund left</th>
+              <th scope="col">Settlement</th>
               <th scope="col"></th>
             </tr>
           </thead>
@@ -104,7 +117,7 @@ export async function render(container) {
     page = Math.min(Math.max(1, page), pages);
     const start = (page - 1) * pageSize;
     const rows = filtered.slice(start, start + pageSize);
-    body.innerHTML = rows.length ? rows.map(cancellationRow).join('') : `<tr><td colspan="8">${emptyState({
+    body.innerHTML = rows.length ? rows.map(cancellationRow).join('') : `<tr><td colspan="9">${emptyState({
       iconName: 'search',
       title: 'No matching cancellations',
       message: 'Try another search, source or date range.',

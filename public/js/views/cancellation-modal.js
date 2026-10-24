@@ -77,8 +77,15 @@ export function cancellationModalBody(job) {
       </div>
       <div class="field full">
         <div class="form-note" data-cancel-summary>
-          Customer charges <strong data-summary-charges>${fmtMoney(0)}</strong>
-          · Supplier credits <strong data-summary-credits>${fmtMoney(0)}</strong>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;margin-bottom:8px">
+            <span>Money held from customer</span><strong data-summary-received>${fmtMoney(0)}</strong>
+            <span>Cancellation charges</span><strong data-summary-charges>${fmtMoney(0)}</strong>
+            <span>Refund due to customer</span><strong data-summary-refund>${fmtMoney(0)}</strong>
+            <span>Cancellation invoice (shortfall)</span><strong data-summary-shortfall>${fmtMoney(0)}</strong>
+            <span>Supplier credits</span><strong data-summary-credits>${fmtMoney(0)}</strong>
+            <span>Retained supplier cost</span><strong data-summary-retained>${fmtMoney(0)}</strong>
+          </div>
+          <div class="hint" data-summary-note></div>
         </div>
       </div>
     </div>
@@ -105,14 +112,45 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
     onMount(overlay) {
       const charges = overlay.querySelector('[data-charges]');
       const creditInputs = [...overlay.querySelectorAll('[data-credit-input]')];
+      const summaryReceived = overlay.querySelector('[data-summary-received]');
       const summaryCharges = overlay.querySelector('[data-summary-charges]');
+      const summaryRefund = overlay.querySelector('[data-summary-refund]');
+      const summaryShortfall = overlay.querySelector('[data-summary-shortfall]');
       const summaryCredits = overlay.querySelector('[data-summary-credits]');
+      const summaryRetained = overlay.querySelector('[data-summary-retained]');
+      const summaryNote = overlay.querySelector('[data-summary-note]');
+      const hasPostedInvoice = Boolean(job.invoice);
+      const receivedCents = hasPostedInvoice ? Number(job.invoice.amount_paid_cents || 0) : 0;
+      const availableSupplierCost = (job.bills || [])
+        .filter((bill) => bill.status === 'received')
+        .reduce((sum, bill) => sum + Number(bill.supplier_credit_available_cents ?? bill.total_cents ?? 0), 0);
 
       function syncSummary() {
         const chargeCents = toCents(charges?.value || 0);
         const creditCents = creditInputs.reduce((sum, input) => sum + toCents(input.value || 0), 0);
+        const refundDue = hasPostedInvoice ? Math.max(0, receivedCents - chargeCents) : 0;
+        const shortfall = hasPostedInvoice ? Math.max(0, chargeCents - receivedCents) : 0;
+        const retainedCost = Math.max(0, availableSupplierCost - creditCents);
+        if (summaryReceived) summaryReceived.textContent = fmtMoney(receivedCents);
         if (summaryCharges) summaryCharges.textContent = fmtMoney(chargeCents);
+        if (summaryRefund) summaryRefund.textContent = fmtMoney(refundDue);
+        if (summaryShortfall) summaryShortfall.textContent = fmtMoney(shortfall);
         if (summaryCredits) summaryCredits.textContent = fmtMoney(creditCents);
+        if (summaryRetained) summaryRetained.textContent = fmtMoney(retainedCost);
+        if (summaryNote) {
+          if (!hasPostedInvoice) {
+            summaryNote.textContent = 'Draft job: nothing has been posted to the ledger. Cancelling will only change the job status.';
+          } else if (shortfall > 0) {
+            summaryNote.textContent = `Charges exceed money held by ${fmtMoney(shortfall)}. A cancellation invoice will be issued for the shortfall.`;
+          } else if (refundDue > 0) {
+            summaryNote.textContent = 'Refund due will be held in 2500 Refund Payable. You can pay it or convert it to customer credit after posting.';
+          } else {
+            summaryNote.textContent = 'No customer refund is due.';
+          }
+          if (creditCents > 0) {
+            summaryNote.textContent += ' Supplier credits will be created in 1450 Supplier Credits.';
+          }
+        }
       }
 
       charges?.addEventListener('input', syncSummary);

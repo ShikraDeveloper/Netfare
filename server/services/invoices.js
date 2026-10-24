@@ -63,6 +63,11 @@ function getInvoice(db, id) {
   const invoice = db.prepare(`${invoiceSelect} WHERE i.id = ?`).get(id);
   if (!invoice) throw notFound('Invoice not found');
   attachVisaDetails(db, invoice);
+  const sourceCancellation = db.prepare(
+    'SELECT id, number FROM cancellations WHERE invoice_id = ?',
+  ).get(id);
+  invoice.source_cancellation_id = sourceCancellation?.id || null;
+  invoice.source_cancellation_number = sourceCancellation?.number || null;
   invoice.items = db.prepare(`
     SELECT ii.*, a.code AS account_code, a.name AS account_name
     FROM invoice_items ii

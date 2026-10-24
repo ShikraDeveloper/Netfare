@@ -20,7 +20,43 @@ function typeBadge(type) {
   return `<span class="badge badge-${esc(type)}">${esc(label)}</span>`;
 }
 
+const REFUND_SOURCE_LABELS = {
+  invoice: 'Invoice payment',
+  bill: 'Bill payment',
+  cancellation: 'Cancellation',
+  advance: 'Customer advance',
+  supplier_credit: 'Supplier credit',
+};
+
+function sourceBadge(refund) {
+  const type = refund.source_type || 'invoice';
+  const label = REFUND_SOURCE_LABELS[type] || 'Payment';
+  return `<span class="source source-${esc(type)}">${esc(label)}</span>`;
+}
+
+function sourceHref(refund) {
+  if (!refund.document_id) return null;
+  switch (refund.source_type) {
+    case 'cancellation':
+      return `#/cancellations/${refund.document_id}`;
+    case 'supplier_credit':
+      return `#/supplier-credits/${refund.document_id}`;
+    case 'invoice':
+      return `#/invoices/${refund.document_id}`;
+    case 'bill':
+      return `#/bills/${refund.document_id}`;
+    default:
+      return null;
+  }
+}
+
 function refundRow(refund) {
+  const href = sourceHref(refund);
+  const documentNumber = refund.document_number
+    ? (href
+      ? `<a href="${href}" data-source-link>${esc(refund.document_number)}</a>`
+      : esc(refund.document_number))
+    : '—';
   return `
     <tr class="clickable" data-id="${refund.id}" tabindex="0">
       <td>
@@ -38,7 +74,8 @@ function refundRow(refund) {
         </div>
       </td>
       <td>
-        <div class="cell-main nowrap">${esc(refund.document_number || '—')}</div>
+        <div style="margin-bottom:4px">${sourceBadge(refund)}</div>
+        <div class="cell-main nowrap">${documentNumber}</div>
         <div class="cell-sub nowrap">${esc(refund.payment_number || '')}</div>
       </td>
       <td class="num">
@@ -57,7 +94,7 @@ export async function render(container) {
   const refundedTotal = paid.reduce((sum, refund) => sum + refund.amount_cents, 0);
 
   setHeader({
-    title: 'Refunds',
+    title: 'Customer & supplier refunds',
     subtitle: `${paid.length} paid refund${paid.length === 1 ? '' : 's'} · ${fmtMoney(refundedTotal)} refunded`,
     actions: `<button class="btn btn-primary" data-action="new-refund">${icon('plus', 16)}<span>New refund</span></button>`,
   });
@@ -79,7 +116,7 @@ export async function render(container) {
         ${emptyState({
           iconName: 'arrowUp',
           title: 'No refunds yet',
-          message: 'Refund a customer payment from an invoice, or record money returned by a supplier from a bill. Each refund posts its own journal entry and leaves the original payment intact.',
+          message: 'Refund a customer payment from an invoice, or record money returned by a supplier from a bill. Cancellation and advance refunds are recorded from their own source screens so the correct balance is reduced.',
           action: '<button class="btn btn-primary" data-action="new-refund">Record your first refund</button>',
         })}
       </div>
@@ -107,6 +144,9 @@ export async function render(container) {
       ${dateRangeHtml({ label: 'Refund date' })}
       <div class="spacer"></div>
       <span class="muted" id="refund-count" style="font-size:12px"></span>
+    </div>
+    <div class="form-note" style="margin-bottom:12px">
+      <strong>Payment refunds only.</strong> Cancellation refunds are recorded from the cancellation note, and advance refunds from the advance screen. Use those source screens so the correct balance is reduced.
     </div>
     <div class="card">
       <div class="table-wrap">
@@ -197,6 +237,7 @@ export async function render(container) {
   typeSelect.addEventListener('change', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
   body.addEventListener('click', (event) => {
+    if (event.target.closest('[data-source-link]')) return;
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/refunds/${row.dataset.id}`;
   });

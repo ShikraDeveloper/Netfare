@@ -20,12 +20,14 @@ export async function render(container, { params = [] } = {}) {
   const issued = credit.status === 'issued';
   const canApply = issued && credit.remaining_cents > 0;
   const canVoid = issued;
+  const isCancellation = Boolean(credit.cancellation_id);
 
   setHeader({
     title: credit.number,
     subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}`,
     actions: `
       <a class="btn btn-ghost" href="#/credits"><span>All credit notes</span></a>
+      ${isCancellation ? `<a class="btn btn-secondary" href="#/cancellations/${credit.cancellation_id}">${icon('x', 15)}<span>Cancellation</span></a>` : ''}
       ${canApply ? `<button class="btn btn-primary" data-action="apply-credit">${icon('invoice', 15)}<span>Apply to invoice</span></button>` : ''}
       ${canVoid ? `<button class="icon-btn danger" data-action="void-credit" title="Void credit note">${icon('trash', 17)}</button>` : ''}
     `,
@@ -56,7 +58,17 @@ export async function render(container, { params = [] } = {}) {
         <div class="card-head"><div class="card-title"><h2>Ledger details</h2><p>Automatic postings</p></div>${credit.journal_entry_id ? `<a class="card-link" href="#/journal?focus=${credit.journal_entry_id}">Open ${icon('chevron', 12)}</a>` : ''}</div>
         <div class="card-body">
           <div class="detail-list">
-            <div><span>Revenue account</span><strong>${esc(credit.revenue_account_code)} ${esc(credit.revenue_account_name)}</strong></div>
+            <div>
+              <span>Source</span>
+              <strong>${isCancellation
+                ? `<a href="#/cancellations/${credit.cancellation_id}">Cancellation ${esc(credit.cancellation_number || '')}</a>`
+                : '<span class="source source-standalone">Standalone credit</span>'}</strong>
+            </div>
+            ${isCancellation
+              ? `<div><span>Accounting</span><strong>Liability transfer: 2500 Refund Payable → 2450 Customer Credits</strong></div>
+                 <div><span>Reference account</span><strong>${esc(credit.revenue_account_code)} ${esc(credit.revenue_account_name)}</strong></div>`
+              : `<div><span>Revenue account</span><strong>${esc(credit.revenue_account_code)} ${esc(credit.revenue_account_name)}</strong></div>
+                 <div><span>Accounting</span><strong>Revenue reduction: Dr revenue / Cr 2450 Customer Credits</strong></div>`}
             <div><span>Credit date</span><strong>${esc(fmtDate(credit.credit_date))}</strong></div>
             <div><span>Credit account</span><strong>2450 Customer Credits</strong></div>
             <div><span>Notes</span><strong>${esc(credit.notes || '—')}</strong></div>

@@ -387,6 +387,9 @@ html[data-theme="dark"] .tab.active { color: var(--accent); }
 .source-advance_refund, .source-portal_refund { background: #fff7ed; color: #c2410c; }
 .source-customer_refund { background: var(--red-soft); color: var(--red); }
 .source-supplier_refund { background: var(--green-soft); color: var(--green); }
+.source-cancellation { background: var(--red-soft); color: var(--red); }
+.source-supplier_credit { background: var(--green-soft); color: var(--green); }
+.source-standalone { background: var(--surface-2); color: var(--muted); }
 .source-cash_deposit { background: var(--blue-soft); color: var(--blue); }
 .source-cash_deposit { background: var(--blue-soft); color: var(--blue); }
 .source-opening { background: #ecfeff; color: #0e7490; }

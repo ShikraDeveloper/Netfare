@@ -149,6 +149,9 @@ export async function render(container, { params } = {}) {
   if (invoice.visa_id) {
     actions.push(`<a class="btn btn-secondary" href="#/visas/${invoice.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
   }
+  if (invoice.source_cancellation_id) {
+    actions.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.source_cancellation_id}">${icon('x', 15)}<span>Cancellation ${esc(invoice.source_cancellation_number || '')}</span></a>`);
+  }
   if (invoice.status === 'sent' && invoice.balance_cents > 0) {
     actions.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
   }

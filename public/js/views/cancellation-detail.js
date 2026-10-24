@@ -109,7 +109,9 @@ export async function render(container, { params } = {}) {
             <dl class="doc-meta-grid">
               <dt>Cancellation date</dt><dd>${esc(fmtDate(cancellation.cancellation_date))}</dd>
               <dt>${sourceLabel}</dt><dd>${esc(cancellation.source_number || '—')}</dd>
-              <dt>Original invoice</dt><dd>${esc(cancellation.invoice_number || '—')}</dd>
+              <dt>Original invoice</dt><dd>${cancellation.invoice_id
+                ? `<a href="#/invoices/${cancellation.invoice_id}">${esc(cancellation.invoice_number || 'Open invoice')}</a>`
+                : '—'}</dd>
               <dt>Charges invoice</dt><dd>${esc(cancellation.cancellation_invoice_number || '—')}</dd>
             </dl>
           </div>
@@ -162,7 +164,7 @@ export async function render(container, { params } = {}) {
     <div class="detail-grid no-print">
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer settlement</h2><p>${remaining > 0 ? `${fmtMoney(remaining)} still refundable` : 'Fully settled'}</p></div>
+          <div class="card-title"><h2>Customer settlement</h2><p>${remaining > 0 ? `${fmtMoney(remaining)} still refundable` : 'Fully settled'} ${remaining > 0 ? '<span class="badge badge-partial">Refund due</span>' : '<span class="badge badge-paid">Settled</span>'}</p></div>
           ${canSettle ? `<button class="btn btn-primary btn-sm" data-action="refund">${icon('arrowUp', 14)} Pay refund</button>` : ''}
         </div>
         <div class="card-body">

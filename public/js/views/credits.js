@@ -16,19 +16,41 @@ import {
   toCents,
 } from '../ui.js';
 
+function creditSourceBadge(credit) {
+  if (credit.cancellation_number) {
+    return `<span class="source source-cancellation">Cancellation ${esc(credit.cancellation_number)}</span>`;
+  }
+  return '<span class="source source-standalone">Standalone</span>';
+}
+
+function creditStatusBadge(credit) {
+  if (credit.status === 'void') return '<span class="badge badge-void">Void</span>';
+  if (Number(credit.remaining_cents) <= 0) return '<span class="badge badge-paid">Fully applied</span>';
+  if (Number(credit.applied_cents) > 0) return '<span class="badge badge-partial">Partially applied</span>';
+  return '<span class="badge badge-issued">Issued</span>';
+}
+
 export async function render(container, { query = new URLSearchParams() } = {}) {
-  const [credits, customers, accounts] = await Promise.all([
+  const [credits, customers, accounts, cancellations] = await Promise.all([
     api.get('/credits'),
     api.get('/customers'),
     api.get('/accounts'),
+    api.get('/cancellations'),
   ]);
   const activeCustomers = customers.filter((customer) => customer.is_active);
   const revenueAccounts = accounts.filter((account) => account.is_active && account.type === 'revenue');
   const issued = credits.filter((credit) => credit.status === 'issued');
   const remaining = issued.reduce((sum, credit) => sum + credit.remaining_cents, 0);
+  const openCancellationsByCustomer = new Map();
+  for (const cancellation of cancellations) {
+    if (cancellation.refund_remaining_cents <= 0) continue;
+    const list = openCancellationsByCustomer.get(cancellation.customer_id) || [];
+    list.push(cancellation);
+    openCancellationsByCustomer.set(cancellation.customer_id, list);
+  }
 
   setHeader({
-    title: 'Credit notes',
+    title: 'Credit notes & customer credits',
     subtitle: `${issued.length} open · ${fmtMoney(remaining)} unapplied customer credit`,
     actions: `<button class="btn btn-primary" data-action="new-credit">${icon('plus', 15)}<span>New credit note</span></button>`,
   });
@@ -38,7 +60,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     body = `<div class="card">${emptyState({
       iconName: 'invoice',
       title: 'No credit notes yet',
-      message: 'Issue a credit note when a customer is owed a refund or adjustment. Apply it to an open invoice or keep it as an unapplied credit.',
+      message: 'Issue a standalone credit note for a revenue adjustment, or use Convert to credit on a cancellation note to move a cancellation refund into customer credit.',
       action: '<button class="btn btn-primary" data-action="new-credit">Create credit note</button>',
     })}</div>`;
   } else {
@@ -49,6 +71,11 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
           <option value="all">All statuses</option>
           <option value="issued">Issued</option>
           <option value="void">Void</option>
+        </select>
+        <select class="input" id="credit-source" aria-label="Filter credit notes by source" style="max-width:170px">
+          <option value="all">All sources</option>
+          <option value="standalone">Standalone</option>
+          <option value="cancellation">Cancellation</option>
         </select>
         ${dateRangeHtml({ label: 'Credit date' })}
         <div class="spacer"></div>
@@ -69,6 +96,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
   const searchInput = container.querySelector('#credit-search');
   const statusSelect = container.querySelector('#credit-status');
+  const sourceSelect = container.querySelector('#credit-source');
   const bodyEl = container.querySelector('#credit-body');
   const paginationEl = container.querySelector('#credit-pagination');
   const countEl = container.querySelector('#credit-count');
@@ -84,13 +112,13 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     const rows = filtered.slice(start, start + pageSize);
     bodyEl.innerHTML = rows.length ? rows.map((credit) => `
       <tr class="clickable" data-id="${credit.id}" tabindex="0">
-        <td><div class="cell-main">${esc(credit.number)}</div><div class="cell-sub">${esc(credit.revenue_account_name)}</div></td>
+        <td><div class="cell-main">${esc(credit.number)}</div><div class="cell-sub">${creditSourceBadge(credit)} <span class="muted">${esc(credit.revenue_account_name)}</span></div></td>
         <td>${esc(credit.customer_name)}</td>
         <td class="nowrap">${esc(fmtDate(credit.credit_date))}</td>
         <td class="num">${fmtMoney(credit.amount_cents)}</td>
         <td class="num">${fmtMoney(credit.applied_cents)}</td>
         <td class="num ${credit.remaining_cents ? 'amount-due' : 'muted'}">${fmtMoney(credit.remaining_cents)}</td>
-        <td><span class="badge badge-${credit.status === 'issued' ? 'issued' : 'void'}">${credit.status === 'issued' ? 'Issued' : 'Void'}</span></td>
+        <td>${creditStatusBadge(credit)}</td>
       </tr>
     `).join('') : `<tr><td colspan="7">${emptyState({ iconName: 'search', title: 'No matching credit notes', message: 'Try a different search term.' })}</td></tr>`;
     paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
@@ -106,11 +134,14 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     page = 1;
     const term = searchInput.value.trim().toLowerCase();
     const status = statusSelect?.value || 'all';
+    const source = sourceSelect?.value || 'all';
     const { from, to } = dateRange.values();
     filtered = credits.filter((credit) => {
       if (!inDateRange(credit.credit_date, from, to)) return false;
       if (status !== 'all' && credit.status !== status) return false;
-      return [credit.number, credit.customer_name, credit.notes]
+      if (source === 'cancellation' && !credit.cancellation_id) return false;
+      if (source === 'standalone' && credit.cancellation_id) return false;
+      return [credit.number, credit.customer_name, credit.cancellation_number, credit.notes]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} matching`;
@@ -119,6 +150,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
   if (searchInput) searchInput.addEventListener('input', applyFilter);
   if (statusSelect) statusSelect.addEventListener('change', applyFilter);
+  if (sourceSelect) sourceSelect.addEventListener('change', applyFilter);
   if (bodyEl) {
     applyFilter();
     bodyEl.addEventListener('click', (event) => {
@@ -134,6 +166,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
   const openNew = () => openCreditModal({
     customers: activeCustomers,
     revenueAccounts,
+    openCancellationsByCustomer,
     customerId: Number(query.get('customer')) || null,
     onSaved: (credit) => { location.hash = `#/credits/${credit.id}`; },
   });
@@ -144,7 +177,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
   }
 }
 
-function openCreditModal({ customers, revenueAccounts, customerId = null, onSaved }) {
+function openCreditModal({ customers, revenueAccounts, openCancellationsByCustomer = new Map(), customerId = null, onSaved }) {
   openModal({
     title: 'New credit note',
     subtitle: 'Issue a customer credit and post it to the ledger.',
@@ -157,6 +190,9 @@ function openCreditModal({ customers, revenueAccounts, customerId = null, onSave
             <option value="">Choose a customer…</option>
             ${customers.map((customer) => `<option value="${customer.id}" ${customer.id === customerId ? 'selected' : ''}>${esc(customer.name)}</option>`).join('')}
           </select>
+        </div>
+        <div class="field full">
+          <div class="form-note" id="credit-cancellation-warning" hidden></div>
         </div>
         <div class="field">
           <label for="credit-date">Credit date</label>
@@ -174,11 +210,33 @@ function openCreditModal({ customers, revenueAccounts, customerId = null, onSave
           <div class="hint">This account is debited, reducing the related revenue.</div>
         </div>
         <div class="field full">
+          <div class="form-note">
+            <strong>Standalone credit note:</strong> this debits revenue and credits 2450 Customer Credits. If you are converting a cancellation refund, use <strong>Convert to credit</strong> on the cancellation note instead — that moves 2500 to 2450 without touching revenue again.
+          </div>
+        </div>
+        <div class="field full">
           <label for="credit-notes">Notes</label>
           <textarea class="input" id="credit-notes" name="notes" rows="2" placeholder="Reason for the credit">${''}</textarea>
         </div>
       </div>
     `,
+    onMount(overlay) {
+      const customerSelect = overlay.querySelector('#credit-customer');
+      const warning = overlay.querySelector('#credit-cancellation-warning');
+      if (!customerSelect || !warning) return;
+      const syncWarning = () => {
+        const cancellations = openCancellationsByCustomer.get(Number(customerSelect.value)) || [];
+        if (!cancellations.length) {
+          warning.hidden = true;
+          warning.innerHTML = '';
+          return;
+        }
+        warning.hidden = false;
+        warning.innerHTML = `<strong>Open cancellation refund:</strong> ${cancellations.map((cancellation) => `${esc(cancellation.number)} (${fmtMoney(cancellation.refund_remaining_cents)} remaining)`).join(', ')}. Use <strong>Convert to credit</strong> on that cancellation note unless this is a separate adjustment.`;
+      };
+      customerSelect.addEventListener('change', syncWarning);
+      syncWarning();
+    },
     async onSubmit(form) {
       const values = new FormData(form);
       if (!values.get('customer_id')) throw new Error('Choose a customer');

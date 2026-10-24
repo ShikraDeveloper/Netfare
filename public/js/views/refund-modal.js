@@ -106,6 +106,11 @@ function bodyHtml({ type, source, allowTypeChange }) {
         <textarea class="input" id="refund-notes" name="notes" rows="2" placeholder="Reason for the refund, cancellation reference, or internal note"></textarea>
       </div>
       <div class="field full">
+        <div class="form-note">
+          <strong>Payment refunds only.</strong> This form refunds an invoice or bill payment. Cancellation refunds and advance refunds are recorded from their own source screens so the correct balance is reduced.
+        </div>
+      </div>
+      <div class="field full">
         <div class="form-note" id="refund-note">${refundNote(type)}</div>
       </div>
     </div>

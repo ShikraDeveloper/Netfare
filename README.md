@@ -219,7 +219,7 @@ Use **Refunds** (or the refund action beside a payment on an invoice or bill) to
 - Refund numbers use **REF-YYYY-####**.
 - The engine refuses refunds larger than the source's remaining refundable amount. Voiding an invoice, bill, credit note, supplier credit or advance reverses its linked payments, refunds and credit applications first, so a document with activity can still be voided as one operation. A payment with an active refund still requires the refund to be voided first. A void is rejected if a linked portal movement can no longer be reversed safely (for example, a top-up that has already been spent).
 - A customer payment funded by an advance must be refunded through **Advances**, not the payment refund engine. A bill payment made from a supplier wallet must be restored through the portal.
-- Customer and supplier refunds have their own list and printable voucher under **Accounting → Refunds**.
+- Customer and supplier refunds have their own list and printable voucher under **Settlements → Refunds**.
 - Supplier credits, not Accounts Payable, are used for money returned by a supplier. **1450 Supplier Credits** must equal the total unused supplier credit on the supplier-credit list.
 - **2500 Refund Payable** must equal the total unpaid cancellation refund. The reconciliation report checks both balances.
 

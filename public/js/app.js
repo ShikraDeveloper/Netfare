@@ -49,7 +49,6 @@ const NAV_GROUPS = [
     items: [
       { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings' },
       { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas' },
-      { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
       { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets' },
     ],
   },
@@ -57,8 +56,15 @@ const NAV_GROUPS = [
     label: 'Sales',
     items: [
       { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices' },
-      { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },
       { section: 'customers', href: '#/customers', icon: 'customers', label: 'Customers' },
+    ],
+  },
+  {
+    label: 'Settlements',
+    items: [
+      { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
+      { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
+      { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },
     ],
   },
   {
@@ -88,7 +94,6 @@ const NAV_GROUPS = [
     items: [
       { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal' },
       { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances' },
-      { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
       { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts' },
       { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports' },
     ],
