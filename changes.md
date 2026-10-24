@@ -132,3 +132,41 @@ Key files: `server/services/statements.js`, `public/js/views/statement.js`, `pub
 2. Read the latest entry above and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading in this file before committing.
+
+---
+
+## 2026-10-24
+
+### Phase 1 — Settlements hub and cross-document clarity — code commit `bd8e02f`
+
+- Grouped Cancellations, Refunds, and Credit notes under a new **Settlements** navigation group. The three accounting documents remain separate.
+- Added clearer page titles, settlement/status badges, and source badges:
+  - Cancellations: **Cancellations & settlements**, refund-due count, settlement column.
+  - Refunds: **Customer & supplier refunds**, source badge and source link, payment-refund-only warning.
+  - Credit notes: **Credit notes & customer credits**, cancellation/standalone source badge and filter, issued/partially applied/fully applied status badges.
+- Added cross-links:
+  - Credit detail → source cancellation, plus a plain-language accounting explanation.
+  - Cancellation detail → original invoice.
+  - Invoice detail → source cancellation, using a read-only lookup in `getInvoice`.
+  - Refund list → source cancellation, invoice, bill, or supplier credit where a detail route exists.
+- Added a live cancellation settlement preview: money held, charges, refund due, shortfall invoice, supplier credits, retained supplier cost, and an explanatory note.
+- Added a credit-note warning when the selected customer has an open cancellation refund, plus a standalone-credit accounting note.
+- Added a refund warning that the form only handles invoice/bill payment refunds; cancellation and advance refunds stay on their source screens.
+- No changes to cancellation/refund/credit-note tables, posting rules, or the AED-only, no-VAT setup.
+
+Key files: `public/js/app.js`, `public/js/views/cancellation-modal.js`, `public/js/views/cancellations.js`, `public/js/views/refunds.js`, `public/js/views/refund-modal.js`, `public/js/views/credits.js`, `public/js/views/credit-detail.js`, `public/js/views/cancellation-detail.js`, `public/js/views/invoice-detail.js`, `server/services/invoices.js`, `public/css/styles.css`, `public/css/theme.css`, `README.md`.
+
+Verification:
+
+- `npm run check`: 138 JavaScript files syntax OK.
+- `npm test`: 66 tests passed.
+- `npm run test:e2e`: 14 tests passed.
+- Manual disposable-DB pass on `127.0.0.1:4180`: created cancellation `CNC-2026-0001`, cancellation credit `CR-2026-0001`, and cancellation refund `REF-2026-0001`; verified the Settlements nav, cancellation preview, source badges/links/filters, credit warning, refund warning, invoice cancellation action, and the live recovered data at `127.0.0.1:4173`.
+- Live `data/accounting.db` was not modified.
+
+### Next session
+
+1. Start from the latest `main`; the Phase 1 code commit is `bd8e02f`.
+2. Read this entry and run the full check suite.
+3. Use a disposable database for review; never modify live `data/accounting.db`.
+4. Append the next change under a new date heading before committing.
