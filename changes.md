@@ -307,9 +307,54 @@ Verification:
 - `npm run test:e2e`: 19 tests passed, including a new browser test: the API returns 400 for a direct void, the booking invoice shows **Cancel booking** instead of Void, and the booking bill's **Supplier credit** button opens the form with the supplier, bill and booking preselected.
 - Live `data/accounting.db` was not modified by the tests. The running app needs a restart to pick up this change.
 
+### Reports use posted documents; internal notes and passport data kept off customer documents (audit M1–M5) — code commit `3fd2de5`
+
+From the bookings, visas and invoices audit.
+
+**Reports (M1–M3)**
+
+- New `server/services/job-costs.js` values every booking and visa the same way for the margin reports, the dashboard margin tiles and the DSR:
+  - **M1:** drafts are left out, because they post nothing. `bookingStats` and `visaStats` now return a separate `draft_count`.
+  - **M2:** bookings cancelled before cancellation notes existed are left out, as visas already were. Before this, such a booking still counted its full sale and cost.
+  - **M3:** cost is the **received supplier bills less issued supplier credits** for the job, not the cost lines typed on the draft. A credit counts when it names the job, or when it is raised against one of the job's bills. Report rows keep `planned_cost_total_cents` for reference.
+  - Cancelled jobs with a cancellation note still show their charges and retained cost. `retainedCostCents` now uses the same helper, so it also counts credits raised only against a bill.
+- Costs are worked out with two grouped queries per report instead of a query per job.
+
+**Internal notes (M4)**
+
+- Booking and visa **Notes** are now **Internal notes**: shown on screen in a box above the document that never prints, and no longer copied to the customer invoice or printed on the booking confirmation / application summary.
+- New optional **Note on invoice** field (`invoice_notes` on bookings and visa applications). It is printed on the booking or visa document and copied to the invoice at confirm/submit. A draft edit that leaves it out keeps the existing value.
+- Invoices created before this change keep the notes they were issued with.
+
+**Passport data on customer documents (M5)**
+
+- Invoices and customer statements show a **masked passport number** (`•••• 4567`) and no **date of birth**. The invoice and statement API responses no longer contain the full number or the date of birth; the visa application keeps both for staff. Passport expiry is still shown.
+- Supplier portal statements are internal and unchanged; they still show the passport number for matching with the visa agent.
+- New `maskPassport` helper in `server/util.js`.
+
+**Schema:** `bookings.invoice_notes` and `visa_applications.invoice_notes` (default `''`), added by migration.
+
+Key files: `server/services/job-costs.js`, `server/services/bookings.js`, `server/services/visas.js`, `server/services/cancellations.js`, `server/services/reports/daily-sales.js`, `server/services/invoices.js`, `server/services/statements.js`, `server/util.js`, `server/schema.js`, `server/migrations.js`, `public/js/views/bookings.js`, `public/js/views/visas.js`, `public/js/views/booking-detail.js`, `public/js/views/visa-detail.js`, `public/js/views/invoice-detail.js`, `public/js/views/statement.js`, `public/css/styles.css`, `test/reports-privacy.test.js`, `test/visas.test.js`, `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 154 JavaScript files syntax OK.
+- `npm test`: 93 tests passed, including 5 new tests in `test/reports-privacy.test.js`:
+  - drafts out of margin and dashboard;
+  - legacy cancelled bookings excluded;
+  - cost from bills less a bill-only and a booking-only supplier credit, in both the margin report and the DSR, and restored when a credit is voided;
+  - internal notes never reach the invoice, while the invoice note does and survives an edit;
+  - masked passport and no date of birth in invoice and statement responses, with full details kept on the visa.
+- Two existing assertions in `test/visas.test.js` were updated to expect the masked passport.
+- `npm run test:e2e`: 20 tests passed:
+  - a new test checks that the internal note is in the screen-only box, absent from the printed booking and the invoice, and that the invoice note appears on both;
+  - the invoice and statement tests now check that only the last four passport characters show and no date of birth;
+  - the stored-XSS test now looks for the escaped payload in the internal-notes box.
+- Migration dry-run on a copy of live `data/accounting.db`: `invoice_notes` columns added, `integrity_check` ok, 8/8 ledger checks matched, visa invoice shows `•••• 2444` with no full passport or date of birth. The live file was not modified. The running app needs a restart to pick up this change.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `ed88c81` (booking, visa and cancellation documents cannot be voided directly).
+1. Start from the latest `main`; the latest code commit is `3fd2de5` (reports from posted documents, internal notes, masked passports).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
