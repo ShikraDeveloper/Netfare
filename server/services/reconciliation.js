@@ -39,7 +39,7 @@ function refundPayableReconciliation(db) {
 function customerCreditsReconciliation(db) {
   const balance = -accountBalanceCents(db, '2450');
   const open = db.prepare(`
-    SELECT COALESCE(SUM(amount_cents - applied_cents), 0) AS total
+    SELECT COALESCE(SUM(amount_cents - applied_cents - refunded_cents), 0) AS total
     FROM credit_notes WHERE status = 'issued'
   `).get().total;
   return {

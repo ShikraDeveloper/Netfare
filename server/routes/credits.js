@@ -28,6 +28,10 @@ router.post('/:id/apply', (req, res) => {
   res.json(service.applyCredit(db, Number(req.params.id), req.body || {}));
 });
 
+router.post('/:id/refund', (req, res) => {
+  res.status(201).json(service.refundCredit(db, Number(req.params.id), req.body || {}));
+});
+
 router.post('/:id/void', (req, res) => {
   res.json(service.voidCredit(db, Number(req.params.id), req.body || {}));
 });

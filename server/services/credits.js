@@ -10,6 +10,7 @@ const {
 } = require('../util');
 const {
   systemAccount,
+  isCashAccount,
   postEntry,
   reverseEntry,
   invoiceBalanceCents,
@@ -22,17 +23,22 @@ const creditSelect = `
          c.phone AS customer_phone, c.address AS customer_address,
          a.code AS revenue_account_code, a.name AS revenue_account_name,
          cc.number AS cancellation_number,
-         (cn.amount_cents - cn.applied_cents) AS remaining_cents
+         (cn.amount_cents - cn.applied_cents - cn.refunded_cents) AS remaining_cents
   FROM credit_notes cn
   JOIN customers c ON c.id = cn.customer_id
   JOIN accounts a ON a.id = cn.revenue_account_id
   LEFT JOIN cancellations cc ON cc.id = cn.cancellation_id
 `;
 
+// Unapplied credit is what is left after invoice applications and cash refunds.
+function remainingCents(credit) {
+  return Math.max(0, credit.amount_cents - credit.applied_cents - (credit.refunded_cents || 0));
+}
+
 function serializeCredit(row) {
   return {
     ...row,
-    remaining_cents: row.status === 'void' ? 0 : Math.max(0, row.amount_cents - row.applied_cents),
+    remaining_cents: row.status === 'void' ? 0 : remainingCents(row),
   };
 }
 
@@ -46,6 +52,13 @@ function getCredit(db, id) {
     JOIN invoices i ON i.id = ca.invoice_id
     WHERE ca.credit_note_id = ?
     ORDER BY ca.applied_date, ca.id
+  `).all(credit.id);
+  credit.refunds = db.prepare(`
+    SELECT r.*, a.code AS account_code, a.name AS account_name
+    FROM refunds r
+    JOIN accounts a ON a.id = r.account_id
+    WHERE r.credit_note_id = ?
+    ORDER BY r.refund_date, r.id
   `).all(credit.id);
   return serializeCredit(credit);
 }
@@ -187,7 +200,7 @@ function applyCredit(db, creditId, payload = {}) {
     const credit = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(Number(creditId));
     if (!credit) throw notFound('Credit note not found');
     if (credit.status !== 'issued') throw bad('Only issued credit notes can be applied');
-    const remaining = credit.amount_cents - credit.applied_cents;
+    const remaining = remainingCents(credit);
     if (remaining <= 0) throw bad('This credit note has no remaining balance');
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(Number(payload.invoice_id));
     if (!invoice) throw bad('Choose an invoice');
@@ -262,12 +275,81 @@ function deleteCreditApplication(db, applicationId, payload = {}) {
   })();
 }
 
+// Pays unapplied customer credit back in cash. The credit note stays issued;
+// only its remaining balance falls. Revenue is not touched a second time.
+function refundCredit(db, creditId, payload = {}) {
+  return db.transaction(() => {
+    const credit = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(Number(creditId));
+    if (!credit) throw notFound('Credit note not found');
+    if (credit.status !== 'issued') throw bad('Only issued credit notes can be refunded');
+    const remaining = remainingCents(credit);
+    if (remaining <= 0) throw bad('This credit note has no remaining balance');
+    const amount = cents(payload.amount_cents == null ? remaining : payload.amount_cents, 'Refund amount', { min: 1 });
+    if (amount > remaining) throw bad(`Refund exceeds the remaining credit of ${(remaining / 100).toFixed(2)}`);
+    const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    if (refundDate < credit.credit_date) {
+      throw bad('Refund date cannot be before the credit date');
+    }
+    const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.account_id));
+    if (!account) throw bad('Choose a bank or cash account');
+    if (!account.is_active) throw bad('That account is archived');
+    if (!isCashAccount(account)) throw bad('Refunds must be paid from a bank or cash account');
+    const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(credit.customer_id);
+    const method = optionalStr(payload.method, 'Refund method', 100) || 'Bank transfer';
+    const credits = systemAccount(db, '2450', 'Customer Credits');
+    const number = allocateNumber(db, 'refund', refundDate);
+    const info = db.prepare(`
+      INSERT INTO refunds (
+        number, refund_type, party_id, credit_note_id,
+        refund_date, amount_cents, method, reference, notes, account_id
+      ) VALUES (?, 'customer', ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      number,
+      credit.customer_id,
+      credit.id,
+      refundDate,
+      amount,
+      method,
+      optionalStr(payload.reference, 'Reference', 200),
+      optionalStr(payload.notes, 'Notes', 2000) || `Cash refund of customer credit ${credit.number}`,
+      account.id,
+    );
+    const refundId = Number(info.lastInsertRowid);
+    const entryId = postEntry(db, {
+      entry_date: refundDate,
+      memo: `Customer credit refund ${number} — ${customer?.name || 'Customer'} (${credit.number})`,
+      reference: credit.number,
+      source_type: 'customer_credit_refund',
+      source_id: refundId,
+      lines: [
+        { account_id: credits.id, debit_cents: amount, credit_cents: 0, description: `Credit ${credit.number}` },
+        { account_id: account.id, debit_cents: 0, credit_cents: amount, description: `Refund ${number}` },
+      ],
+    });
+    db.prepare('UPDATE refunds SET journal_entry_id = ? WHERE id = ?').run(entryId, refundId);
+    db.prepare('UPDATE credit_notes SET refunded_cents = refunded_cents + ? WHERE id = ?').run(amount, credit.id);
+    return getCredit(db, credit.id);
+  })();
+}
+
 function voidCredit(db, creditId, payload = {}) {
   return db.transaction(() => {
     const credit = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(Number(creditId));
     if (!credit) throw notFound('Credit note not found');
     if (credit.status === 'void') throw bad('This credit note is already void');
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
+
+    // Cash refunds are part of the credit. Reverse them first so 2450 returns
+    // to zero once the credit note itself is reversed.
+    const refundService = require('./refunds');
+    const refunds = db.prepare(
+      "SELECT id FROM refunds WHERE credit_note_id = ? AND status = 'paid' ORDER BY id",
+    ).all(credit.id);
+    for (const refund of refunds) {
+      refundService.voidRefund(db, refund.id, {
+        remarks: remarks || `Voided with credit note ${credit.number}`,
+      });
+    }
 
     const applications = db.prepare(
       'SELECT id FROM credit_applications WHERE credit_note_id = ? ORDER BY id',
@@ -288,7 +370,7 @@ function voidCredit(db, creditId, payload = {}) {
       });
     }
     db.prepare(`
-      UPDATE credit_notes SET status = 'void', void_entry_id = ?, applied_cents = 0 WHERE id = ?
+      UPDATE credit_notes SET status = 'void', void_entry_id = ?, applied_cents = 0, refunded_cents = 0 WHERE id = ?
     `).run(voidEntryId, credit.id);
     audit.record(db, {
       entity_type: 'credit_note',
@@ -297,7 +379,7 @@ function voidCredit(db, creditId, payload = {}) {
       action: 'void',
       remarks: remarks || `Voided credit note ${credit.number}`,
       amount_cents: credit.amount_cents,
-      metadata: { applications_reversed: applications.length },
+      metadata: { applications_reversed: applications.length, refunds_reversed: refunds.length },
     });
     return getCredit(db, credit.id);
   })();
@@ -310,5 +392,6 @@ module.exports = {
   createCreditFromCancellation,
   applyCredit,
   deleteCreditApplication,
+  refundCredit,
   voidCredit,
 };

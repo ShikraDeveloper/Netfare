@@ -31,6 +31,15 @@ function sourceInfo(refund, isCustomer) {
         description: 'Cash refund of supplier credit',
         voidMessage: 'the supplier credit will become available again by {amount}.',
       };
+    case 'credit':
+      return {
+        label: 'Customer credit',
+        href: `#/credits/${refund.document_id}`,
+        icon: 'invoice',
+        amountLabel: 'Credit amount',
+        description: 'Cash refund of customer credit',
+        voidMessage: 'the customer credit will become available again by {amount}.',
+      };
     case 'advance':
       return {
         label: 'Customer advance',

@@ -843,8 +843,54 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
   assertNoConsoleErrors();
 });
 
+test('an unapplied customer credit can be refunded in cash from the credit note', async () => {
+  const [customers, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+  assert.ok(customers[0] && revenue);
+
+  const credit = await postJson(baseUrl, '/api/credits', {
+    customer_id: customers[0].id,
+    revenue_account_id: revenue.id,
+    amount_cents: 30_000,
+    credit_date: '2026-10-22',
+    notes: 'E2E credit refund',
+  });
+
+  await openRoute(`/credits/${credit.id}`);
+  assert.match(await page.locator('table.data caption').last().innerText(), /Cash refunds of this customer credit/);
+  await page.locator('#page-actions [data-action="refund-credit"]').click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.match(await dialog.innerText(), /2450 Customer Credits/);
+  await dialog.locator('#cn-refund-amount').fill('100.00');
+  await dialog.locator('#cn-refund-reference').fill('E2E-CN-REFUND');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.waitForFunction(() => document.querySelector('[data-applications-card] + .card tbody a[href^="#/refunds/"]'));
+
+  const refreshed = await getJson(baseUrl, `/api/credits/${credit.id}`);
+  assert.equal(refreshed.refunded_cents, 10_000);
+  assert.equal(refreshed.remaining_cents, 20_000);
+  assert.equal(refreshed.refunds.length, 1);
+
+  const queue = await getJson(baseUrl, '/api/settlement-queue?type=customer_credit');
+  const item = queue.items.find((row) => row.document_id === credit.id);
+  assert.ok(item, 'The partly refunded credit stays in the queue');
+  assert.equal(item.remaining_cents, 20_000);
+  assert.equal(item.action_label, 'Apply or refund');
+
+  const refund = await getJson(baseUrl, `/api/refunds/${refreshed.refunds[0].id}`);
+  assert.equal(refund.source_type, 'credit');
+  await openRoute(`/refunds/${refund.id}`);
+  assert.ok(await page.locator(`a[href="#/credits/${credit.id}"]`).count() > 0, 'Refund voucher links back to the credit note');
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
-  const [invoices, bookings, visas, bills, portals, customers, cancellations] = await Promise.all([
+  const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
     getJson(baseUrl, '/api/bookings'),
     getJson(baseUrl, '/api/visas'),
@@ -852,6 +898,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     getJson(baseUrl, '/api/portals'),
     getJson(baseUrl, '/api/customers'),
     getJson(baseUrl, '/api/cancellations'),
+    getJson(baseUrl, '/api/credits'),
   ]);
 
   const routes = [
@@ -877,6 +924,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     `/portals/${portals[0].id}/ledger`,
     '/refunds',
     '/credits',
+    ...(credits[0] ? [`/credits/${credits[0].id}`] : []),
     '/cheques',
     '/compliance',
     '/accounts',

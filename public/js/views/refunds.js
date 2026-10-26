@@ -25,6 +25,7 @@ const REFUND_SOURCE_LABELS = {
   bill: 'Bill payment',
   cancellation: 'Cancellation',
   advance: 'Customer advance',
+  credit: 'Customer credit',
   supplier_credit: 'Supplier credit',
 };
 
@@ -41,6 +42,8 @@ function sourceHref(refund) {
       return `#/cancellations/${refund.document_id}`;
     case 'supplier_credit':
       return `#/supplier-credits/${refund.document_id}`;
+    case 'credit':
+      return `#/credits/${refund.document_id}`;
     case 'invoice':
       return `#/invoices/${refund.document_id}`;
     case 'bill':

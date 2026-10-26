@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { cashAccounts } from '../store.js';
 import {
   centsToInput,
   emptyState,
@@ -7,7 +8,9 @@ import {
   fmtMoney,
   icon,
   openModal,
+  optionsHtml,
   setHeader,
+  statusBadge,
   toast,
   todayISO,
   toCents,
@@ -19,6 +22,7 @@ export async function render(container, { params = [] } = {}) {
   const credit = await api.get(`/credits/${id}`);
   const issued = credit.status === 'issued';
   const canApply = issued && credit.remaining_cents > 0;
+  const canRefund = canApply;
   const canVoid = issued;
   const isCancellation = Boolean(credit.cancellation_id);
 
@@ -28,16 +32,21 @@ export async function render(container, { params = [] } = {}) {
     actions: `
       <a class="btn btn-ghost" href="#/credits"><span>All credit notes</span></a>
       ${isCancellation ? `<a class="btn btn-secondary" href="#/cancellations/${credit.cancellation_id}">${icon('x', 15)}<span>Cancellation</span></a>` : ''}
+      ${canRefund ? `<button class="btn btn-secondary" data-action="refund-credit">${icon('arrowUp', 15)}<span>Refund credit</span></button>` : ''}
       ${canApply ? `<button class="btn btn-primary" data-action="apply-credit">${icon('invoice', 15)}<span>Apply to invoice</span></button>` : ''}
       ${canVoid ? `<button class="icon-btn danger" data-action="void-credit" title="Void credit note">${icon('trash', 17)}</button>` : ''}
     `,
   });
 
   const applications = credit.applications || [];
+  const refunds = credit.refunds || [];
+  const activeRefunds = refunds.filter((refund) => refund.status === 'paid');
+  const refundedCents = activeRefunds.reduce((sum, refund) => sum + refund.amount_cents, 0);
   container.innerHTML = `
     <div class="credit-summary">
       <div><span>Credit amount</span><strong>${fmtMoney(credit.amount_cents)}</strong></div>
       <div><span>Applied</span><strong>${fmtMoney(credit.applied_cents)}</strong></div>
+      <div><span>Refunded</span><strong>${fmtMoney(refundedCents)}</strong></div>
       <div><span>Remaining</span><strong class="${credit.remaining_cents ? 'amount-due' : 'amount-ok'}">${fmtMoney(credit.remaining_cents)}</strong></div>
       <div><span>Status</span><strong><span class="badge badge-${issued ? 'issued' : 'void'}">${issued ? 'Issued' : 'Void'}</span></strong></div>
     </div>
@@ -77,7 +86,7 @@ export async function render(container, { params = [] } = {}) {
       </div>
     </div>
 
-    <div class="card" style="margin-top:16px">
+    <div class="card" style="margin-top:16px" data-applications-card>
       <div class="card-head">
         <div class="card-title"><h2>Applications</h2><p>${applications.length ? `${fmtMoney(credit.applied_cents)} applied to invoices` : 'No invoices have used this credit yet'}</p></div>
         ${canApply ? `<button class="btn btn-secondary btn-sm" data-action="apply-credit">${icon('plus', 14)} Apply</button>` : ''}
@@ -102,8 +111,31 @@ export async function render(container, { params = [] } = {}) {
       ` : `<div class="card-body">${emptyState({
         iconName: 'invoice',
         title: 'Unapplied credit',
-        message: canApply ? 'Apply this credit to an open invoice, or leave it on the customer account.' : 'This credit has no invoice applications.',
+        message: canApply ? 'Apply this credit to an open invoice, refund it in cash, or leave it on the customer account.' : 'This credit has no invoice applications.',
       })}</div>`}
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-head">
+        <div class="card-title"><h2>Cash refunds</h2><p>${refunds.length ? `${fmtMoney(refundedCents)} paid back to the customer` : 'No cash has been refunded from this credit'}</p></div>
+        ${canRefund ? `<button class="btn btn-secondary btn-sm" data-action="refund-credit">${icon('arrowUp', 14)} Refund</button>` : ''}
+      </div>
+      <div class="table-wrap">
+        <table class="data"><caption class="sr-only">Cash refunds of this customer credit</caption>
+          <thead><tr><th scope="col">Refund</th><th scope="col">Date</th><th scope="col">Account</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
+          <tbody>
+            ${refunds.length ? refunds.map((refund) => `
+              <tr>
+                <td><a href="#/refunds/${refund.id}">${esc(refund.number)}</a></td>
+                <td class="nowrap">${esc(fmtDate(refund.refund_date))}</td>
+                <td>${esc(refund.method || '—')} · ${esc(refund.account_name || '')}</td>
+                <td class="num">${fmtMoney(refund.amount_cents)}</td>
+                <td>${statusBadge(refund.status)}</td>
+              </tr>
+            `).join('') : '<tr><td colspan="5" class="muted">No cash refund has been paid.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 
@@ -115,13 +147,16 @@ export async function render(container, { params = [] } = {}) {
     }
   };
   document.querySelectorAll('[data-action="apply-credit"]').forEach((button) => button.addEventListener('click', apply));
+  document.querySelectorAll('[data-action="refund-credit"]').forEach((button) => button.addEventListener('click', () => {
+    openRefundModal(credit, () => render(container, { params: [String(id)] }));
+  }));
 
   const voidButton = document.querySelector('[data-action="void-credit"]');
   if (voidButton) {
     voidButton.addEventListener('click', async () => {
       const result = await voidDialog({
         title: `Void ${credit.number}?`,
-        message: 'A reversing journal entry will be posted and any invoice applications will be reversed automatically.',
+        message: 'A reversing journal entry will be posted and any invoice applications and cash refunds will be reversed automatically.',
         warning: 'This cannot be undone. The credit note and every linked reversal are kept in the audit trail.',
         preview: {
           heading: 'Void preview',
@@ -135,6 +170,11 @@ export async function render(container, { params = [] } = {}) {
               label: `${applications.length} invoice application${applications.length === 1 ? '' : 's'}`,
               value: fmtMoney(credit.applied_cents),
               note: 'Invoices will reopen by the applied amount',
+            }] : []),
+            ...(activeRefunds.length ? [{
+              label: `${activeRefunds.length} cash refund${activeRefunds.length === 1 ? '' : 's'}`,
+              value: fmtMoney(refundedCents),
+              note: 'Cash refunds will be reversed',
             }] : []),
           ],
           note: 'The credit note and its reversals stay in the audit trail.',
@@ -152,7 +192,7 @@ export async function render(container, { params = [] } = {}) {
     });
   }
 
-  const applicationsCard = container.lastElementChild;
+  const applicationsCard = container.querySelector('[data-applications-card]');
   if (applicationsCard) applicationsCard.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-remove-application]');
     if (!button) return;
@@ -237,6 +277,69 @@ async function openApplyModal(credit, onSaved) {
         applied_date: values.get('applied_date'),
       });
       toast(`Credit applied · ${fmtMoney(saved.remaining_cents)} remaining`);
+      onSaved(saved);
+    },
+  });
+}
+
+function openRefundModal(credit, onSaved) {
+  const accounts = cashAccounts().sort((a, b) => (b.is_cash - a.is_cash) || a.code.localeCompare(b.code));
+  if (!accounts.length) {
+    toast('Add an active bank or cash account before refunding a customer credit.', 'error');
+    return;
+  }
+  const preferred = accounts.find((account) => account.code === '1010') || accounts[0];
+  openModal({
+    title: `Cash refund of ${credit.number}`,
+    subtitle: `${credit.customer_name} · ${fmtMoney(credit.remaining_cents)} available`,
+    submitLabel: 'Record refund',
+    body: `
+      <div class="form-grid">
+        <div class="field">
+          <label for="cn-refund-amount">Amount paid</label>
+          <div class="money-input"><span>AED</span>
+            <input class="input" id="cn-refund-amount" name="amount" type="number" min="0.01" step="0.01"
+              max="${centsToInput(credit.remaining_cents)}" value="${centsToInput(credit.remaining_cents)}" required inputmode="decimal">
+          </div>
+          <div class="hint">Available ${fmtMoney(credit.remaining_cents)}</div>
+        </div>
+        <div class="field">
+          <label for="cn-refund-date">Refund date</label>
+          <input class="input" id="cn-refund-date" name="refund_date" type="date" value="${todayISO()}" required>
+        </div>
+        <div class="field">
+          <label for="cn-refund-method">Method</label>
+          <select class="input" id="cn-refund-method" name="method">
+            ${['Bank transfer', 'Cash', 'Cheque', 'Other'].map((method) => `<option>${method}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="cn-refund-reference">Reference</label>
+          <input class="input" id="cn-refund-reference" name="reference" placeholder="Transfer or receipt reference">
+        </div>
+        <div class="field full">
+          <label for="cn-refund-account">Pay from</label>
+          <select class="input" id="cn-refund-account" name="account_id" required>
+            ${optionsHtml(accounts, { selected: preferred.id, placeholder: 'Choose bank or cash account…', labelKey: (account) => `${account.code} · ${account.name}` })}
+          </select>
+        </div>
+        <div class="field full">
+          <div class="form-note">This debits 2450 Customer Credits and credits the bank or cash account. Revenue is not changed again.</div>
+        </div>
+      </div>
+    `,
+    async onSubmit(form) {
+      const values = new FormData(form);
+      const amount = toCents(values.get('amount'));
+      if (amount <= 0) throw new Error('Enter an amount');
+      const saved = await api.post(`/credits/${credit.id}/refund`, {
+        amount_cents: amount,
+        refund_date: values.get('refund_date'),
+        method: values.get('method'),
+        reference: values.get('reference'),
+        account_id: Number(values.get('account_id')),
+      });
+      toast(`Refund of ${fmtMoney(amount)} recorded · ${fmtMoney(saved.remaining_cents)} credit left`);
       onSaved(saved);
     },
   });

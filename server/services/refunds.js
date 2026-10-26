@@ -28,7 +28,7 @@ const refundSelect = `
          i.number AS invoice_number, b.number AS bill_number,
          p.number AS payment_number, bp.number AS bill_payment_number,
          cc.number AS cancellation_number, scn.number AS supplier_credit_number,
-         adv.number AS advance_number,
+         adv.number AS advance_number, ccn.number AS credit_note_number,
          a.code AS account_code, a.name AS account_name
   FROM refunds r
   LEFT JOIN customers c ON r.refund_type = 'customer' AND c.id = r.party_id
@@ -40,6 +40,7 @@ const refundSelect = `
   LEFT JOIN cancellations cc ON cc.id = r.cancellation_id
   LEFT JOIN supplier_credit_notes scn ON scn.id = r.supplier_credit_note_id
   LEFT JOIN customer_advances adv ON adv.id = r.advance_id
+  LEFT JOIN credit_notes ccn ON ccn.id = r.credit_note_id
   LEFT JOIN accounts a ON a.id = r.account_id
 `;
 
@@ -52,6 +53,10 @@ function serializeRefund(row) {
     sourceType = 'advance';
     documentId = row.advance_id;
     documentNumber = row.advance_number;
+  } else if (customer && row.credit_note_id) {
+    sourceType = 'credit';
+    documentId = row.credit_note_id;
+    documentNumber = row.credit_note_number;
   } else if (customer && row.cancellation_id) {
     sourceType = 'cancellation';
     documentId = row.cancellation_id;
@@ -101,10 +106,10 @@ function listRefunds(db, { type, status, search, from, to } = {}) {
     clauses.push(`(
       r.number LIKE ? OR c.name LIKE ? OR v.name LIKE ? OR
       i.number LIKE ? OR b.number LIKE ? OR r.reference LIKE ? OR
-      cc.number LIKE ? OR scn.number LIKE ? OR adv.number LIKE ?
+      cc.number LIKE ? OR scn.number LIKE ? OR adv.number LIKE ? OR ccn.number LIKE ?
     )`);
     const term = `%${String(search).trim()}%`;
-    params.push(term, term, term, term, term, term, term, term, term);
+    params.push(term, term, term, term, term, term, term, term, term, term);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   return db.prepare(`${refundSelect} ${where} ORDER BY r.refund_date DESC, r.id DESC`)
@@ -143,6 +148,11 @@ function getRefund(db, id) {
     sourceAmount = note?.amount_cents || 0;
     sourceColumn = 'supplier_credit_note_id';
     sourceApplied = note ? note.applied_cents + note.portal_settled_cents : 0;
+  } else if (refund.credit_note_id) {
+    const note = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(refund.credit_note_id);
+    sourceAmount = note?.amount_cents || 0;
+    sourceColumn = 'credit_note_id';
+    sourceApplied = note?.applied_cents || 0;
   } else if (refund.advance_id) {
     const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?')
       .get(refund.advance_id);
@@ -160,7 +170,7 @@ function getRefund(db, id) {
     ? db.prepare(`
         SELECT COALESCE(SUM(amount_cents), 0) AS total
         FROM refunds WHERE ${sourceColumn} = ? AND status = 'paid'
-      `).get(refund.cancellation_id || refund.supplier_credit_note_id || refund.advance_id || sourceId).total
+      `).get(refund.cancellation_id || refund.supplier_credit_note_id || refund.credit_note_id || refund.advance_id || sourceId).total
     : 0;
   refund.total_refunded_cents = totalRefunded;
   refund.remaining_refundable_cents = Math.max(0, sourceAmount - totalRefunded - sourceApplied);
@@ -171,7 +181,7 @@ function getRefund(db, id) {
         WHERE ${sourceColumn} = ? AND status = 'paid'
           AND (refund_date < ? OR (refund_date = ? AND id < ?))
       `).get(
-        refund.cancellation_id || refund.supplier_credit_note_id || refund.advance_id || sourceId,
+        refund.cancellation_id || refund.supplier_credit_note_id || refund.credit_note_id || refund.advance_id || sourceId,
         refund.refund_date, refund.refund_date, refund.id,
       ).total
     : 0;
@@ -412,6 +422,12 @@ function voidRefund(db, id, payload = {}) {
       db.prepare(`
         UPDATE supplier_credit_notes SET refunded_cents = MAX(0, refunded_cents - ?) WHERE id = ?
       `).run(refund.amount_cents, note.id);
+    } else if (refund.credit_note_id) {
+      const note = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(refund.credit_note_id);
+      if (!note) throw notFound('Credit note not found');
+      db.prepare(`
+        UPDATE credit_notes SET refunded_cents = MAX(0, refunded_cents - ?) WHERE id = ?
+      `).run(refund.amount_cents, note.id);
     } else if (refund.cancellation_id) {
       const cancellation = db.prepare('SELECT * FROM cancellations WHERE id = ?').get(refund.cancellation_id);
       if (!cancellation) throw notFound('Cancellation not found');
@@ -470,6 +486,7 @@ function voidRefund(db, id, payload = {}) {
         advance_id: refund.advance_id || null,
         cancellation_id: refund.cancellation_id || null,
         supplier_credit_note_id: refund.supplier_credit_note_id || null,
+        credit_note_id: refund.credit_note_id || null,
       },
     });
     return getRefund(db, id);

@@ -22,7 +22,7 @@ const balanceSelect = `
       WHERE i.customer_id = c.id AND i.status = 'sent' AND i.due_date < ?
     ), 0) AS overdue_cents,
     COALESCE((
-      SELECT SUM(MAX(0, cn.amount_cents - cn.applied_cents))
+      SELECT SUM(MAX(0, cn.amount_cents - cn.applied_cents - cn.refunded_cents))
       FROM credit_notes cn WHERE cn.customer_id = c.id AND cn.status = 'issued'
     ), 0) AS unapplied_credit_cents,
     COALESCE((
@@ -94,13 +94,13 @@ function openInvoices(db, customerId) {
 
 function customerCredits(db, customerId) {
   return db.prepare(`
-    SELECT cn.id, cn.number, cn.credit_date, cn.amount_cents, cn.applied_cents,
+    SELECT cn.id, cn.number, cn.credit_date, cn.amount_cents, cn.applied_cents, cn.refunded_cents,
            cn.cancellation_id, cc.number AS cancellation_number,
-           (cn.amount_cents - cn.applied_cents) AS remaining_cents
+           (cn.amount_cents - cn.applied_cents - cn.refunded_cents) AS remaining_cents
     FROM credit_notes cn
     LEFT JOIN cancellations cc ON cc.id = cn.cancellation_id
     WHERE cn.customer_id = ? AND cn.status = 'issued'
-      AND cn.amount_cents > cn.applied_cents
+      AND cn.amount_cents > cn.applied_cents + cn.refunded_cents
     ORDER BY cn.credit_date, cn.id
   `).all(customerId);
 }

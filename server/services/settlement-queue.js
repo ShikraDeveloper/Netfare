@@ -10,7 +10,7 @@ const TYPE_META = {
   },
   customer_credit: {
     label: 'Customer credit',
-    action: 'Apply credit',
+    action: 'Apply or refund',
     source: 'credit',
   },
   customer_advance: {
@@ -72,11 +72,11 @@ function customerCredits(db) {
   return db.prepare(`
     SELECT cn.id, cn.number, cn.credit_date AS date, cn.customer_id AS party_id,
            c.name AS party_name, cn.cancellation_id, cc.number AS cancellation_number,
-           (cn.amount_cents - cn.applied_cents) AS remaining_cents
+           (cn.amount_cents - cn.applied_cents - cn.refunded_cents) AS remaining_cents
     FROM credit_notes cn
     JOIN customers c ON c.id = cn.customer_id
     LEFT JOIN cancellations cc ON cc.id = cn.cancellation_id
-    WHERE cn.status = 'issued' AND cn.amount_cents > cn.applied_cents
+    WHERE cn.status = 'issued' AND cn.amount_cents > cn.applied_cents + cn.refunded_cents
     ORDER BY cn.credit_date, cn.id
   `).all().map((row) => ({
     ...row,

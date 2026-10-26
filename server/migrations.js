@@ -135,6 +135,8 @@ ensureColumn('credit_notes', 'cancellation_id', 'INTEGER');
 ensureColumn('refunds', 'cancellation_id', 'INTEGER');
 ensureColumn('refunds', 'supplier_credit_note_id', 'INTEGER');
 ensureColumn('refunds', 'advance_id', 'INTEGER');
+ensureColumn('refunds', 'credit_note_id', 'INTEGER');
+ensureColumn('credit_notes', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'anchor_date', 'TEXT');
 ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
@@ -249,6 +251,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_refunds_cancellation ON refunds(cancellation_id);
   CREATE INDEX IF NOT EXISTS idx_refunds_supplier_credit ON refunds(supplier_credit_note_id);
   CREATE INDEX IF NOT EXISTS idx_refunds_advance ON refunds(advance_id);
+  CREATE INDEX IF NOT EXISTS idx_refunds_credit_note ON refunds(credit_note_id);
 `);
 
 // Keep the original day-of-month for schedules. Existing items start from

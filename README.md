@@ -12,7 +12,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
 - **Refunds** — refund a customer payment, a cancellation balance, an advance, or a supplier credit. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
 - **Void & audit trail** — every void asks for remarks, reverses the document and its linked payments, refunds, credits or journal entry, and keeps the original in history. A searchable **Audit log** under **System** records each void with its entity, amount, remarks, action and timestamp.
-- **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging. A cancellation refund can also be converted into customer credit.
+- **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging. A cancellation refund can also be converted into customer credit. Unapplied credit can be paid back in cash from the credit note (**Refund credit**): Dr 2450 Customer Credits / Cr bank or cash, without reducing revenue a second time.
 - **Supplier credit notes** — record a credit from a supplier standalone or against a bill, optionally linked to a booking, visa or cancellation. Apply it to any open bill for the same supplier, refund the unused balance in cash, or move a prepaid-portal credit into the portal wallet. **1450 Supplier Credits** always equals the total unused supplier credit.
 - **Opening balances** — a guided balance-sheet page creates one balanced opening journal entry. Enter each account as a debit or credit; the difference posts automatically to **3900 Opening Balance Equity**. Replacing or clearing balances posts a reversal, so reconciled lines and audit history are never deleted.
 - **Bank reconciliation** — reconcile any active cash or bank account against a statement closing balance. Tick cleared transactions, see the cleared balance and difference, keep a reconciliation history, and reopen the latest reconciliation when a correction is needed.
@@ -320,6 +320,7 @@ You can rename accounts and add your own under **Chart of accounts**. System acc
 | Refund a customer payment | Accounts Receivable | Bank/Cash account |
 | Issue a customer credit note | Revenue account | Customer Credits |
 | Apply a customer credit to an invoice | Customer Credits | Accounts Receivable |
+| Refund unapplied customer credit in cash | Customer Credits | Bank/Cash account |
 | Record a supplier refund | Bank/Cash account | **1450 Supplier Credits** |
 | Issue a supplier credit note | **1450 Supplier Credits** | Bill cost accounts |
 | Apply a supplier credit to a bill | Accounts Payable | **1450 Supplier Credits** |
