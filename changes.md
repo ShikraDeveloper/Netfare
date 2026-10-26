@@ -170,3 +170,48 @@ Verification:
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
+
+---
+
+## 2026-10-26
+
+### Phase 2 — Settlement choice, customer balances, queue and void preview — code commit `368dd4a`
+
+- Added a post-cancellation settlement choice:
+  - Cancelling a booking or visa redirects to `#/cancellations/:id?settle=1`.
+  - The panel offers **Pay refund**, **Convert to credit**, or **Decide later**.
+  - Partial refunds and credits keep the panel open with the remaining amount; **Settlement options** reopens it later.
+  - Deferring leaves the money in `2500 Refund Payable` and removes the query string.
+- Added **Customer balances** under **Settlements**:
+  - Derived, uncached receivables, overdue amounts, unapplied credits, customer advances, cancellation refunds and net position.
+  - List page with KPI cards, search, balance/archived filters and pagination.
+  - Detail page with open invoices, customer credits, advances and cancellation refunds, each linking to its source document.
+- Added the **Settlement queue** under **Settlements**:
+  - Aggregates open cancellation refunds, unapplied customer credits, customer advances and supplier credits.
+  - KPI totals by type, search, type filter, age in days, and a direct action link for each item.
+  - Queue totals always equal the sum of visible open items; settling a document removes it automatically.
+- Added a shared **void preview** to `voidDialog`:
+  - Invoice void, invoice payment void, bill void, bill payment void.
+  - Customer credit void and credit-application void; supplier credit void and application void.
+  - Refund void and booking/visa advance void.
+  - Rows are escaped and show the document, linked items, balance impact and reversal note before remarks are required.
+- Added keyboard focus to the scrollable cancellation-detail tables so the new axe route audit stays clean.
+- Cancellations, refunds and credit notes remain separate accounting documents with unchanged posting rules. AED-only, no-VAT setup preserved.
+
+Key files: `server/services/customer-balances.js`, `server/services/settlement-queue.js`, `server/routes/customer-balances.js`, `server/routes/settlement-queue.js`, `public/js/views/customer-balances.js`, `public/js/views/customer-balance-detail.js`, `public/js/views/settlement-queue.js`, `public/js/views/cancellation-detail.js`, `public/js/ui.js`, `public/js/app.js`, `public/css/styles.css`, `test/phase2.test.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 146 JavaScript files syntax OK.
+- `npm test`: 68 tests passed.
+- `npm run test:e2e`: 16 tests passed, including the new settlement queue, customer balances, cancellation settlement choice and void preview coverage.
+- Browser axe audit passes across light and dark themes for `/settlement-queue`, `/customer-balances`, `/customer-balances/:id`, `/cancellations` and cancellation detail.
+- Unit coverage seeds cancellation refunds, customer credits, advances and supplier credits, then verifies derived balances, queue totals, filters and settlement removal.
+- Tests used disposable `LEDGERLY_DATA_DIR` databases. Live `data/accounting.db` was not modified (size `802816`, mtime `2026-10-24 20:31`).
+
+### Next session
+
+1. Start from the latest `main`; the Phase 2 code commit is `368dd4a`.
+2. Read this entry and run the full check suite.
+3. Use a disposable database for review; never modify live `data/accounting.db`.
+4. Append the next change under a new date heading before committing.
