@@ -241,10 +241,38 @@ export async function render(container, { params } = {}) {
   const voidButton = document.querySelector('[data-action="void"]');
   if (voidButton) {
     voidButton.addEventListener('click', async () => {
+      const activeRefunds = refunds.filter((refund) => refund.status === 'paid');
+      const activePortalCredits = portalCredits.filter((portalCredit) => portalCredit.status !== 'void');
       const result = await voidDialog({
         title: `Void ${credit.number}?`,
         message: 'The supplier credit will be reversed and any linked bill applications, refunds and portal credits will be reversed automatically.',
         warning: 'This cannot be undone. The supplier credit and every linked reversal are kept in the audit trail.',
+        preview: {
+          heading: 'Void preview',
+          items: [
+            {
+              label: `Supplier credit ${credit.number}`,
+              value: fmtMoney(credit.amount_cents),
+              note: `${credit.vendor_name} · ${fmtMoney(credit.remaining_cents)} still open`,
+            },
+            ...(applications.length ? [{
+              label: `${applications.length} bill application${applications.length === 1 ? '' : 's'}`,
+              value: fmtMoney(credit.applied_cents),
+              note: 'Bills reopen by the applied amount',
+            }] : []),
+            ...(activeRefunds.length ? [{
+              label: `${activeRefunds.length} cash refund${activeRefunds.length === 1 ? '' : 's'}`,
+              value: fmtMoney(activeRefunds.reduce((sum, refund) => sum + refund.amount_cents, 0)),
+              note: 'Cash refunds will be reversed',
+            }] : []),
+            ...(activePortalCredits.length ? [{
+              label: `${activePortalCredits.length} wallet credit${activePortalCredits.length === 1 ? '' : 's'}`,
+              value: fmtMoney(activePortalCredits.reduce((sum, portalCredit) => sum + portalCredit.amount_cents, 0)),
+              note: 'Supplier wallet credits will be reversed',
+            }] : []),
+          ],
+          note: 'The supplier credit and its reversals stay in the audit trail.',
+        },
         confirmLabel: 'Void supplier credit',
       });
       if (!result.confirmed) return;
@@ -266,6 +294,21 @@ export async function render(container, { params } = {}) {
         title: 'Void this supplier credit application?',
         message: `${fmtMoney(application.amount_cents)} will be removed from ${application.bill_number} and returned to this supplier credit.`,
         warning: 'A reversing journal entry will be posted. This cannot be undone.',
+        preview: {
+          heading: 'Void preview',
+          items: [
+            {
+              label: `Supplier credit ${credit.number}`,
+              value: fmtMoney(application.amount_cents),
+              note: 'Returns to the unapplied supplier credit',
+            },
+            {
+              label: `Bill ${application.bill_number}`,
+              value: fmtMoney(application.amount_cents),
+              note: 'Bill balance reopens by this amount',
+            },
+          ],
+        },
         confirmLabel: 'Void application',
       });
       if (!result.confirmed) return;

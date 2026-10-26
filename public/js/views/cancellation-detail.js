@@ -29,13 +29,14 @@ function statusLabel(cancellation) {
   return statusBadge(status || 'cancelled');
 }
 
-export async function render(container, { params } = {}) {
+export async function render(container, { params, query } = {}) {
   const id = Number(params?.[0]);
   const cancellation = await api.get(`/cancellations/${id}`);
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const remaining = Number(cancellation.refund_remaining_cents || 0);
   const canSettle = remaining > 0;
+  const showSettlementChoice = canSettle && query?.get('settle') === '1';
   const href = sourceHref(cancellation);
   const sourceLabel = cancellation.source_type === 'booking' ? 'Booking' : 'Visa application';
 
@@ -92,6 +93,20 @@ export async function render(container, { params } = {}) {
     : `<tr><td colspan="5" class="muted">No part of the refund has been converted to customer credit.</td></tr>`;
 
   container.innerHTML = `
+    ${showSettlementChoice ? `
+      <div class="callout settlement-choice no-print" data-settlement-choice>
+        <div class="callout-icon">${icon('wallet', 18)}</div>
+        <div class="callout-text">
+          <h3>Choose how to settle ${fmtMoney(remaining)}</h3>
+          <p>The cancellation is recorded and the money is held in <strong>2500 Refund Payable</strong>. Pay it back to the customer, convert it to a customer credit, or leave it open and decide later.</p>
+        </div>
+        <div class="callout-actions">
+          <button class="btn btn-primary" data-choice="refund">${icon('arrowUp', 15)}<span>Pay refund</span></button>
+          <button class="btn btn-secondary" data-choice="credit">${icon('invoice', 15)}<span>Convert to credit</span></button>
+          <button class="btn btn-ghost" data-choice="defer">Decide later</button>
+        </div>
+      </div>
+    ` : ''}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">
@@ -166,6 +181,7 @@ export async function render(container, { params } = {}) {
         <div class="card-head">
           <div class="card-title"><h2>Customer settlement</h2><p>${remaining > 0 ? `${fmtMoney(remaining)} still refundable` : 'Fully settled'} ${remaining > 0 ? '<span class="badge badge-partial">Refund due</span>' : '<span class="badge badge-paid">Settled</span>'}</p></div>
           ${canSettle ? `<button class="btn btn-primary btn-sm" data-action="refund">${icon('arrowUp', 14)} Pay refund</button>` : ''}
+          ${canSettle ? `<button class="btn btn-ghost btn-sm" data-action="settlement-options">${icon('wallet', 14)} Settlement options</button>` : ''}
         </div>
         <div class="card-body">
           <div class="detail-list">
@@ -184,7 +200,7 @@ export async function render(container, { params } = {}) {
         <div class="card-head">
           <div class="card-title"><h2>Supplier credits</h2><p>${fmtMoney(cancellation.supplier_credit_total_cents)} credited · unused stays in 1450</p></div>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" aria-label="Supplier credits from this cancellation">
           <table class="data"><caption class="sr-only">Supplier credits from this cancellation</caption>
             <thead><tr><th scope="col">Credit</th><th scope="col">Supplier</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Applied</th><th scope="col" class="num">Remaining</th><th scope="col">Status</th></tr></thead>
             <tbody>${supplierCreditRows}</tbody>
@@ -196,7 +212,7 @@ export async function render(container, { params } = {}) {
         <div class="card-head">
           <div class="card-title"><h2>Refunds paid</h2><p>${cancellation.refunds.length} refund${cancellation.refunds.length === 1 ? '' : 's'}</p></div>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" aria-label="Refunds for this cancellation">
           <table class="data"><caption class="sr-only">Refunds for this cancellation</caption>
             <thead><tr><th scope="col">Refund</th><th scope="col">Date</th><th scope="col">Account</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
             <tbody>${refundRows}</tbody>
@@ -208,7 +224,7 @@ export async function render(container, { params } = {}) {
         <div class="card-head">
           <div class="card-title"><h2>Customer credits</h2><p>Refund converted to 2450</p></div>
         </div>
-        <div class="table-wrap">
+        <div class="table-wrap" tabindex="0" aria-label="Credits created from this cancellation">
           <table class="data"><caption class="sr-only">Credits created from this cancellation</caption>
             <thead><tr><th scope="col">Credit</th><th scope="col">Date</th><th scope="col">Revenue account</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
             <tbody>${creditRows}</tbody>
@@ -218,20 +234,37 @@ export async function render(container, { params } = {}) {
     </div>
   `;
 
-  function refresh() {
-    return render(container, { params: [String(id)] });
+  function refresh(settle = showSettlementChoice) {
+    const nextQuery = new URLSearchParams();
+    if (settle) nextQuery.set('settle', '1');
+    return render(container, { params: [String(id)], query: nextQuery });
   }
 
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
     button.addEventListener('click', () => window.print());
   });
 
-  document.querySelectorAll('[data-action="refund"]').forEach((button) => {
+  document.querySelectorAll('[data-action="refund"], [data-choice="refund"]').forEach((button) => {
     button.addEventListener('click', () => openRefund(remaining));
   });
 
-  document.querySelectorAll('[data-action="convert"]').forEach((button) => {
+  document.querySelectorAll('[data-action="convert"], [data-choice="credit"]').forEach((button) => {
     button.addEventListener('click', () => openConvert(remaining));
+  });
+
+  document.querySelectorAll('[data-action="settlement-options"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      location.hash = `#/cancellations/${id}?settle=1`;
+    });
+  });
+
+  document.querySelectorAll('[data-choice="defer"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      history.replaceState(null, '', `#/cancellations/${id}`);
+      const panel = document.querySelector('[data-settlement-choice]');
+      if (panel) panel.remove();
+      toast('Refund kept in 2500 Refund Payable');
+    });
   });
 
   function openRefund(maximum) {
@@ -284,15 +317,17 @@ export async function render(container, { params } = {}) {
         const values = new FormData(form);
         const amount = toCents(values.get('amount'));
         if (amount <= 0) throw new Error('Enter a refund amount');
-        await api.post(`/cancellations/${cancellation.id}/refund`, {
+        const saved = await api.post(`/cancellations/${cancellation.id}/refund`, {
           amount_cents: amount,
           refund_date: values.get('refund_date'),
           method: values.get('method'),
           reference: values.get('reference'),
           account_id: Number(values.get('account_id')),
         });
+        const stillOpen = Number(saved.refund_remaining_cents) > 0;
+        history.replaceState(null, '', `#/cancellations/${id}${stillOpen ? '?settle=1' : ''}`);
         toast(`Refund of ${fmtMoney(amount)} recorded`);
-        refresh();
+        refresh(stillOpen);
       },
     });
   }
@@ -332,8 +367,10 @@ export async function render(container, { params } = {}) {
           credit_date: values.get('credit_date'),
           notes: values.get('notes'),
         });
+        const stillOpen = Number(saved.refund_remaining_cents) > 0;
+        history.replaceState(null, '', `#/cancellations/${id}${stillOpen ? '?settle=1' : ''}`);
         toast(`Customer credit created · ${fmtMoney(saved.refund_remaining_cents)} refund remaining`);
-        refresh();
+        refresh(stillOpen);
       },
     });
   }

@@ -442,11 +442,37 @@ export function confirmDialog({ title = 'Are you sure?', message = '', confirmLa
   });
 }
 
+function voidPreviewHtml(preview) {
+  if (!preview) return '';
+  const items = Array.isArray(preview.items) ? preview.items.filter(Boolean) : [];
+  const total = preview.total || null;
+  if (!items.length && !total && !preview.note) return '';
+  return `
+    <div class="void-preview" aria-label="Void preview">
+      <div class="void-preview-head">${icon('alert', 14)}<span>${esc(preview.heading || 'Void preview')}</span></div>
+      ${items.length ? `<div class="void-preview-rows">
+        ${items.map((item) => `
+          <div class="void-preview-row">
+            <div class="void-preview-label">
+              <span>${esc(item.label || '')}</span>
+              ${item.note ? `<small>${esc(item.note)}</small>` : ''}
+            </div>
+            <div class="void-preview-value">${esc(item.value || '')}</div>
+          </div>
+        `).join('')}
+      </div>` : ''}
+      ${total ? `<div class="void-preview-total"><span>${esc(total.label || 'Total')}</span><strong>${esc(total.value || '')}</strong></div>` : ''}
+      ${preview.note ? `<p class="void-preview-note">${esc(preview.note)}</p>` : ''}
+    </div>
+  `;
+}
+
 export function voidDialog({
   title = 'Void this record?',
   message = '',
   confirmLabel = 'Void',
   warning = '',
+  preview = null,
 } = {}) {
   return new Promise((resolve) => {
     let result = { confirmed: false, remarks: '' };
@@ -455,6 +481,7 @@ export function voidDialog({
       body: `
         ${message ? `<p class="confirm-text">${esc(message)}</p>` : ''}
         ${warning ? `<div class="form-note" style="border-color:var(--red);color:var(--red)">${esc(warning)}</div>` : ''}
+        ${voidPreviewHtml(preview)}
         <div class="field" style="margin-top:16px">
           <label for="void-remarks">Remarks <span class="muted">(required)</span></label>
           <textarea class="input" id="void-remarks" name="remarks" rows="3" maxlength="2000"

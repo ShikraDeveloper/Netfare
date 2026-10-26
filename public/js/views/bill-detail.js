@@ -23,6 +23,40 @@ import { openBillModal } from './bills.js';
 import { openRefundModal } from './refund-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
+function billVoidPreview(bill) {
+  const payments = bill.payments.filter((payment) => payment.status === 'posted');
+  const paymentTotal = payments.reduce((sum, payment) => sum + payment.amount_cents, 0);
+  const refunded = payments.reduce((sum, payment) => sum + Number(payment.refunded_cents || 0), 0);
+  const applications = bill.credit_applications || [];
+  const applicationTotal = applications.reduce((sum, application) => sum + application.amount_cents, 0);
+  const items = [{
+    label: `Bill ${bill.number}`,
+    value: fmtMoney(bill.total_cents),
+    note: `${bill.vendor_name} · ${bill.status_display || bill.status}`,
+  }];
+  if (payments.length) {
+    items.push({
+      label: `${payments.length} linked payment${payments.length === 1 ? '' : 's'}`,
+      value: fmtMoney(paymentTotal),
+      note: refunded > 0
+        ? `${fmtMoney(refunded)} already refunded; those refunds are reversed first`
+        : 'Payment and supplier entries will be reversed',
+    });
+  }
+  if (applicationTotal > 0) {
+    items.push({
+      label: `${applications.length} supplier credit application${applications.length === 1 ? '' : 's'}`,
+      value: fmtMoney(applicationTotal),
+      note: 'Supplier credits return to their credit notes',
+    });
+  }
+  return {
+    heading: 'Void preview',
+    items,
+    note: 'The original bill, payments and supplier credits stay in the ledger with matching reversing entries.',
+  };
+}
+
 function paymentModalBody(bill) {
   const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));
   const preferred = accounts.find((account) => account.code === '1010')
@@ -358,6 +392,7 @@ export async function render(container, { params } = {}) {
         title: `Void ${bill.number}?`,
         message: 'A reversing journal entry will be posted to cancel this bill. Any linked payments, refunds and supplier credit applications will also be reversed.',
         warning: 'This cannot be undone. The bill and every linked reversal are kept permanently in the audit trail.',
+        preview: billVoidPreview(bill),
         confirmLabel: 'Void bill',
       });
       if (!result.confirmed) return;
@@ -454,10 +489,27 @@ export async function render(container, { params } = {}) {
   document.querySelectorAll('[data-delete-payment]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.stopPropagation();
+      const payment = bill.payments.find((candidate) => candidate.id === Number(button.dataset.deletePayment));
       const result = await voidDialog({
         title: 'Void this payment?',
         message: 'The payment will be voided and a reversing journal entry will be posted. The payment record and its audit trail are kept, and the bill balance will reopen.',
         warning: 'Any supplier refund linked to this payment must be reversed first. This cannot be undone.',
+        preview: payment ? {
+          heading: 'Void preview',
+          items: [
+            {
+              label: `Payment ${payment.number}`,
+              value: fmtMoney(payment.amount_cents),
+              note: `${fmtDate(payment.payment_date)} · ${payment.method || 'Payment'}`,
+            },
+            {
+              label: `Bill ${bill.number}`,
+              value: fmtMoney(bill.balance_cents + payment.amount_cents),
+              note: 'Balance reopens after the reversal',
+            },
+          ],
+          note: payment.portal_id ? 'This payment was settled from a supplier wallet; the wallet balance will be restored.' : '',
+        } : null,
         confirmLabel: 'Void payment',
       });
       if (!result.confirmed) return;

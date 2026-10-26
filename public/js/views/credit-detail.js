@@ -123,6 +123,22 @@ export async function render(container, { params = [] } = {}) {
         title: `Void ${credit.number}?`,
         message: 'A reversing journal entry will be posted and any invoice applications will be reversed automatically.',
         warning: 'This cannot be undone. The credit note and every linked reversal are kept in the audit trail.',
+        preview: {
+          heading: 'Void preview',
+          items: [
+            {
+              label: `Credit ${credit.number}`,
+              value: fmtMoney(credit.amount_cents),
+              note: `${credit.customer_name} · ${credit.remaining_cents > 0 ? `${fmtMoney(credit.remaining_cents)} unapplied` : 'Fully applied'}`,
+            },
+            ...(applications.length ? [{
+              label: `${applications.length} invoice application${applications.length === 1 ? '' : 's'}`,
+              value: fmtMoney(credit.applied_cents),
+              note: 'Invoices will reopen by the applied amount',
+            }] : []),
+          ],
+          note: 'The credit note and its reversals stay in the audit trail.',
+        },
         confirmLabel: 'Void credit note',
       });
       if (!result.confirmed) return;
@@ -145,6 +161,21 @@ export async function render(container, { params = [] } = {}) {
       title: 'Void this credit application?',
       message: `${fmtMoney(application.amount_cents)} will be removed from ${application.invoice_number} and returned to this credit note.`,
       warning: 'A reversing journal entry will be posted. This cannot be undone.',
+      preview: {
+        heading: 'Void preview',
+        items: [
+          {
+            label: `Credit ${credit.number}`,
+            value: fmtMoney(application.amount_cents),
+            note: 'Returns to the unapplied credit balance',
+          },
+          {
+            label: `Invoice ${application.invoice_number}`,
+            value: fmtMoney(application.amount_cents),
+            note: 'Invoice balance reopens by this amount',
+          },
+        ],
+      },
       confirmLabel: 'Void application',
     });
     if (!result.confirmed) return;

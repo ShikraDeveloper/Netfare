@@ -237,6 +237,22 @@ export async function render(container, { params } = {}) {
         title: `Void ${refund.number}?`,
         message: `A reversing journal entry will be posted and ${source.voidMessage.replace('{amount}', fmtMoney(refund.amount_cents))} The refund stays in your records for the audit trail.`,
         warning: 'This cannot be undone.',
+        preview: {
+          heading: 'Void preview',
+          items: [
+            {
+              label: `Refund ${refund.number}`,
+              value: fmtMoney(refund.amount_cents),
+              note: `${refund.party_name} · ${refund.method || 'Refund'}`,
+            },
+            {
+              label: source.label,
+              value: refund.document_number || '—',
+              note: 'Source balance will be restored by the refund amount',
+            },
+          ],
+          note: 'The refund stays in history as void and the reversal is written to the audit log.',
+        },
         confirmLabel: 'Void refund',
       });
       if (!result.confirmed) return;

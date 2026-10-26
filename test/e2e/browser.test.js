@@ -307,6 +307,9 @@ test('data tables expose captions and column scopes', async () => {
     '/customers',
     '/vendors',
     '/portals',
+    '/settlement-queue',
+    '/customer-balances',
+    `/customer-balances/${customers[0].id}`,
     '/invoices',
     '/bills',
     '/journal',
@@ -345,6 +348,137 @@ test('data tables expose captions and column scopes', async () => {
     }
     assertNoConsoleErrors();
   }
+});
+
+test('customer balances and settlement queue stay derived from live documents', async () => {
+  const [queue, balances] = await Promise.all([
+    getJson(baseUrl, '/api/settlement-queue'),
+    getJson(baseUrl, '/api/customer-balances'),
+  ]);
+
+  assert.ok(Array.isArray(queue.items), 'Settlement queue should return items');
+  for (const type of ['cancellation_refund', 'customer_credit', 'customer_advance', 'supplier_credit']) {
+    assert.ok(queue.totals.by_type[type], `Queue totals should include ${type}`);
+    assert.equal(typeof queue.totals.by_type[type].amount_cents, 'number');
+  }
+  assert.equal(
+    queue.totals.amount_cents,
+    queue.items.reduce((sum, item) => sum + item.remaining_cents, 0),
+    'Queue total should equal the sum of open items',
+  );
+
+  assert.ok(Array.isArray(balances) && balances.length > 0, 'Customer balances should list customers');
+  const customer = balances.find((row) => row.outstanding_cents > 0 || row.credit_balance_cents > 0)
+    || balances[0];
+  const detail = await getJson(baseUrl, `/api/customer-balances/${customer.id}`);
+  assert.equal(detail.customer.id, customer.id);
+  assert.equal(detail.summary.net_balance_cents, customer.net_balance_cents);
+  assert.ok(Array.isArray(detail.open_invoices));
+  assert.ok(Array.isArray(detail.credits));
+  assert.ok(Array.isArray(detail.advances));
+  assert.ok(Array.isArray(detail.cancellation_refunds));
+
+  await openRoute('/settlement-queue');
+  assert.equal(await page.locator('.kpi').count(), 4);
+  assert.match(await page.locator('#page-title').innerText(), /Settlement queue/i);
+  const tableCaption = await page.locator('table.data caption').first().innerText();
+  assert.match(tableCaption, /Settlement queue/i);
+
+  await page.selectOption('#queue-type', 'customer_credit');
+  await page.waitForTimeout(100);
+  const filteredTypes = await page.$$eval(
+    '#queue-body tr[data-href] td:first-child',
+    (cells) => cells.map((cell) => cell.textContent.trim()),
+  );
+  assert.ok(filteredTypes.every((label) => label === 'Customer credit'),
+    'Type filter should only show customer credits');
+  assert.match(await page.locator('#queue-count').innerText(), /shown/);
+
+  await openRoute('/customer-balances');
+  assert.equal(await page.locator('.kpi').count(), 4);
+  assert.match(await page.locator('#page-title').innerText(), /Customer balances/i);
+  assert.ok(await page.locator('#balance-body tr[data-id]').count() > 0, 'Balances table should render rows');
+
+  await page.fill('#balance-search', 'zzzz-no-such-customer');
+  await page.waitForTimeout(100);
+  assert.match(await page.locator('#balance-count').innerText(), /^0 shown$/);
+  await page.fill('#balance-search', customer.name);
+  await page.waitForTimeout(100);
+  assert.ok(await page.locator('#balance-body tr[data-id]').count() > 0, 'Search should find the customer');
+
+  await openRoute(`/customer-balances/${customer.id}`);
+  assert.equal(await page.locator('.kpi').count(), 4);
+  assert.match(await page.locator('#page-title').innerText(), new RegExp(`${customer.name} balance`));
+  assert.ok(await page.locator('table.data caption').count() > 0, 'Balance detail should render tables');
+  assertNoConsoleErrors();
+});
+
+test('cancelling a paid booking offers refund, credit or defer settlement', async () => {
+  const [customers, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+  const cash = accounts.find((account) => account.code === '1000');
+  assert.ok(customers[0] && revenue && cash);
+
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customers[0].id,
+    booking_date: '2026-10-20',
+    due_date: '2026-10-20',
+    sale_items: [{
+      description: 'E2E settlement booking',
+      quantity: 1,
+      unit_price_cents: 100_000,
+      account_id: revenue.id,
+    }],
+  });
+  const confirmed = await postJson(baseUrl, `/api/bookings/${booking.id}/confirm`, {}, 200);
+  assert.ok(confirmed.invoice_id);
+
+  await postJson(baseUrl, `/api/invoices/${confirmed.invoice_id}/payments`, {
+    amount_cents: 100_000,
+    payment_date: '2026-10-21',
+    method: 'Cash',
+    deposit_account_id: cash.id,
+  });
+
+  const cancelled = await postJson(baseUrl, `/api/bookings/${booking.id}/cancel`, {
+    cancellation_date: '2026-10-22',
+    customer_charges_cents: 20_000,
+    reason: 'E2E settlement choice',
+  }, 200);
+  assert.ok(cancelled.cancellation?.id, 'Cancelling should return the cancellation record');
+  const cancellationId = cancelled.cancellation.id;
+
+  const cancellation = await getJson(baseUrl, `/api/cancellations/${cancellationId}`);
+  assert.equal(cancellation.refund_remaining_cents, 80_000);
+
+  const queue = await getJson(baseUrl, '/api/settlement-queue');
+  assert.ok(
+    queue.items.some((item) => item.type === 'cancellation_refund' && item.document_id === cancellationId),
+    'Settlement queue should include the cancellation refund',
+  );
+
+  await openRoute(`/cancellations/${cancellationId}?settle=1`);
+  const choice = page.locator('[data-settlement-choice]');
+  await choice.waitFor();
+  const choiceText = await choice.innerText();
+  assert.match(choiceText, /Choose how to settle/i);
+  assert.match(choiceText, /2500 Refund Payable/i);
+  assert.equal(await choice.locator('[data-choice="refund"]').count(), 1);
+  assert.equal(await choice.locator('[data-choice="credit"]').count(), 1);
+  assert.equal(await choice.locator('[data-choice="defer"]').count(), 1);
+
+  await choice.locator('[data-choice="defer"]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-settlement-choice]'));
+
+  await openRoute(`/cancellations/${cancellationId}`);
+  assert.equal(await page.locator('[data-settlement-choice]').count(), 0);
+  await page.locator('[data-action="settlement-options"]').click();
+  await page.waitForFunction(() => location.hash.includes('settle=1'));
+  await page.waitForSelector('[data-settlement-choice]');
+  assertNoConsoleErrors();
 });
 
 test('customer statement shows summary cards, presets and clean ledger rows', async () => {
@@ -670,10 +804,24 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
   assert.equal(paymentResponse.status, 201);
 
   await openRoute(`/invoices/${invoice.id}`);
+  await page.locator('[data-delete-payment]').first().click();
+  const paymentDialog = page.locator('[role="dialog"]');
+  await paymentDialog.waitFor();
+  const paymentPreview = await paymentDialog.locator('.void-preview').innerText();
+  assert.match(paymentPreview, /Void preview/i);
+  assert.match(paymentPreview, /Balance reopens/i);
+  await paymentDialog.locator('.modal-head [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
   await page.locator('[data-action="void"]').click();
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
   assert.equal(await dialog.locator('#void-remarks').getAttribute('required'), '');
+
+  const voidPreview = await dialog.locator('.void-preview').innerText();
+  assert.match(voidPreview, /Void preview/i);
+  assert.ok(voidPreview.includes(invoice.number), 'Void preview should name the invoice');
+  assert.match(voidPreview, /linked payment/i);
 
   await dialog.locator('[data-submit]').click();
   await page.waitForTimeout(100);
@@ -696,13 +844,14 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
 });
 
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
-  const [invoices, bookings, visas, bills, portals, customers] = await Promise.all([
+  const [invoices, bookings, visas, bills, portals, customers, cancellations] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
     getJson(baseUrl, '/api/bookings'),
     getJson(baseUrl, '/api/visas'),
     getJson(baseUrl, '/api/bills'),
     getJson(baseUrl, '/api/portals'),
     getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/cancellations'),
   ]);
 
   const routes = [
@@ -717,6 +866,11 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     `/visas/${visas[0].id}`,
     '/customers',
     `/customers/${customers[0].id}/statement`,
+    '/customer-balances',
+    `/customer-balances/${customers[0].id}`,
+    '/settlement-queue',
+    '/cancellations',
+    ...(cancellations[0] ? [`/cancellations/${cancellations[0].id}`] : []),
     '/vendors',
     '/portals',
     `/portals/${portals[0].id}`,

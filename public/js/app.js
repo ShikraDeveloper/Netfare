@@ -22,6 +22,9 @@ import * as billsView from './views/bills.js';
 import * as billDetailView from './views/bill-detail.js';
 import * as customersView from './views/customers.js';
 import * as customerStatementView from './views/customer-statement.js';
+import * as customerBalancesView from './views/customer-balances.js';
+import * as customerBalanceDetailView from './views/customer-balance-detail.js';
+import * as settlementQueueView from './views/settlement-queue.js';
 import * as vendorsView from './views/vendors.js';
 import * as vendorStatementView from './views/vendor-statement.js';
 import * as journalView from './views/journal.js';
@@ -62,6 +65,8 @@ const NAV_GROUPS = [
   {
     label: 'Settlements',
     items: [
+      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'Settlement queue' },
+      { section: 'customer-balances', href: '#/customer-balances', icon: 'wallet', label: 'Customer balances' },
       { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
       { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
       { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },
@@ -129,6 +134,9 @@ const ROUTES = [
   { pattern: /^\/bills\/(\d+)$/, view: billDetailView, section: 'bills' },
   { pattern: /^\/customers$/, view: customersView, section: 'customers' },
   { pattern: /^\/customers\/(\d+)\/statement$/, view: customerStatementView, section: 'customers' },
+  { pattern: /^\/customer-balances$/, view: customerBalancesView, section: 'customer-balances' },
+  { pattern: /^\/customer-balances\/(\d+)$/, view: customerBalanceDetailView, section: 'customer-balances' },
+  { pattern: /^\/settlement-queue$/, view: settlementQueueView, section: 'settlement-queue' },
   { pattern: /^\/vendors$/, view: vendorsView, section: 'vendors' },
   { pattern: /^\/vendors\/(\d+)\/statement$/, view: vendorStatementView, section: 'vendors' },
   { pattern: /^\/journal$/, view: journalView, section: 'journal' },

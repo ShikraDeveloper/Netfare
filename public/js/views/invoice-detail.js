@@ -64,6 +64,40 @@ function visaApplicantHtml(invoice) {
   `;
 }
 
+function invoiceVoidPreview(invoice) {
+  const payments = invoice.payments.filter((payment) => payment.status === 'posted');
+  const paymentTotal = payments.reduce((sum, payment) => sum + payment.amount_cents, 0);
+  const refunded = payments.reduce((sum, payment) => sum + Number(payment.refunded_cents || 0), 0);
+  const credits = invoice.credits || [];
+  const creditTotal = credits.reduce((sum, credit) => sum + credit.amount_cents, 0);
+  const items = [{
+    label: `Invoice ${invoice.number}`,
+    value: fmtMoney(invoice.total_cents),
+    note: `${invoice.customer_name} · ${invoice.status_display || invoice.status}`,
+  }];
+  if (payments.length) {
+    items.push({
+      label: `${payments.length} linked payment${payments.length === 1 ? '' : 's'}`,
+      value: fmtMoney(paymentTotal),
+      note: refunded > 0
+        ? `${fmtMoney(refunded)} already refunded; those refunds are reversed first`
+        : 'Payment and deposit entries will be reversed',
+    });
+  }
+  if (creditTotal > 0) {
+    items.push({
+      label: `${credits.length} credit application${credits.length === 1 ? '' : 's'}`,
+      value: fmtMoney(creditTotal),
+      note: 'Credits return to their credit notes',
+    });
+  }
+  return {
+    heading: 'Void preview',
+    items,
+    note: 'The original invoice, payments and credits stay in the ledger with matching reversing entries.',
+  };
+}
+
 function paymentModalBody(invoice) {
   const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));
   const preferred = accounts.find((account) => account.code === '1010')
@@ -400,6 +434,7 @@ export async function render(container, { params } = {}) {
         title: `Void ${invoice.number}?`,
         message: 'A reversing journal entry will be posted to cancel this invoice. Any linked payments, refunds and credit applications will also be reversed.',
         warning: 'This cannot be undone. The invoice and every linked reversal are kept permanently in the audit trail.',
+        preview: invoiceVoidPreview(invoice),
         confirmLabel: 'Void invoice',
       });
       if (!result.confirmed) return;
@@ -496,10 +531,27 @@ export async function render(container, { params } = {}) {
   document.querySelectorAll('[data-delete-payment]').forEach((button) => {
     button.addEventListener('click', async (event) => {
       event.stopPropagation();
+      const payment = invoice.payments.find((candidate) => candidate.id === Number(button.dataset.deletePayment));
       const result = await voidDialog({
         title: 'Void this payment?',
         message: 'The payment will be voided and a reversing journal entry will be posted. The payment record and its audit trail are kept, and the invoice balance will reopen.',
         warning: 'Any refund linked to this payment must also be reversed. This cannot be undone.',
+        preview: payment ? {
+          heading: 'Void preview',
+          items: [
+            {
+              label: `Payment ${payment.number}`,
+              value: fmtMoney(payment.amount_cents),
+              note: `${fmtDate(payment.payment_date)} · ${payment.method || 'Payment'}`,
+            },
+            {
+              label: `Invoice ${invoice.number}`,
+              value: fmtMoney(invoice.balance_cents + payment.amount_cents),
+              note: 'Balance reopens after the reversal',
+            },
+          ],
+          note: payment.advance_id ? 'The linked customer advance application will also be reversed.' : '',
+        } : null,
         confirmLabel: 'Void payment',
       });
       if (!result.confirmed) return;

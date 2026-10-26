@@ -21,6 +21,8 @@ router.get('/health', (req, res) => {
 
 router.use('/accounts', require('./accounts'));
 router.use('/customers', require('./customers'));
+router.use('/customer-balances', require('./customer-balances'));
+router.use('/settlement-queue', require('./settlement-queue'));
 router.use('/vendors', require('./vendors'));
 router.use('/bookings', require('./bookings'));
 router.use('/visas', require('./visas'));
