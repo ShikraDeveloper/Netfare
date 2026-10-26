@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
@@ -19,6 +20,7 @@ import {
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const credit = await api.get(`/supplier-credits/${id}`);
+  const attachments = await loadAttachments('supplier_credit', id);
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const issued = credit.status === 'issued';
@@ -40,6 +42,7 @@ export async function render(container, { params } = {}) {
     title: credit.number,
     subtitle: `${credit.vendor_name} · ${fmtDate(credit.credit_date, { long: true })}`,
     actions: `
+      <a class="btn btn-ghost" href="#/audit-chain/supplier_credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="#/supplier-credits"><span>All supplier credits</span></a>
       <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>
       ${canApply ? `<button class="btn btn-primary" data-action="apply">${icon('bill', 15)}<span>Apply to bill</span></button>` : ''}
@@ -222,7 +225,9 @@ export async function render(container, { params } = {}) {
         </div>
       </div>
     </div>
+    ${attachmentSection({ entityType: 'supplier_credit', entityId: id, attachments, hint: 'Supplier credit memo or refund confirmation' })}
   `;
+  bindAttachmentSection(container, { entityType: 'supplier_credit', entityId: id });
 
   function refresh() {
     return render(container, { params: [String(id)] });

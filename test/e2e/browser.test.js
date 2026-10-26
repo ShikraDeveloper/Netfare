@@ -889,6 +889,56 @@ test('an unapplied customer credit can be refunded in cash from the credit note'
   assertNoConsoleErrors();
 });
 
+test('dashboard ledger checks, settlement attachments and the audit chain page', async () => {
+  const reconciliation = await getJson(baseUrl, '/api/reports/reconciliation');
+  assert.equal(reconciliation.checks.length, 8);
+
+  await openRoute('/dashboard');
+  const card = page.locator('[data-ledger-checks]');
+  await card.waitFor();
+  assert.equal(await card.locator('tbody tr').count(), 8);
+  assert.match(await card.locator('caption').innerText(), /Ledger checks/);
+  const summary = await card.locator('.card-title p').innerText();
+  assert.match(summary, reconciliation.all_matched ? /All 8 checks match/ : /need/);
+
+  const cancellations = await getJson(baseUrl, '/api/cancellations');
+  assert.ok(cancellations[0], 'Earlier tests and demo data include a cancellation');
+  const cancellation = cancellations[0];
+  const query = new URLSearchParams({
+    entity_type: 'cancellation',
+    entity_id: String(cancellation.id),
+    filename: 'airline-cancellation.pdf',
+    type: 'application/pdf',
+  });
+  const upload = await fetch(`${baseUrl}/api/attachments?${query}`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/octet-stream' },
+    body: Buffer.from('%PDF-1.4 e2e'),
+  });
+  assert.equal(upload.status, 201);
+
+  await openRoute(`/cancellations/${cancellation.id}`);
+  const attachments = page.locator('.attachments-card');
+  await attachments.waitFor();
+  assert.match(await attachments.innerText(), /airline-cancellation\.pdf/);
+
+  const sourceType = cancellation.source_type;
+  await openRoute(`/${sourceType === 'visa' ? 'visas' : 'bookings'}/${cancellation.source_id}`);
+  await page.locator(`#page-actions a[href="#/audit-chain/${sourceType}/${cancellation.source_id}"]`).click();
+  await page.waitForFunction(() => document.querySelector('#page-title')?.textContent.startsWith('Audit chain'));
+  await page.waitForSelector('.chain-summary');
+  const captions = await page.$$eval('table.data caption', (nodes) => nodes.map((node) => node.textContent));
+  assert.deepEqual(captions, [
+    'Linked documents in this audit chain',
+    'Audit timeline of postings, reversals and voids',
+    'Net ledger effect by account',
+  ]);
+  const documentsText = await page.locator('[data-chain-doc]').allInnerTexts();
+  assert.ok(documentsText.some((text) => text.includes(cancellation.number)), 'The chain lists the cancellation');
+  assert.match(await page.locator('.chain-summary').innerText(), /Balanced/i);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -933,6 +983,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     '/opening-balances',
     '/journal',
     '/audit-logs',
+    `/audit-chain/booking/${bookings[0].id}`,
     '/settings',
     '/reports/income-statement',
     '/reports/balance-sheet',

@@ -111,6 +111,7 @@ export async function render(container, { params } = {}) {
     visa.destination_country || 'No destination',
     `${visaTypeLabel(visa.visa_type)} visa${duration ? ` · ${duration}` : ''}`,
   ];
+  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/visa/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   setHeader({
     title: visa.number,
     subtitle: subtitleParts.join(' · '),

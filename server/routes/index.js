@@ -44,6 +44,7 @@ router.use('/bank-reconciliations', require('./bank-reconciliations'));
 router.use('/reports', require('./reports'));
 router.use('/settings', require('./settings'));
 router.use('/audit-logs', require('./audit-logs'));
+router.use('/audit-chain', require('./audit-chain'));
 router.use('/admin', require('./admin'));
 
 module.exports = router;

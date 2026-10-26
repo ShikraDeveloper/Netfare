@@ -149,6 +149,7 @@ export async function render(container, { params } = {}) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
 
+  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   setHeader({
     title: bill.number,
     subtitle: `${bill.vendor_name} · ${fmtDate(bill.bill_date)}`,

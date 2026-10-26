@@ -311,6 +311,9 @@ html:not(.nav-ready) .main { transition: none !important; }
 .kpi-meta { font-size: 11.5px; color: var(--muted); margin-top: 5px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .kpi-meta .up { color: var(--green); font-weight: 600; }
 .kpi-meta .down { color: var(--red); font-weight: 600; }
+.ledger-checks .card-title p { display: flex; align-items: center; gap: 6px; }
+.ledger-checks .card-title p.up { color: var(--green); font-weight: 600; }
+.ledger-checks .card-title p.down { color: var(--red); font-weight: 600; }
 .kpi-meta a { color: var(--primary); text-decoration: none; font-weight: 600; }
 
 /* ---------- Dashboard ---------- */
@@ -1304,4 +1307,13 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Audit chain */
+.chain-root td { background: var(--surface-2); }
+.chain-lines { list-style: none; margin: 6px 0 0; padding: 0; font-size: 12px; color: var(--muted); }
+.chain-lines li { display: flex; justify-content: space-between; gap: 16px; padding: 1px 0; }
+.chain-remarks { margin-top: 4px; font-size: 12.5px; color: var(--muted); font-style: italic; }
+@media print {
+  .chain-summary { break-inside: avoid; }
 }

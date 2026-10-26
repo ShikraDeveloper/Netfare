@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { store } from '../store.js';
 import {
   esc,
@@ -98,6 +99,7 @@ function entryHtml(entry, emptyText) {
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const refund = await api.get(`/refunds/${id}`);
+  const attachments = await loadAttachments('refund', id);
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const isCustomer = refund.refund_type === 'customer';
@@ -114,6 +116,7 @@ export async function render(container, { params } = {}) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
 
+  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/refund/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   setHeader({
     title: refund.number,
     subtitle: `${refund.party_name} · ${fmtDate(refund.refund_date)}`,
@@ -229,7 +232,9 @@ export async function render(container, { params } = {}) {
         </div>
       </div>
     </div>
+    ${attachmentSection({ entityType: 'refund', entityId: id, attachments, hint: 'Bank transfer receipt or signed cash voucher' })}
   `;
+  bindAttachmentSection(container, { entityType: 'refund', entityId: id });
 
   function refresh() {
     return render(container, { params: [String(id)] });

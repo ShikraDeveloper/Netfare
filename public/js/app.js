@@ -38,6 +38,7 @@ import * as bankReconciliationView from './views/bank-reconciliation.js';
 import * as accountsView from './views/accounts.js';
 import * as reportsView from './views/reports.js';
 import * as auditLogsView from './views/audit-logs.js';
+import * as auditChainView from './views/audit-chain.js';
 import * as settingsView from './views/settings.js';
 
 const NAV_GROUPS = [
@@ -150,6 +151,7 @@ const ROUTES = [
   { pattern: /^\/accounts$/, view: accountsView, section: 'accounts' },
   { pattern: /^\/reports(?:\/([a-z-]+))?$/, view: reportsView, section: 'reports' },
   { pattern: /^\/audit-logs$/, view: auditLogsView, section: 'audit-logs' },
+  { pattern: /^\/audit-chain\/([a-z_]+)\/(\d+)$/, view: auditChainView, section: 'audit-logs' },
   { pattern: /^\/settings$/, view: settingsView, section: 'settings' },
 ];
 

@@ -24,9 +24,11 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Date filters & pagination** — bookings, visas, invoices, bills, refunds, credit notes, journal entries and cheques can be narrowed to a date range, with filtered totals and a one-click reset. The main list views — including customers, vendors, portals, bookings, visas, cheques and compliance — paginate in the browser with a selectable page size.
 - **Grouped navigation** — Travel, Sales, Purchases, Treasury, Compliance and Accounting are separated in the sidebar so the daily workflow stays short and predictable.
 - **Accessibility** — skip link, keyboard focus rings, keyboard-openable table rows, modal focus trapping/restore, labelled dialogs and busy-state announcements are built in. Every data table has a screen-reader caption and scoped column headers, and the browser suite runs an axe WCAG 2.1 AA audit across the main pages in both light and dark themes.
-- **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings and visas. Files are stored in the local SQLite database, so full database backups include them.
+- **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings, visas, cancellations (airline or embassy proof), refunds (bank receipts), customer credit notes and supplier credits. Files are stored in the local SQLite database, so full database backups include them.
 - **Double-entry ledger** — every document posts balanced journal entries automatically. A general journal supports manual accruals and adjustments.
 - **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging.
+- **Ledger checks** — a dashboard card compares the trial balance and each control account (1100 A/R, 2000 A/P, 2400 advances, 2500 refund payable, 2450 customer credits, 1450 supplier credits, 1400 supplier advances) with the open documents behind it. A difference means something was posted outside the normal document screens, for example an opening balance on A/R.
+- **Audit chain** — from a booking, visa, invoice, bill, cancellation, refund, credit note or supplier credit, **Audit chain** shows every linked document, a dated timeline of journal postings, reversals and void remarks, and the net effect of the whole chain on each account. It is read-only and printable.
 - **Light & dark themes** — a warm cream/navy/gold look by default, with a one-click dark mode under **Settings → Appearance**. The choice is remembered per browser; printing always uses light paper.
 - **Local by design** — Express API + SQLite + a small vanilla-JS single-page app. Chart.js is bundled locally in `public/vendor/`.
 - **Backup** — download a complete SQLite database, or export table data as JSON from `GET /api/admin/backup`.
@@ -452,8 +454,9 @@ All endpoints are under `/api`:
 | GET/POST/PUT | `/customers`, `/vendors`, `/accounts` | Master data |
 | GET/POST/DELETE | `/journal-entries` | General journal |
 | POST | `/journal-entries/:id/void` | Reverse a manual journal entry with remarks |
-| GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging`, `/reconciliation` | Reports; `/reconciliation` checks 1400, 1450, 2450 and 2500 against their subledgers |
+| GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging`, `/reconciliation` | Reports; `/reconciliation` returns the dashboard ledger checks (trial balance, 1100, 2000, 2400, 2500, 2450, 1450 and 1400 against their documents) |
 | GET | `/audit-logs`, `/audit-logs/:id` | Searchable void/audit history |
+| GET | `/audit-chain/:type/:id` | Linked documents, journal timeline, reversals, void remarks and net account effect (`type`: booking, visa, invoice, bill, payment, advance, cancellation, refund, credit, supplier_credit and related applications) |
 | GET/PUT | `/settings` | Company settings |
 | GET | `/admin/backup` | JSON data export |
 | GET | `/admin/backup/database` | Full SQLite database backup download |

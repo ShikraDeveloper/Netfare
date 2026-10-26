@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
@@ -32,6 +33,7 @@ function statusLabel(cancellation) {
 export async function render(container, { params, query } = {}) {
   const id = Number(params?.[0]);
   const cancellation = await api.get(`/cancellations/${id}`);
+  const attachments = await loadAttachments('cancellation', id);
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const remaining = Number(cancellation.refund_remaining_cents || 0);
@@ -44,6 +46,7 @@ export async function render(container, { params, query } = {}) {
     title: cancellation.number,
     subtitle: `${cancellation.customer_name} · ${sourceLabel} ${cancellation.source_number || '—'} · ${fmtDate(cancellation.cancellation_date)}`,
     actions: `
+      <a class="btn btn-ghost" href="#/audit-chain/cancellation/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="${href}"><span>${sourceLabel}</span></a>
       <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print cancellation note</span></button>
       ${canSettle ? `<button class="btn btn-primary" data-action="refund">${icon('arrowUp', 15)}<span>Pay refund</span></button>` : ''}
@@ -232,7 +235,9 @@ export async function render(container, { params, query } = {}) {
         </div>
       </div>
     </div>
+    ${attachmentSection({ entityType: 'cancellation', entityId: id, attachments, hint: 'Airline or embassy cancellation proof and the customer request' })}
   `;
+  bindAttachmentSection(container, { entityType: 'cancellation', entityId: id });
 
   function refresh(settle = showSettlementChoice) {
     const nextQuery = new URLSearchParams();

@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { cashAccounts } from '../store.js';
 import {
   centsToInput,
@@ -20,6 +21,7 @@ import {
 export async function render(container, { params = [] } = {}) {
   const id = Number(params[0]);
   const credit = await api.get(`/credits/${id}`);
+  const attachments = await loadAttachments('credit_note', id);
   const issued = credit.status === 'issued';
   const canApply = issued && credit.remaining_cents > 0;
   const canRefund = canApply;
@@ -30,6 +32,7 @@ export async function render(container, { params = [] } = {}) {
     title: credit.number,
     subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}`,
     actions: `
+      <a class="btn btn-ghost" href="#/audit-chain/credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="#/credits"><span>All credit notes</span></a>
       ${isCancellation ? `<a class="btn btn-secondary" href="#/cancellations/${credit.cancellation_id}">${icon('x', 15)}<span>Cancellation</span></a>` : ''}
       ${canRefund ? `<button class="btn btn-secondary" data-action="refund-credit">${icon('arrowUp', 15)}<span>Refund credit</span></button>` : ''}
@@ -137,7 +140,9 @@ export async function render(container, { params = [] } = {}) {
         </table>
       </div>
     </div>
+    ${attachmentSection({ entityType: 'credit_note', entityId: id, attachments, hint: 'Credit note PDF or the customer approval' })}
   `;
+  bindAttachmentSection(container, { entityType: 'credit_note', entityId: id });
 
   const apply = async () => {
     try {

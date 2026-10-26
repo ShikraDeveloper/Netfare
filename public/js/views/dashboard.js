@@ -215,9 +215,64 @@ async function loadSample(container) {
   }
 }
 
+// Control accounts compared with the documents behind them. A difference
+// means something was posted outside its normal document workflow.
+function ledgerChecksCard(reconciliation) {
+  if (!reconciliation || !Array.isArray(reconciliation.checks)) return '';
+  const checks = reconciliation.checks;
+  const differences = checks.filter((check) => !check.matched).length;
+  const summary = differences
+    ? `${differences} check${differences === 1 ? '' : 's'} need${differences === 1 ? 's' : ''} attention`
+    : `All ${checks.length} checks match`;
+  return `
+    <div class="card ledger-checks" style="margin-top:16px" data-ledger-checks>
+      <div class="card-head">
+        <div class="card-title">
+          <h2>Ledger checks</h2>
+          <p class="${differences ? 'down' : 'up'}">${icon(differences ? 'alert' : 'check', 13)} ${esc(summary)}</p>
+        </div>
+        <a class="card-link" href="#/reports/trial-balance">Trial balance ${icon('chevron', 13)}</a>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <caption class="sr-only">Ledger checks: control accounts compared with open documents</caption>
+          <thead>
+            <tr>
+              <th scope="col">Check</th>
+              <th scope="col">Compared with</th>
+              <th scope="col" class="num">Ledger</th>
+              <th scope="col" class="num">Documents</th>
+              <th scope="col" class="num">Difference</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${checks.map((check) => `
+              <tr data-check="${esc(check.key)}">
+                <td><a href="${esc(check.href)}">${check.account_code ? `${esc(check.account_code)} · ` : ''}${esc(check.account_name)}</a></td>
+                <td class="muted">${esc(check.documents_label)}</td>
+                <td class="num">${fmtMoney(check.ledger_cents)}</td>
+                <td class="num">${fmtMoney(check.documents_cents)}</td>
+                <td class="num${check.matched ? '' : ' amount-due'}">${check.matched ? '—' : fmtMoney(check.difference_cents)}</td>
+                <td>${check.matched
+                  ? '<span class="badge badge-paid">Matched</span>'
+                  : '<span class="badge badge-overdue">Difference</span>'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 export async function render(container, { query } = {}) {
   destroyCharts();
-  const data = await api.get('/reports/dashboard');
+  const [data, reconciliation] = await Promise.all([
+    api.get('/reports/dashboard'),
+    // The checks are advisory; the dashboard still renders if they fail.
+    api.get('/reports/reconciliation').catch(() => null),
+  ]);
   const month = longMonth(data.as_of);
   const company = store.settings?.company_name || 'My Company';
 
@@ -377,6 +432,8 @@ export async function render(container, { query } = {}) {
       ${countCard('Visa pipeline', String(visas.active_count || 0), `${visas.counts.issued || 0} issued · ${visas.counts.rejected || 0} rejected`, 'visa', 'amber')}
       ${kpiCard('Portal wallets', portals.balance_cents, `${portals.active_count} portal${portals.active_count === 1 ? '' : 's'} · ${fmtMoney(portals.outstanding_ap_cents, { compact: true })} payable`, 'wallet', 'green')}
     </div>
+
+    ${isEmpty ? '' : ledgerChecksCard(reconciliation)}
 
     <div class="charts-grid">
       <div class="card chart-card">

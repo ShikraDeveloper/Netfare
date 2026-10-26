@@ -47,6 +47,46 @@ function protectReconciledLines() {
 // Supplier portals originally allowed only airline, IATA, consolidator, GDS
 // and other. Rebuild the table once so visa agents can be recorded as well,
 // preserving portal IDs and every wallet row that references them.
+// Attachments started with invoices, bills, bookings and visas. Settlement
+// documents (cancellation proof, refund receipts, credit notes) need them too.
+// SQLite cannot widen a CHECK constraint in place, so rebuild the table once.
+function allowSettlementAttachments() {
+  const table = db.prepare(
+    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'attachments'",
+  ).get();
+  if (!table || String(table.sql).includes("'supplier_credit'")) return;
+
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(`
+        DROP TABLE IF EXISTS attachments_new;
+        CREATE TABLE attachments_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa', 'cancellation', 'refund', 'credit_note', 'supplier_credit')),
+          entity_id INTEGER NOT NULL,
+          file_name TEXT NOT NULL,
+          mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+          size_bytes INTEGER NOT NULL DEFAULT 0,
+          storage_name TEXT NOT NULL UNIQUE,
+          data BLOB,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO attachments_new (
+          id, entity_type, entity_id, file_name, mime_type, size_bytes, storage_name, data, created_at
+        )
+          SELECT id, entity_type, entity_id, file_name, mime_type, size_bytes, storage_name, data, created_at
+          FROM attachments;
+        DROP TABLE attachments;
+        ALTER TABLE attachments_new RENAME TO attachments;
+        CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
+      `);
+    })();
+  } finally {
+    db.pragma('foreign_keys = ON');
+  }
+}
+
 function allowVisaAgentPortals() {
   const table = db.prepare(
     "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'supplier_portals'",
@@ -189,6 +229,7 @@ dropColumn('compliance_items', 'tax_rate');
 
 protectReconciledLines();
 allowVisaAgentPortals();
+allowSettlementAttachments();
 
 // Retire the old VAT accounts exactly once. A user-created account at 1300 or
 // 2200 must never be renamed or deleted by later startups.

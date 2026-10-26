@@ -11,11 +11,11 @@ export async function loadAttachments(entityType, entityId) {
   }
 }
 
-export function attachmentSection({ entityType, entityId, attachments }) {
+export function attachmentSection({ entityType, entityId, attachments, hint = 'Tickets, receipts and supporting documents' }) {
   return `
     <div class="card attachments-card no-print" style="margin-top:16px">
       <div class="card-head">
-        <div class="card-title"><h2>Attachments</h2><p>${attachments.length ? `${attachments.length} file${attachments.length === 1 ? '' : 's'} attached` : 'Tickets, receipts and supporting documents'}</p></div>
+        <div class="card-title"><h2>Attachments</h2><p>${attachments.length ? `${attachments.length} file${attachments.length === 1 ? '' : 's'} attached` : esc(hint)}</p></div>
         <button class="btn btn-secondary btn-sm" data-action="upload-attachment">${icon('plus', 14)} Add file</button>
         <input type="file" hidden data-attachment-input accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.csv,.txt,.xls,.xlsx,.doc,.docx">
       </div>
