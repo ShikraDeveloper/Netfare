@@ -285,9 +285,31 @@ Verification:
 - `npm run test:e2e`: 18 tests passed, including a new test for the dashboard card, a cancellation attachment upload shown on the page, and the audit chain opened from the job page. The axe WCAG 2.1 AA audit now also covers the dashboard card and `/audit-chain/booking/:id` in light and dark themes.
 - Migration dry-run on a copy of live `data/accounting.db`: attachments table widened, `integrity_check` ok, no foreign key violations, all eight ledger checks matched on the real data, and the visa audit chain balanced. The live file itself was not modified (size `802816`).
 
+### Booking and visa documents can no longer be voided directly (audit H1–H3) — code commit `ed88c81`
+
+From the bookings, visas and invoices audit. Voiding these documents on their own bypassed the cancellation workflow: for example, voiding a paid booking invoice reversed the receipt (bank −1,000 with no money returned), left the booking `confirmed` and its supplier bill payable, and kept the margin in reports.
+
+- **H1 — booking/visa invoices:** `voidInvoice` now refuses an invoice with a `booking_id` or `visa_id`: "Cancel the booking/visa application instead so charges, refunds and supplier credits are handled." Nothing is reversed.
+- **H2 — booking/visa supplier bills:** `voidBill` now refuses a bill with a `booking_id` or `visa_id`: "Record a supplier credit for the amount the supplier returns, or cancel the booking/visa application."
+- **H3 — cancellation-charges invoices:** `voidInvoice` refuses an invoice with a `cancellation_id` and points to a customer credit note. This is checked first, because these invoices also carry the job id.
+- Standalone invoices and bills void exactly as before. A mistaken receipt or bill payment on a job document can still be voided individually.
+- **UI:**
+  - Invoice screen: for a booking/visa invoice, **Void** is replaced by **Cancel booking / Cancel visa**, linking to the job. A cancellation-charges invoice shows a **Cancellation note** link and the existing **Credit note** action, with no Void.
+  - Bill screen: for a booking/visa bill, **Void** is replaced by **Supplier credit**. This opens the new supplier credit form with the supplier, the bill and its booking or visa already selected (`#/supplier-credits?new=1&bill=:id`).
+- README: the automatic postings table and a note under it describe the rule.
+
+Key files: `server/services/invoices.js`, `server/services/bills.js`, `public/js/views/invoice-detail.js`, `public/js/views/bill-detail.js`, `public/js/views/supplier-credits.js`, `test/job-void-guards.test.js`, `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 152 JavaScript files syntax OK.
+- `npm test`: 88 tests passed, including 6 new tests in `test/job-void-guards.test.js`: a paid booking invoice is refused with no reversing entry, bank unchanged and the booking still confirmed; a visa invoice is refused; a cancellation-charges invoice is refused with cancellation income kept; booking and visa bills are refused; standalone invoices and bills still void; a receipt on a booking invoice can still be corrected.
+- `npm run test:e2e`: 19 tests passed, including a new browser test: the API returns 400 for a direct void, the booking invoice shows **Cancel booking** instead of Void, and the booking bill's **Supplier credit** button opens the form with the supplier, bill and booking preselected.
+- Live `data/accounting.db` was not modified by the tests. The running app needs a restart to pick up this change.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `fad4313` (Settlements Phase 3: ledger checks, settlement attachments, audit chain).
+1. Start from the latest `main`; the latest code commit is `ed88c81` (booking, visa and cancellation documents cannot be voided directly).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
