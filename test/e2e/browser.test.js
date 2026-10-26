@@ -939,6 +939,56 @@ test('dashboard ledger checks, settlement attachments and the audit chain page',
   assertNoConsoleErrors();
 });
 
+test('booking invoices and bills offer cancel or supplier credit instead of void', async () => {
+  const [customers, vendors, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/vendors'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+  const cost = accounts.find((account) => account.code === '5000');
+  const vendor = vendors.find((row) => row.is_active);
+  assert.ok(customers[0] && vendor && revenue && cost);
+
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customers[0].id,
+    booking_date: '2026-10-22',
+    due_date: '2026-10-22',
+    sale_items: [{ description: 'E2E guard ticket', quantity: 1, unit_price_cents: 60_000, account_id: revenue.id }],
+    cost_items: [{ description: 'E2E guard fare', quantity: 1, unit_price_cents: 45_000, account_id: cost.id, vendor_id: vendor.id }],
+  });
+  const confirmed = await postJson(baseUrl, `/api/bookings/${booking.id}/confirm`, {}, 200);
+  const bill = confirmed.bills[0];
+  assert.ok(confirmed.invoice_id && bill);
+
+  const blocked = await fetch(`${baseUrl}/api/invoices/${confirmed.invoice_id}/void`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ remarks: 'E2E direct void' }),
+  });
+  assert.equal(blocked.status, 400);
+  assert.match((await blocked.json()).error, /Cancel the booking/);
+
+  await openRoute(`/invoices/${confirmed.invoice_id}`);
+  assert.equal(await page.locator('#page-actions [data-action="void"]').count(), 0, 'No void on a booking invoice');
+  assert.equal(
+    await page.locator('#page-actions [data-action="cancel-job"]').getAttribute('href'),
+    `#/bookings/${booking.id}`,
+  );
+
+  await openRoute(`/bills/${bill.id}`);
+  assert.equal(await page.locator('#page-actions [data-action="void"]').count(), 0, 'No void on a booking bill');
+  await page.locator('#page-actions [data-action="supplier-credit"]').click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  await page.waitForFunction((billId) => document.querySelector('#sc-bill')?.value === String(billId), bill.id);
+  assert.equal(await dialog.locator('#sc-vendor').inputValue(), String(bill.vendor_id));
+  assert.equal(await dialog.locator('#sc-booking').inputValue(), String(booking.id));
+  await dialog.locator('.modal-head [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),

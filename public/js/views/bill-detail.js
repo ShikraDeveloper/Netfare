@@ -127,7 +127,11 @@ export async function render(container, { params } = {}) {
   const company = settings.company_name || 'My Company';
   const isDraft = bill.status === 'draft';
   const canRecordPayment = bill.status === 'received' && bill.balance_cents > 0;
-  const canVoid = bill.status === 'received';
+  // Booking and visa bills are part of the job: adjust them with a supplier
+  // credit or by cancelling the job, never by voiding the bill directly.
+  const isJobBill = Boolean(bill.booking_id || bill.visa_id);
+  const canVoid = bill.status === 'received' && !isJobBill;
+  const canCreditJobBill = bill.status === 'received' && isJobBill;
 
   const actions = [];
   actions.push(`<a class="btn btn-ghost" href="#/bills"><span>All bills</span></a>`);
@@ -147,6 +151,9 @@ export async function render(container, { params } = {}) {
   }
   if (canVoid) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
+  }
+  if (canCreditJobBill) {
+    actions.push(`<a class="btn btn-secondary" href="#/supplier-credits?new=1&bill=${bill.id}" data-action="supplier-credit" title="Booking and visa bills are adjusted with a supplier credit or by cancelling the job">${icon('invoice', 15)}<span>Supplier credit</span></a>`);
   }
 
   actions.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);

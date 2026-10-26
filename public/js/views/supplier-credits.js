@@ -41,7 +41,7 @@ function creditRow(credit) {
   `;
 }
 
-export async function render(container) {
+export async function render(container, { query } = {}) {
   const [credits, vendors] = await Promise.all([
     api.get('/supplier-credits'),
     api.get('/vendors'),
@@ -106,9 +106,18 @@ export async function render(container) {
     `;
   }
 
-  document.querySelectorAll('[data-action="new-credit"]').forEach((button) => {
-    button.addEventListener('click', () => openNewCredit({ vendors, onSaved: (credit) => { location.hash = `#/supplier-credits/${credit.id}`; } }));
+  const openCreditForm = (preset = {}) => openNewCredit({
+    vendors,
+    preset,
+    onSaved: (credit) => { location.hash = `#/supplier-credits/${credit.id}`; },
   });
+  document.querySelectorAll('[data-action="new-credit"]').forEach((button) => {
+    button.addEventListener('click', () => openCreditForm());
+  });
+  // Opened from a booking or visa bill: start with that bill selected.
+  if (query?.get('new')) {
+    openCreditForm({ billId: Number(query.get('bill')) || null });
+  }
 
   const body = container.querySelector('#supplier-credit-body');
   if (!body) return;
@@ -168,7 +177,7 @@ export async function render(container) {
   });
 }
 
-async function openNewCredit({ vendors, onSaved }) {
+async function openNewCredit({ vendors, onSaved, preset = {} }) {
   const [bills, bookings, visas] = await Promise.all([
     api.get('/bills'),
     api.get('/bookings'),
@@ -312,6 +321,16 @@ async function openNewCredit({ vendors, onSaved }) {
       vendorSelect.addEventListener('change', renderBills);
       billSelect.addEventListener('change', syncMode);
       renderBills();
+
+      const presetBill = preset.billId ? receivedBills.find((bill) => bill.id === preset.billId) : null;
+      if (presetBill) {
+        vendorSelect.value = String(presetBill.vendor_id);
+        renderBills();
+        billSelect.value = String(presetBill.id);
+        if (presetBill.booking_id) overlay.querySelector('#sc-booking').value = String(presetBill.booking_id);
+        if (presetBill.visa_id) overlay.querySelector('#sc-visa').value = String(presetBill.visa_id);
+        syncMode();
+      }
     },
     async onSubmit(form) {
       const values = new FormData(form);

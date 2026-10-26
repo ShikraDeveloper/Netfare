@@ -173,7 +173,11 @@ export async function render(container, { params } = {}) {
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
   const canRecordPayment = invoice.status === 'sent' && invoice.balance_cents > 0;
-  const canVoid = invoice.status === 'sent';
+  // Booking, visa and cancellation invoices are reversed through their own
+  // workflow so receipts, charges and supplier bills stay consistent.
+  const isCancellationInvoice = Boolean(invoice.cancellation_id);
+  const jobType = isCancellationInvoice ? null : invoice.booking_id ? 'booking' : invoice.visa_id ? 'visa' : null;
+  const canVoid = invoice.status === 'sent' && !jobType && !isCancellationInvoice;
 
   const actions = [];
   actions.push(`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`);
@@ -182,6 +186,9 @@ export async function render(container, { params } = {}) {
   }
   if (invoice.visa_id) {
     actions.push(`<a class="btn btn-secondary" href="#/visas/${invoice.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
+  }
+  if (isCancellationInvoice) {
+    actions.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.cancellation_id}">${icon('x', 15)}<span>Cancellation note</span></a>`);
   }
   if (invoice.source_cancellation_id) {
     actions.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.source_cancellation_id}">${icon('x', 15)}<span>Cancellation ${esc(invoice.source_cancellation_number || '')}</span></a>`);
@@ -199,6 +206,9 @@ export async function render(container, { params } = {}) {
   }
   if (canVoid) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
+  }
+  if (invoice.status === 'sent' && jobType) {
+    actions.push(`<a class="btn btn-danger-ghost" href="#/${jobType === 'booking' ? 'bookings' : 'visas'}/${jobType === 'booking' ? invoice.booking_id : invoice.visa_id}" data-action="cancel-job" title="This invoice belongs to a ${jobType === 'booking' ? 'booking' : 'visa application'}. Cancel the job to reverse it.">${icon('x', 15)}<span>Cancel ${jobType === 'booking' ? 'booking' : 'visa'}</span></a>`);
   }
 
   actions.push(`<a class="btn btn-ghost" href="#/audit-chain/invoice/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);

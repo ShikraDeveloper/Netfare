@@ -305,6 +305,16 @@ function voidInvoice(db, id, payload = {}) {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status === 'void') throw bad('Invoice is already void');
+    // Job and cancellation invoices are owned by their workflow. A direct void
+    // would reverse receipts without a refund and leave the job and its
+    // supplier bills untouched.
+    // Cancellation-charges invoices also carry the job id, so check them first.
+    if (invoice.cancellation_id) {
+      throw bad('This invoice holds cancellation charges. Issue a customer credit note to waive the charges instead of voiding it.');
+    }
+    if (invoice.booking_id || invoice.visa_id) {
+      throw bad(`This invoice belongs to a ${invoice.booking_id ? 'booking' : 'visa application'}. Cancel the ${invoice.booking_id ? 'booking' : 'visa application'} instead so charges, refunds and supplier credits are handled.`);
+    }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
 
     // A void must leave no live payment, refund or credit application behind.
