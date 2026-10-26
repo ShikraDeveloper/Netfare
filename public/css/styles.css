@@ -1317,3 +1317,7 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 @media print {
   .chain-summary { break-inside: avoid; }
 }
+
+/* Internal notes are shown on screen only */
+.internal-notes { margin-bottom: 16px; }
+.internal-notes p { white-space: pre-line; }

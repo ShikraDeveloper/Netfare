@@ -31,10 +31,9 @@ function visaApplicantHtml(invoice) {
 
   const details = [
     invoice.visa_nationality ? `Nationality: ${invoice.visa_nationality}` : '',
-    invoice.visa_passport_number
-      ? `Passport: ${invoice.visa_passport_number}${invoice.visa_passport_expiry ? ` · expires ${fmtDate(invoice.visa_passport_expiry)}` : ''}`
+    invoice.visa_passport_masked
+      ? `Passport: ${invoice.visa_passport_masked}${invoice.visa_passport_expiry ? ` · expires ${fmtDate(invoice.visa_passport_expiry)}` : ''}`
       : '',
-    invoice.visa_date_of_birth ? `Date of birth: ${fmtDate(invoice.visa_date_of_birth)}` : '',
   ].filter(Boolean);
 
   const application = [

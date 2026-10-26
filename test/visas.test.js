@@ -97,9 +97,11 @@ test('a submitted visa invoice carries the visitor applicant details', () => {
   assert.equal(invoice.visa_applicant_name, 'Rahul Visitor');
   assert.equal(invoice.visa_applicant_is_customer, 0);
   assert.equal(invoice.visa_nationality, 'Indian');
-  assert.equal(invoice.visa_passport_number, 'P1234567');
+  // The invoice is a customer document: masked passport, no date of birth.
+  assert.equal(invoice.visa_passport_masked, '•••• 4567');
+  assert.equal(invoice.visa_passport_number, undefined);
   assert.equal(invoice.visa_passport_expiry, '2030-05-01');
-  assert.equal(invoice.visa_date_of_birth, '1990-02-03');
+  assert.equal(invoice.visa_date_of_birth, undefined);
   assert.equal(invoice.visa_destination_country, 'UAE');
   assert.equal(invoice.visa_type, 'tourist');
   assert.equal(invoice.visa_duration_days, 60);
@@ -130,9 +132,11 @@ test('customer statement carries the invoice item and visa applicant details', (
   assert.equal(invoiceRow.visa.applicant_name, 'Statement Visitor');
   assert.equal(invoiceRow.visa.applicant_is_customer, 0);
   assert.equal(invoiceRow.visa.nationality, 'Indian');
-  assert.equal(invoiceRow.visa.passport_number, 'P7654321');
+  // Statements go to the customer: masked passport, no date of birth.
+  assert.equal(invoiceRow.visa.passport_masked, '•••• 4321');
+  assert.equal(invoiceRow.visa.passport_number, undefined);
   assert.equal(invoiceRow.visa.passport_expiry, '2031-04-05');
-  assert.equal(invoiceRow.visa.date_of_birth, '1991-06-07');
+  assert.equal(invoiceRow.visa.date_of_birth, undefined);
   assert.equal(invoiceRow.visa.number, visitor.number);
   assert.equal(invoiceRow.visa.visa_type, 'tourist');
   assert.equal(invoiceRow.visa.duration_days, 30);

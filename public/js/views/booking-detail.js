@@ -167,6 +167,14 @@ export async function render(container, { params } = {}) {
     : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'A customer invoice is created when you confirm this booking.' : 'No customer invoice linked.'}</div>`;
 
   container.innerHTML = `
+    ${booking.notes ? `
+      <div class="callout internal-notes no-print" data-internal-notes>
+        <div class="callout-text">
+          <h3>Internal notes</h3>
+          <p>${esc(booking.notes)}</p>
+          <p class="muted">Only staff see these notes. They are not printed or copied to the customer invoice.</p>
+        </div>
+      </div>` : ''}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">
@@ -198,7 +206,7 @@ export async function render(container, { params } = {}) {
           </div>
           <div>
             <div class="doc-label">Itinerary</div>
-            <div class="doc-terms">${esc(booking.destination ? `Destination: ${booking.destination}` : 'No destination recorded.')}${booking.notes ? esc(`\n${booking.notes}`) : ''}</div>
+            <div class="doc-terms">${esc(booking.destination ? `Destination: ${booking.destination}` : 'No destination recorded.')}${booking.invoice_notes ? esc(`\n${booking.invoice_notes}`) : ''}</div>
           </div>
         </div>
 

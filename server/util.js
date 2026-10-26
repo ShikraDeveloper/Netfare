@@ -84,6 +84,14 @@ function shiftMonth(dateStr, delta) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
+// Customer documents show only the last four characters of a passport
+// number. The full number stays on the visa application.
+function maskPassport(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  return text.length <= 4 ? '••••' : `•••• ${text.slice(-4)}`;
+}
+
 function isTruthy(value) {
   return value === true || value === 1 || value === '1' || value === 'true';
 }
@@ -103,4 +111,5 @@ module.exports = {
   monthRange,
   shiftMonth,
   isTruthy,
+  maskPassport,
 };

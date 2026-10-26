@@ -18,6 +18,7 @@ const { allocateNumber } = require('./numbering');
 const invoiceService = require('./invoices');
 const creditService = require('./credits');
 const supplierCreditService = require('./supplier-credits');
+const jobCosts = require('./job-costs');
 const audit = require('./audit');
 
 const SOURCE_TABLES = {
@@ -430,18 +431,9 @@ function convertCancellationToCredit(db, id, payload = {}) {
 }
 
 function retainedCostCents(db, { bookingId = null, visaId = null } = {}) {
-  const column = bookingId ? 'booking_id' : 'visa_id';
-  const id = bookingId || visaId;
-  if (!id) return 0;
-  const bills = db.prepare(`
-    SELECT COALESCE(SUM(total_cents), 0) AS total FROM bills
-    WHERE ${column} = ? AND status = 'received'
-  `).get(Number(id)).total;
-  const credits = db.prepare(`
-    SELECT COALESCE(SUM(amount_cents), 0) AS total FROM supplier_credit_notes
-    WHERE ${column} = ? AND status = 'issued'
-  `).get(Number(id)).total;
-  return Math.max(0, bills - credits);
+  return bookingId
+    ? jobCosts.jobCostCents(db, 'booking', bookingId)
+    : jobCosts.jobCostCents(db, 'visa', visaId);
 }
 
 function cancellationAdjustment(db, sourceType, sourceId, saleTotalCents, costTotalCents) {

@@ -1,6 +1,6 @@
 'use strict';
 
-const { dateISO, notFound, todayISO } = require('../util');
+const { dateISO, notFound, todayISO, maskPassport } = require('../util');
 
 function normalizeRange({ from, to } = {}) {
   let start = from ? dateISO(from, 'From date') : '';
@@ -89,14 +89,16 @@ function customerTransactions(db, customerId) {
   const visaRows = db.prepare(`
     SELECT i.id AS invoice_id, v.id, v.number, v.visa_type, v.destination_country,
            v.duration_days, v.applicant_name, v.applicant_is_customer, v.nationality,
-           v.passport_number, v.passport_expiry, v.date_of_birth, v.reference
+           v.passport_number, v.passport_expiry, v.reference
     FROM invoices i
     JOIN visa_applications v ON v.id = i.visa_id
     WHERE i.customer_id = ? AND i.status = 'sent' AND i.visa_id IS NOT NULL
   `).all(customerId);
   for (const visa of visaRows) {
-    const { invoice_id: invoiceId, ...details } = visa;
-    visasByInvoice.set(invoiceId, details);
+    // Statements are sent to the customer: mask the passport number and leave
+    // out the date of birth.
+    const { invoice_id: invoiceId, passport_number: passportNumber, ...details } = visa;
+    visasByInvoice.set(invoiceId, { ...details, passport_masked: maskPassport(passportNumber) });
   }
 
   return rows.map((row) => row.kind === 'invoice'

@@ -26,7 +26,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Accessibility** — skip link, keyboard focus rings, keyboard-openable table rows, modal focus trapping/restore, labelled dialogs and busy-state announcements are built in. Every data table has a screen-reader caption and scoped column headers, and the browser suite runs an axe WCAG 2.1 AA audit across the main pages in both light and dark themes.
 - **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings, visas, cancellations (airline or embassy proof), refunds (bank receipts), customer credit notes and supplier credits. Files are stored in the local SQLite database, so full database backups include them.
 - **Double-entry ledger** — every document posts balanced journal entries automatically. A general journal supports manual accruals and adjustments.
-- **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging.
+- **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging. Booking and visa margin (report and dashboard) count only confirmed or submitted jobs, with cost taken from posted supplier bills less supplier credits; drafts are listed separately.
 - **Ledger checks** — a dashboard card compares the trial balance and each control account (1100 A/R, 2000 A/P, 2400 advances, 2500 refund payable, 2450 customer credits, 1450 supplier credits, 1400 supplier advances) with the open documents behind it. A difference means something was posted outside the normal document screens, for example an opening balance on A/R.
 - **Audit chain** — from a booking, visa, invoice, bill, cancellation, refund, credit note or supplier credit, **Audit chain** shows every linked document, a dated timeline of journal postings, reversals and void remarks, and the net effect of the whole chain on each account. It is read-only and printable.
 - **Light & dark themes** — a warm cream/navy/gold look by default, with a one-click dark mode under **Settings → Appearance**. The choice is remembered per browser; printing always uses light paper.
@@ -119,7 +119,8 @@ The reset keeps your chart of accounts and settings and clears customers, vendor
 | Travel date / return date | Trip dates |
 | Destination | Free text, e.g. `London, United Kingdom` |
 | PNR / ticket | Airline record locator |
-| Notes | Free text shown on the booking |
+| Internal notes | Staff only: shown on screen, never printed or copied to the invoice |
+| Note on invoice | Optional customer-facing note, printed on the booking confirmation and copied to the invoice |
 
 ### Visa applications
 
@@ -138,7 +139,8 @@ Visas live in their own **Visas** section (Travel group) because they carry appl
 | Embassy / application reference | The reference on the embassy or visa-centre receipt |
 | Sale items | Visa fee and service charge, coded to revenue (defaults to **4320 Visa & Documentation Revenue**) |
 | Cost items | Embassy, typing-centre and agent fees, each with a supplier (defaults to **5120 Visa & Supplier Cost**) |
-| Notes | Document checklist, appointment time, internal remarks |
+| Internal notes | Document checklist, appointment time, internal remarks; never printed or copied to the invoice |
+| Note on invoice | Optional customer-facing note, printed on the application summary and copied to the invoice |
 
 The lifecycle is **draft → submitted → approved → issued**, with **rejected** and **cancelled** as terminal states:
 
@@ -150,7 +152,7 @@ The lifecycle is **draft → submitted → approved → issued**, with **rejecte
 | Reject | Reverses the invoice and supplier bills (available while submitted or approved). If the embassy keeps its fee, record it as an expense. |
 | Cancel | Reverses the invoice and supplier bills for a customer cancellation, including payments and applied advances. |
 
-Draft applications can be edited or deleted; once submitted they are part of the ledger and can only be rejected or cancelled. When the applicant is someone other than the customer, the invoice is still billed to the paying customer and shows a separate **Visa applicant** section with the applicant’s name, nationality, passport, duration and application details. The detail page shows the invoice, supplier bills, customer advances and payments side by side, and prints as a clean A4 application summary. Advances recorded on a visa are linked to that application, held in **2400 Customer Advances**, and can be applied to its invoice or refunded in the same way as booking advances. **Reports → Visa margin** lists every application in a period with its sale, cost and margin; rejected and cancelled applications are excluded.
+Draft applications can be edited or deleted; once submitted they are part of the ledger and can only be rejected or cancelled. When the applicant is someone other than the customer, the invoice is still billed to the paying customer and shows a separate **Visa applicant** section with the applicant’s name, nationality, a masked passport number (last four characters), passport expiry, duration and application details. Invoices and customer statements never show the full passport number or the date of birth; the visa application keeps them for staff. The detail page shows the invoice, supplier bills, customer advances and payments side by side, and prints as a clean A4 application summary. Advances recorded on a visa are linked to that application, held in **2400 Customer Advances**, and can be applied to its invoice or refunded in the same way as booking advances. **Reports → Visa margin** lists every submitted application in a period with its sale, cost and margin. Drafts are not included, cost is the posted supplier bills less any supplier credits, and cancelled or rejected applications show their cancellation charges and retained cost.
 
 ### Supplier portals & wallets
 
@@ -274,7 +276,7 @@ The main list toolbars include a date range: **Bookings** (booking date), **Visa
 **Reports → Daily sales** is a day-by-day sales register for any period. Every sent invoice is listed under the day it was issued, with the customer, the booking or visa it came from, the sale amount, supplier cost, margin, amount paid and balance. Each day gets a subtotal and the report ends with a grand total and a six-tile summary: **Sales**, **Cost**, **Margin** (with margin percentage), **Paid**, **Outstanding** and **Cash in hand** (with the bank balance).
 
 - Only **sent** invoices count; draft and void documents are excluded.
-- Cost is read from the linked booking or visa. Direct invoices have no linked cost, so their full value shows as margin — the note at the bottom of the report makes this clear.
+- Cost is the supplier bills posted for the linked booking or visa, less any supplier credits recorded against them. Direct invoices have no linked cost, so their full value shows as margin — the note at the bottom of the report makes this clear.
 - Each day header shows the closing **Cash in hand** and **Bank** balance. Cash uses account **1000 Cash**; bank uses **1010 Bank Account**. The summary tile shows the position at the report's end date.
 - *Paid* and *Balance* are current as of today; the report groups sales by invoice date.
 - **Today** switches the period to the current date; **Print** produces a clean A4 copy with day subtotals.

@@ -16,6 +16,7 @@ const invoiceService = require('./invoices');
 const billService = require('./bills');
 const portalService = require('./portals');
 const cancellationService = require('./cancellations');
+const jobCosts = require('./job-costs');
 
 const VISA_TYPES = ['tourist', 'visit', 'business', 'transit', 'student', 'work', 'other'];
 const OPEN_STATUSES = ['draft', 'submitted', 'approved'];
@@ -283,9 +284,9 @@ function createVisa(db, payload) {
     const info = db.prepare(`
       INSERT INTO visa_applications (number, customer_id, application_date, due_date, travel_date,
         status, destination_country, visa_type, duration_days, applicant_name, applicant_is_customer,
-        nationality, passport_number, passport_expiry, date_of_birth, reference, notes,
+        nationality, passport_number, passport_expiry, date_of_birth, reference, notes, invoice_notes,
         sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -303,6 +304,7 @@ function createVisa(db, payload) {
       dates.dateOfBirth,
       optionalStr(payload.reference, 'Application reference', 120),
       optionalStr(payload.notes, 'Notes', 2000),
+      optionalStr(payload.invoice_notes, 'Invoice note', 2000),
       saleTotal,
       itemTotals(costItems),
     );
@@ -331,7 +333,7 @@ function updateVisa(db, id, payload) {
       UPDATE visa_applications SET customer_id = ?, application_date = ?, due_date = ?, travel_date = ?,
         destination_country = ?, visa_type = ?, duration_days = ?, applicant_name = ?, applicant_is_customer = ?,
         nationality = ?, passport_number = ?, passport_expiry = ?, date_of_birth = ?,
-        reference = ?, notes = ?, sale_total_cents = ?, cost_total_cents = ?,
+        reference = ?, notes = ?, invoice_notes = ?, sale_total_cents = ?, cost_total_cents = ?,
         updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -350,6 +352,7 @@ function updateVisa(db, id, payload) {
       dates.dateOfBirth,
       optionalStr(payload.reference, 'Application reference', 120),
       optionalStr(payload.notes, 'Notes', 2000),
+      optionalStr(payload.invoice_notes ?? existing.invoice_notes, 'Invoice note', 2000),
       saleTotal,
       itemTotals(costItems),
       id,
@@ -393,7 +396,8 @@ function submitVisa(db, id) {
       customer_id: visa.customer_id,
       issue_date: visa.application_date,
       due_date: visa.due_date || visa.application_date,
-      notes: visa.notes,
+      // Only the customer-facing note is copied; application notes stay internal.
+      notes: visa.invoice_notes || '',
       terms: visaDetails
         ? `${visaDetails}${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
         : '',
@@ -514,23 +518,7 @@ function visaMarginReport(db, from, to) {
     WHERE v.application_date >= ? AND v.application_date <= ?
     ORDER BY v.application_date DESC, v.id DESC
   `).all(start, end);
-  const serialised = rows.map((row) => {
-    const base = serializeVisa(row);
-    const adjustment = cancellationService.cancellationAdjustment(
-      db, 'visa', row.id, row.sale_total_cents, row.cost_total_cents,
-    );
-    if (adjustment) {
-      return {
-        ...base,
-        ...adjustment,
-        margin_cents: adjustment.sale_total_cents - adjustment.cost_total_cents,
-      };
-    }
-    // Jobs cancelled or rejected before cancellations were tracked keep their
-    // historical treatment (excluded from margin reporting).
-    if (row.status === 'rejected' || row.status === 'cancelled') return null;
-    return base;
-  }).filter(Boolean);
+  const serialised = jobCosts.valueJobs(db, 'visa', rows.map(serializeVisa));
   const totals = serialised.reduce((acc, row) => {
     acc.sale_cents += row.sale_total_cents;
     acc.cost_cents += row.cost_total_cents;
@@ -544,20 +532,9 @@ function visaMarginReport(db, from, to) {
 function visaStats(db, from, to) {
   const rows = db.prepare('SELECT * FROM visa_applications').all();
   const inRange = rows.filter((row) => (!from || row.application_date >= from) && (!to || row.application_date <= to));
-  let sale = 0;
-  let cost = 0;
-  for (const row of inRange) {
-    const adjustment = cancellationService.cancellationAdjustment(
-      db, 'visa', row.id, row.sale_total_cents, row.cost_total_cents,
-    );
-    if (adjustment) {
-      sale += adjustment.sale_total_cents;
-      cost += adjustment.cost_total_cents;
-    } else if (row.status !== 'cancelled' && row.status !== 'rejected') {
-      sale += row.sale_total_cents;
-      cost += row.cost_total_cents;
-    }
-  }
+  const valued = jobCosts.valueJobs(db, 'visa', inRange);
+  const sale = valued.reduce((sum, row) => sum + row.sale_total_cents, 0);
+  const cost = valued.reduce((sum, row) => sum + row.cost_total_cents, 0);
   const counts = {
     total: rows.length,
     draft: 0,
@@ -570,7 +547,8 @@ function visaStats(db, from, to) {
   for (const row of rows) counts[row.status] = (counts[row.status] || 0) + 1;
   return {
     counts,
-    visa_count: inRange.length,
+    visa_count: valued.length,
+    draft_count: inRange.filter((row) => row.status === 'draft').length,
     active_count: (counts.submitted || 0) + (counts.approved || 0),
     sale_cents: sale,
     cost_cents: cost,

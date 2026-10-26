@@ -200,6 +200,9 @@ ensureColumn('portal_credits', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_credits', 'voided_at', 'TEXT');
 
 ensureColumn('visa_applications', 'duration_days', 'INTEGER NOT NULL DEFAULT 0');
+// Notes are internal; the invoice note is the only text copied to the customer invoice.
+ensureColumn('bookings', 'invoice_notes', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('visa_applications', 'invoice_notes', "TEXT NOT NULL DEFAULT ''");
 
 // Existing visa applications did not record whether the applicant was the
 // customer or a visitor. Derive it once when the column is first added.

@@ -177,8 +177,12 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         <input class="input" id="visa-dob" name="date_of_birth" type="date" value="${esc(visa?.date_of_birth || '')}">
       </div>
       <div class="field full">
-        <label for="visa-notes">Notes</label>
-        <textarea class="input" id="visa-notes" name="notes" rows="2" placeholder="Internal note, documents checklist, embassy appointment…">${esc(visa?.notes || '')}</textarea>
+        <label for="visa-notes">Internal notes</label>
+        <textarea class="input" id="visa-notes" name="notes" rows="2" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed.">${esc(visa?.notes || '')}</textarea>
+      </div>
+      <div class="field full">
+        <label for="visa-invoice-notes">Note on invoice</label>
+        <textarea class="input" id="visa-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on the customer invoice and application summary.">${esc(visa?.invoice_notes || '')}</textarea>
       </div>
 
       <div class="field full">
@@ -260,6 +264,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         date_of_birth: values.get('date_of_birth') || null,
         reference: values.get('reference'),
         notes: values.get('notes'),
+        invoice_notes: values.get('invoice_notes'),
         sale_items: sale,
         cost_items: cost,
       };

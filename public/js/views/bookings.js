@@ -245,8 +245,12 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         <input class="input" id="bk-pnr" name="pnr" value="${esc(booking?.pnr || '')}" placeholder="Optional">
       </div>
       <div class="field full">
-        <label for="bk-notes">Notes</label>
-        <textarea class="input" id="bk-notes" name="notes" rows="2" placeholder="Internal note">${esc(booking?.notes || '')}</textarea>
+        <label for="bk-notes">Internal notes</label>
+        <textarea class="input" id="bk-notes" name="notes" rows="2" placeholder="Only staff see this. Never printed for the customer.">${esc(booking?.notes || '')}</textarea>
+      </div>
+      <div class="field full">
+        <label for="bk-invoice-notes">Note on invoice</label>
+        <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on the customer invoice and booking confirmation.">${esc(booking?.invoice_notes || '')}</textarea>
       </div>
 
       <div class="field full">
@@ -315,6 +319,7 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         destination: values.get('destination'),
         pnr: values.get('pnr'),
         notes: values.get('notes'),
+        invoice_notes: values.get('invoice_notes'),
         sale_items: sale,
         cost_items: cost,
       };

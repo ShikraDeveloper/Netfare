@@ -234,6 +234,14 @@ export async function render(container, { params } = {}) {
   container.innerHTML = `
     ${statusSteps(visa)}
 
+    ${visa.notes ? `
+      <div class="callout internal-notes no-print" data-internal-notes>
+        <div class="callout-text">
+          <h3>Internal notes</h3>
+          <p>${esc(visa.notes)}</p>
+          <p class="muted">Only staff see these notes. They are not printed or copied to the customer invoice.</p>
+        </div>
+      </div>` : ''}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">
@@ -267,7 +275,7 @@ export async function render(container, { params } = {}) {
           </div>
           <div>
             <div class="doc-label">Destination</div>
-            <div class="doc-terms">${esc(visa.destination_country || 'No destination recorded')}${visa.notes ? esc(`\n${visa.notes}`) : ''}</div>
+            <div class="doc-terms">${esc(visa.destination_country || 'No destination recorded')}${visa.invoice_notes ? esc(`\n${visa.invoice_notes}`) : ''}</div>
           </div>
         </div>
 

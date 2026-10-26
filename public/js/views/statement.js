@@ -74,9 +74,8 @@ function visaDetailsHtml(row) {
   if (!visa || !visa.applicant_name) return '';
   const applicantMeta = [];
   if (visa.nationality) applicantMeta.push(visa.nationality);
-  if (visa.passport_number) applicantMeta.push(`Passport ${visa.passport_number}`);
+  if (visa.passport_masked) applicantMeta.push(`Passport ${visa.passport_masked}`);
   if (visa.passport_expiry) applicantMeta.push(`Exp ${fmtDate(visa.passport_expiry)}`);
-  if (visa.date_of_birth) applicantMeta.push(`DOB ${fmtDate(visa.date_of_birth)}`);
   const visaMeta = [];
   if (visa.number) visaMeta.push(visa.number);
   if (visa.visa_type) visaMeta.push(titleCase(visa.visa_type));

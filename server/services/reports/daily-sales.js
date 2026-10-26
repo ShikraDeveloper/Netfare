@@ -3,21 +3,24 @@
 const { dateISO, todayISO } = require('../../util');
 const { invoiceDisplayStatus } = require('../../accounting');
 const { cashBalances } = require('./aging');
-const cancellationService = require('../cancellations');
+const jobCosts = require('../job-costs');
 
 function dailySales(db, from, to) {
   const start = dateISO(from, 'From date');
   const end = dateISO(to, 'To date');
   const today = todayISO();
+  // Cost comes from the supplier bills actually posted for each job, less any
+  // supplier credits, so a reissued or credited ticket shows its real margin.
+  const bookingCosts = jobCosts.jobCostMap(db, 'booking');
+  const visaCosts = jobCosts.jobCostMap(db, 'visa');
 
   const invoices = db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
            i.total_cents, i.amount_paid_cents, i.credit_applied_cents, i.booking_id, i.visa_id,
            c.name AS customer_name,
            b.number AS booking_number, b.destination,
-           b.cost_total_cents AS booking_cost_cents,
            v.number AS visa_number, v.destination_country, v.visa_type,
-           v.applicant_name, v.cost_total_cents AS visa_cost_cents,
+           v.applicant_name,
            (SELECT ii.description FROM invoice_items ii
             WHERE ii.invoice_id = i.id
             ORDER BY ii.sort_order, ii.id LIMIT 1) AS particulars
@@ -51,9 +54,9 @@ function dailySales(db, from, to) {
   for (const row of invoices) {
     const kind = row.booking_id ? 'booking' : row.visa_id ? 'visa' : 'direct';
     const cost = kind === 'booking'
-      ? (row.booking_cost_cents || 0)
+      ? (bookingCosts.get(row.booking_id) || 0)
       : kind === 'visa'
-        ? (row.visa_cost_cents || 0)
+        ? (visaCosts.get(row.visa_id) || 0)
         : 0;
     const sale = row.subtotal_cents;
     let particulars = row.particulars || '';
@@ -83,9 +86,7 @@ function dailySales(db, from, to) {
   }
 
   for (const row of cancellations) {
-    const retainedCost = cancellationService.retainedCostCents(db, row.source_type === 'booking'
-      ? { bookingId: row.source_id }
-      : { visaId: row.source_id });
+    const retainedCost = (row.source_type === 'booking' ? bookingCosts : visaCosts).get(row.source_id) || 0;
     const sale = row.customer_charges_cents || 0;
     const heldApplied = Math.min(row.received_cents || 0, sale);
     const invoiceOpen = row.cancellation_invoice_status === 'sent';

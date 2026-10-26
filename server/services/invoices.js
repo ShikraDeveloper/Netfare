@@ -9,6 +9,7 @@ const {
   cents,
   dateISO,
   todayISO,
+  maskPassport,
 } = require('../util');
 const {
   systemAccount,
@@ -51,12 +52,15 @@ function attachVisaDetails(db, invoice) {
            nationality AS visa_nationality,
            passport_number AS visa_passport_number,
            passport_expiry AS visa_passport_expiry,
-           date_of_birth AS visa_date_of_birth,
            reference AS visa_reference
     FROM visa_applications
     WHERE id = ?
   `).get(invoice.visa_id);
-  return visa ? Object.assign(invoice, visa) : invoice;
+  if (!visa) return invoice;
+  // The invoice is a customer document: show a masked passport number and no
+  // date of birth. The visa application keeps the full details.
+  const { visa_passport_number: passportNumber, ...details } = visa;
+  return Object.assign(invoice, details, { visa_passport_masked: maskPassport(passportNumber) });
 }
 
 function getInvoice(db, id) {

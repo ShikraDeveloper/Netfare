@@ -15,6 +15,7 @@ const invoiceService = require('./invoices');
 const billService = require('./bills');
 const portalService = require('./portals');
 const cancellationService = require('./cancellations');
+const jobCosts = require('./job-costs');
 
 const bookingSelect = `
   SELECT b.*, c.name AS customer_name, c.email AS customer_email,
@@ -223,8 +224,8 @@ function createBooking(db, payload) {
     const number = allocateNumber(db, 'booking', bookingDate);
     const info = db.prepare(`
       INSERT INTO bookings (number, customer_id, booking_date, due_date, travel_date, return_date,
-        status, destination, pnr, notes, sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?)
+        status, destination, pnr, notes, invoice_notes, sale_total_cents, cost_total_cents)
+      VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -235,6 +236,7 @@ function createBooking(db, payload) {
       optionalStr(payload.destination, 'Destination', 200),
       optionalStr(payload.pnr, 'PNR / ticket number', 60),
       optionalStr(payload.notes, 'Notes', 2000),
+      optionalStr(payload.invoice_notes, 'Invoice note', 2000),
       saleTotal,
       costItems.length ? itemTotals(costItems) : 0,
     );
@@ -263,7 +265,7 @@ function updateBooking(db, id, payload) {
 
     db.prepare(`
       UPDATE bookings SET customer_id = ?, booking_date = ?, due_date = ?, travel_date = ?,
-        return_date = ?, destination = ?, pnr = ?, notes = ?,
+        return_date = ?, destination = ?, pnr = ?, notes = ?, invoice_notes = ?,
         sale_total_cents = ?, cost_total_cents = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -275,6 +277,7 @@ function updateBooking(db, id, payload) {
       optionalStr(payload.destination, 'Destination', 200),
       optionalStr(payload.pnr, 'PNR / ticket number', 60),
       optionalStr(payload.notes, 'Notes', 2000),
+      optionalStr(payload.invoice_notes ?? existing.invoice_notes, 'Invoice note', 2000),
       saleTotal,
       itemTotals(costItems),
       id,
@@ -310,7 +313,8 @@ function confirmBooking(db, id) {
       customer_id: booking.customer_id,
       issue_date: booking.booking_date,
       due_date: booking.due_date || booking.booking_date,
-      notes: booking.notes,
+      // Only the customer-facing note is copied; booking notes stay internal.
+      notes: booking.invoice_notes || '',
       terms: booking.destination ? `Destination: ${booking.destination}` : '',
       status: 'sent',
       items: saleItems.map((item) => ({
@@ -398,20 +402,15 @@ function cancelBooking(db, id, payload = {}) {
 function bookingStats(db, from, to) {
   const rows = db.prepare('SELECT * FROM bookings').all();
   const inRange = rows.filter((row) => (!from || row.booking_date >= from) && (!to || row.booking_date <= to));
-  let sale = 0;
-  let cost = 0;
-  for (const row of inRange) {
-    const adjustment = cancellationService.cancellationAdjustment(
-      db, 'booking', row.id, row.sale_total_cents, row.cost_total_cents,
-    );
-    sale += adjustment ? adjustment.sale_total_cents : row.sale_total_cents;
-    cost += adjustment ? adjustment.cost_total_cents : row.cost_total_cents;
-  }
+  const valued = jobCosts.valueJobs(db, 'booking', inRange);
+  const sale = valued.reduce((sum, row) => sum + row.sale_total_cents, 0);
+  const cost = valued.reduce((sum, row) => sum + row.cost_total_cents, 0);
   const counts = { total: rows.length, draft: 0, confirmed: 0, travelled: 0, cancelled: 0 };
   for (const row of rows) counts[row.status] = (counts[row.status] || 0) + 1;
   return {
     counts,
-    booking_count: inRange.length,
+    booking_count: valued.length,
+    draft_count: inRange.filter((row) => row.status === 'draft').length,
     sale_cents: sale,
     cost_cents: cost,
     margin_cents: sale - cost,
@@ -421,25 +420,12 @@ function bookingStats(db, from, to) {
 function bookingMarginReport(db, from, to) {
   const start = dateISO(from, 'From date');
   const end = dateISO(to, 'To date');
-  const where = ['b.booking_date >= ?', 'b.booking_date <= ?'];
-  const params = [start, end];
   const rows = db.prepare(`
     ${bookingSelect}
-    WHERE ${where.join(' AND ')}
+    WHERE b.booking_date >= ? AND b.booking_date <= ?
     ORDER BY b.booking_date DESC, b.id DESC
-  `).all(...params);
-  const serialised = rows.map((row) => {
-    const base = serializeBooking(row);
-    const adjustment = cancellationService.cancellationAdjustment(
-      db, 'booking', row.id, row.sale_total_cents, row.cost_total_cents,
-    );
-    if (!adjustment) return base;
-    return {
-      ...base,
-      ...adjustment,
-      margin_cents: adjustment.sale_total_cents - adjustment.cost_total_cents,
-    };
-  });
+  `).all(start, end);
+  const serialised = jobCosts.valueJobs(db, 'booking', rows.map(serializeBooking));
   const totals = serialised.reduce((acc, row) => {
     acc.sale_cents += row.sale_total_cents;
     acc.cost_cents += row.cost_total_cents;

@@ -265,7 +265,9 @@ test('stored notes and confirmation messages render as text', async () => {
   for (const [route, id] of [[`/bookings/${bookings[0].id}`, bookings[0].id], [`/visas/${visas[0].id}`, visas[0].id]]) {
     await openRoute(route);
     assert.equal(await page.locator('[data-xss]').count(), 0, `${route} must not render stored HTML`);
-    assert.match(await page.locator('.doc-terms').first().innerText(), /<img data-xss/);
+    // Notes are internal: shown as text in the screen-only box, never in the document.
+    assert.match(await page.locator('[data-internal-notes]').innerText(), /<img data-xss/);
+    assert.doesNotMatch(await page.locator('.doc-terms').first().innerText(), /data-xss/);
     assert.equal(await page.evaluate(() => window.__xss), undefined);
   }
 
@@ -523,7 +525,11 @@ test('customer statement shows the visa applicant and invoice item', async () =>
   assert.ok(applicantText.includes(visitor.applicant_name), 'Statement should name the visa applicant');
   assert.match(applicantText, /Visitor/);
   if (visitor.nationality) assert.ok(applicantText.includes(visitor.nationality));
-  if (visitor.passport_number) assert.ok(applicantText.includes(visitor.passport_number));
+  if (visitor.passport_number) {
+    assert.ok(applicantText.includes(`•••• ${visitor.passport_number.slice(-4)}`), 'Statement shows a masked passport');
+    assert.ok(!applicantText.includes(visitor.passport_number), 'Statement never shows the full passport number');
+  }
+  assert.doesNotMatch(applicantText, /DOB/);
   assert.ok(applicantText.includes(visitor.number), 'Statement should show the visa number');
   assert.ok(
     (await invoiceRow.locator('.statement-item-line').first().innerText()).includes(invoice.items[0].description),
@@ -701,6 +707,11 @@ test('invoice shows a separate visa applicant section for a visitor', async () =
   const applicantText = await section.innerText();
   assert.ok(applicantText.includes(visitor.applicant_name), 'Invoice should name the visa applicant');
   assert.match(applicantText, /Passport:/i);
+  if (visitor.passport_number) {
+    assert.ok(applicantText.includes(`•••• ${visitor.passport_number.slice(-4)}`), 'Invoice shows a masked passport');
+    assert.ok(!applicantText.includes(visitor.passport_number), 'Invoice never shows the full passport number');
+  }
+  assert.doesNotMatch(applicantText, /Date of birth/i);
   assert.match(applicantText, /60 days/);
   assert.ok(
     (await page.locator('.doc-parties').first().innerText()).includes(visitor.customer_name),
@@ -986,6 +997,42 @@ test('booking invoices and bills offer cancel or supplier credit instead of void
   assert.equal(await dialog.locator('#sc-booking').inputValue(), String(booking.id));
   await dialog.locator('.modal-head [data-close]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  assertNoConsoleErrors();
+});
+
+test('internal booking notes stay on screen; only the invoice note is printed', async () => {
+  const [customers, vendors, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/vendors'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+  const cost = accounts.find((account) => account.code === '5000');
+  const vendor = vendors.find((row) => row.is_active);
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customers[0].id,
+    booking_date: '2026-10-22',
+    due_date: '2026-10-22',
+    notes: 'INTERNAL E2E: call before ticketing',
+    invoice_notes: 'E2E invoice note for the customer',
+    sale_items: [{ description: 'E2E notes ticket', quantity: 1, unit_price_cents: 50_000, account_id: revenue.id }],
+    cost_items: [{ description: 'E2E notes fare', quantity: 1, unit_price_cents: 40_000, account_id: cost.id, vendor_id: vendor.id }],
+  });
+
+  await openRoute(`/bookings/${booking.id}`);
+  const internal = page.locator('[data-internal-notes]');
+  await internal.waitFor();
+  assert.match(await internal.innerText(), /INTERNAL E2E: call before ticketing/);
+  assert.match(await internal.getAttribute('class'), /no-print/);
+  const documentText = await page.locator('.doc').first().innerText();
+  assert.ok(documentText.includes('E2E invoice note for the customer'), 'the invoice note is on the printed booking');
+  assert.ok(!documentText.includes('INTERNAL E2E'), 'internal notes are not on the printed booking');
+
+  const confirmed = await postJson(baseUrl, `/api/bookings/${booking.id}/confirm`, {}, 200);
+  await openRoute(`/invoices/${confirmed.invoice_id}`);
+  const invoiceText = await page.locator('.doc').first().innerText();
+  assert.ok(invoiceText.includes('E2E invoice note for the customer'));
+  assert.ok(!invoiceText.includes('INTERNAL E2E'), 'internal notes never reach the invoice');
   assertNoConsoleErrors();
 });
 
