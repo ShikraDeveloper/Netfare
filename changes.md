@@ -352,9 +352,24 @@ Verification:
   - the stored-XSS test now looks for the escaped payload in the internal-notes box.
 - Migration dry-run on a copy of live `data/accounting.db`: `invoice_notes` columns added, `integrity_check` ok, 8/8 ledger checks matched, visa invoice shows `•••• 2444` with no full passport or date of birth. The live file was not modified. The running app needs a restart to pick up this change.
 
+### Job rules, status history and shared job code (audit Low items) — code commit `e1400ed`
+
+- **Shared code:** new `server/services/jobs.js` holds booking/visa line validation, posting of the invoice and supplier bills with portal settlement, default due dates and status history. `bookings.js` and `visas.js` use it; about 150 duplicated lines removed.
+- **Dates:**
+  - Booking and visa due dates default to Settings → payment terms (server and forms). A draft edit without a due date keeps the existing one.
+  - Return date cannot be before travel date.
+  - **Mark travelled** is refused before the travel date; the button is disabled with a tooltip.
+  - Invoice payments cannot be dated before the invoice (use an advance); bill payments not before the bill date.
+- **Visa passport warning:** expired, or under 6 months after travel/application, shows a warning on save and submit and a callout on the visa page. It never blocks.
+- **Zero-cost lines:** refused on save with the line number. Older drafts with a zero line get a clear message at confirm, and nothing is posted.
+- **Status history:** new `job_status_history` table records create, confirm/submit, travelled, approve, issue, cancel and reject (with cancellation number and reason). Shown on booking and visa pages (screen only) and in the Audit chain timeline. Deleting a draft removes its history. Jobs created before this change start with an empty history.
+- **Demo data:** fixed trips whose return was before travel, and "travelled" bookings dated in the future.
+
+Verification: `npm run check` 156 files OK; `npm test` 100 passed (7 new in `test/job-rules.test.js`); `npm run test:e2e` 21 passed (new job page test). Dry-run on a copy of live `data/accounting.db`: new table created, integrity ok, 8/8 checks. Live file not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `3fd2de5` (reports from posted documents, internal notes, masked passports).
+1. Start from the latest `main`; the latest code commit is `e1400ed` (job date rules, status history, shared job code).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
