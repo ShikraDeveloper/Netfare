@@ -1437,6 +1437,41 @@ test('confirm preview, payment column, amount in words, receipt voucher and shar
   assertNoConsoleErrors();
 });
 
+test('a cancelled sale stays on its day in the DSR and statement, with its own cancellation line', async () => {
+  const [vendors, accounts] = await Promise.all([getJson(baseUrl, '/api/vendors'), getJson(baseUrl, '/api/accounts')]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const vendor = vendors.find((row) => row.is_active);
+  const customer = await postJson(baseUrl, '/api/customers', { name: 'E2E Cancel History' });
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customer.id,
+    booking_date: '2026-10-15',
+    due_date: '2026-10-15',
+    destination: 'E2E Dubai–Doha',
+    sale_items: [{ description: 'E2E Doha Pax', quantity: 1, unit_price_cents: 50_000, account_id: code('4000') }],
+    cost_items: [{ description: 'E2E Doha Pax', quantity: 1, unit_price_cents: 40_000, account_id: code('5000'), vendor_id: vendor.id }],
+  });
+  const confirmed = await postJson(baseUrl, `/api/bookings/${booking.id}/confirm`, {}, 200);
+  await postJson(baseUrl, `/api/invoices/${confirmed.invoice_id}/payments`, {
+    amount_cents: 50_000, payment_date: '2026-10-15', deposit_account_id: code('1000'), method: 'Cash',
+  });
+  await postJson(baseUrl, `/api/bookings/${booking.id}/cancel`, { cancellation_date: '2026-10-18', customer_charges_cents: 5_000 }, 200);
+  const cancellation = (await getJson(baseUrl, '/api/cancellations')).find((row) => row.source_type === 'booking' && row.source_id === booking.id);
+
+  await openRoute('/reports/daily-sales');
+  await page.locator('.daily-sales-table').waitFor();
+  const table = page.locator('.daily-sales-table');
+  const saleRow = table.locator('tr', { has: page.locator(`a[href="#/invoices/${confirmed.invoice_id}"]`) });
+  assert.match(await saleRow.innerText(), /Cancelled/);
+  const reversal = table.locator('tr.dsr-cancellation-row', { has: page.locator(`a[href="#/cancellations/${cancellation.id}"]`) });
+  assert.match((await reversal.innerText()).replace(/\s+/g, ' '), /Reverses AED 500\.00 sale · charges AED 50\.00/);
+
+  await openRoute(`/customers/${customer.id}/statement`);
+  await page.locator('.statement-desc-title').first().waitFor();
+  const titles = await page.locator('.statement-desc-title').allInnerTexts();
+  assert.deepEqual(titles, ['Invoice raised', 'Payment received', 'Booking or visa cancelled', 'Cancellation charges']);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),

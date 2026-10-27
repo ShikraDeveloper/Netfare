@@ -23,18 +23,27 @@ function dailySales(db, from, to) {
            v.applicant_name,
            (SELECT ii.description FROM invoice_items ii
             WHERE ii.invoice_id = i.id
-            ORDER BY ii.sort_order, ii.id LIMIT 1) AS particulars
+            ORDER BY ii.sort_order, ii.id LIMIT 1) AS particulars,
+           x.id AS cancelled_by_id, x.number AS cancelled_by_number, x.cancellation_date AS cancelled_on
     FROM invoices i
     JOIN customers c ON c.id = i.customer_id
     LEFT JOIN bookings b ON b.id = i.booking_id
     LEFT JOIN visa_applications v ON v.id = i.visa_id
-    WHERE i.status = 'sent' AND i.cancellation_id IS NULL
+    LEFT JOIN cancellations x ON x.invoice_id = i.id
+    -- A sale cancelled later stays on the day it was made; the cancellation
+    -- appears as its own line on the cancellation date. Invoices voided as
+    -- mistakes are left out.
+    WHERE (i.status = 'sent' OR (i.status = 'void' AND x.id IS NOT NULL))
+      AND i.cancellation_id IS NULL
       AND i.issue_date >= ? AND i.issue_date <= ?
     ORDER BY i.issue_date, i.id
   `).all(start, end);
 
   const cancellations = db.prepare(`
     SELECT cc.*, c.name AS customer_name,
+           oi.subtotal_cents AS original_sale_cents, oi.amount_paid_cents AS original_paid_cents,
+           COALESCE((SELECT SUM(scn.amount_cents) FROM supplier_credit_notes scn
+                     WHERE scn.cancellation_id = cc.id AND scn.status = 'issued'), 0) AS supplier_credits_cents,
            b.number AS booking_number, b.destination,
            v.number AS visa_number, v.destination_country, v.visa_type,
            v.applicant_name,
@@ -46,18 +55,35 @@ function dailySales(db, from, to) {
     LEFT JOIN bookings b ON cc.source_type = 'booking' AND b.id = cc.source_id
     LEFT JOIN visa_applications v ON cc.source_type = 'visa' AND v.id = cc.source_id
     LEFT JOIN invoices ci ON ci.id = cc.cancellation_invoice_id
+    LEFT JOIN invoices oi ON oi.id = cc.invoice_id
     WHERE cc.cancellation_date >= ? AND cc.cancellation_date <= ?
     ORDER BY cc.cancellation_date, cc.id
   `).all(start, end);
 
+  // Supplier credits raised by a cancellation belong to the cancellation line,
+  // so the original sale keeps the cost it had on the day it was made.
+  const cancellationCredits = new Map();
+  for (const row of db.prepare(`
+    SELECT COALESCE(booking_id, 0) AS booking_id, COALESCE(visa_id, 0) AS visa_id, SUM(amount_cents) AS total
+    FROM supplier_credit_notes WHERE cancellation_id IS NOT NULL AND status = 'issued'
+    GROUP BY booking_id, visa_id
+  `).all()) {
+    if (row.booking_id) cancellationCredits.set(`booking:${row.booking_id}`, row.total);
+    if (row.visa_id) cancellationCredits.set(`visa:${row.visa_id}`, row.total);
+  }
+
   const items = [];
   for (const row of invoices) {
     const kind = row.booking_id ? 'booking' : row.visa_id ? 'visa' : 'direct';
-    const cost = kind === 'booking'
+    const jobCost = kind === 'booking'
       ? (bookingCosts.get(row.booking_id) || 0)
       : kind === 'visa'
         ? (visaCosts.get(row.visa_id) || 0)
         : 0;
+    const cancelled = Boolean(row.cancelled_by_id);
+    const cost = cancelled && kind !== 'direct'
+      ? jobCost + (cancellationCredits.get(`${kind}:${row.booking_id || row.visa_id}`) || 0)
+      : jobCost;
     const sale = row.subtotal_cents;
     let particulars = row.particulars || '';
     if (!particulars && kind === 'booking') particulars = row.destination || '';
@@ -79,14 +105,18 @@ function dailySales(db, from, to) {
       cost_cents: cost,
       margin_cents: sale - cost,
       paid_cents: row.amount_paid_cents,
-      balance_cents: Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
-      status_display: invoiceDisplayStatus(row, today),
+      balance_cents: cancelled ? 0 : Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
+      status_display: cancelled ? 'cancelled' : invoiceDisplayStatus(row, today),
       is_cancellation: false,
+      cancelled_by: cancelled
+        ? { id: row.cancelled_by_id, number: row.cancelled_by_number, date: row.cancelled_on }
+        : null,
     });
   }
 
   for (const row of cancellations) {
     const retainedCost = (row.source_type === 'booking' ? bookingCosts : visaCosts).get(row.source_id) || 0;
+    const originalSale = row.original_sale_cents || 0;
     const sale = row.customer_charges_cents || 0;
     const heldApplied = Math.min(row.received_cents || 0, sale);
     const invoiceOpen = row.cancellation_invoice_status === 'sent';
@@ -104,19 +134,26 @@ function dailySales(db, from, to) {
 
     items.push({
       id: row.id,
-      number: row.cancellation_invoice_id
-        ? db.prepare('SELECT number FROM invoices WHERE id = ?').get(row.cancellation_invoice_id)?.number || row.number
-        : row.number,
+      number: row.number,
+      charges_invoice_id: row.cancellation_invoice_id || null,
+      charges_invoice_number: row.cancellation_invoice_id
+        ? db.prepare('SELECT number FROM invoices WHERE id = ?').get(row.cancellation_invoice_id)?.number || null
+        : null,
       issue_date: row.cancellation_date,
       customer_name: row.customer_name,
       kind: row.source_type,
       reference: row.source_type === 'booking' ? row.booking_number : row.visa_number,
       reference_id: row.source_id,
       particulars,
-      sale_cents: recognizedSale,
-      cost_cents: retainedCost,
-      margin_cents: recognizedSale - retainedCost,
-      paid_cents: paid,
+      // The cancellation reverses the original sale and its refunded cost,
+      // and adds the charges the customer keeps paying.
+      sale_cents: recognizedSale - originalSale,
+      cost_cents: 0 - row.supplier_credits_cents,
+      margin_cents: recognizedSale - originalSale + row.supplier_credits_cents,
+      paid_cents: paid - (row.original_paid_cents || 0),
+      charges_cents: recognizedSale,
+      reversed_sale_cents: originalSale,
+      supplier_credits_cents: row.supplier_credits_cents,
       balance_cents: invoiceOpen ? Math.max(0, sale - paid - invoiceCredits) : 0,
       status_display: 'cancellation',
       is_cancellation: true,

@@ -59,11 +59,22 @@ export function dailySales(data) {
           ? `<a href="#/bookings/${row.reference_id}">${esc(row.reference)}</a>`
           : `<a href="#/visas/${row.reference_id}">${esc(row.reference)}</a>`)
         : '<span class="dsr-service-income">Service income · no supplier cost</span>';
+      // A cancellation is its own line on the cancellation date; the sale it
+      // reverses stays on its own day, marked as cancelled.
+      const link = row.is_cancellation
+        ? `<a href="#/cancellations/${row.cancellation_id}">${esc(row.number)}</a>`
+        : `<a href="#/invoices/${row.id}">${esc(row.number)}</a>`;
+      const note = row.is_cancellation
+        ? `<div class="cell-sub dsr-reversal">Reverses ${fmtMoney(row.reversed_sale_cents)} sale · charges ${fmtMoney(row.charges_cents)}${row.supplier_credits_cents ? ` · supplier credit ${fmtMoney(row.supplier_credits_cents)}` : ''}${row.charges_invoice_number ? ` · ${esc(row.charges_invoice_number)}` : ''}</div>`
+        : row.cancelled_by
+          ? `<div class="cell-sub"><span class="badge badge-cancelled">Cancelled</span> ${esc(fmtDate(row.cancelled_by.date))} · <a href="#/cancellations/${row.cancelled_by.id}">${esc(row.cancelled_by.number)}</a></div>`
+          : '';
       return `
-                <tr>
+                <tr${row.is_cancellation ? ' class="dsr-cancellation-row"' : ''}>
                   <td>
-                    <div><a href="#/invoices/${row.id}">${esc(row.number)}</a></div>
+                    <div>${link}</div>
                     <div class="cell-sub">${source}</div>
+                    ${note}
                   </td>
                   <td>
                     <div class="cell-main">${esc(row.customer_name)}</div>
@@ -115,7 +126,7 @@ export function dailySales(data) {
         </table>
       </div>
       <div class="report-balance-note">
-        ${icon('check', 14)} Cost is the supplier bills posted for each booking or visa, less supplier credits. Service invoices are income with no supplier cost, so their full amount is margin. Paid and balance are current as of today. Cash in hand and bank are closing balances for each day, and at the period end in the summary.
+        ${icon('check', 14)} A sale stays on the day it was made. When a booking or visa is cancelled, a separate cancellation line on the cancellation date reverses the sale and the supplier credit and adds the charges kept. Cost is the supplier bills posted for each booking or visa. Service invoices are income with no supplier cost, so their full amount is margin. Paid and balance are current as of today. Cash in hand and bank are closing balances for each day, and at the period end in the summary.
       </div>
     </div>
   `;

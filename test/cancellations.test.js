@@ -79,6 +79,24 @@ function assertReconciled() {
   assert.equal(summary.supplier_advances.matched, true);
 }
 
+// The original sale stays on its own day; the cancellation is its own line
+// on the cancellation date. Together they give the net result.
+function dsrLines(job, cancellationId, cancellationDate) {
+  const original = reports.dailySales(db, job.booking_date, job.booking_date)
+    .days.flatMap((day) => day.rows).find((row) => !row.is_cancellation && row.id === job.invoice_id);
+  const cancelDay = reports.dailySales(db, cancellationDate, cancellationDate);
+  const reversal = cancelDay.days.flatMap((day) => day.rows)
+    .find((row) => row.is_cancellation && row.cancellation_id === cancellationId);
+  assert.ok(original, 'the original sale stays in the DSR');
+  assert.equal(original.status_display, 'cancelled');
+  assert.ok(reversal, 'the cancellation has its own line');
+  const net = {};
+  for (const key of ['sale_cents', 'cost_cents', 'margin_cents', 'paid_cents', 'balance_cents']) {
+    net[key] = original[key] + reversal[key];
+  }
+  return { original, reversal, cancelDay, net };
+}
+
 function makeJob({
   customerId,
   vendorId,
@@ -189,12 +207,11 @@ test('cancellation refunds the customer, records the fee and keeps retained cost
   assert.equal((creditBalance('4330') - beforeFee) - accountNet('5610'), 20_000);
   assertReconciled();
 
-  const daily = reports.dailySales(db, '2026-11-01', '2026-11-01');
-  assert.equal(daily.totals.sale_cents, 220_000);
-  assert.equal(daily.totals.cost_cents, 200_000);
-  assert.equal(daily.totals.margin_cents, 20_000);
-  assert.equal(daily.days[0].rows.length, 1);
-  assert.equal(daily.days[0].rows[0].is_cancellation, true);
+  const dsr = dsrLines(job, cancellation.id, '2026-11-01');
+  assert.deepEqual([dsr.original.sale_cents, dsr.original.cost_cents], [250_000, 200_000], 'sale day unchanged');
+  assert.deepEqual([dsr.reversal.sale_cents, dsr.reversal.cost_cents, dsr.reversal.margin_cents], [-30_000, 0, -30_000]);
+  assert.deepEqual([dsr.net.sale_cents, dsr.net.cost_cents, dsr.net.margin_cents], [220_000, 200_000, 20_000]);
+  assert.equal(dsr.cancelDay.days[0].rows.length, 1);
 
   const paid = cancellationService.refundCancellation(db, cancellation.id, {
     refund_date: '2026-11-02',
@@ -344,13 +361,13 @@ test('charges above the amount received create a cancellation invoice', () => {
   assert.equal((creditBalance('4330') - beforeFee) - accountNet('5611'), 70_000);
   assertReconciled();
 
-  const daily = reports.dailySales(db, '2026-11-02', '2026-11-02');
-  assert.equal(daily.totals.sale_cents, 150_000);
-  assert.equal(daily.totals.cost_cents, 80_000);
-  assert.equal(daily.totals.paid_cents, 50_000);
-  assert.equal(daily.totals.balance_cents, 100_000);
-  assert.equal(daily.days[0].rows.length, 1);
-  assert.equal(daily.days[0].rows[0].is_cancellation, true);
+  const dsr = dsrLines(job, cancellation.id, '2026-11-02');
+  assert.deepEqual([dsr.reversal.sale_cents, dsr.reversal.cost_cents, dsr.reversal.paid_cents, dsr.reversal.balance_cents], [50_000, 0, 0, 100_000]);
+  assert.equal(dsr.net.sale_cents, 150_000);
+  assert.equal(dsr.net.cost_cents, 80_000);
+  assert.equal(dsr.net.paid_cents, 50_000);
+  assert.equal(dsr.net.balance_cents, 100_000);
+  assert.equal(dsr.cancelDay.days[0].rows.length, 1, 'the charges invoice is part of the cancellation line');
   assertBalanced();
 });
 
@@ -424,10 +441,10 @@ test('a partial airline credit leaves retained cost and an open supplier credit'
   assert.equal(accountNet('5613'), 150_000);
   assert.equal((creditBalance('4330') - beforeFee) - accountNet('5613'), 20_000);
   assert.equal(accountNet('1450'), 50_000);
-  const daily = reports.dailySales(db, '2026-11-04', '2026-11-04');
-  assert.equal(daily.totals.sale_cents, 170_000);
-  assert.equal(daily.totals.cost_cents, 150_000);
-  assert.equal(daily.totals.margin_cents, 20_000);
+  const dsr = dsrLines(job, cancellation.id, '2026-11-04');
+  assert.deepEqual([dsr.original.sale_cents, dsr.original.cost_cents], [250_000, 200_000], 'cost before the airline credit');
+  assert.deepEqual([dsr.reversal.sale_cents, dsr.reversal.cost_cents, dsr.reversal.margin_cents], [-80_000, -50_000, -30_000]);
+  assert.deepEqual([dsr.net.sale_cents, dsr.net.cost_cents, dsr.net.margin_cents], [170_000, 150_000, 20_000]);
   assertReconciled();
   assertBalanced();
 });

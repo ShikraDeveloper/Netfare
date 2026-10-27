@@ -464,6 +464,8 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .badge-issued { background: var(--green-soft); color: var(--green); }
 .badge-rejected { background: var(--red-soft); color: var(--red); }
 .badge-cancelled { background: #f1f3f7; color: #94a3b8; text-decoration: line-through; }
+.dsr-cancellation-row td { background: var(--red-soft); }
+.dsr-reversal { color: var(--red); }
 .badge-prepaid { background: var(--green-soft); color: var(--green); }
 .badge-credit { background: var(--amber-soft); color: var(--amber); }
 .badge-customer { background: var(--red-soft); color: var(--red); }

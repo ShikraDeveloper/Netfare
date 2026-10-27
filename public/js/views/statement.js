@@ -16,6 +16,9 @@ const CUSTOMER_TITLES = {
   payment: 'Payment received',
   credit: 'Credit applied',
   refund: 'Refund issued',
+  cancellation: 'Booking or visa cancelled',
+  cancellation_charge: 'Cancellation charges',
+  cancellation_credit: 'Refund kept as credit',
 };
 
 const VENDOR_TITLES = {
@@ -32,6 +35,9 @@ const KIND_TONES = {
   refund: 'red',
   bill: 'blue',
   supplier_credit: 'amber',
+  cancellation: 'red',
+  cancellation_charge: 'blue',
+  cancellation_credit: 'amber',
 };
 
 function transactionTitle(row, kind) {
@@ -41,7 +47,12 @@ function transactionTitle(row, kind) {
 function transactionDetail(row, kind) {
   const parts = [];
   if (row.kind === 'invoice' || row.kind === 'bill') {
-    if (row.due_date) parts.push(`Due ${fmtDate(row.due_date)}`);
+    if (row.related) parts.push(`Cancelled · ${row.related}`);
+    else if (row.due_date) parts.push(`Due ${fmtDate(row.due_date)}`);
+  } else if (row.kind === 'cancellation') {
+    parts.push(`Invoice ${row.related} reversed`);
+  } else if (row.kind === 'cancellation_credit') {
+    parts.push(`From ${row.related}`);
   } else {
     if (row.method) parts.push(row.method);
     if (row.related) parts.push(`Against ${row.related}`);
