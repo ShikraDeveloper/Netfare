@@ -79,7 +79,8 @@ function attachVisaDetails(db, invoice) {
            nationality AS visa_nationality,
            passport_number AS visa_passport_number,
            passport_expiry AS visa_passport_expiry,
-           reference AS visa_reference
+           reference AS visa_reference,
+           (SELECT g.number FROM visa_groups g WHERE g.id = visa_applications.group_id) AS visa_group_number
     FROM visa_applications
     WHERE id = ?
   `).get(invoice.visa_id);
@@ -90,10 +91,51 @@ function attachVisaDetails(db, invoice) {
   return Object.assign(invoice, details, { visa_passport_masked: maskPassport(passportNumber) });
 }
 
+// Trip details for an invoice made from a booking, and the ticket number of
+// each passenger line (taken from the cost line of the same passenger row).
+function attachBookingDetails(db, invoice) {
+  if (!invoice.booking_id) return invoice;
+  const booking = db.prepare(`
+    SELECT number AS booking_number, pnr AS booking_pnr, destination AS booking_destination,
+           travel_date AS booking_travel_date, return_date AS booking_return_date
+    FROM bookings WHERE id = ?
+  `).get(invoice.booking_id);
+  if (!booking) return invoice;
+  const lines = db.prepare(`
+    SELECT item_type, passenger_name, line_group, supplier_ref FROM booking_items
+    WHERE booking_id = ? AND passenger_name <> ''
+  `).all(invoice.booking_id);
+  const tickets = new Map();
+  for (const line of lines) {
+    if (line.item_type !== 'cost' || !String(line.supplier_ref || '').trim()) continue;
+    const refs = tickets.get(line.passenger_name) || [];
+    refs.push(line.supplier_ref.trim());
+    tickets.set(line.passenger_name, refs);
+  }
+  const label = String(booking.booking_destination || '').trim();
+  const passengers = [...new Set(lines.map((line) => line.passenger_name))];
+  invoice.booking_passenger_count = passengers.length;
+  invoice.booking_ticket_lookup = (description) => {
+    const name = passengers.find((passenger) => description === passenger
+      || description === [label, passenger].filter(Boolean).join(' – '));
+    return name ? { passenger_name: name, ticket_no: (tickets.get(name) || []).join(', ') } : null;
+  };
+  return Object.assign(invoice, booking);
+}
+
+// What kind of document this invoice prints as.
+function documentKind(invoice) {
+  if (invoice.cancellation_id) return 'cancellation';
+  if (invoice.booking_id) return invoice.booking_passenger_count ? 'ticket' : 'booking';
+  if (invoice.visa_id) return 'visa';
+  return 'service';
+}
+
 function getInvoice(db, id) {
   const invoice = db.prepare(`${invoiceSelect} WHERE i.id = ?`).get(id);
   if (!invoice) throw notFound('Invoice not found');
   attachVisaDetails(db, invoice);
+  attachBookingDetails(db, invoice);
   const sourceCancellation = db.prepare(
     'SELECT id, number FROM cancellations WHERE invoice_id = ?',
   ).get(id);
@@ -106,6 +148,15 @@ function getInvoice(db, id) {
     WHERE ii.invoice_id = ?
     ORDER BY ii.sort_order, ii.id
   `).all(id);
+  if (invoice.booking_ticket_lookup && !invoice.cancellation_id) {
+    for (const item of invoice.items) {
+      const match = invoice.booking_ticket_lookup(item.description);
+      item.passenger_name = match?.passenger_name || '';
+      item.ticket_no = match?.ticket_no || '';
+    }
+  }
+  delete invoice.booking_ticket_lookup;
+  invoice.document_kind = documentKind(invoice);
   invoice.payments = db.prepare(`
     SELECT p.*, a.name AS deposit_account_name,
            COALESCE((

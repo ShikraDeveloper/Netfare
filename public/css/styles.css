@@ -166,11 +166,11 @@ svg { display: block; }
   backdrop-filter: blur(10px);
 }
 
-.page-heading { min-width: 0; flex: 1; }
+.page-heading { min-width: min(220px, 100%); flex: 1 1 auto; }
 .page-heading h1 { font-size: 23px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
 .page-heading p { font-size: 13px; color: var(--muted); margin-top: 4px; }
 
-.page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding-top: 2px; }
+.page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding-top: 2px; flex: 0 1 auto; min-width: 0; }
 
 .menu-btn { margin-top: 2px; }
 
@@ -851,6 +851,10 @@ body.modal-open { overflow: hidden; }
 .doc-visa-applicant { display: flex; justify-content: space-between; gap: 24px; padding: 14px 16px; margin: 0 0 24px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 .doc-visa-applicant .doc-label { margin-bottom: 5px; }
 .doc-visa-application { flex: 0 1 320px; text-align: right; }
+.doc-trip-grid { display: grid; grid-template-columns: auto auto; gap: 4px 14px; margin: 0; align-content: start; font-size: 12.5px; }
+.doc-trip-grid dt { color: var(--muted); }
+.doc-trip-grid dd { margin: 0; font-weight: 600; text-align: right; }
+.doc-item-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 
 .doc-items { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 20px; }
 .doc-items th { text-align: left; background: #f8f9fc; padding: 9px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-weight: 700; }

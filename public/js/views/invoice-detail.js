@@ -24,8 +24,53 @@ import { openRefundModal } from './refund-modal.js';
 import { visaDurationLabel, visaTypeLabel } from './visas.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
+const DOCUMENT_TITLES = {
+  ticket: 'Ticket invoice',
+  booking: 'Booking invoice',
+  visa: 'Visa invoice',
+  cancellation: 'Cancellation invoice',
+  service: 'Invoice',
+};
+
+// The booking or visa the invoice was made from, shown in the header.
+function sourceMetaHtml(invoice) {
+  const kind = invoice.document_kind;
+  if ((kind === 'ticket' || kind === 'booking') && invoice.booking_number) {
+    return `<dt>Booking</dt><dd>${esc(invoice.booking_number)}</dd>`;
+  }
+  if (kind === 'visa' && invoice.visa_number) {
+    return `<dt>Visa application</dt><dd>${esc(invoice.visa_number)}</dd>${invoice.visa_group_number ? `<dt>Group</dt><dd>${esc(invoice.visa_group_number)}</dd>` : ''}`;
+  }
+  return '';
+}
+
+// Ticket and booking invoices: route, PNR and travel dates.
+function tripDetailsHtml(invoice) {
+  if (!['ticket', 'booking'].includes(invoice.document_kind)) return '';
+  const dates = invoice.booking_travel_date
+    ? `${fmtDate(invoice.booking_travel_date)}${invoice.booking_return_date ? ` → ${fmtDate(invoice.booking_return_date)}` : ''}`
+    : '';
+  if (!invoice.booking_destination && !invoice.booking_pnr && !dates) return '';
+  return `
+    <div class="doc-visa-applicant doc-trip" data-trip-details>
+      <div>
+        <div class="doc-label">Trip details</div>
+        <div class="doc-party-name">${esc(invoice.booking_destination || '—')}</div>
+        ${invoice.booking_passenger_count ? `<div class="doc-party-detail">${invoice.booking_passenger_count} passenger${invoice.booking_passenger_count === 1 ? '' : 's'}</div>` : ''}
+      </div>
+      <dl class="doc-trip-grid">
+        ${invoice.booking_pnr ? `<dt>PNR</dt><dd>${esc(invoice.booking_pnr)}</dd>` : ''}
+        ${dates ? `<dt>Travel</dt><dd>${esc(dates)}</dd>` : ''}
+      </dl>
+    </div>
+  `;
+}
+
+// Visa invoices always show who the visa is for; other documents linked to a
+// visa (cancellation charges) only when the applicant is not the customer.
 function visaApplicantHtml(invoice) {
-  if (!invoice.visa_id || Number(invoice.visa_applicant_is_customer) !== 0) return '';
+  if (!invoice.visa_id) return '';
+  if (invoice.document_kind !== 'visa' && Number(invoice.visa_applicant_is_customer) !== 0) return '';
   const name = String(invoice.visa_applicant_name || '').trim();
   if (!name) return '';
 
@@ -47,9 +92,9 @@ function visaApplicantHtml(invoice) {
   ].filter(Boolean).join(' · ');
 
   return `
-    <div class="doc-visa-applicant">
+    <div class="doc-visa-applicant" data-visa-details>
       <div>
-        <div class="doc-label">Visa applicant</div>
+        <div class="doc-label">${invoice.document_kind === 'visa' ? 'Visa details' : 'Visa applicant'}</div>
         <div class="doc-party-name">${esc(name)}</div>
         ${details.length ? `<div class="doc-party-detail">${esc(details.join('\n'))}</div>` : ''}
       </div>
@@ -57,6 +102,7 @@ function visaApplicantHtml(invoice) {
         <div class="doc-visa-application">
           <div class="doc-label">Visa application</div>
           <div class="doc-party-detail">${esc(application)}</div>
+          ${invoice.document_kind === 'visa' && Number(invoice.visa_applicant_is_customer) !== 0 ? '' : `<div class="doc-party-detail muted">Paid by ${esc(invoice.customer_name || '')}</div>`}
         </div>
       ` : ''}
     </div>
@@ -295,6 +341,10 @@ export async function render(container, { params } = {}) {
       ? 'This draft has not been posted to the ledger yet. Send it to create the journal entry.'
       : 'No journal entry is linked to this document.'}</div>`;
 
+  // Booking and visa invoices store their trip or visa details as terms; the
+  // trip and visa boxes now show them, so the terms column shows the due date.
+  const hasJobDetails = ['ticket', 'booking', 'visa'].includes(invoice.document_kind);
+
   container.innerHTML = `
     <div class="doc-wrap">
       <div class="doc">
@@ -307,12 +357,13 @@ export async function render(container, { params } = {}) {
             </div>
           </div>
           <div class="doc-meta">
-            <div class="doc-kind">Invoice</div>
+            <div class="doc-kind" data-document-kind="${esc(invoice.document_kind || 'service')}">${esc(DOCUMENT_TITLES[invoice.document_kind] || 'Invoice')}</div>
             <div class="doc-number">${esc(invoice.number)}</div>
             <div class="doc-status">${statusBadge(invoice.status_display)}</div>
             <dl class="doc-meta-grid">
               <dt>Issue date</dt><dd>${esc(fmtDate(invoice.issue_date))}</dd>
               <dt>Due date</dt><dd>${esc(fmtDate(invoice.due_date))}</dd>
+              ${sourceMetaHtml(invoice)}
               <dt>Amount due</dt><dd>${fmtMoney(invoice.balance_cents)}</dd>
             </dl>
           </div>
@@ -325,11 +376,12 @@ export async function render(container, { params } = {}) {
             <div class="doc-party-detail">${esc([invoice.customer_address, invoice.customer_email, invoice.customer_phone].filter(Boolean).join('\n'))}</div>
           </div>
           <div>
-            <div class="doc-label">${invoice.visa_id && invoice.terms ? 'Visa details' : 'Payment terms'}</div>
-            <div class="doc-terms">${esc(invoice.terms || `Payment due by ${fmtDate(invoice.due_date, { long: true })}.`)}</div>
+            <div class="doc-label">Payment terms</div>
+            <div class="doc-terms">${esc((hasJobDetails ? '' : invoice.terms) || `Payment due by ${fmtDate(invoice.due_date, { long: true })}.`)}</div>
           </div>
         </div>
 
+        ${tripDetailsHtml(invoice)}
         ${visaApplicantHtml(invoice)}
         ${beneficiaryHtml(invoice)}
 
@@ -346,7 +398,7 @@ export async function render(container, { params } = {}) {
             <tbody>
               ${invoice.items.map((item) => `
                 <tr>
-                  <td>${esc(item.description)}</td>
+                  <td>${esc(item.description)}${item.ticket_no ? `<div class="doc-item-sub">Ticket ${esc(item.ticket_no)}</div>` : ''}</td>
                   <td class="num">${fmtNumber(item.quantity)}</td>
                   <td class="num">${fmtMoney(item.unit_price_cents)}</td>
                   <td class="num amount">${fmtMoney(item.amount_cents)}</td>

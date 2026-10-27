@@ -1307,6 +1307,63 @@ test('the service invoice form asks for a description and amount, with the rest 
   assertNoConsoleErrors();
 });
 
+test('ticket, visa and service invoices print with their own heading and details', async () => {
+  const [customers, vendors, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/vendors'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const vendor = vendors.find((row) => row.is_active);
+  const pax = (name, group) => ({ description: name, passenger_name: name, line_group: group, quantity: 1 });
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customers[0].id,
+    booking_date: '2026-10-20',
+    travel_date: '2026-11-10',
+    return_date: '2026-11-17',
+    destination: 'E2E Dubai–Rome return',
+    pnr: 'E2EROM',
+    sale_items: [{ ...pax('E2E Rome One', 1), unit_price_cents: 180_000, account_id: code('4000') }],
+    cost_items: [{ ...pax('E2E Rome One', 1), unit_price_cents: 150_000, account_id: code('5000'), vendor_id: vendor.id, supplier_ref: '176-5550001112' }],
+  });
+  const confirmed = await postJson(baseUrl, `/api/bookings/${booking.id}/confirm`, {}, 200);
+  await openRoute(`/invoices/${confirmed.invoice_id}`);
+  await page.locator('[data-trip-details]').waitFor();
+  assert.equal((await page.locator('.doc-kind').innerText()).trim().toLowerCase(), 'ticket invoice');
+  assert.ok((await page.locator('.doc-meta-grid').innerText()).includes(booking.number));
+  const trip = await page.locator('[data-trip-details]').innerText();
+  assert.ok(trip.includes('E2E Dubai–Rome return') && trip.includes('E2EROM'));
+  assert.match(await page.locator('.doc-items').innerText(), /Ticket 176-5550001112/);
+  assert.doesNotMatch(await page.locator('.doc-terms').innerText(), /Destination:/, 'no repeated destination in terms');
+  assert.doesNotMatch(await page.locator('.doc').innerText(), /1,500\.00/, 'supplier cost is never printed');
+
+  const visas = await postJson(baseUrl, '/api/visas/groups', {
+    customer_id: customers[0].id,
+    application_date: '2026-10-20',
+    destination_country: 'E2E Italy',
+    applicants: [{ applicant_is_customer: true, applicant_name: customers[0].name, passport_number: 'E2EV12345',
+      sale_items: [{ description: 'Tourist visa', quantity: 1, unit_price_cents: 40_000, account_id: code('4320') }] }],
+  });
+  const visa = await postJson(baseUrl, `/api/visas/${visas.applications[0].id}/submit`, {}, 200);
+  await openRoute(`/invoices/${visa.invoice_id}`);
+  await page.locator('[data-visa-details]').waitFor();
+  assert.equal((await page.locator('.doc-kind').innerText()).trim().toLowerCase(), 'visa invoice');
+  const details = await page.locator('[data-visa-details]').innerText();
+  assert.ok(details.includes('E2E Italy') && details.includes('•••• 2345'), 'visa details show for the customer too');
+  assert.ok(!details.includes('E2EV12345'));
+
+  const service = await postJson(baseUrl, '/api/invoices', {
+    customer_id: customers[0].id,
+    issue_date: '2026-10-20',
+    items: [{ description: 'E2E consultancy', quantity: 1, unit_price_cents: 10_000, account_id: code('4300') }],
+  });
+  await openRoute(`/invoices/${service.id}`);
+  await page.locator('.doc-kind').waitFor();
+  assert.equal((await page.locator('.doc-kind').innerText()).trim().toLowerCase(), 'invoice');
+  assert.equal(await page.locator('[data-trip-details], [data-visa-details]').count(), 0);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
