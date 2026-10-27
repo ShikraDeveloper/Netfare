@@ -16,6 +16,7 @@ import {
   openModal,
   optionsHtml,
   setHeader,
+  paymentBadge,
   statusBadge,
   todayISO,
   toast,
@@ -84,6 +85,7 @@ function visaRow(visa) {
       </td>
       <td class="nowrap">${visa.travel_date ? esc(fmtDate(visa.travel_date)) : '—'}</td>
       <td>${statusBadge(visa.status)}</td>
+      <td data-payment-status>${paymentBadge(visa)}</td>
       <td class="num">${fmtMoney(visa.sale_total_cents)}</td>
       <td class="num">${fmtMoney(visa.cost_total_cents)}</td>
       <td class="num ${marginClass}">${fmtMoney(visa.margin_cents)}</td>
@@ -394,6 +396,7 @@ export async function render(container, { query } = {}) {
               <th scope="col">Applicant</th>
               <th scope="col">Travel</th>
               <th scope="col">Status</th>
+              <th scope="col">Payment</th>
               <th scope="col" class="num">Sale</th>
               <th scope="col" class="num">Cost</th>
               <th scope="col" class="num">Margin</th>
@@ -424,7 +427,7 @@ export async function render(container, { query } = {}) {
     const start = (page - 1) * pageSize;
     const rows = filtered.slice(start, start + pageSize);
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="8">${emptyState({
+      body.innerHTML = `<tr><td colspan="9">${emptyState({
     iconName: 'search',
     title: 'No matching visa applications',
     message: 'Try a different search term, status or date range.',

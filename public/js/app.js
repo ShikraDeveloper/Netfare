@@ -4,6 +4,7 @@ import { icon, esc, avatar, setHeader, toast } from './ui.js';
 import * as dashboardView from './views/dashboard.js';
 import * as invoicesView from './views/invoices.js';
 import * as invoiceDetailView from './views/invoice-detail.js';
+import * as receiptView from './views/receipt.js';
 import * as creditsView from './views/credits.js';
 import * as creditDetailView from './views/credit-detail.js';
 import * as bookingsView from './views/bookings.js';
@@ -117,6 +118,7 @@ const ROUTES = [
   { pattern: /^\/dashboard$/, view: dashboardView, section: 'dashboard' },
   { pattern: /^\/invoices$/, view: invoicesView, section: 'invoices' },
   { pattern: /^\/invoices\/(\d+)$/, view: invoiceDetailView, section: 'invoices' },
+  { pattern: /^\/receipts\/(\d+)$/, view: receiptView, section: 'invoices' },
   { pattern: /^\/credits$/, view: creditsView, section: 'credits' },
   { pattern: /^\/credits\/(\d+)$/, view: creditDetailView, section: 'credits' },
   { pattern: /^\/bookings$/, view: bookingsView, section: 'bookings' },

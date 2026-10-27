@@ -20,7 +20,7 @@ import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
-import { advanceModalBody, applyModalBody, depositAccounts, refundModalBody } from './job-modals.js';
+import { advanceModalBody, applyModalBody, depositAccounts, postingPreview, refundModalBody } from './job-modals.js';
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -479,7 +479,8 @@ export async function render(container, { params } = {}) {
     submitButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: `Submit ${visa.number}?`,
-        message: `This creates and posts the customer invoice (${fmtMoney(visa.sale_total_cents)}) and ${fmtMoney(visa.cost_total_cents)} of supplier bills to your ledger.`,
+        message: 'Check what will be posted to your ledger. Once submitted, the application can only be changed by rejecting or cancelling it.',
+        preview: postingPreview(visa, await api.get('/portals').catch(() => null)),
         confirmLabel: 'Submit & post',
         danger: false,
       });

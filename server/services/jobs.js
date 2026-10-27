@@ -14,7 +14,7 @@ const {
   addDays,
   todayISO,
 } = require('../util');
-const { isPurchaseAccount, getSettings } = require('../accounting');
+const { isPurchaseAccount, getSettings, invoiceDisplayStatus, invoiceBalanceCents } = require('../accounting');
 const invoiceService = require('./invoices');
 const billService = require('./bills');
 const portalService = require('./portals');
@@ -212,7 +212,35 @@ function deleteStatusHistory(db, sourceType, jobId) {
     .run(sourceType, Number(jobId));
 }
 
+// Columns a booking or visa list query selects from its invoice (alias pi).
+const JOB_INVOICE_COLUMNS = `
+  pi.status AS pay_invoice_status, pi.total_cents AS pay_total_cents,
+  pi.amount_paid_cents AS pay_paid_cents, pi.credit_applied_cents AS pay_credit_cents,
+  pi.due_date AS pay_due_date`;
+
+// Paid / partial / unpaid / overdue for a booking or visa, from its invoice.
+// Drafts are not invoiced yet; cancelled and rejected jobs have none to collect.
+function jobPaymentStatus(job, closedStatuses = []) {
+  const { pay_invoice_status: status, pay_total_cents: total, pay_paid_cents: paid,
+    pay_credit_cents: credit, pay_due_date: due, ...rest } = job;
+  let paymentStatus = null;
+  let balance = 0;
+  if (!closedStatuses.includes(job.status)) {
+    if (!job.invoice_id || !status) {
+      paymentStatus = 'not_invoiced';
+    } else if (status !== 'void') {
+      const invoice = { status, total_cents: total, amount_paid_cents: paid, credit_applied_cents: credit, due_date: due };
+      const display = invoiceDisplayStatus(invoice);
+      paymentStatus = display === 'sent' ? 'unpaid' : display;
+      balance = invoiceBalanceCents(invoice);
+    }
+  }
+  return { ...rest, payment_status: paymentStatus, payment_balance_cents: balance };
+}
+
 module.exports = {
+  JOB_INVOICE_COLUMNS,
+  jobPaymentStatus,
   normalizeJobItems,
   insertJobItems,
   defaultDueDate,

@@ -36,6 +36,10 @@ router.post('/:id/payments', (req, res) => {
   res.status(201).json(service.recordInvoicePayment(db, Number(req.params.id), req.body || {}));
 });
 
+router.get('/payments/:paymentId/receipt', (req, res) => {
+  res.json(service.getPaymentReceipt(db, Number(req.params.paymentId)));
+});
+
 router.delete('/payments/:paymentId', (req, res) => {
   res.json(service.deleteInvoicePayment(db, Number(req.params.paymentId), req.body || {}));
 });

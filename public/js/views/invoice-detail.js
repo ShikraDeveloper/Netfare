@@ -19,6 +19,8 @@ import {
   currencySymbol,
   voidDialog,
 } from '../ui.js';
+import { amountInWords } from '../amount-words.js';
+import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share-links.js';
 import { openInvoiceModal } from './invoices.js';
 import { openRefundModal } from './refund-modal.js';
 import { visaDurationLabel, visaTypeLabel } from './visas.js';
@@ -132,6 +134,62 @@ function beneficiaryHtml(invoice) {
       </div>
     </div>
   `;
+}
+
+// Send the invoice from the user's own email or WhatsApp. Nothing is sent by
+// Ledgerly itself; the PDF is attached by printing to PDF first.
+function openShareModal(invoice, settings) {
+  const title = DOCUMENT_TITLES[invoice.document_kind] || 'Invoice';
+  const message = invoiceMessage(invoice, {
+    company: settings.company_name || '',
+    companyPhone: settings.company_phone || '',
+    title,
+    format: (cents) => fmtMoney(cents).replace(/\s/g, ' '),
+    date: (iso) => fmtDate(iso, { long: true }),
+  });
+  const subject = `${title} ${invoice.number}${settings.company_name ? ` from ${settings.company_name}` : ''}`;
+  const hasNumber = Boolean(whatsappNumber(invoice.customer_phone));
+  openModal({
+    title: `Share ${invoice.number}`,
+    subtitle: 'Opens your own email or WhatsApp with this message. Attach the PDF yourself: Print → Save as PDF.',
+    size: 'modal-md',
+    hideFooter: true,
+    body: `
+      <div class="field">
+        <label for="share-message">Message</label>
+        <textarea class="input" id="share-message" rows="10">${esc(message)}</textarea>
+      </div>
+      <div class="share-actions">
+        <a class="btn btn-secondary" data-share="email" target="_blank" rel="noopener">${icon('mail', 15)}<span>Email${invoice.customer_email ? ` ${esc(invoice.customer_email)}` : ''}</span></a>
+        <a class="btn btn-secondary" data-share="whatsapp" target="_blank" rel="noopener">${icon('send', 15)}<span>WhatsApp${hasNumber ? ` ${esc(invoice.customer_phone)}` : ''}</span></a>
+        <button type="button" class="btn btn-ghost" data-share="copy">Copy text</button>
+      </div>
+      ${!invoice.customer_email || !hasNumber ? `<div class="hint">${[
+        invoice.customer_email ? '' : 'No email saved for this customer: your mail app will ask for the address.',
+        hasNumber ? '' : 'No mobile number saved: WhatsApp will ask you to choose the chat.',
+      ].filter(Boolean).join(' ')}</div>` : ''}
+    `,
+    onMount(overlay) {
+      const text = overlay.querySelector('#share-message');
+      const email = overlay.querySelector('[data-share="email"]');
+      const whatsapp = overlay.querySelector('[data-share="whatsapp"]');
+      const update = () => {
+        email.href = mailtoUrl(invoice.customer_email, subject, text.value);
+        whatsapp.href = whatsappUrl(invoice.customer_phone, text.value);
+      };
+      text.addEventListener('input', update);
+      update();
+      overlay.querySelector('[data-share="copy"]').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(text.value);
+          toast('Message copied');
+        } catch {
+          text.select();
+          toast('Select the text and copy it with Ctrl/⌘ + C', 'error');
+        }
+      });
+    },
+  });
 }
 
 function invoiceVoidPreview(invoice) {
@@ -267,6 +325,9 @@ export async function render(container, { params } = {}) {
     actions.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
   }
   actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
+  if (!isDraft && !isVoid) {
+    actions.push(`<button class="btn btn-secondary" data-action="share">${icon('send', 15)}<span>Share</span></button>`);
+  }
   if (isDraft) {
     actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
     actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
@@ -306,6 +367,7 @@ export async function render(container, { params } = {}) {
             <div>${fmtMoney(payment.amount_cents)}</div>
             ${refunded > 0 ? `<div class="cell-sub">net ${fmtMoney(payment.amount_cents - refunded)}</div>` : ''}
           </div>
+          <a class="icon-btn" href="#/receipts/${payment.id}" data-receipt-link title="Print receipt ${esc(payment.number)}" aria-label="Print receipt ${esc(payment.number)}">${icon('print', 16)}</a>
           ${refundable > 0 && invoice.status === 'sent' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Refund payment">${icon('arrowUp', 16)}</button>` : ''}
           ${refunded > 0 || invoice.status !== 'sent' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
@@ -420,6 +482,7 @@ export async function render(container, { params } = {}) {
             <div class="totals-row balance"><span>Balance due</span><span>${fmtMoney(invoice.balance_cents)}</span></div>
           </div>
         </div>
+        <div class="doc-amount-words" data-amount-words><span class="doc-label">Amount in words</span>${esc(amountInWords(invoice.total_cents))}</div>
       </div>
     </div>
 
@@ -465,6 +528,8 @@ export async function render(container, { params } = {}) {
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
     button.addEventListener('click', () => window.print());
   });
+
+  document.querySelector('[data-action="share"]')?.addEventListener('click', () => openShareModal(invoice, settings));
 
   const editButton = document.querySelector('[data-action="edit"]');
   if (editButton) {

@@ -1,4 +1,4 @@
-import { cashAccounts } from '../store.js';
+import { cashAccounts, portalForVendorId } from '../store.js';
 import {
   centsToInput,
   currencySymbol,
@@ -7,6 +7,46 @@ import {
   optionsHtml,
   todayISO,
 } from '../ui.js';
+
+// What confirming a booking or submitting a visa will post: the customer
+// invoice, one bill per supplier, and which bills a prepaid wallet pays.
+export function postingPreview(job, portals = null) {
+  const bySupplier = new Map();
+  for (const item of job.cost_items || []) {
+    const key = Number(item.vendor_id) || 0;
+    const row = bySupplier.get(key) || { name: item.vendor_name || 'Supplier', cents: 0 };
+    row.cents += Number(item.amount_cents) || 0;
+    bySupplier.set(key, row);
+  }
+  const items = [{
+    label: `Customer invoice — ${job.customer_name || 'customer'}`,
+    note: 'Receivable in 1100 Accounts Receivable; payment due by the job due date.',
+    value: fmtMoney(job.sale_total_cents),
+  }];
+  for (const [vendorId, row] of bySupplier) {
+    const portal = portals
+      ? portals.find((row) => row.vendor_id === vendorId && row.is_active) || null
+      : portalForVendorId(vendorId);
+    let note = 'Supplier bill, payable in 2000 Accounts Payable.';
+    if (portal && portal.settlement === 'prepaid') {
+      const wallet = Number(portal.balance_cents) || 0;
+      note = wallet >= row.cents
+        ? `Paid from the ${portal.name} wallet (balance ${fmtMoney(wallet)} → ${fmtMoney(wallet - row.cents)}).`
+        : `${portal.name} wallet has ${fmtMoney(Math.max(0, wallet))}; ${fmtMoney(row.cents - Math.max(0, wallet))} stays payable.`;
+    } else if (portal) {
+      note = `Supplier bill on the ${portal.name} credit account.`;
+    }
+    items.push({ label: `Supplier bill — ${row.name}`, note, value: fmtMoney(row.cents) });
+  }
+  const margin = (job.sale_total_cents || 0) - (job.cost_total_cents || 0);
+  return {
+    heading: 'This will post',
+    icon: 'check',
+    items,
+    total: { label: 'Margin', value: fmtMoney(margin) },
+    note: bySupplier.size ? '' : 'No supplier cost is recorded, so no bill is created.',
+  };
+}
 
 export function depositAccounts() {
   const accounts = cashAccounts().slice().sort((a, b) => a.code.localeCompare(b.code));

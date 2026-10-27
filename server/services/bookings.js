@@ -16,16 +16,19 @@ const bookingSelect = `
   SELECT b.*, c.name AS customer_name, c.email AS customer_email,
          c.phone AS customer_phone, c.address AS customer_address,
          (SELECT GROUP_CONCAT(bi.passenger_name, ', ') FROM booking_items bi
-          WHERE bi.booking_id = b.id AND bi.item_type = 'sale' AND bi.passenger_name <> '') AS passenger_names
+          WHERE bi.booking_id = b.id AND bi.item_type = 'sale' AND bi.passenger_name <> '') AS passenger_names,
+         ${jobs.JOB_INVOICE_COLUMNS}
   FROM bookings b
   JOIN customers c ON c.id = b.customer_id
+  LEFT JOIN invoices pi ON pi.id = b.invoice_id
 `;
 
 function itemTotals(items) {
   return items.reduce((sum, item) => sum + item.amount_cents, 0);
 }
 
-function serializeBooking(booking) {
+function serializeBooking(row) {
+  const booking = jobs.jobPaymentStatus(row, ['cancelled']);
   return {
     ...booking,
     margin_cents: booking.sale_total_cents - booking.cost_total_cents,

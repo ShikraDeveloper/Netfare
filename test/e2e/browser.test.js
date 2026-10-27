@@ -1364,6 +1364,79 @@ test('ticket, visa and service invoices print with their own heading and details
   assertNoConsoleErrors();
 });
 
+test('confirm preview, payment column, amount in words, receipt voucher and share links', async () => {
+  const [customers, vendors, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/vendors'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const vendor = vendors.find((row) => row.is_active);
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customers[0].id,
+    booking_date: '2026-10-21',
+    due_date: '2099-01-01',
+    destination: 'E2E Dubai–Muscat',
+    pnr: 'E2EMCT',
+    sale_items: [{ description: 'E2E Muscat Pax', passenger_name: 'E2E Muscat Pax', line_group: 1, quantity: 1, unit_price_cents: 73_000, account_id: code('4000') }],
+    cost_items: [{ description: 'E2E Muscat Pax', passenger_name: 'E2E Muscat Pax', line_group: 1, quantity: 1, unit_price_cents: 60_000, account_id: code('5000'), vendor_id: vendor.id }],
+  });
+
+  await openRoute('/bookings');
+  await page.locator('#booking-search').fill('E2EMCT');
+  await page.waitForTimeout(100);
+  assert.match(await page.locator('table.data tbody [data-payment-status]').first().innerText(), /Not invoiced/);
+
+  await openRoute(`/bookings/${booking.id}`);
+  await page.locator('[data-action="confirm"]').click();
+  const preview = page.locator('[role="dialog"] [data-preview]');
+  await preview.waitFor();
+  const previewText = (await preview.innerText()).replace(/\s+/g, ' ');
+  assert.match(previewText, /Customer invoice/);
+  assert.ok(previewText.includes(`Supplier bill — ${vendor.name}`));
+  assert.match(previewText, /Margin AED 130\.00/);
+  await page.locator('[role="dialog"] [data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.waitForFunction(() => !document.querySelector('[data-action="confirm"]'));
+
+  const saved = await getJson(baseUrl, `/api/bookings/${booking.id}`);
+  await openRoute('/bookings');
+  await page.locator('#booking-search').fill('E2EMCT');
+  await page.waitForTimeout(100);
+  assert.match(await page.locator('table.data tbody [data-payment-status]').first().innerText(), /Unpaid/);
+
+  await postJson(baseUrl, `/api/invoices/${saved.invoice_id}/payments`, {
+    amount_cents: 30_000, payment_date: '2026-10-22', deposit_account_id: code('1000'), method: 'Cash',
+  });
+  await openRoute(`/invoices/${saved.invoice_id}`);
+  await page.locator('[data-amount-words]').waitFor();
+  assert.match(await page.locator('[data-amount-words]').innerText(), /UAE Dirhams Seven Hundred Thirty Only/);
+
+  await page.locator('[data-action="share"]').click();
+  const share = page.locator('[role="dialog"]');
+  await share.waitFor();
+  assert.match(await share.locator('#share-message').inputValue(), /Amount due: AED 430\.00/);
+  assert.match(await share.locator('[data-share="email"]').getAttribute('href'), /^mailto:/);
+  assert.match(await share.locator('[data-share="whatsapp"]').getAttribute('href'), /^https:\/\/wa\.me\/\d*\?text=/);
+  await share.locator('.modal-head [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  await page.locator('[data-receipt-link]').first().click();
+  await page.locator('[data-receipt]').waitFor();
+  const receipt = (await page.locator('[data-receipt]').innerText()).replace(/\s+/g, ' ');
+  assert.match(receipt, /receipt voucher/i);
+  assert.match(receipt, /AED 300\.00/);
+  assert.match(receipt, /UAE Dirhams Three Hundred Only/);
+  assert.match(receipt, /Invoice balance now AED 430\.00/);
+  assert.ok(receipt.includes(saved.number), 'names the booking');
+
+  await openRoute('/bookings');
+  await page.locator('#booking-search').fill('E2EMCT');
+  await page.waitForTimeout(100);
+  assert.match((await page.locator('table.data tbody [data-payment-status]').first().innerText()).replace(/\s+/g, ' '), /Partial AED 430\.00 due/);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -1376,10 +1449,13 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     getJson(baseUrl, '/api/credits'),
   ]);
 
+  const paidInvoice = invoices.find((invoice) => invoice.status_display === 'paid');
+  const receiptPayment = paidInvoice ? (await getJson(baseUrl, `/api/invoices/${paidInvoice.id}`)).payments[0] : null;
   const routes = [
     '/dashboard',
     '/invoices',
     `/invoices/${invoices[0].id}`,
+    ...(receiptPayment ? [`/receipts/${receiptPayment.id}`] : []),
     '/bills',
     `/bills/${bills[0].id}`,
     '/bookings',

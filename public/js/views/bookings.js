@@ -26,6 +26,7 @@ import {
   openModal,
   optionsHtml,
   setHeader,
+  paymentBadge,
   statusBadge,
   todayISO,
   toast,
@@ -54,6 +55,7 @@ function bookingRow(booking) {
       </td>
       <td class="nowrap">${booking.travel_date ? esc(fmtDate(booking.travel_date)) : '—'}</td>
       <td>${statusBadge(booking.status)}</td>
+      <td data-payment-status>${paymentBadge(booking)}</td>
       <td class="num">${fmtMoney(booking.sale_total_cents)}</td>
       <td class="num">${fmtMoney(booking.cost_total_cents)}</td>
       <td class="num ${marginClass}">${fmtMoney(booking.margin_cents)}</td>
@@ -374,6 +376,7 @@ export async function render(container, { query } = {}) {
               <th scope="col">Customer</th>
               <th scope="col">Travel</th>
               <th scope="col">Status</th>
+              <th scope="col">Payment</th>
               <th scope="col" class="num">Sale</th>
               <th scope="col" class="num">Cost</th>
               <th scope="col" class="num">Margin</th>
@@ -404,7 +407,7 @@ export async function render(container, { query } = {}) {
     const start = (page - 1) * pageSize;
     const rows = filtered.slice(start, start + pageSize);
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="8">${emptyState({
+      body.innerHTML = `<tr><td colspan="9">${emptyState({
     iconName: 'search',
     title: 'No matching bookings',
     message: 'Try a different search term, status or date range.',

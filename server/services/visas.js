@@ -20,10 +20,12 @@ const visaSelect = `
   SELECT v.*, c.name AS customer_name, c.email AS customer_email,
          c.phone AS customer_phone, c.address AS customer_address,
          g.number AS group_number,
-         (SELECT COUNT(*) FROM visa_applications x WHERE x.group_id = v.group_id) AS group_size
+         (SELECT COUNT(*) FROM visa_applications x WHERE x.group_id = v.group_id) AS group_size,
+         ${jobs.JOB_INVOICE_COLUMNS}
   FROM visa_applications v
   JOIN customers c ON c.id = v.customer_id
   LEFT JOIN visa_groups g ON g.id = v.group_id
+  LEFT JOIN invoices pi ON pi.id = v.invoice_id
 `;
 
 function itemTotals(items) {
@@ -54,7 +56,8 @@ function passportWarning(visa) {
   return null;
 }
 
-function serializeVisa(visa) {
+function serializeVisa(row) {
+  const visa = jobs.jobPaymentStatus(row, ['cancelled', 'rejected']);
   return {
     ...visa,
     margin_cents: visa.sale_total_cents - visa.cost_total_cents,

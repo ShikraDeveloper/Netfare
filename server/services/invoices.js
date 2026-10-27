@@ -647,7 +647,35 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
   })();
 }
 
+// Everything a printed receipt voucher needs for one customer payment.
+function getPaymentReceipt(db, paymentId) {
+  const payment = db.prepare(`
+    SELECT p.*, a.name AS deposit_account_name,
+           i.number AS invoice_number, i.issue_date AS invoice_issue_date, i.status AS invoice_status,
+           i.total_cents AS invoice_total_cents, i.amount_paid_cents AS invoice_paid_cents,
+           i.credit_applied_cents AS invoice_credit_cents, i.booking_id, i.visa_id,
+           c.name AS customer_name, c.address AS customer_address, c.email AS customer_email, c.phone AS customer_phone,
+           (SELECT number FROM bookings WHERE id = i.booking_id) AS booking_number,
+           (SELECT number FROM visa_applications WHERE id = i.visa_id) AS visa_number,
+           COALESCE((SELECT SUM(r.amount_cents) FROM refunds r WHERE r.payment_id = p.id AND r.status = 'paid'), 0) AS refunded_cents
+    FROM payments p
+    JOIN invoices i ON i.id = p.invoice_id
+    JOIN customers c ON c.id = p.customer_id
+    JOIN accounts a ON a.id = p.deposit_account_id
+    WHERE p.id = ?
+  `).get(Number(paymentId));
+  if (!payment) throw notFound('Payment not found');
+  const { invoice_paid_cents: paid, invoice_credit_cents: credit, ...rest } = payment;
+  return {
+    ...rest,
+    invoice_balance_cents: payment.invoice_status === 'void'
+      ? 0
+      : Math.max(0, payment.invoice_total_cents - paid - (credit || 0)),
+  };
+}
+
 module.exports = {
+  getPaymentReceipt,
   JOB_REVENUE_CODES,
   listInvoices,
   getInvoice,

@@ -20,7 +20,7 @@ import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
-import { advanceModalBody, applyModalBody, depositAccounts, refundModalBody } from './job-modals.js';
+import { advanceModalBody, applyModalBody, depositAccounts, postingPreview, refundModalBody } from './job-modals.js';
 
 const STATUS_HISTORY_EMPTY = 'No status changes recorded yet.';
 
@@ -351,7 +351,8 @@ export async function render(container, { params } = {}) {
     confirmButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: `Confirm ${booking.number}?`,
-        message: `This creates and posts the customer invoice (${fmtMoney(booking.sale_total_cents)}) and ${fmtMoney(booking.cost_total_cents)} of supplier bills to your ledger.`,
+        message: 'Check what will be posted to your ledger. Once confirmed, the booking can only be changed by cancelling it.',
+        preview: postingPreview(booking, await api.get('/portals').catch(() => null)),
         confirmLabel: 'Confirm & post',
         danger: false,
       });

@@ -7,6 +7,8 @@ export function esc(value) {
 }
 
 const ICONS = {
+  send: '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>',
+  mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>',
   dashboard: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
   invoice: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/>',
   bill: '<path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
@@ -142,6 +144,7 @@ const STATUS_LABELS = {
   partial: 'Partial',
   paid: 'Paid',
   overdue: 'Overdue',
+  unpaid: 'Unpaid',
   received: 'Received',
   void: 'Void',
   confirmed: 'Confirmed',
@@ -179,6 +182,15 @@ export const PORTAL_TYPES = [
 export function portalTypeLabel(type) {
   const found = PORTAL_TYPES.find(([value]) => value === String(type || ''));
   return found ? found[1] : 'Other';
+}
+
+// Collection status of a booking or visa, from its invoice.
+export function paymentBadge(job) {
+  if (!job.payment_status) return '<span class="muted">—</span>';
+  if (job.payment_status === 'not_invoiced') return '<span class="muted">Not invoiced</span>';
+  const due = ['partial', 'overdue', 'unpaid'].includes(job.payment_status) && job.payment_balance_cents
+    ? `<div class="cell-sub">${fmtMoney(job.payment_balance_cents)} due</div>` : '';
+  return `${statusBadge(job.payment_status)}${due}`;
 }
 
 export function statusBadge(status) {
@@ -425,13 +437,13 @@ export function openModal(options) {
   return { overlay, form, close };
 }
 
-export function confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', danger = true }) {
+export function confirmDialog({ title = 'Are you sure?', message = '', confirmLabel = 'Confirm', danger = true, preview = null }) {
   return new Promise((resolve) => {
     let confirmed = false;
     openModal({
       title,
-      body: `<p class="confirm-text">${esc(message)}</p>`,
-      size: 'modal-sm',
+      body: `<p class="confirm-text">${esc(message)}</p>${voidPreviewHtml(preview, 'Preview')}`,
+      size: preview ? 'modal-md' : 'modal-sm',
       submitLabel: confirmLabel,
       danger,
       onSubmit: async () => {
@@ -442,14 +454,14 @@ export function confirmDialog({ title = 'Are you sure?', message = '', confirmLa
   });
 }
 
-function voidPreviewHtml(preview) {
+function voidPreviewHtml(preview, label = 'Void preview') {
   if (!preview) return '';
   const items = Array.isArray(preview.items) ? preview.items.filter(Boolean) : [];
   const total = preview.total || null;
   if (!items.length && !total && !preview.note) return '';
   return `
-    <div class="void-preview" aria-label="Void preview">
-      <div class="void-preview-head">${icon('alert', 14)}<span>${esc(preview.heading || 'Void preview')}</span></div>
+    <div class="void-preview" aria-label="${esc(label)}" data-preview>
+      <div class="void-preview-head">${icon(preview.icon || 'alert', 14)}<span>${esc(preview.heading || label)}</span></div>
       ${items.length ? `<div class="void-preview-rows">
         ${items.map((item) => `
           <div class="void-preview-row">
