@@ -399,9 +399,91 @@ Verification:
 - `npm run test:e2e`: 22 passed, including a new test: fields hidden by default and shown with a required name when toggled; the printed invoice shows **Service for** with a masked passport and is still billed to the customer; the list shows "For …".
 - Migration dry-run on a copy of live `data/accounting.db`: columns added, integrity ok, 8/8 checks, both existing invoices default to the customer. The live file was not modified; restart needed.
 
+### Service invoices: direct invoices are for income with no supplier cost — code commit `1f5a180`
+
+A direct invoice records only revenue. When it was used for a ticket or visa, the supplier cost never met the sale: the DSR showed 100% margin and booking/visa margin reports missed the sale.
+
+- **Rule:** a direct invoice cannot use **4000 Ticket Sales, 4100 Tour & Package Sales or 4320 Visa & Documentation Revenue**. The error names the line and points to a booking or visa.
+  - Applies to create, draft edits, and posting older drafts.
+  - Booking, visa and cancellation-charges invoices pass an internal `jobInvoice` flag and still post ticket and visa revenue.
+  - Sent invoices made before the rule are unchanged and can still be paid. Live data has one: INV-2026-0002 on 4000, already paid.
+- **Form:**
+  - Renamed **New service invoice**.
+  - The account list leaves out the three job accounts and puts 4300 Service Charges first. Service, commission, other income and custom revenue accounts are offered.
+  - A note at the top explains the form is for income with no supplier cost. Its booking/visa links close the form and open the right one.
+  - The empty state also explains this.
+- **DSR:** service invoice rows read **Service income · no supplier cost**, and the footer explains cost.
+- **Tests:** existing tests that created direct invoices on 4000/4320 now use 4300; they test payments, refunds and credits, not ticket sales.
+
+Key files: `server/services/invoices.js`, `server/services/jobs.js`, `server/services/cancellations.js`, `public/js/views/invoices.js`, `public/js/views/reports/daily-sales.js`, `test/service-invoice.test.js`, `test/e2e/browser.test.js`, and the test files switched to 4300, plus `README.md`.
+
+Verification:
+
+- `npm run check`: 158 JavaScript files syntax OK.
+- `npm test`: 109 passed, including 5 new tests in `test/service-invoice.test.js`:
+  - the three accounts are refused, including mixed lines;
+  - service, commission, other income and custom accounts are allowed;
+  - draft edits and posting an older draft are refused;
+  - booking, visa and cancellation invoices still post, and a legacy sent invoice can still be paid;
+  - the DSR shows service rows with zero cost.
+- `npm run test:e2e`: 23 passed, including a new test: the API refuses a ticket line; the button and form read "New service invoice"; the hint shows; 4000/4100/4320 are not offered and 4300 is first; the booking link opens the booking form.
+- No schema change. The live file was not modified; restart needed.
+
+### Basic forms: one row per passenger, visa applicants list, simple service invoice — code commit `1f5a180`
+
+The booking, visa and invoice forms asked for every field up front. The new forms keep only what is needed on every job in view and move the rest under **More details** or a row's **⋯**.
+
+- **Booking — one row per passenger:**
+  - Top: Customer, **Destination / description** (one free-text field, e.g. "Dubai–London return · Emirates"), PNR, booking, travel and return dates.
+  - Each row: passenger name, sale price, cost, supplier. **⋯** holds ticket no., quantity and accounts. **Add other item** is for a hotel, service fee or insurance.
+  - The supplier carries over to the next passenger.
+  - Payment due, internal notes and note on invoice are under **More details**.
+  - Stored as `booking_items.passenger_name` and `line_group`. The sale and cost lines of a row share a `line_group`.
+  - The invoice and bill line reads `<destination> – <passenger>`.
+  - The list shows passenger names, and search finds them.
+  - Older bookings open with each line as its own row; cost lines pair with the sale line of the same description.
+- **Visa — applicants list (option B):**
+  - **New visa** takes the shared details once: customer, visa type, country, application and travel dates.
+  - Then one row per applicant: name, passport no., expiry, sale, cost, supplier. **⋯** holds nationality, DOB and accounts.
+  - The first name defaults to the customer. Price, supplier and accounts carry over to the next row.
+  - `POST /api/visas/groups` creates one application per applicant in one transaction, linked by a new `visa_groups` row (`VG-YYYY-####`, new settings counter `next_visa_group_number`, new column `visa_applications.group_id`).
+  - One applicant creates a plain application with no group.
+  - Any error saves nothing and names the applicant ("Applicant 2: …").
+  - Each application keeps its own invoice, status, rejection and cancellation.
+  - The detail page shows a **Group VG-…** card with the other applications and **Submit all N drafts** (`POST /api/visas/groups/:groupId/submit`, all or none).
+  - The list shows a `VG-… · N` badge and searches by group number.
+  - The edit form stays one application, with passport details up front and payment due, duration, embassy ref, nationality, DOB and notes under **More details**.
+  - Demo reset and JSON export include `visa_groups`.
+- **Service invoice — basic form:**
+  - Each line asks for a description and amount. Quantity, account and line total are behind **⋯**, and a new line keeps the account of the line above.
+  - A single **Total** replaces Subtotal + Total.
+  - Due date, the person's nationality/passport, notes, terms and **Save as draft** are under **More details**.
+  - The compact editor is an option of the shared line-items editor; bills keep the full editor.
+- **Fix found while testing:** applications returned by the group create are read back after the group is complete, so each shows the full group size.
+
+Key files:
+- Server: `server/schema.js`, `server/migrations.js`, `server/services/jobs.js`, `server/services/bookings.js`, `server/services/visas.js`, `server/routes/visas.js`, `server/services/numbering.js`, `server/services/demo.js`, `server/routes/admin.js`.
+- Frontend: `public/js/views/booking-passengers.js` (new), `public/js/views/visa-group-form.js` (new), `public/js/views/bookings.js`, `public/js/views/visas.js`, `public/js/views/visa-detail.js`, `public/js/views/invoices.js`, `public/js/line-items.js`, `public/css/styles.css`.
+- Tests: `test/booking-passengers.test.js` (new), `test/visa-groups.test.js` (new), `test/e2e/browser.test.js`.
+- Docs: `README.md`.
+
+Verification:
+
+- `npm run check`: 162 JavaScript files syntax OK.
+- `npm test`: 118 passed.
+  - 4 new tests in `test/booking-passengers.test.js`: passenger rows stored with pairing; invoice/bill lines name each passenger; search by passenger; lines without a passenger keep their description.
+  - 5 new tests in `test/visa-groups.test.js`: linked applications share the trip details; one applicant creates no group; a bad applicant saves nothing and is named; Submit all posts one invoice per applicant and skips already-submitted ones; rejecting one leaves the others.
+- `npm run test:e2e`: 26 passed, with these changes:
+  - New: the booking passenger form, the visa applicants form with Submit all and the list badge, and the compact service invoice (two lines, qty 2 behind ⋯, total AED 205.00).
+  - The visa toggle test now runs on the edit form.
+  - Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data): new visa with two applicants → group card → Submit all → badges in the list; visa edit form; service invoice created on 4300.
+- Migration dry-run on a copy of live `data/accounting.db`: all new columns, `visa_groups` and the counter added, integrity ok, existing bookings and visas list normally.
+- Schema change is additive (two columns on each item table, `visa_groups`, `group_id`, one settings counter). The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `205b818` (invoice "for someone else" toggle).
+1. Start from the latest `main`; the latest code commit is `1f5a180` (service invoices and basic forms, committed together).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
