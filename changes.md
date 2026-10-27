@@ -568,9 +568,47 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): booking list payment column, confirm preview on a draft booking, invoice amount in words, Share window and receipt voucher.
 - No schema change. The live file was not modified; restart needed.
 
+### Cancelled sales stay on their day in the DSR and statement — code commit `06db786`
+
+Before this change, cancelling a booking or visa voided its invoice. The DSR and the customer statement then dropped the original sale: a DSR printed for the sale day changed later, and the customer's history vanished. The ledger was already right: the sale was on its day and the reversal on the cancellation date.
+
+- **DSR:**
+  - The original sale stays on its own day with its original sale, cost and paid amounts. It is marked **Cancelled** with the date and a link to the cancellation note.
+  - A red **cancellation line** on the cancellation date has:
+    - sale = charges − original sale;
+    - cost = − supplier credits raised by the cancellation;
+    - paid = amount kept as charges − amount originally received;
+    - balance = any open charges invoice.
+  - The two lines net to the old result: charges less retained cost.
+  - The line names the cancellation (CNC-…), shows "Reverses AED … sale · charges AED … · supplier credit …", and links to the cancellation note. It used to link to `#/invoices/<cancellation id>`, which was wrong.
+- **Customer statement:**
+  - A cancelled invoice and its payments stay on their own dates; the invoice shows "Cancelled · CNC-…".
+  - On the cancellation date: **Booking or visa cancelled** (credit, the invoice total reversed) and **Cancellation charges** (debit, the part taken from money received).
+  - Any charges invoice follows the cancellation line.
+  - Then **Refund issued** for a cancellation refund, or **Refund kept as credit** (debit) when the money becomes a credit note. Applying that credit later shows as **Credit applied**, as before.
+  - The running balance shows what the customer owes or is owed.
+- **Mistake voids** (e.g. a duplicate service invoice) stay out of both.
+- **Tests:** three DSR assertions in `test/cancellations.test.js` pinned the old cancel-day figures. They now check the sale-day line, the cancellation line and their net, which equals the old figures.
+
+Key files: `server/services/reports/daily-sales.js`, `server/services/statements.js`, `public/js/views/reports/daily-sales.js`, `public/js/views/statement.js`, `public/css/styles.css`, `test/cancellation-history.test.js` (new), `test/cancellations.test.js`, `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 168 JavaScript files syntax OK.
+- `npm test`: 134 passed. 6 new tests in `test/cancellation-history.test.js`:
+  - full statement sequence with refund;
+  - a statement for the sale period is unchanged after a later cancellation;
+  - credit-note route;
+  - charges invoice after the cancellation;
+  - DSR sale-day line plus cancellation line and net totals;
+  - a mistake void stays out.
+- `npm run test:e2e`: 29 passed. New test: DSR shows the sale as Cancelled and the red cancellation line; statement titles read Invoice raised → Payment received → Booking or visa cancelled → Cancellation charges. Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data): DSR (12 Oct sale marked Cancelled, 27 Oct cancellation lines) and the Aisha Khan statement (balance 3,080 → 2,590 after the unpaid invoice was reversed).
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `f8200a4` (payment column, posting preview, amount in words, receipts, sharing).
+1. Start from the latest `main`; the latest code commit is `06db786` (cancelled sales stay on their day in the DSR and statement).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
