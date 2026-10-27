@@ -481,9 +481,49 @@ Verification:
 - Migration dry-run on a copy of live `data/accounting.db`: all new columns, `visa_groups` and the counter added, integrity ok, existing bookings and visas list normally.
 - Schema change is additive (two columns on each item table, `visa_groups`, `group_id`, one settings counter). The live file was not modified; restart needed.
 
+### Ticket, visa and service invoices print differently — code commit `c276b7d`
+
+Ticket and visa sales already made separate invoices, but every invoice printed the same way: the heading said "Invoice", and a ticket invoice showed no PNR, travel dates or ticket numbers.
+
+- **Heading by source** (`document_kind` on `GET /api/invoices/:id`):
+  - **Ticket invoice:** a booking with passenger rows.
+  - **Booking invoice:** a booking with no passenger rows, e.g. hotel only.
+  - **Visa invoice:** made from a visa.
+  - **Cancellation invoice:** carries cancellation charges.
+  - **Invoice:** a service invoice.
+- **Ticket invoice:**
+  - The booking number is in the header.
+  - A **Trip details** box shows the route/description, passenger count, PNR and travel → return dates.
+  - Each passenger line shows `Ticket <no.>` underneath, taken from that passenger's cost line.
+- **Visa invoice:**
+  - The visa number and group number (if any) are in the header.
+  - The **Visa details** box always shows, also when the applicant is the customer: name, nationality, masked passport and expiry, country, visa type, duration and reference.
+  - "Paid by <customer>" appears only when the applicant is someone else.
+- **Terms column:** booking and visa invoices used to repeat the destination or visa details there. They now show "Payment due by …", because the new boxes carry those details.
+- **What is not printed:** supplier cost and margin, the full passport number and the date of birth.
+- **What does not change:** accounting, numbering (`INV-YYYY-####`), payments and statements.
+- **Page header fix:** the invoice title no longer squeezes into a narrow column when there are many action buttons; the buttons wrap instead.
+
+Key files: `server/services/invoices.js` (`attachBookingDetails`, `documentKind`, visa group number), `public/js/views/invoice-detail.js`, `public/css/styles.css`, `test/invoice-layout.test.js` (new), `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 163 JavaScript files syntax OK.
+- `npm test`: 122 passed. 4 new tests in `test/invoice-layout.test.js`:
+  - ticket kind with trip fields and per-passenger ticket numbers, and no cost in the response;
+  - booking kind for a hotel-only booking;
+  - visa kind with the application and group number and a masked passport;
+  - cancellation and service kinds.
+- `npm run test:e2e`: 27 passed, including a new test of the ticket, visa (customer as applicant) and service invoice pages. Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data):
+  - a two-passenger ticket invoice at desktop and 375px phone width, with no horizontal scroll;
+  - a visa invoice for the customer and one for a visitor;
+  - the header with seven actions.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `1f5a180` (service invoices and basic forms, committed together).
+1. Start from the latest `main`; the latest code commit is `c276b7d` (ticket, visa and service invoice layouts).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
