@@ -19,6 +19,7 @@ const invoiceService = require('./invoices');
 const creditService = require('./credits');
 const supplierCreditService = require('./supplier-credits');
 const jobCosts = require('./job-costs');
+const jobs = require('./jobs');
 const audit = require('./audit');
 
 const SOURCE_TABLES = {
@@ -208,6 +209,12 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
     if (source.status === 'draft' && !invoice) {
       db.prepare(`UPDATE ${SOURCE_TABLES[sourceType].table} SET status = ?, updated_at = datetime('now') WHERE id = ?`)
         .run(expected, Number(sourceId));
+      jobs.recordStatus(db, sourceType, sourceId, {
+        from: source.status,
+        to: expected,
+        eventDate: cancellationDate,
+        remarks: optionalStr(payload.reason, 'Reason', 500) || 'Draft cancelled before posting',
+      });
       audit.record(db, {
         entity_type: sourceType,
         entity_id: Number(sourceId),
@@ -340,6 +347,12 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
 
     db.prepare(`UPDATE ${SOURCE_TABLES[sourceType].table} SET status = ?, updated_at = datetime('now') WHERE id = ?`)
       .run(expected, Number(sourceId));
+    jobs.recordStatus(db, sourceType, sourceId, {
+      from: source.status,
+      to: expected,
+      eventDate: cancellationDate,
+      remarks: [`Cancellation ${number}`, optionalStr(payload.reason, 'Reason', 500)].filter(Boolean).join(' · '),
+    });
     audit.record(db, {
       entity_type: 'cancellation',
       entity_id: cancellationId,

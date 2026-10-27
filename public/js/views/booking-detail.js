@@ -22,6 +22,33 @@ import { attachmentSection, bindAttachmentSection, loadAttachments } from '../at
 
 import { advanceModalBody, applyModalBody, depositAccounts, refundModalBody } from './job-modals.js';
 
+const STATUS_HISTORY_EMPTY = 'No status changes recorded yet.';
+
+// When the job moved between statuses, and why. Shown on screen only.
+function statusHistoryCard(history = []) {
+  return `
+    <div class="card no-print" style="margin-top:16px" data-status-history>
+      <div class="card-head"><div class="card-title"><h2>Status history</h2><p>When this job changed status</p></div></div>
+      <div class="table-wrap">
+        <table class="data">
+          <caption class="sr-only">Status history</caption>
+          <thead><tr><th scope="col">Date</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Remarks</th></tr></thead>
+          <tbody>
+            ${history.length ? history.map((row) => `
+              <tr>
+                <td class="nowrap">${esc(fmtDate(row.event_date))}</td>
+                <td>${row.from_status ? statusBadge(row.from_status) : '—'}</td>
+                <td>${statusBadge(row.to_status)}</td>
+                <td class="muted">${esc(row.remarks || '')}</td>
+              </tr>
+            `).join('') : `<tr><td colspan="4" class="muted">${STATUS_HISTORY_EMPTY}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const booking = await api.get(`/bookings/${id}`);
@@ -47,7 +74,8 @@ export async function render(container, { params } = {}) {
     actions.push(`<button class="btn btn-primary" data-action="confirm">${icon('check', 15)}<span>Confirm &amp; post</span></button>`);
   }
   if (isConfirmed) {
-    actions.push(`<button class="btn btn-secondary" data-action="travel">${icon('check', 15)}<span>Mark travelled</span></button>`);
+    const travelAhead = booking.travel_date && booking.travel_date > todayISO();
+    actions.push(`<button class="btn btn-secondary" data-action="travel" ${travelAhead ? `disabled title="Available from the travel date (${esc(fmtDate(booking.travel_date))})"` : ''}>${icon('check', 15)}<span>Mark travelled</span></button>`);
   }
   if (!isCancelled) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
@@ -297,6 +325,7 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
+    ${statusHistoryCard(booking.status_history)}
     ${attachmentSection({ entityType: 'booking', entityId: id, attachments })}
   `;
 

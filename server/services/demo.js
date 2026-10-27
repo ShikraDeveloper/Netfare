@@ -150,7 +150,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Aisha Khan', booking: 90, travel: -40, ret: -30, destination: 'Jeddah & Makkah, Saudi Arabia',
+        customer: 'Aisha Khan', booking: 90, travel: -30, ret: -40, destination: 'Jeddah & Makkah, Saudi Arabia',
         pnr: 'SV-7712', status: 'confirmed', pay: 'partial', advance: 200_000,
         sale: [
           ['Return ticket DXB–JED', 1, 220_000, ticketSales],
@@ -165,7 +165,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Gulf Tech FZE', booking: 70, travel: -35, ret: -25, destination: 'Riyadh, Saudi Arabia',
+        customer: 'Gulf Tech FZE', booking: 70, travel: 35, ret: 25, destination: 'Riyadh, Saudi Arabia',
         pnr: 'SV-3345', status: 'travelled', pay: 'full',
         sale: [
           ['Business class ticket DXB–RUH', 1, 320_000, ticketSales],
@@ -176,7 +176,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Fatima Al Zaabi', booking: 55, travel: -10, ret: 2, destination: 'Baku, Azerbaijan',
+        customer: 'Fatima Al Zaabi', booking: 55, travel: -10, ret: -17, destination: 'Baku, Azerbaijan',
         pnr: 'J2-8890', status: 'confirmed', pay: 'partial',
         sale: [
           ['Baku city tour package — 4 nights', 1, 560_000, packageSales],
@@ -198,7 +198,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Rahul Menon', booking: 20, travel: -5, ret: null, destination: 'UAE tourist visa',
+        customer: 'Rahul Menon', booking: 20, travel: 5, ret: null, destination: 'UAE tourist visa',
         pnr: '', status: 'travelled', pay: 'full',
         sale: [
           ['UAE tourist visa (30 days)', 1, 65_000, visaRevenue],
@@ -220,7 +220,7 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Gulf Tech FZE', booking: 5, travel: 40, ret: 34, destination: 'Singapore — hotel only',
+        customer: 'Gulf Tech FZE', booking: 5, travel: -40, ret: -46, destination: 'Singapore — hotel only',
         pnr: '', status: 'draft', pay: 'none',
         sale: [
           ['Hotel booking — 6 nights', 1, 240_000, packageSales],
@@ -237,6 +237,7 @@ function loadDemo(db) {
         customer_id: customers[plan.customer],
         booking_date: daysAgo(plan.booking),
         due_date: daysAgo(plan.booking),
+        // Positive numbers are days ago, negative numbers days ahead.
         travel_date: plan.travel == null ? null : daysAgo(plan.travel),
         return_date: plan.ret == null ? null : daysAgo(plan.ret),
         destination: plan.destination,
@@ -463,6 +464,7 @@ function resetAll(db) {
     db.prepare('DELETE FROM bank_reconciliation_lines').run();
     db.prepare('DELETE FROM bank_reconciliations').run();
     db.prepare('DELETE FROM attachments').run();
+    db.prepare('DELETE FROM job_status_history').run();
     db.prepare('DELETE FROM credit_applications').run();
     db.prepare('DELETE FROM credit_notes').run();
     db.prepare('DELETE FROM supplier_credit_applications').run();
@@ -502,7 +504,7 @@ function resetAll(db) {
         updated_at = datetime('now') WHERE id = 1
     `).run();
     db.prepare(`DELETE FROM sqlite_sequence WHERE name IN
-      ('bank_reconciliations', 'bank_reconciliation_lines', 'attachments', 'credit_notes', 'credit_applications',
+      ('bank_reconciliations', 'bank_reconciliation_lines', 'attachments', 'job_status_history', 'credit_notes', 'credit_applications',
        'supplier_credit_notes', 'supplier_credit_items', 'supplier_credit_applications', 'portal_credits',
        'cancellations',
        'cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',

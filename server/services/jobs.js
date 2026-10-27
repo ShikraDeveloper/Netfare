@@ -1,0 +1,216 @@
+'use strict';
+
+// Shared rules for travel jobs (bookings and visa applications): line
+// validation, posting the customer invoice and supplier bills, default due
+// dates and the status history. Keeping one copy stops the two job types from
+// drifting apart.
+
+const {
+  bad,
+  str,
+  optionalStr,
+  num,
+  cents,
+  addDays,
+  todayISO,
+} = require('../util');
+const { isPurchaseAccount, getSettings } = require('../accounting');
+const invoiceService = require('./invoices');
+const billService = require('./bills');
+const portalService = require('./portals');
+
+const JOBS = {
+  booking: { itemsTable: 'booking_items', fkColumn: 'booking_id', label: 'booking' },
+  visa: { itemsTable: 'visa_items', fkColumn: 'visa_id', label: 'visa application' },
+};
+
+function jobConfig(sourceType) {
+  const config = JOBS[sourceType];
+  if (!config) throw new Error(`Unknown job type: ${sourceType}`);
+  return config;
+}
+
+function normalizeJobItems(db, items, itemType) {
+  if (!Array.isArray(items)) return [];
+  return items.map((item, index) => {
+    const isSale = itemType === 'sale';
+    const label = `${isSale ? 'Sale' : 'Cost'} line ${index + 1}`;
+    const description = str(item.description, `${label} description`, { max: 300 });
+    const quantity = num(item.quantity ?? 1, `${label} quantity`, { min: 0.0001, max: 1_000_000 });
+    const unitPrice = cents(item.unit_price_cents, `${label} unit price`);
+    // A supplier bill cannot be posted for nothing, so a zero cost line would
+    // only fail later at confirmation with a vague message.
+    if (!isSale && unitPrice <= 0) {
+      throw bad(`${label}: enter a cost greater than zero, or remove the line`);
+    }
+    const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(item.account_id));
+    if (!account) throw bad(`${label}: choose an account`);
+    if (!account.is_active) throw bad(`${label}: account "${account.name}" is archived`);
+    if (isSale && account.type !== 'revenue') throw bad(`${label}: choose a revenue account`);
+    if (!isSale && !isPurchaseAccount(account)) {
+      throw bad(`${label}: choose an expense account or a valid non-cash asset`);
+    }
+
+    let vendorId = null;
+    if (!isSale) {
+      const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(Number(item.vendor_id));
+      if (!vendor) throw bad(`${label}: choose a supplier`);
+      if (!vendor.is_active) throw bad(`${label}: supplier "${vendor.name}" is archived`);
+      vendorId = vendor.id;
+    }
+
+    return {
+      item_type: itemType,
+      description,
+      quantity,
+      unit_price_cents: unitPrice,
+      amount_cents: Math.round(quantity * unitPrice),
+      account_id: account.id,
+      vendor_id: vendorId,
+      supplier_ref: optionalStr(item.supplier_ref, `${label} supplier reference`, 120),
+    };
+  });
+}
+
+function insertJobItems(db, sourceType, jobId, saleItems, costItems) {
+  const { itemsTable, fkColumn } = jobConfig(sourceType);
+  const insert = db.prepare(`
+    INSERT INTO ${itemsTable} (${fkColumn}, item_type, description, quantity, unit_price_cents,
+      amount_cents, account_id, vendor_id, supplier_ref, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  saleItems.forEach((item, index) => {
+    insert.run(jobId, 'sale', item.description, item.quantity, item.unit_price_cents,
+      item.amount_cents, item.account_id, null, item.supplier_ref, index);
+  });
+  costItems.forEach((item, index) => {
+    insert.run(jobId, 'cost', item.description, item.quantity, item.unit_price_cents,
+      item.amount_cents, item.account_id, item.vendor_id, item.supplier_ref, index);
+  });
+}
+
+// The due date defaults to the company payment terms, like a direct invoice.
+function defaultDueDate(db, issueDate) {
+  const days = Number(getSettings(db)?.payment_terms_days ?? 0);
+  return addDays(issueDate, Number.isFinite(days) && days > 0 ? days : 0);
+}
+
+// Confirming a booking or submitting a visa posts the customer invoice and one
+// bill per supplier, then settles prepaid-portal bills from the wallet.
+function postJobDocuments(db, {
+  sourceType,
+  jobId,
+  customerId,
+  issueDate,
+  dueDate,
+  invoiceNotes,
+  invoiceTerms,
+  billNotes,
+  items,
+}) {
+  const { fkColumn, label } = jobConfig(sourceType);
+  const saleItems = items.filter((item) => item.item_type === 'sale');
+  const costItems = items.filter((item) => item.item_type === 'cost');
+  if (!saleItems.length) throw bad(`Add sale items before posting this ${label}`);
+  costItems.forEach((item, index) => {
+    if (item.unit_price_cents <= 0 || item.amount_cents <= 0) {
+      throw bad(`Cost line ${index + 1} ("${item.description}") has no cost. Edit the ${label} and enter the supplier cost, or remove the line.`);
+    }
+  });
+
+  const invoice = invoiceService.createInvoice(db, {
+    customer_id: customerId,
+    issue_date: issueDate,
+    due_date: dueDate || issueDate,
+    notes: invoiceNotes || '',
+    terms: invoiceTerms || '',
+    status: 'sent',
+    items: saleItems.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unit_price_cents: item.unit_price_cents,
+      account_id: item.account_id,
+    })),
+  });
+  db.prepare(`UPDATE invoices SET ${fkColumn} = ? WHERE id = ?`).run(jobId, invoice.id);
+
+  const groups = new Map();
+  for (const item of costItems) {
+    if (!item.vendor_id) continue;
+    if (!groups.has(item.vendor_id)) groups.set(item.vendor_id, []);
+    groups.get(item.vendor_id).push(item);
+  }
+  for (const [vendorId, vendorItems] of groups.entries()) {
+    const bill = billService.createBill(db, {
+      vendor_id: vendorId,
+      bill_date: issueDate,
+      due_date: dueDate || issueDate,
+      notes: billNotes,
+      status: 'received',
+      items: vendorItems.map((item) => ({
+        description: item.description,
+        quantity: item.quantity,
+        unit_price_cents: item.unit_price_cents,
+        account_id: item.account_id,
+      })),
+    });
+    db.prepare(`UPDATE bills SET ${fkColumn} = ? WHERE id = ?`).run(jobId, bill.id);
+    const portal = portalService.portalForVendor(db, vendorId);
+    if (portal) {
+      db.prepare('UPDATE bills SET portal_id = ? WHERE id = ?').run(portal.id, bill.id);
+    }
+  }
+
+  // Prepaid portals settle their supplier's bill straight away from the balance.
+  const warnings = [];
+  const jobBills = db.prepare(`SELECT id, number FROM bills WHERE ${fkColumn} = ?`).all(jobId);
+  for (const bill of jobBills) {
+    let settled;
+    try {
+      settled = portalService.autoSettleBill(db, bill.id, issueDate);
+    } catch (error) {
+      warnings.push(`Bill ${bill.number}: ${error.message}`);
+      continue;
+    }
+    if (settled && settled.shortfall_cents > 0) {
+      const short = (settled.shortfall_cents / 100).toFixed(2);
+      warnings.push(settled.settled_cents > 0
+        ? `Portal "${settled.portal_name}" had only part of the amount for bill ${bill.number}. ${short} is still payable.`
+        : `Portal "${settled.portal_name}" has no balance for bill ${bill.number}. ${short} is still payable.`);
+    }
+  }
+  return { invoice, warnings };
+}
+
+// Status history: when a job moved between statuses, and why.
+function recordStatus(db, sourceType, jobId, { from = null, to, eventDate = todayISO(), remarks = '' } = {}) {
+  jobConfig(sourceType);
+  db.prepare(`
+    INSERT INTO job_status_history (source_type, source_id, from_status, to_status, event_date, remarks)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(sourceType, Number(jobId), from, to, eventDate, String(remarks || '').slice(0, 500));
+}
+
+function statusHistory(db, sourceType, jobId) {
+  return db.prepare(`
+    SELECT id, from_status, to_status, event_date, remarks, created_at
+    FROM job_status_history
+    WHERE source_type = ? AND source_id = ?
+    ORDER BY created_at, id
+  `).all(sourceType, Number(jobId));
+}
+
+function deleteStatusHistory(db, sourceType, jobId) {
+  db.prepare('DELETE FROM job_status_history WHERE source_type = ? AND source_id = ?')
+    .run(sourceType, Number(jobId));
+}
+
+module.exports = {
+  normalizeJobItems,
+  insertJobItems,
+  defaultDueDate,
+  postJobDocuments,
+  recordStatus,
+  statusHistory,
+  deleteStatusHistory,
+};

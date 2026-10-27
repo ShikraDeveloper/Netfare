@@ -1036,6 +1036,51 @@ test('internal booking notes stay on screen; only the invoice note is printed', 
   assertNoConsoleErrors();
 });
 
+test('job pages show status history, an early-travel guard and passport warnings', async () => {
+  const [customers, vendors, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/vendors'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+  const visaRevenue = accounts.find((account) => account.code === '4320');
+  const cost = accounts.find((account) => account.code === '5000');
+  const vendor = vendors.find((row) => row.is_active);
+  const future = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
+
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customers[0].id,
+    booking_date: '2026-10-22',
+    travel_date: future,
+    sale_items: [{ description: 'E2E future ticket', quantity: 1, unit_price_cents: 50_000, account_id: revenue.id }],
+    cost_items: [{ description: 'E2E future fare', quantity: 1, unit_price_cents: 40_000, account_id: cost.id, vendor_id: vendor.id }],
+  });
+  await postJson(baseUrl, `/api/bookings/${booking.id}/confirm`, {}, 200);
+
+  await openRoute(`/bookings/${booking.id}`);
+  const travel = page.locator('#page-actions [data-action="travel"]');
+  assert.equal(await travel.isDisabled(), true, 'Mark travelled waits for the travel date');
+  const history = page.locator('[data-status-history]');
+  await history.waitFor();
+  assert.match(await history.getAttribute('class'), /no-print/);
+  assert.equal(await history.locator('tbody tr').count(), 2, 'created and confirmed');
+  assert.match(await history.innerText(), /Invoice INV-/);
+
+  const visa = await postJson(baseUrl, '/api/visas', {
+    customer_id: customers[0].id,
+    application_date: '2026-10-22',
+    travel_date: '2026-12-01',
+    passport_expiry: '2027-01-15',
+    sale_items: [{ description: 'E2E passport visa', quantity: 1, unit_price_cents: 30_000, account_id: visaRevenue.id }],
+  });
+  assert.match(visa.passport_warning, /less than 6 months/);
+  await openRoute(`/visas/${visa.id}`);
+  const warning = page.locator('[data-passport-warning]');
+  await warning.waitFor();
+  assert.match(await warning.innerText(), /Check the passport validity/);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),

@@ -426,6 +426,24 @@ function getAuditChain(db, { type, id } = {}) {
       : '',
   }));
 
+  // Job status changes (created, confirmed, travelled, approved, cancelled…).
+  const statusEvents = [];
+  for (const doc of raw.filter((item) => item.type === 'booking' || item.type === 'visa')) {
+    for (const row of db.prepare(`
+      SELECT * FROM job_status_history WHERE source_type = ? AND source_id = ? ORDER BY created_at, id
+    `).all(doc.type, doc.row.id)) {
+      const owner = labels.get(doc.key);
+      statusEvents.push({
+        id: row.id,
+        owner_key: doc.key,
+        owner_label: owner ? `${owner.type_label} ${owner.number}`.trim() : '',
+        event_date: row.event_date,
+        title: row.from_status ? `Status ${row.from_status} → ${row.to_status}` : `Created as ${row.to_status}`,
+        remarks: row.remarks,
+      });
+    }
+  }
+
   const effect = new Map();
   for (const entry of entries) {
     for (const line of entry.lines) {
@@ -456,6 +474,16 @@ function getAuditChain(db, { type, id } = {}) {
       journal_entry_id: entry.id,
       is_reversal: entry.is_reversal,
     })),
+    ...statusEvents.map((event) => ({
+      kind: 'status',
+      date: event.event_date,
+      sort: `${event.event_date} 0 ${String(event.id).padStart(10, '0')}`,
+      owner_key: event.owner_key,
+      owner_label: event.owner_label,
+      title: event.title,
+      remarks: event.remarks,
+      amount_cents: null,
+    })),
     ...audit.map((event) => ({
       kind: 'audit',
       date: String(event.created_at || '').slice(0, 10),
@@ -478,6 +506,7 @@ function getAuditChain(db, { type, id } = {}) {
     documents,
     journal_entries: entries,
     audit_events: audit,
+    status_events: statusEvents,
     timeline,
     account_effect: accountEffect,
     totals: {

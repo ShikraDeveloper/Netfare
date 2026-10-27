@@ -29,7 +29,7 @@ router.get('/backup', (req, res) => {
     'cancellations', 'supplier_credit_notes', 'supplier_credit_items', 'supplier_credit_applications',
     'supplier_portals', 'portal_topups', 'portal_refunds', 'portal_credits', 'refunds',
     'compliance_items', 'compliance_logs', 'post_dated_cheques', 'cash_deposits',
-    'credit_notes', 'credit_applications', 'bank_reconciliations', 'bank_reconciliation_lines', 'attachments',
+    'credit_notes', 'credit_applications', 'bank_reconciliations', 'bank_reconciliation_lines', 'attachments', 'job_status_history',
     'journal_entries', 'journal_lines', 'audit_logs',
   ];
   const data = {

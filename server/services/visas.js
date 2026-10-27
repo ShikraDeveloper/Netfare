@@ -3,19 +3,14 @@
 const {
   bad,
   notFound,
-  str,
   optionalStr,
   num,
-  cents,
   dateISO,
   isTruthy,
 } = require('../util');
 const { allocateNumber } = require('./numbering');
-const { isPurchaseAccount } = require('../accounting');
-const invoiceService = require('./invoices');
-const billService = require('./bills');
-const portalService = require('./portals');
 const cancellationService = require('./cancellations');
+const jobs = require('./jobs');
 const jobCosts = require('./job-costs');
 
 const VISA_TYPES = ['tourist', 'visit', 'business', 'transit', 'student', 'work', 'other'];
@@ -32,12 +27,37 @@ function itemTotals(items) {
   return items.reduce((sum, item) => sum + item.amount_cents, 0);
 }
 
+function addMonthsISO(dateStr, months) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const target = new Date(Date.UTC(y, m - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  const day = Math.min(d, lastDay);
+  return `${target.getUTCFullYear()}-${String(target.getUTCMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+// Most embassies want a passport valid for six months after travel. This is a
+// warning only: the application can still be saved and submitted.
+function passportWarning(visa) {
+  if (!visa.passport_expiry) return null;
+  const reference = visa.travel_date || visa.application_date;
+  if (!reference) return null;
+  if (visa.passport_expiry < reference) {
+    return `The passport expired on ${visa.passport_expiry}, before the ${visa.travel_date ? 'travel' : 'application'} date.`;
+  }
+  const required = addMonthsISO(reference, 6);
+  if (visa.passport_expiry < required) {
+    return `The passport expires on ${visa.passport_expiry}, less than 6 months after the ${visa.travel_date ? 'travel' : 'application'} date. Many embassies refuse such passports.`;
+  }
+  return null;
+}
+
 function serializeVisa(visa) {
   return {
     ...visa,
     margin_cents: visa.sale_total_cents - visa.cost_total_cents,
     status_display: visa.status,
     is_open: OPEN_STATUSES.includes(visa.status),
+    passport_warning: passportWarning(visa),
   };
 }
 
@@ -81,59 +101,6 @@ function normalizeDurationDays(value, existing = 0) {
   const days = num(value, 'Duration', { min: 1, max: 3650 });
   if (!Number.isInteger(days)) throw bad('Duration must be a whole number of days');
   return days;
-}
-
-function normalizeItems(db, items, itemType) {
-  if (!Array.isArray(items)) return [];
-  return items.map((item, index) => {
-    const isSale = itemType === 'sale';
-    const label = `${isSale ? 'Sale' : 'Cost'} line ${index + 1}`;
-    const description = str(item.description, `${label} description`, { max: 300 });
-    const quantity = num(item.quantity ?? 1, `${label} quantity`, { min: 0.0001, max: 1_000_000 });
-    const unitPrice = cents(item.unit_price_cents, `${label} unit price`);
-    const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(item.account_id));
-    if (!account) throw bad(`${label}: choose an account`);
-    if (!account.is_active) throw bad(`${label}: account "${account.name}" is archived`);
-    if (isSale && account.type !== 'revenue') throw bad(`${label}: choose a revenue account`);
-    if (!isSale && !isPurchaseAccount(account)) {
-      throw bad(`${label}: choose an expense account or a valid non-cash asset`);
-    }
-
-    let vendorId = null;
-    if (!isSale) {
-      const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(Number(item.vendor_id));
-      if (!vendor) throw bad(`${label}: choose a supplier`);
-      if (!vendor.is_active) throw bad(`${label}: supplier "${vendor.name}" is archived`);
-      vendorId = vendor.id;
-    }
-
-    return {
-      item_type: itemType,
-      description,
-      quantity,
-      unit_price_cents: unitPrice,
-      amount_cents: Math.round(quantity * unitPrice),
-      account_id: account.id,
-      vendor_id: vendorId,
-      supplier_ref: optionalStr(item.supplier_ref, `${label} supplier reference`, 120),
-    };
-  });
-}
-
-function insertItems(db, visaId, saleItems, costItems) {
-  const insert = db.prepare(`
-    INSERT INTO visa_items (visa_id, item_type, description, quantity, unit_price_cents,
-      amount_cents, account_id, vendor_id, supplier_ref, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  saleItems.forEach((item, index) => {
-    insert.run(visaId, 'sale', item.description, item.quantity, item.unit_price_cents,
-      item.amount_cents, item.account_id, null, item.supplier_ref, index);
-  });
-  costItems.forEach((item, index) => {
-    insert.run(visaId, 'cost', item.description, item.quantity, item.unit_price_cents,
-      item.amount_cents, item.account_id, item.vendor_id, item.supplier_ref, index);
-  });
 }
 
 function getVisa(db, id) {
@@ -180,6 +147,7 @@ function getVisa(db, id) {
       : 0,
   }));
   visa.cancellation = cancellationService.getCancellationForSource(db, 'visa', id);
+  visa.status_history = jobs.statusHistory(db, 'visa', id);
 
   visa.payments = visa.invoice
     ? db.prepare(`
@@ -250,11 +218,11 @@ function listVisas(db, { status, search, from, to } = {}) {
   return serialized.filter((row) => row.status === status);
 }
 
-function normalizeDates(payload, existing = {}) {
+function normalizeDates(db, payload, existing = {}) {
   const pick = (key) => (payload[key] !== undefined ? payload[key] : existing[key]);
   const applicationDate = dateISO(pick('application_date'), 'Application date');
   const dueRaw = pick('due_date');
-  const dueDate = dueRaw ? dateISO(dueRaw, 'Payment due date') : applicationDate;
+  const dueDate = dueRaw ? dateISO(dueRaw, 'Payment due date') : jobs.defaultDueDate(db, applicationDate);
   if (dueDate < applicationDate) throw bad('Due date cannot be before the application date');
   const travelRaw = pick('travel_date');
   const passportRaw = pick('passport_expiry');
@@ -272,10 +240,10 @@ function createVisa(db, payload) {
   return db.transaction(() => {
     const customer = assertCustomer(db, payload.customer_id);
     const applicant = normalizeApplicant(payload, customer);
-    const dates = normalizeDates(payload);
+    const dates = normalizeDates(db, payload);
     const durationDays = normalizeDurationDays(payload.duration_days);
-    const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
-    const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
+    const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
+    const costItems = jobs.normalizeJobItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
     const saleTotal = itemTotals(saleItems);
     if (saleTotal <= 0) throw bad('Visa sale total must be greater than zero');
@@ -309,7 +277,8 @@ function createVisa(db, payload) {
       itemTotals(costItems),
     );
     const visaId = Number(info.lastInsertRowid);
-    insertItems(db, visaId, saleItems, costItems);
+    jobs.insertJobItems(db, 'visa', visaId, saleItems, costItems);
+    jobs.recordStatus(db, 'visa', visaId, { to: 'draft', remarks: 'Application created' });
     return getVisa(db, visaId);
   })();
 }
@@ -321,10 +290,10 @@ function updateVisa(db, id, payload) {
     if (existing.status !== 'draft') throw bad('Only draft visa applications can be edited');
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
     const applicant = normalizeApplicant(payload, customer);
-    const dates = normalizeDates(payload, existing);
+    const dates = normalizeDates(db, payload, existing);
     const durationDays = normalizeDurationDays(payload.duration_days, existing.duration_days || 0);
-    const saleItems = normalizeItems(db, payload.sale_items || [], 'sale');
-    const costItems = normalizeItems(db, payload.cost_items || [], 'cost');
+    const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
+    const costItems = jobs.normalizeJobItems(db, payload.cost_items || [], 'cost');
     if (!saleItems.length) throw bad('Add at least one sale item');
     const saleTotal = itemTotals(saleItems);
     if (saleTotal <= 0) throw bad('Visa sale total must be greater than zero');
@@ -358,7 +327,7 @@ function updateVisa(db, id, payload) {
       id,
     );
     db.prepare('DELETE FROM visa_items WHERE visa_id = ?').run(id);
-    insertItems(db, id, saleItems, costItems);
+    jobs.insertJobItems(db, 'visa', id, saleItems, costItems);
     return getVisa(db, id);
   })();
 }
@@ -369,6 +338,7 @@ function deleteVisa(db, id) {
     if (!visa) throw notFound('Visa application not found');
     if (visa.status !== 'draft') throw bad('Only draft visa applications can be deleted. Cancel it instead.');
     db.prepare("DELETE FROM attachments WHERE entity_type = 'visa' AND entity_id = ?").run(id);
+    jobs.deleteStatusHistory(db, 'visa', id);
     db.prepare('DELETE FROM visa_applications WHERE id = ?').run(id);
     return { deleted: true };
   })();
@@ -380,10 +350,6 @@ function submitVisa(db, id) {
     if (!visa) throw notFound('Visa application not found');
     if (visa.status !== 'draft') throw bad('Only draft visa applications can be submitted');
     const items = db.prepare('SELECT * FROM visa_items WHERE visa_id = ? ORDER BY item_type, sort_order, id').all(id);
-    const saleItems = items.filter((item) => item.item_type === 'sale');
-    const costItems = items.filter((item) => item.item_type === 'cost');
-    if (!saleItems.length) throw bad('Add sale items before submitting this application');
-
     const visaTypeName = visa.visa_type
       ? `${visa.visa_type.charAt(0).toUpperCase()}${visa.visa_type.slice(1)}`
       : '';
@@ -392,74 +358,25 @@ function submitVisa(db, id) {
       visaTypeName ? `${visaTypeName} visa` : '',
       visa.duration_days ? `${visa.duration_days} days` : '',
     ].filter(Boolean).join(' · ');
-    const invoice = invoiceService.createInvoice(db, {
-      customer_id: visa.customer_id,
-      issue_date: visa.application_date,
-      due_date: visa.due_date || visa.application_date,
+    const { invoice, warnings } = jobs.postJobDocuments(db, {
+      sourceType: 'visa',
+      jobId: id,
+      customerId: visa.customer_id,
+      issueDate: visa.application_date,
+      dueDate: visa.due_date || visa.application_date,
       // Only the customer-facing note is copied; application notes stay internal.
-      notes: visa.invoice_notes || '',
-      terms: visaDetails
+      invoiceNotes: visa.invoice_notes,
+      invoiceTerms: visaDetails
         ? `${visaDetails}${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
         : '',
-      status: 'sent',
-      items: saleItems.map((item) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unit_price_cents: item.unit_price_cents,
-        account_id: item.account_id,
-      })),
+      billNotes: `Visa ${visa.number} · ${visa.destination_country || 'Application'}${visa.reference ? ` · Ref ${visa.reference}` : ''}`,
+      items,
     });
-    db.prepare('UPDATE invoices SET visa_id = ? WHERE id = ?').run(id, invoice.id);
-
-    const groups = new Map();
-    for (const item of costItems) {
-      if (!item.vendor_id) continue;
-      if (!groups.has(item.vendor_id)) groups.set(item.vendor_id, []);
-      groups.get(item.vendor_id).push(item);
-    }
-    for (const [vendorId, vendorItems] of groups.entries()) {
-      const bill = billService.createBill(db, {
-        vendor_id: vendorId,
-        bill_date: visa.application_date,
-        due_date: visa.due_date || visa.application_date,
-        notes: `Visa ${visa.number} · ${visa.destination_country || 'Application'}${visa.reference ? ` · Ref ${visa.reference}` : ''}`,
-        status: 'received',
-        items: vendorItems.map((item) => ({
-          description: item.description,
-          quantity: item.quantity,
-          unit_price_cents: item.unit_price_cents,
-          account_id: item.account_id,
-        })),
-      });
-      db.prepare('UPDATE bills SET visa_id = ? WHERE id = ?').run(id, bill.id);
-      const portal = portalService.portalForVendor(db, vendorId);
-      if (portal) {
-        db.prepare('UPDATE bills SET portal_id = ? WHERE id = ?').run(portal.id, bill.id);
-      }
-    }
-
-    // Prepaid portals settle their supplier's bill straight away from the balance.
-    const warnings = [];
-    const visaBills = db.prepare('SELECT id, number FROM bills WHERE visa_id = ?').all(id);
-    for (const bill of visaBills) {
-      let settled;
-      try {
-        settled = portalService.autoSettleBill(db, bill.id, visa.application_date);
-      } catch (error) {
-        warnings.push(`Bill ${bill.number}: ${error.message}`);
-        continue;
-      }
-      if (settled && settled.shortfall_cents > 0) {
-        const short = (settled.shortfall_cents / 100).toFixed(2);
-        warnings.push(settled.settled_cents > 0
-          ? `Portal "${settled.portal_name}" had only part of the amount for bill ${bill.number}. ${short} is still payable.`
-          : `Portal "${settled.portal_name}" has no balance for bill ${bill.number}. ${short} is still payable.`);
-      }
-    }
-
     db.prepare("UPDATE visa_applications SET status = 'submitted', invoice_id = ?, updated_at = datetime('now') WHERE id = ?")
       .run(invoice.id, id);
+    jobs.recordStatus(db, 'visa', id, { from: 'draft', to: 'submitted', remarks: `Invoice ${invoice.number} posted` });
     const result = getVisa(db, id);
+    if (result.passport_warning) warnings.push(result.passport_warning);
     if (warnings.length) result.warnings = warnings;
     return result;
   })();
@@ -471,6 +388,7 @@ function approveVisa(db, id) {
     if (!visa) throw notFound('Visa application not found');
     if (visa.status !== 'submitted') throw bad('Only submitted applications can be approved');
     db.prepare("UPDATE visa_applications SET status = 'approved', updated_at = datetime('now') WHERE id = ?").run(id);
+    jobs.recordStatus(db, 'visa', id, { from: 'submitted', to: 'approved' });
     return getVisa(db, id);
   })();
 }
@@ -481,6 +399,7 @@ function issueVisa(db, id) {
     if (!visa) throw notFound('Visa application not found');
     if (visa.status !== 'approved') throw bad('Only approved applications can be marked as issued');
     db.prepare("UPDATE visa_applications SET status = 'issued', updated_at = datetime('now') WHERE id = ?").run(id);
+    jobs.recordStatus(db, 'visa', id, { from: 'approved', to: 'issued' });
     return getVisa(db, id);
   })();
 }

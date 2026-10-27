@@ -425,6 +425,9 @@ function recordInvoicePayment(db, invoiceId, payload) {
     const balance = invoiceBalanceCents(invoice);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);
     const paymentDate = dateISO(payload.payment_date || todayISO(), 'Payment date');
+    if (paymentDate < invoice.issue_date) {
+      throw bad(`Payment date cannot be before the invoice date (${invoice.issue_date}). Record money received earlier as a customer advance.`);
+    }
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.deposit_account_id));
     if (!account) throw bad('Choose a deposit account');
     if (!account.is_active) throw bad('That deposit account is archived');

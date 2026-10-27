@@ -7,6 +7,7 @@ import {
   purchaseAccounts,
   portalForVendorId,
   revenueAccounts,
+  store,
 } from '../store.js';
 import {
   addDaysISO,
@@ -206,7 +207,8 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
   }
 
   const issueDate = booking?.booking_date || todayISO();
-  const dueDate = booking?.due_date || issueDate;
+  // New bookings default to the company payment terms, like invoices.
+  const dueDate = booking?.due_date || addDaysISO(issueDate, Number(store.settings?.payment_terms_days ?? 0));
   const travelDate = booking?.travel_date || '';
   const returnDate = booking?.return_date || '';
   const saleItems = booking?.sale_items?.length ? booking.sale_items : [{}];

@@ -65,6 +65,33 @@ function statusSteps(visa) {
   `;
 }
 
+const STATUS_HISTORY_EMPTY = 'No status changes recorded yet.';
+
+// When the job moved between statuses, and why. Shown on screen only.
+function statusHistoryCard(history = []) {
+  return `
+    <div class="card no-print" style="margin-top:16px" data-status-history>
+      <div class="card-head"><div class="card-title"><h2>Status history</h2><p>When this job changed status</p></div></div>
+      <div class="table-wrap">
+        <table class="data">
+          <caption class="sr-only">Status history</caption>
+          <thead><tr><th scope="col">Date</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Remarks</th></tr></thead>
+          <tbody>
+            ${history.length ? history.map((row) => `
+              <tr>
+                <td class="nowrap">${esc(fmtDate(row.event_date))}</td>
+                <td>${row.from_status ? statusBadge(row.from_status) : '—'}</td>
+                <td>${statusBadge(row.to_status)}</td>
+                <td class="muted">${esc(row.remarks || '')}</td>
+              </tr>
+            `).join('') : `<tr><td colspan="4" class="muted">${STATUS_HISTORY_EMPTY}</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const visa = await api.get(`/visas/${id}`);
@@ -234,6 +261,14 @@ export async function render(container, { params } = {}) {
   container.innerHTML = `
     ${statusSteps(visa)}
 
+    ${visa.passport_warning ? `
+      <div class="callout no-print" data-passport-warning style="border-color:var(--amber-soft)">
+        <div class="callout-icon" style="background:var(--amber-soft);color:var(--amber)">${icon('alert', 20)}</div>
+        <div class="callout-text">
+          <h3>Check the passport validity</h3>
+          <p>${esc(visa.passport_warning)}</p>
+        </div>
+      </div>` : ''}
     ${visa.notes ? `
       <div class="callout internal-notes no-print" data-internal-notes>
         <div class="callout-text">
@@ -366,6 +401,7 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
+    ${statusHistoryCard(visa.status_history)}
     ${attachmentSection({ entityType: 'visa', entityId: id, attachments })}
   `;
 

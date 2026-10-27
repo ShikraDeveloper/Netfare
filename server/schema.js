@@ -535,6 +535,18 @@ CREATE TABLE IF NOT EXISTS cash_deposits (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS job_status_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source_type TEXT NOT NULL CHECK (source_type IN ('booking', 'visa')),
+  source_id INTEGER NOT NULL,
+  from_status TEXT,
+  to_status TEXT NOT NULL,
+  event_date TEXT NOT NULL,
+  remarks TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_job_status_history_job ON job_status_history(source_type, source_id);
+
 CREATE TABLE IF NOT EXISTS attachments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa', 'cancellation', 'refund', 'credit_note', 'supplier_credit')),

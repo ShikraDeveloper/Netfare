@@ -40,6 +40,20 @@ function linesHtml(entry) {
 }
 
 function timelineRow(item, entriesById) {
+  if (item.kind === 'status') {
+    return `
+      <tr class="chain-status">
+        <td class="nowrap">${esc(fmtDate(item.date))}</td>
+        <td>
+          <span class="badge badge-draft">${esc(item.title)}</span>
+          ${item.remarks ? `<div class="chain-remarks">${esc(item.remarks)}</div>` : ''}
+        </td>
+        <td>${esc(item.owner_label || '—')}</td>
+        <td class="num">—</td>
+        <td>Status history</td>
+      </tr>
+    `;
+  }
   if (item.kind === 'audit') {
     return `
       <tr class="chain-audit">
@@ -113,7 +127,7 @@ export async function render(container, { params } = {}) {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-head"><div class="card-title"><h2>Timeline</h2><p>Journal postings, reversals and void remarks in date order</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Timeline</h2><p>Status changes, journal postings, reversals and void remarks in date order</p></div></div>
       <div class="table-wrap" tabindex="0" aria-label="Audit timeline">
         <table class="data">
           <caption class="sr-only">Audit timeline of postings, reversals and voids</caption>

@@ -7,7 +7,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Travel bookings** — every booking is a job with a customer, sale items (what the traveller pays), supplier cost items (what the airline/hotel/visa supplier charges you), and live profit margin. Confirming a booking automatically creates the customer invoice and the supplier bills and posts them to the ledger.
 - **Visa applications** — a dedicated visa workflow beside bookings: applicant and passport details, destination, embassy reference, sale/cost lines and live margin. Submitting posts the customer invoice and supplier bills; approve and issue milestones track the application, while rejection or cancellation reverses the documents.
 - **Supplier portals & wallets** — track the money you hold with airline logins, IATA agencies, consolidators, GDS accounts and visa agents. Top up a prepaid portal, spend it on bookings, or run a supplier on credit; every movement is posted to the ledger. Prepaid wallets reconcile against the supplier's own statement, while credit accounts show a full bills, payments and supplier-refund ledger and statement.
-- **Booking lifecycle** — `draft → confirmed → travelled`, plus a cancellation workflow that reverses the sale, keeps every receipt and supplier payment, and records any cancellation charge, refund or credit.
+- **Booking lifecycle** — `draft → confirmed → travelled` (travelled only from the travel date; every status change is kept in a **Status history**), plus a cancellation workflow that reverses the sale, keeps every receipt and supplier payment, and records any cancellation charge, refund or credit.
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
 - **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments.
 - **Refunds** — refund a customer payment, a cancellation balance, an advance, or a supplier credit. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
@@ -115,7 +115,7 @@ The reset keeps your chart of accounts and settings and clears customers, vendor
 | --- | --- |
 | Booking number | Auto-generated as `BK-YYYY-####` |
 | Customer | Traveller / account being invoiced |
-| Booking date / due date | Drives invoice dates and payment terms |
+| Booking date / due date | Drives invoice dates; the due date defaults to the payment terms in Settings |
 | Travel date / return date | Trip dates |
 | Destination | Free text, e.g. `London, United Kingdom` |
 | PNR / ticket | Airline record locator |
