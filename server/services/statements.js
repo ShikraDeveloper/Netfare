@@ -101,11 +101,26 @@ function customerTransactions(db, customerId) {
     visasByInvoice.set(invoiceId, { ...details, passport_masked: maskPassport(passportNumber) });
   }
 
+  // Invoices for someone other than the customer name that person too.
+  const beneficiaryByInvoice = new Map();
+  for (const row of db.prepare(`
+    SELECT id, beneficiary_name, beneficiary_nationality, beneficiary_passport
+    FROM invoices
+    WHERE customer_id = ? AND status = 'sent' AND beneficiary_is_customer = 0
+  `).all(customerId)) {
+    beneficiaryByInvoice.set(row.id, {
+      name: row.beneficiary_name,
+      nationality: row.beneficiary_nationality,
+      passport_masked: maskPassport(row.beneficiary_passport),
+    });
+  }
+
   return rows.map((row) => row.kind === 'invoice'
     ? {
         ...row,
         items: itemsByInvoice.get(row.id) || [],
         visa: visasByInvoice.get(row.id) || null,
+        beneficiary: beneficiaryByInvoice.get(row.id) || null,
       }
     : row);
 }

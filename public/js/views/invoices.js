@@ -33,7 +33,9 @@ function invoiceRow(invoice) {
           ${avatar(invoice.customer_name, 32)}
           <div class="party-info">
             <div class="cell-main">${esc(invoice.customer_name)}</div>
-            <div class="cell-sub">${esc(invoice.customer_email || '')}</div>
+            <div class="cell-sub">${Number(invoice.beneficiary_is_customer) === 0 && invoice.beneficiary_name
+              ? `For ${esc(invoice.beneficiary_name)}`
+              : esc(invoice.customer_email || '')}</div>
           </div>
         </div>
       </td>
@@ -165,7 +167,7 @@ export async function render(container, { query } = {}) {
           : invoice.status_display === status);
       if (!matchesStatus) return false;
       if (!term) return true;
-      return [invoice.number, invoice.customer_name, invoice.customer_email, invoice.notes, invoice.status_display]
+      return [invoice.number, invoice.customer_name, invoice.customer_email, invoice.notes, invoice.status_display, invoice.beneficiary_name]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
 
@@ -239,6 +241,7 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
   }
 
   const settings = store.settings || {};
+  const forSomeoneElse = invoice ? Number(invoice.beneficiary_is_customer) === 0 : false;
   const issueDate = invoice?.issue_date || todayISO();
   const dueDate = invoice?.due_date || addDaysISO(issueDate, Number(settings.payment_terms_days ?? 30));
 
@@ -249,6 +252,30 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         <select class="input" id="invoice-customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
+      </div>
+      <div class="field full">
+        <label class="checkbox-row" for="invoice-for-other">
+          <input type="checkbox" id="invoice-for-other" ${forSomeoneElse ? 'checked' : ''}>
+          <span>
+            <strong>This invoice is for someone else</strong><br>
+            Turn this on when the customer pays for another person, such as a traveller, guest or family member. The invoice is still billed to the customer.
+          </span>
+        </label>
+      </div>
+      <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+        <label for="invoice-beneficiary">Name of the person</label>
+        <input class="input" id="invoice-beneficiary" name="beneficiary_name" maxlength="160" autocomplete="off"
+          value="${esc(invoice?.beneficiary_name || '')}" placeholder="Full name as on the passport" ${forSomeoneElse ? 'required' : ''}>
+      </div>
+      <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+        <label for="invoice-beneficiary-nationality">Nationality</label>
+        <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off"
+          value="${esc(invoice?.beneficiary_nationality || '')}" placeholder="Optional">
+      </div>
+      <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+        <label for="invoice-beneficiary-passport">Passport number</label>
+        <input class="input" id="invoice-beneficiary-passport" name="beneficiary_passport" maxlength="60" autocomplete="off"
+          value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional · only the last 4 characters are printed">
       </div>
       <div class="field">
         <label for="invoice-issue">Issue date</label>
@@ -301,6 +328,15 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
       });
       overlay.editor = editor;
 
+      const otherToggle = overlay.querySelector('#invoice-for-other');
+      const beneficiaryName = overlay.querySelector('#invoice-beneficiary');
+      otherToggle.addEventListener('change', () => {
+        const isOther = otherToggle.checked;
+        overlay.querySelectorAll('[data-beneficiary-field]').forEach((field) => { field.hidden = !isOther; });
+        beneficiaryName.required = isOther;
+        if (isOther) beneficiaryName.focus();
+      });
+
       if (!isEdit) {
         const issueInput = overlay.querySelector('#invoice-issue');
         const dueInput = overlay.querySelector('#invoice-due');
@@ -332,6 +368,14 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         items,
         status,
       };
+      const forOther = Boolean(form.querySelector('#invoice-for-other')?.checked);
+      payload.beneficiary_is_customer = !forOther;
+      if (forOther) {
+        payload.beneficiary_name = values.get('beneficiary_name');
+        payload.beneficiary_nationality = values.get('beneficiary_nationality');
+        payload.beneficiary_passport = values.get('beneficiary_passport');
+        if (!String(payload.beneficiary_name || '').trim()) throw new Error('Enter the name of the person this invoice is for');
+      }
       const saved = isEdit
         ? await api.put(`/invoices/${invoice.id}`, payload)
         : await api.post('/invoices', payload);

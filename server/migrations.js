@@ -149,6 +149,12 @@ ensureColumn('invoices', 'booking_id', 'INTEGER');
 ensureColumn('invoices', 'visa_id', 'INTEGER');
 ensureColumn('invoices', 'credit_applied_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('invoices', 'cancellation_id', 'INTEGER');
+// An invoice billed to the customer can be for someone else (a traveller,
+// guest or family member). The ledger party stays the customer.
+ensureColumn('invoices', 'beneficiary_is_customer', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('invoices', 'beneficiary_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('invoices', 'beneficiary_nationality', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('invoices', 'beneficiary_passport', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('bills', 'booking_id', 'INTEGER');
 ensureColumn('bills', 'visa_id', 'INTEGER');
 ensureColumn('bills', 'portal_id', 'INTEGER');

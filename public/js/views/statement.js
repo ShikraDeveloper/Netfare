@@ -69,6 +69,25 @@ function titleCase(value) {
   return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
 }
 
+// An invoice the customer paid for another person (traveller, guest, family).
+function beneficiaryDetailsHtml(row) {
+  const person = row.beneficiary;
+  if (!person || !person.name || row.visa) return '';
+  const meta = [
+    person.nationality,
+    person.passport_masked ? `Passport ${person.passport_masked}` : '',
+  ].filter(Boolean);
+  return `
+    <div class="statement-visa" data-statement-beneficiary>
+      <div class="statement-visa-head">
+        <span class="statement-visa-label">Service for</span>
+        <span class="statement-visa-name">${esc(person.name)}</span>
+      </div>
+      ${meta.length ? `<div class="statement-visa-meta">${esc(meta.join(' · '))}</div>` : ''}
+    </div>
+  `;
+}
+
 function visaDetailsHtml(row) {
   const visa = row.visa;
   if (!visa || !visa.applicant_name) return '';
@@ -258,6 +277,7 @@ export async function render(container, { params = [], query = new URLSearchPara
                         ${transactionItemsHtml(row)}
                         ${detail ? `<div class="cell-sub">${esc(detail).replace(/-/g, '&#8209;')}</div>` : ''}
                         ${visaDetailsHtml(row)}
+                        ${beneficiaryDetailsHtml(row)}
                       </div>
                     </div>
                   </td>

@@ -111,6 +111,10 @@ CREATE TABLE IF NOT EXISTS invoices (
   amount_paid_cents INTEGER NOT NULL DEFAULT 0,
   credit_applied_cents INTEGER NOT NULL DEFAULT 0,
   cancellation_id INTEGER,
+  beneficiary_is_customer INTEGER NOT NULL DEFAULT 1,
+  beneficiary_name TEXT NOT NULL DEFAULT '',
+  beneficiary_nationality TEXT NOT NULL DEFAULT '',
+  beneficiary_passport TEXT NOT NULL DEFAULT '',
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))

@@ -1081,6 +1081,52 @@ test('job pages show status history, an early-travel guard and passport warnings
   assertNoConsoleErrors();
 });
 
+test('an invoice can be marked as for someone else', async () => {
+  const [customers, accounts] = await Promise.all([
+    getJson(baseUrl, '/api/customers'),
+    getJson(baseUrl, '/api/accounts'),
+  ]);
+  const revenue = accounts.find((account) => account.code === '4000');
+
+  await openRoute('/invoices?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  const nameInput = dialog.locator('#invoice-beneficiary');
+  assert.equal(await nameInput.isVisible(), false, 'person fields are hidden by default');
+  await dialog.locator('#invoice-for-other').check();
+  assert.equal(await nameInput.isVisible(), true);
+  assert.equal(await nameInput.getAttribute('required'), '');
+  await dialog.locator('#invoice-for-other').uncheck();
+  assert.equal(await nameInput.isVisible(), false);
+  await dialog.locator('.modal-head [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  const invoice = await postJson(baseUrl, '/api/invoices', {
+    customer_id: customers[0].id,
+    issue_date: '2026-10-22',
+    beneficiary_is_customer: false,
+    beneficiary_name: 'E2E Traveller',
+    beneficiary_nationality: 'Indian',
+    beneficiary_passport: 'K1234987',
+    items: [{ description: 'E2E ticket for a traveller', quantity: 1, unit_price_cents: 20_000, account_id: revenue.id }],
+  });
+  await openRoute(`/invoices/${invoice.id}`);
+  const section = page.locator('[data-beneficiary]');
+  await section.waitFor();
+  const text = await section.innerText();
+  assert.match(text, /Service for/i);
+  assert.ok(text.includes('E2E Traveller'));
+  assert.ok(text.includes('•••• 4987'), 'masked passport');
+  assert.ok(!text.includes('K1234987'), 'never the full passport');
+  assert.ok((await page.locator('.doc-parties').first().innerText()).includes(customers[0].name), 'still billed to the customer');
+
+  await openRoute('/invoices');
+  await page.locator('#invoice-search').fill('E2E Traveller');
+  await page.waitForTimeout(100);
+  assert.match(await page.locator('table.data tbody').innerText(), /For E2E Traveller/);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),

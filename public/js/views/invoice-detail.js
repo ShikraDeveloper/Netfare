@@ -63,6 +63,31 @@ function visaApplicantHtml(invoice) {
   `;
 }
 
+// A direct invoice paid by the customer for another person. Visa invoices use
+// the visa applicant section instead.
+function beneficiaryHtml(invoice) {
+  if (invoice.visa_id || Number(invoice.beneficiary_is_customer) !== 0) return '';
+  const name = String(invoice.beneficiary_name || '').trim();
+  if (!name) return '';
+  const details = [
+    invoice.beneficiary_nationality ? `Nationality: ${invoice.beneficiary_nationality}` : '',
+    invoice.beneficiary_passport_masked ? `Passport: ${invoice.beneficiary_passport_masked}` : '',
+  ].filter(Boolean);
+  return `
+    <div class="doc-visa-applicant" data-beneficiary>
+      <div>
+        <div class="doc-label">Service for</div>
+        <div class="doc-party-name">${esc(name)}</div>
+        ${details.length ? `<div class="doc-party-detail">${esc(details.join('\n'))}</div>` : ''}
+      </div>
+      <div>
+        <div class="doc-label">Paid by</div>
+        <div class="doc-party-detail">${esc(invoice.customer_name || '')}</div>
+      </div>
+    </div>
+  `;
+}
+
 function invoiceVoidPreview(invoice) {
   const payments = invoice.payments.filter((payment) => payment.status === 'posted');
   const paymentTotal = payments.reduce((sum, payment) => sum + payment.amount_cents, 0);
@@ -306,6 +331,7 @@ export async function render(container, { params } = {}) {
         </div>
 
         ${visaApplicantHtml(invoice)}
+        ${beneficiaryHtml(invoice)}
 
         <div class="doc-items-wrap">
           <table class="doc-items"><caption class="sr-only">Invoice line items</caption>

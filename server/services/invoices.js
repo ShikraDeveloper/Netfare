@@ -10,6 +10,7 @@ const {
   dateISO,
   todayISO,
   maskPassport,
+  isTruthy,
 } = require('../util');
 const {
   systemAccount,
@@ -30,10 +31,36 @@ const invoiceSelect = `
 `;
 
 function serializeInvoice(invoice, today = todayISO()) {
+  // The full passport is only needed while a draft can still be edited. Sent
+  // and void invoices are customer documents and carry the masked form only.
+  const { beneficiary_passport: passport, ...rest } = invoice;
   return {
-    ...invoice,
+    ...rest,
+    ...(invoice.status === 'draft' ? { beneficiary_passport: passport || '' } : {}),
+    beneficiary_passport_masked: maskPassport(passport),
     status_display: invoiceDisplayStatus(invoice, today),
     balance_cents: invoiceBalanceCents(invoice),
+  };
+}
+
+// "This invoice is for someone else": billed to the customer, delivered to
+// another person. Off means the customer is the person served.
+function normalizeBeneficiary(payload, existing = {}) {
+  const has = (key) => payload[key] !== undefined && payload[key] !== null;
+  const forCustomer = has('beneficiary_is_customer')
+    ? isTruthy(payload.beneficiary_is_customer)
+    : existing.beneficiary_is_customer !== 0;
+  if (forCustomer) {
+    return { isCustomer: 1, name: '', nationality: '', passport: '' };
+  }
+  const pick = (key) => (has(key) ? payload[key] : existing[key]);
+  const name = optionalStr(pick('beneficiary_name'), 'Name of the person', 160);
+  if (!name) throw bad('Enter the name of the person this invoice is for');
+  return {
+    isCustomer: 0,
+    name,
+    nationality: optionalStr(pick('beneficiary_nationality'), 'Nationality', 80),
+    passport: optionalStr(pick('beneficiary_passport'), 'Passport number', 60),
   };
 }
 
@@ -126,9 +153,9 @@ function listInvoices(db, { status, search, from, to } = {}) {
     params.push(dateISO(to, 'To date'));
   }
   if (search) {
-    clauses.push('(i.number LIKE ? OR c.name LIKE ? OR i.notes LIKE ?)');
+    clauses.push('(i.number LIKE ? OR c.name LIKE ? OR i.notes LIKE ? OR i.beneficiary_name LIKE ?)');
     const term = `%${String(search).trim()}%`;
-    params.push(term, term, term);
+    params.push(term, term, term, term);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${invoiceSelect} ${where} ORDER BY i.issue_date DESC, i.id DESC`).all(...params);
@@ -225,12 +252,14 @@ function createInvoice(db, payload) {
     const items = normalizeItems(db, payload.items, ['revenue']);
     const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Invoice total must be greater than zero');
+    const beneficiary = normalizeBeneficiary(payload);
     const number = allocateNumber(db, 'invoice', issueDate);
 
     const info = db.prepare(`
       INSERT INTO invoices (number, customer_id, issue_date, due_date, status, notes, terms,
-        subtotal_cents, total_cents, amount_paid_cents)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        subtotal_cents, total_cents, amount_paid_cents,
+        beneficiary_is_customer, beneficiary_name, beneficiary_nationality, beneficiary_passport)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -241,6 +270,10 @@ function createInvoice(db, payload) {
       optionalStr(payload.terms, 'Terms', 2000),
       totals.subtotal,
       totals.total,
+      beneficiary.isCustomer,
+      beneficiary.name,
+      beneficiary.nationality,
+      beneficiary.passport,
     );
     const invoiceId = Number(info.lastInsertRowid);
     insertItems(db, invoiceId, items);
@@ -267,10 +300,13 @@ function updateInvoice(db, id, payload) {
     const items = normalizeItems(db, payload.items, ['revenue']);
     const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Invoice total must be greater than zero');
+    const beneficiary = normalizeBeneficiary(payload, existing);
 
     db.prepare(`
       UPDATE invoices SET customer_id = ?, issue_date = ?, due_date = ?, notes = ?, terms = ?,
-        subtotal_cents = ?, total_cents = ?, updated_at = datetime('now')
+        subtotal_cents = ?, total_cents = ?,
+        beneficiary_is_customer = ?, beneficiary_name = ?, beneficiary_nationality = ?, beneficiary_passport = ?,
+        updated_at = datetime('now')
       WHERE id = ?
     `).run(
       customer.id,
@@ -280,6 +316,10 @@ function updateInvoice(db, id, payload) {
       optionalStr(payload.terms ?? existing.terms, 'Terms', 2000),
       totals.subtotal,
       totals.total,
+      beneficiary.isCustomer,
+      beneficiary.name,
+      beneficiary.nationality,
+      beneficiary.passport,
       id,
     );
     db.prepare('DELETE FROM invoice_items WHERE invoice_id = ?').run(id);
