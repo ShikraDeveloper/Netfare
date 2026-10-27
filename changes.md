@@ -367,9 +367,41 @@ Verification:
 
 Verification: `npm run check` 156 files OK; `npm test` 100 passed (7 new in `test/job-rules.test.js`); `npm run test:e2e` 21 passed (new job page test). Dry-run on a copy of live `data/accounting.db`: new table created, integrity ok, 8/8 checks. Live file not modified; restart needed.
 
+## 2026-10-27
+
+### "This invoice is for someone else" toggle — code commit `205b818`
+
+Brings the visa applicant toggle to direct invoices, for a customer who pays for another person (traveller, guest or family member).
+
+- **Invoice form:** new checkbox **This invoice is for someone else**. When on, it shows **Name of the person** (required), **Nationality** and **Passport number** (both optional). When off, the fields are hidden and cleared.
+- **Ledger:** unchanged. The invoice is billed to, and posts its receivable against, the paying customer.
+- **Documents:**
+  - The printed invoice shows a **Service for** section (name, nationality, passport masked as `•••• 4567`) beside **Paid by**.
+  - The customer statement names the person under the invoice line.
+  - The invoice list shows "For <name>" under the customer, and search finds invoices by the person's name.
+  - Visa invoices keep their own visa applicant section.
+- **Privacy:** sent and void invoices return only the masked passport (`beneficiary_passport_masked`). The full number comes back only for drafts, so it can still be edited.
+- **API:**
+  - `beneficiary_is_customer` (default true), `beneficiary_name`, `beneficiary_nationality`, `beneficiary_passport` on create and update.
+  - A draft edit that leaves them out keeps the saved values; turning the toggle off clears them.
+- **Schema:** four new `invoices` columns, added by migration. Existing invoices default to "for the customer".
+
+Key files: `server/services/invoices.js`, `server/services/statements.js`, `server/schema.js`, `server/migrations.js`, `public/js/views/invoices.js`, `public/js/views/invoice-detail.js`, `public/js/views/statement.js`, `test/invoice-beneficiary.test.js`, `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 157 JavaScript files syntax OK.
+- `npm test`: 104 passed, including 4 new tests in `test/invoice-beneficiary.test.js`:
+  - default is the customer;
+  - the person's name is required, the receivable is posted to the customer, the passport is masked on a sent invoice, and search works;
+  - draft edits keep, rename and clear the person, and posting keeps it;
+  - the statement shows the person with a masked passport.
+- `npm run test:e2e`: 22 passed, including a new test: fields hidden by default and shown with a required name when toggled; the printed invoice shows **Service for** with a masked passport and is still billed to the customer; the list shows "For …".
+- Migration dry-run on a copy of live `data/accounting.db`: columns added, integrity ok, 8/8 checks, both existing invoices default to the customer. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `e1400ed` (job date rules, status history, shared job code).
+1. Start from the latest `main`; the latest code commit is `205b818` (invoice "for someone else" toggle).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
