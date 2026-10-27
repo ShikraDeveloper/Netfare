@@ -12,6 +12,14 @@ router.post('/', (req, res) => {
   res.status(201).json(service.createVisa(db, req.body || {}));
 });
 
+router.post('/groups', (req, res) => {
+  res.status(201).json(service.createVisaGroup(db, req.body || {}));
+});
+
+router.post('/groups/:groupId/submit', (req, res) => {
+  res.json(service.submitVisaGroup(db, Number(req.params.groupId)));
+});
+
 router.get('/:id', (req, res) => {
   res.json(service.getVisa(db, Number(req.params.id)));
 });

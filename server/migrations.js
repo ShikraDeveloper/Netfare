@@ -135,6 +135,7 @@ ensureColumn('settings', 'topup_prefix', "TEXT NOT NULL DEFAULT 'TOP'");
 ensureColumn('settings', 'next_topup_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'visa_prefix', "TEXT NOT NULL DEFAULT 'VIS'");
 ensureColumn('settings', 'next_visa_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'next_visa_group_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_refund_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_credit_number', 'INTEGER NOT NULL DEFAULT 1');
@@ -209,6 +210,8 @@ ensureColumn('visa_applications', 'duration_days', 'INTEGER NOT NULL DEFAULT 0')
 // Notes are internal; the invoice note is the only text copied to the customer invoice.
 ensureColumn('bookings', 'invoice_notes', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('visa_applications', 'invoice_notes', "TEXT NOT NULL DEFAULT ''");
+// Visas for several people are separate applications linked by a group.
+ensureColumn('visa_applications', 'group_id', 'INTEGER');
 
 // Existing visa applications did not record whether the applicant was the
 // customer or a visitor. Derive it once when the column is first added.
@@ -263,6 +266,12 @@ if (setupVersion < 2) {
   })();
 }
 ensureColumn('booking_items', 'portal_id', 'INTEGER');
+// A booking row is one passenger: its sale and cost lines share line_group,
+// and passenger_name builds the invoice line ("destination – passenger").
+ensureColumn('booking_items', 'passenger_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('booking_items', 'line_group', 'INTEGER');
+ensureColumn('visa_items', 'passenger_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('visa_items', 'line_group', 'INTEGER');
 ensureColumn('customer_advances', 'visa_id', 'INTEGER');
 
 // Indexes that reference columns added by migrations must be created after them.
@@ -274,6 +283,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_bill_payments_portal ON bill_payments(portal_id);
   CREATE INDEX IF NOT EXISTS idx_visas_status ON visa_applications(status);
   CREATE INDEX IF NOT EXISTS idx_visa_items_visa ON visa_items(visa_id);
+  CREATE INDEX IF NOT EXISTS idx_visas_group ON visa_applications(group_id);
   CREATE INDEX IF NOT EXISTS idx_advances_visa ON customer_advances(visa_id);
   CREATE INDEX IF NOT EXISTS idx_refunds_invoice ON refunds(invoice_id);
   CREATE INDEX IF NOT EXISTS idx_refunds_bill ON refunds(bill_id);

@@ -242,7 +242,23 @@ function postInvoice(db, invoice, customer, items) {
   });
 }
 
-function createInvoice(db, payload) {
+// Ticket, package and visa sales always have a supplier cost, so they are
+// invoiced from a booking or visa where that cost is recorded with the sale.
+// A direct (service) invoice is for income with no supplier cost.
+const JOB_REVENUE_CODES = new Set(['4000', '4100', '4320']);
+
+function assertServiceRevenue(db, items) {
+  items.forEach((item, index) => {
+    const account = db.prepare('SELECT code, name FROM accounts WHERE id = ?').get(Number(item.account_id));
+    if (account && JOB_REVENUE_CODES.has(account.code)) {
+      throw bad(`Line ${index + 1}: ${account.code} ${account.name} is used by bookings and visas. Create a booking or visa so the supplier cost is recorded with the sale, or choose a service income account.`);
+    }
+  });
+}
+
+// options.jobInvoice is set only by bookings, visas and cancellations, which
+// post their own revenue and costs.
+function createInvoice(db, payload, options = {}) {
   return db.transaction(() => {
     const customer = assertCustomer(db, payload.customer_id);
     const issueDate = dateISO(payload.issue_date, 'Issue date');
@@ -250,6 +266,7 @@ function createInvoice(db, payload) {
     if (dueDate < issueDate) throw bad('Due date cannot be before the issue date');
     const status = payload.status === 'draft' ? 'draft' : 'sent';
     const items = normalizeItems(db, payload.items, ['revenue']);
+    if (!options.jobInvoice) assertServiceRevenue(db, items);
     const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Invoice total must be greater than zero');
     const beneficiary = normalizeBeneficiary(payload);
@@ -298,6 +315,7 @@ function updateInvoice(db, id, payload) {
     const dueDate = dateISO(payload.due_date ?? existing.due_date, 'Due date');
     if (dueDate < issueDate) throw bad('Due date cannot be before the issue date');
     const items = normalizeItems(db, payload.items, ['revenue']);
+    if (!existing.booking_id && !existing.visa_id && !existing.cancellation_id) assertServiceRevenue(db, items);
     const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Invoice total must be greater than zero');
     const beneficiary = normalizeBeneficiary(payload, existing);
@@ -335,6 +353,8 @@ function finalizeInvoice(db, id) {
     if (invoice.status !== 'draft') throw bad('Only draft invoices can be finalized');
     const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id').all(id);
     if (!items.length) throw bad('Add line items before finalizing');
+    // Drafts saved before this rule may still use a ticket or visa account.
+    if (!invoice.booking_id && !invoice.visa_id && !invoice.cancellation_id) assertServiceRevenue(db, items);
     const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
     const entryId = postInvoice(db, invoice, customer, items);
     db.prepare(`
@@ -577,6 +597,7 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
 }
 
 module.exports = {
+  JOB_REVENUE_CODES,
   listInvoices,
   getInvoice,
   createInvoice,

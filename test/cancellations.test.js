@@ -788,7 +788,7 @@ test('backdated cash deposits are checked against historical and current balance
 });
 
 test('draft attachments are removed with their documents and payments are voided, not deleted', () => {
-  const saleAccount = account('4000').id;
+  const saleAccount = account('4300').id;
   const draftInvoice = invoiceService.createInvoice(db, {
     customer_id: insertCustomer('Attachment Customer'),
     issue_date: '2026-10-20',

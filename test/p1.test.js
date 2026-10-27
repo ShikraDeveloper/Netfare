@@ -165,7 +165,7 @@ test('credit notes issue, apply, reverse and void without overtaxing the invoice
     issue_date: '2026-03-02',
     due_date: '2026-03-02',
     status: 'sent',
-    items: [{ description: 'March sale', quantity: 1, unit_price_cents: 120_000, account_id: account('4000').id }],
+    items: [{ description: 'March sale', quantity: 1, unit_price_cents: 120_000, account_id: account('4300').id }],
   });
   const applied = creditService.applyCredit(db, credit.id, {
     invoice_id: invoice.id,
@@ -202,7 +202,7 @@ test('credit notes issue, apply, reverse and void without overtaxing the invoice
     issue_date: '2026-03-04',
     due_date: '2026-03-04',
     status: 'sent',
-    items: [{ description: 'Small sale', quantity: 1, unit_price_cents: 40_000, account_id: account('4000').id }],
+    items: [{ description: 'Small sale', quantity: 1, unit_price_cents: 40_000, account_id: account('4300').id }],
   });
   const fullyApplied = creditService.applyCredit(db, credit.id, {
     invoice_id: smallInvoice.id,
@@ -228,7 +228,7 @@ test('A/R aging and dashboard subtract applied customer credits', () => {
     issue_date: '2026-03-01',
     due_date: '2026-03-01',
     status: 'sent',
-    items: [{ description: 'Aging sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
+    items: [{ description: 'Aging sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
   });
   const credit = creditService.createCredit(db, {
     customer_id: customerId,
@@ -260,7 +260,7 @@ test('customer and vendor statements carry opening and running balances', () => 
     issue_date: '2026-01-10',
     due_date: '2026-01-10',
     status: 'sent',
-    items: [{ description: 'January sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
+    items: [{ description: 'January sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
   });
   invoiceService.recordInvoicePayment(db, invoiceA.id, {
     amount_cents: 40_000,
@@ -273,7 +273,7 @@ test('customer and vendor statements carry opening and running balances', () => 
     issue_date: '2026-02-01',
     due_date: '2026-02-01',
     status: 'sent',
-    items: [{ description: 'February sale', quantity: 1, unit_price_cents: 50_000, account_id: account('4000').id }],
+    items: [{ description: 'February sale', quantity: 1, unit_price_cents: 50_000, account_id: account('4300').id }],
   });
   const credit = creditService.createCredit(db, {
     customer_id: customerId,

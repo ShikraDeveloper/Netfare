@@ -60,7 +60,7 @@ export async function render(container, { query } = {}) {
   setHeader({
     title: 'Invoices',
     subtitle: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · ${fmtMoney(outstanding)} outstanding across ${openCount}`,
-    actions: `<button class="btn btn-primary" data-action="new-invoice">${icon('plus', 16)}<span>New invoice</span></button>`,
+    actions: `<button class="btn btn-primary" data-action="new-invoice">${icon('plus', 16)}<span>New service invoice</span></button>`,
   });
 
   if (!invoices.length) {
@@ -69,8 +69,8 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'invoice',
     title: 'No invoices yet',
-    message: 'Create an invoice for a customer. Sending it will post revenue and a receivable to your ledger automatically.',
-    action: '<button class="btn btn-primary" data-action="new-invoice">Create your first invoice</button>',
+    message: 'Booking and visa invoices appear here automatically. Use a service invoice for income with no supplier cost, such as service fees or commission.',
+    action: '<button class="btn btn-primary" data-action="new-invoice">Create a service invoice</button>',
   })}
       </div>
     `;
@@ -216,10 +216,16 @@ function maybeOpenNew(query, alreadyBound) {
   }
 }
 
+const SERVICE_INVOICE_BLOCKED_CODES = ['4000', '4100', '4320'];
+
 export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
   const isEdit = Boolean(invoice);
   const customers = activeCustomers();
-  const accounts = revenueAccounts();
+  // Ticket, package and visa revenue is invoiced from bookings and visas, where
+  // the supplier cost is recorded too. Service charges come first.
+  const accounts = revenueAccounts()
+    .filter((account) => !SERVICE_INVOICE_BLOCKED_CODES.includes(account.code))
+    .sort((a, b) => (b.code === '4300') - (a.code === '4300') || a.code.localeCompare(b.code));
 
   if (!customers.length) {
     openModal({
@@ -248,6 +254,13 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
   const body = `
     <div class="form-grid">
       <div class="field full">
+        <div class="form-note" data-service-invoice-hint>
+          <strong>For income with no supplier cost</strong>, such as service fees, commission or consultancy.
+          Selling a ticket, package or visa? Create a <a href="#/bookings?new=1">booking</a> or
+          <a href="#/visas?new=1">visa</a> instead, so the supplier cost and margin are recorded with the sale.
+        </div>
+      </div>
+      <div class="field full">
         <label for="invoice-customer">Customer</label>
         <select class="input" id="invoice-customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose a customer…' })}
@@ -267,53 +280,57 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         <input class="input" id="invoice-beneficiary" name="beneficiary_name" maxlength="160" autocomplete="off"
           value="${esc(invoice?.beneficiary_name || '')}" placeholder="Full name as on the passport" ${forSomeoneElse ? 'required' : ''}>
       </div>
-      <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
-        <label for="invoice-beneficiary-nationality">Nationality</label>
-        <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off"
-          value="${esc(invoice?.beneficiary_nationality || '')}" placeholder="Optional">
-      </div>
-      <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
-        <label for="invoice-beneficiary-passport">Passport number</label>
-        <input class="input" id="invoice-beneficiary-passport" name="beneficiary_passport" maxlength="60" autocomplete="off"
-          value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional · only the last 4 characters are printed">
-      </div>
       <div class="field">
         <label for="invoice-issue">Issue date</label>
         <input class="input" id="invoice-issue" name="issue_date" type="date" value="${esc(issueDate)}" required>
       </div>
-      <div class="field">
-        <label for="invoice-due">Due date</label>
-        <input class="input" id="invoice-due" name="due_date" type="date" value="${esc(dueDate)}" required>
-      </div>
       <div class="field full" style="margin-top:2px">
-        <label>Line items</label>
-        ${lineItemsHtml(invoice?.items || [], accounts)}
+        <label>What are you charging for?</label>
+        ${lineItemsHtml(invoice?.items || [], accounts, { compact: true })}
         <div class="totals-panel">
-          <div class="totals-row"><span>Subtotal</span><span id="sum-subtotal">${fmtMoney(0)}</span></div>
           <div class="totals-row total"><span>Total</span><span id="sum-total">${fmtMoney(0)}</span></div>
         </div>
       </div>
-      <div class="field">
-        <label for="invoice-notes">Notes</label>
-        <textarea class="input" id="invoice-notes" name="notes" rows="3" placeholder="A note shown on the invoice">${esc(invoice?.notes || '')}</textarea>
-      </div>
-      <div class="field">
-        <label for="invoice-terms">Payment terms</label>
-        <textarea class="input" id="invoice-terms" name="terms" rows="3" placeholder="Payment instructions">${esc(invoice?.terms || '')}</textarea>
-      </div>
-      ${isEdit ? '' : `
-        <div class="field full">
-          <label class="checkbox-row">
-            <input type="checkbox" name="save_draft" value="1">
-            <span>Save as draft — don’t post to the ledger until you send it</span>
-          </label>
+      <details class="field full more-details"${invoice?.notes || invoice?.terms ? ' open' : ''}>
+        <summary>More details</summary>
+        <div class="form-grid">
+          <div class="field">
+            <label for="invoice-due">Due date</label>
+            <input class="input" id="invoice-due" name="due_date" type="date" value="${esc(dueDate)}" required>
+          </div>
+          <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+            <label for="invoice-beneficiary-nationality">Nationality</label>
+            <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off"
+              value="${esc(invoice?.beneficiary_nationality || '')}" placeholder="Optional">
+          </div>
+          <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+            <label for="invoice-beneficiary-passport">Passport number</label>
+            <input class="input" id="invoice-beneficiary-passport" name="beneficiary_passport" maxlength="60" autocomplete="off"
+              value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional · only the last 4 characters are printed">
+          </div>
+          <div class="field">
+            <label for="invoice-notes">Notes</label>
+            <textarea class="input" id="invoice-notes" name="notes" rows="3" placeholder="A note shown on the invoice">${esc(invoice?.notes || '')}</textarea>
+          </div>
+          <div class="field">
+            <label for="invoice-terms">Payment terms</label>
+            <textarea class="input" id="invoice-terms" name="terms" rows="3" placeholder="Payment instructions">${esc(invoice?.terms || '')}</textarea>
+          </div>
+          ${isEdit ? '' : `
+            <div class="field full">
+              <label class="checkbox-row">
+                <input type="checkbox" name="save_draft" value="1">
+                <span>Save as draft — don’t post to the ledger until you send it</span>
+              </label>
+            </div>
+          `}
         </div>
-      `}
+      </details>
     </div>
   `;
 
   const modal = openModal({
-    title: isEdit ? `Edit ${invoice.number}` : 'New invoice',
+    title: isEdit ? `Edit ${invoice.number}` : 'New service invoice',
     subtitle: isEdit ? 'Draft invoices can be edited until they are sent.' : 'Sending an invoice posts a receivable and revenue to your books.',
     size: 'modal-xl',
     body,
@@ -322,11 +339,20 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
       const editor = mountLineItems(overlay, {
         accounts,
         onTotals(totals) {
-          overlay.querySelector('#sum-subtotal').textContent = fmtMoney(totals.subtotal_cents);
           overlay.querySelector('#sum-total').textContent = fmtMoney(totals.total_cents);
         },
       });
       overlay.editor = editor;
+
+      // The hint links leave the form: close it first, then open the booking or visa form.
+      overlay.querySelectorAll('[data-service-invoice-hint] a').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const target = link.getAttribute('href');
+          overlay.querySelector('[data-close]')?.click();
+          location.hash = target;
+        });
+      });
 
       const otherToggle = overlay.querySelector('#invoice-for-other');
       const beneficiaryName = overlay.querySelector('#invoice-beneficiary');

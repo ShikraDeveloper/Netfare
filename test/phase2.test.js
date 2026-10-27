@@ -58,7 +58,7 @@ function createSentInvoice(customerId, amountCents, { issueDate = '2020-01-01', 
       description: 'Consulting',
       quantity: 1,
       unit_price_cents: amountCents,
-      account_id: account('4000').id,
+      account_id: account('4300').id,
     }],
   });
 }

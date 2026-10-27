@@ -68,6 +68,8 @@ function normalizeJobItems(db, items, itemType) {
       account_id: account.id,
       vendor_id: vendorId,
       supplier_ref: optionalStr(item.supplier_ref, `${label} supplier reference`, 120),
+      passenger_name: optionalStr(item.passenger_name, `${label} passenger name`, 160),
+      line_group: Number.isInteger(Number(item.line_group)) && Number(item.line_group) > 0 ? Number(item.line_group) : null,
     };
   });
 }
@@ -76,16 +78,16 @@ function insertJobItems(db, sourceType, jobId, saleItems, costItems) {
   const { itemsTable, fkColumn } = jobConfig(sourceType);
   const insert = db.prepare(`
     INSERT INTO ${itemsTable} (${fkColumn}, item_type, description, quantity, unit_price_cents,
-      amount_cents, account_id, vendor_id, supplier_ref, sort_order)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      amount_cents, account_id, vendor_id, supplier_ref, passenger_name, line_group, sort_order)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   saleItems.forEach((item, index) => {
     insert.run(jobId, 'sale', item.description, item.quantity, item.unit_price_cents,
-      item.amount_cents, item.account_id, null, item.supplier_ref, index);
+      item.amount_cents, item.account_id, null, item.supplier_ref, item.passenger_name || '', item.line_group ?? null, index);
   });
   costItems.forEach((item, index) => {
     insert.run(jobId, 'cost', item.description, item.quantity, item.unit_price_cents,
-      item.amount_cents, item.account_id, item.vendor_id, item.supplier_ref, index);
+      item.amount_cents, item.account_id, item.vendor_id, item.supplier_ref, item.passenger_name || '', item.line_group ?? null, index);
   });
 }
 
@@ -107,8 +109,13 @@ function postJobDocuments(db, {
   invoiceTerms,
   billNotes,
   items,
+  lineLabel = '',
 }) {
   const { fkColumn, label } = jobConfig(sourceType);
+  // Passenger rows print as "Dubai–London return · Emirates – Ali Khan".
+  const describe = (item) => (item.passenger_name
+    ? [String(lineLabel || '').trim(), item.passenger_name].filter(Boolean).join(' – ')
+    : item.description);
   const saleItems = items.filter((item) => item.item_type === 'sale');
   const costItems = items.filter((item) => item.item_type === 'cost');
   if (!saleItems.length) throw bad(`Add sale items before posting this ${label}`);
@@ -126,12 +133,12 @@ function postJobDocuments(db, {
     terms: invoiceTerms || '',
     status: 'sent',
     items: saleItems.map((item) => ({
-      description: item.description,
+      description: describe(item),
       quantity: item.quantity,
       unit_price_cents: item.unit_price_cents,
       account_id: item.account_id,
     })),
-  });
+  }, { jobInvoice: true });
   db.prepare(`UPDATE invoices SET ${fkColumn} = ? WHERE id = ?`).run(jobId, invoice.id);
 
   const groups = new Map();
@@ -148,7 +155,7 @@ function postJobDocuments(db, {
       notes: billNotes,
       status: 'received',
       items: vendorItems.map((item) => ({
-        description: item.description,
+        description: describe(item),
         quantity: item.quantity,
         unit_price_cents: item.unit_price_cents,
         account_id: item.account_id,

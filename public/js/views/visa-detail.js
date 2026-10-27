@@ -68,6 +68,34 @@ function statusSteps(visa) {
 const STATUS_HISTORY_EMPTY = 'No status changes recorded yet.';
 
 // When the job moved between statuses, and why. Shown on screen only.
+// Other applications made in the same form, with one button to submit the drafts.
+function groupCard(visa) {
+  const group = visa.group;
+  if (!group) return '';
+  const rows = group.applications.map((row) => `
+    <tr${row.id === visa.id ? ' class="current-row"' : ''}>
+      <td><a href="#/visas/${row.id}">${esc(row.number)}</a></td>
+      <td>${esc(row.applicant_name || '—')}${row.id === visa.id ? ' <span class="muted">(this one)</span>' : ''}</td>
+      <td>${statusBadge(row.status)}</td>
+      <td class="num">${fmtMoney(row.sale_total_cents)}</td>
+    </tr>`).join('');
+  return `
+    <div class="card no-print" style="margin-bottom:16px" data-visa-group>
+      <div class="card-head">
+        <div class="card-title"><h2>Group ${esc(group.number)}</h2><p>${group.size} applications created together · each has its own invoice</p></div>
+        ${group.draft_count ? `<button class="btn btn-primary btn-sm" data-action="submit-group">${icon('check', 14)} Submit all ${group.draft_count} draft${group.draft_count === 1 ? '' : 's'}</button>` : ''}
+      </div>
+      <div class="card-body" style="padding:4px 20px">
+        <table class="table">
+          <caption class="sr-only">Applications in group ${esc(group.number)}</caption>
+          <thead><tr><th scope="col">Application</th><th scope="col">Applicant</th><th scope="col">Status</th><th scope="col" class="num">Sale</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function statusHistoryCard(history = []) {
   return `
     <div class="card no-print" style="margin-top:16px" data-status-history>
@@ -260,6 +288,7 @@ export async function render(container, { params } = {}) {
 
   container.innerHTML = `
     ${statusSteps(visa)}
+    ${groupCard(visa)}
 
     ${visa.passport_warning ? `
       <div class="callout no-print" data-passport-warning style="border-color:var(--amber-soft)">
@@ -420,6 +449,29 @@ export async function render(container, { params } = {}) {
   const editButton = document.querySelector('[data-action="edit"]');
   if (editButton) {
     editButton.addEventListener('click', () => openVisaModal({ visa, onSaved: () => refresh() }));
+  }
+
+  const submitGroupButton = document.querySelector('[data-action="submit-group"]');
+  if (submitGroupButton) {
+    submitGroupButton.addEventListener('click', async () => {
+      const drafts = visa.group.applications.filter((row) => row.status === 'draft');
+      const total = drafts.reduce((sum, row) => sum + row.sale_total_cents, 0);
+      const confirmed = await confirmDialog({
+        title: `Submit ${drafts.length} application${drafts.length === 1 ? '' : 's'} in ${visa.group.number}?`,
+        message: `This creates and posts ${drafts.length} customer invoice${drafts.length === 1 ? '' : 's'} (${fmtMoney(total)} in total) and the supplier bills to your ledger.`,
+        confirmLabel: 'Submit all & post',
+        danger: false,
+      });
+      if (!confirmed) return;
+      try {
+        const result = await api.post(`/visas/groups/${visa.group.id}/submit`, {});
+        toast(`${result.submitted.length} application${result.submitted.length === 1 ? '' : 's'} submitted and posted`);
+        (result.warnings || []).forEach((warning) => toast(warning, 'error'));
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+    });
   }
 
   const submitButton = document.querySelector('[data-action="submit"]');

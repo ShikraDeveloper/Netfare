@@ -14,7 +14,9 @@ const jobCosts = require('./job-costs');
 
 const bookingSelect = `
   SELECT b.*, c.name AS customer_name, c.email AS customer_email,
-         c.phone AS customer_phone, c.address AS customer_address
+         c.phone AS customer_phone, c.address AS customer_address,
+         (SELECT GROUP_CONCAT(bi.passenger_name, ', ') FROM booking_items bi
+          WHERE bi.booking_id = b.id AND bi.item_type = 'sale' AND bi.passenger_name <> '') AS passenger_names
   FROM bookings b
   JOIN customers c ON c.id = b.customer_id
 `;
@@ -148,9 +150,10 @@ function listBookings(db, { status, search, from, to } = {}) {
     params.push(dateISO(to, 'To date'));
   }
   if (search) {
-    clauses.push('(b.number LIKE ? OR c.name LIKE ? OR b.destination LIKE ? OR b.pnr LIKE ?)');
+    clauses.push(`(b.number LIKE ? OR c.name LIKE ? OR b.destination LIKE ? OR b.pnr LIKE ?
+      OR EXISTS (SELECT 1 FROM booking_items bi WHERE bi.booking_id = b.id AND bi.passenger_name LIKE ?))`);
     const term = `%${String(search).trim()}%`;
-    params.push(term, term, term, term);
+    params.push(term, term, term, term, term);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${bookingSelect} ${where} ORDER BY b.booking_date DESC, b.id DESC`).all(...params);
@@ -270,6 +273,7 @@ function confirmBooking(db, id) {
       invoiceTerms: booking.destination ? `Destination: ${booking.destination}` : '',
       billNotes: `Booking ${booking.number}${booking.pnr ? ` · PNR ${booking.pnr}` : ''}`,
       items,
+      lineLabel: booking.destination,
     });
 
     db.prepare("UPDATE bookings SET status = 'confirmed', invoice_id = ?, updated_at = datetime('now') WHERE id = ?").run(invoice.id, id);

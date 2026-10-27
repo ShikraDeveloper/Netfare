@@ -18,9 +18,12 @@ const OPEN_STATUSES = ['draft', 'submitted', 'approved'];
 
 const visaSelect = `
   SELECT v.*, c.name AS customer_name, c.email AS customer_email,
-         c.phone AS customer_phone, c.address AS customer_address
+         c.phone AS customer_phone, c.address AS customer_address,
+         g.number AS group_number,
+         (SELECT COUNT(*) FROM visa_applications x WHERE x.group_id = v.group_id) AS group_size
   FROM visa_applications v
   JOIN customers c ON c.id = v.customer_id
+  LEFT JOIN visa_groups g ON g.id = v.group_id
 `;
 
 function itemTotals(items) {
@@ -148,6 +151,7 @@ function getVisa(db, id) {
   }));
   visa.cancellation = cancellationService.getCancellationForSource(db, 'visa', id);
   visa.status_history = jobs.statusHistory(db, 'visa', id);
+  visa.group = visa.group_id ? groupSummary(db, visa.group_id) : null;
 
   visa.payments = visa.invoice
     ? db.prepare(`
@@ -236,7 +240,8 @@ function normalizeDates(db, payload, existing = {}) {
   };
 }
 
-function createVisa(db, payload) {
+// options.groupId links the application to a family or group created together.
+function createVisa(db, payload, options = {}) {
   return db.transaction(() => {
     const customer = assertCustomer(db, payload.customer_id);
     const applicant = normalizeApplicant(payload, customer);
@@ -253,8 +258,8 @@ function createVisa(db, payload) {
       INSERT INTO visa_applications (number, customer_id, application_date, due_date, travel_date,
         status, destination_country, visa_type, duration_days, applicant_name, applicant_is_customer,
         nationality, passport_number, passport_expiry, date_of_birth, reference, notes, invoice_notes,
-        sale_total_cents, cost_total_cents)
-      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        sale_total_cents, cost_total_cents, group_id)
+      VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -275,6 +280,7 @@ function createVisa(db, payload) {
       optionalStr(payload.invoice_notes, 'Invoice note', 2000),
       saleTotal,
       itemTotals(costItems),
+      options.groupId || null,
     );
     const visaId = Number(info.lastInsertRowid);
     jobs.insertJobItems(db, 'visa', visaId, saleItems, costItems);
@@ -475,7 +481,93 @@ function visaStats(db, from, to) {
   };
 }
 
+const SHARED_GROUP_FIELDS = [
+  'customer_id', 'application_date', 'due_date', 'travel_date', 'destination_country',
+  'visa_type', 'duration_days', 'reference', 'notes', 'invoice_notes',
+];
+const APPLICANT_FIELDS = [
+  'applicant_is_customer', 'applicant_name', 'nationality', 'passport_number',
+  'passport_expiry', 'date_of_birth', 'sale_items', 'cost_items',
+];
+const MAX_GROUP_SIZE = 30;
+
+function groupSummary(db, groupId) {
+  const group = db.prepare('SELECT * FROM visa_groups WHERE id = ?').get(Number(groupId));
+  if (!group) return null;
+  const applications = db.prepare(`
+    SELECT id, number, applicant_name, status, sale_total_cents, cost_total_cents, invoice_id
+    FROM visa_applications WHERE group_id = ? ORDER BY id
+  `).all(group.id);
+  return {
+    ...group,
+    applications,
+    size: applications.length,
+    draft_count: applications.filter((row) => row.status === 'draft').length,
+  };
+}
+
+// One form for several people: each applicant becomes a separate application
+// (own invoice, status, rejection or cancellation), linked by a visa group.
+// A single applicant creates a plain application with no group.
+function createVisaGroup(db, payload = {}) {
+  return db.transaction(() => {
+    const applicants = Array.isArray(payload.applicants) ? payload.applicants : [];
+    if (!applicants.length) throw bad('Add at least one applicant');
+    if (applicants.length > MAX_GROUP_SIZE) throw bad(`A group can have at most ${MAX_GROUP_SIZE} applicants`);
+    const shared = {};
+    for (const key of SHARED_GROUP_FIELDS) if (payload[key] !== undefined) shared[key] = payload[key];
+    const build = (applicant, index) => {
+      const fields = {};
+      for (const key of APPLICANT_FIELDS) if (applicant[key] !== undefined) fields[key] = applicant[key];
+      if (!String(fields.applicant_name || '').trim() && fields.applicant_is_customer === false) {
+        throw bad(`Applicant ${index + 1}: enter the applicant name`);
+      }
+      return { ...shared, ...fields };
+    };
+
+    if (applicants.length === 1) {
+      const visa = createVisa(db, build(applicants[0], 0));
+      return { group: null, applications: [visa] };
+    }
+    const customer = assertCustomer(db, payload.customer_id);
+    const applicationDate = dateISO(payload.application_date, 'Application date');
+    const number = allocateNumber(db, 'visa_group', applicationDate);
+    const groupId = Number(db.prepare('INSERT INTO visa_groups (number, customer_id) VALUES (?, ?)')
+      .run(number, customer.id).lastInsertRowid);
+    const created = applicants.map((applicant, index) => {
+      try {
+        return createVisa(db, build(applicant, index), { groupId });
+      } catch (error) {
+        if (error.status === 400) error.message = `Applicant ${index + 1}: ${error.message}`;
+        throw error;
+      }
+    });
+    // Read them back once the group is complete so each shows the full group size.
+    const applications = created.map((visa) => getVisa(db, visa.id));
+    return { group: groupSummary(db, groupId), applications };
+  })();
+}
+
+// Submit every draft application in the group at once, or none of them.
+function submitVisaGroup(db, groupId) {
+  return db.transaction(() => {
+    const group = groupSummary(db, groupId);
+    if (!group) throw notFound('Visa group not found');
+    const drafts = group.applications.filter((row) => row.status === 'draft');
+    if (!drafts.length) throw bad('This group has no draft applications to submit');
+    const warnings = [];
+    const submitted = drafts.map((row) => {
+      const result = submitVisa(db, row.id);
+      for (const warning of result.warnings || []) warnings.push(`${result.number}: ${warning}`);
+      return result;
+    });
+    return { group: groupSummary(db, groupId), submitted: submitted.map((row) => row.id), warnings };
+  })();
+}
+
 module.exports = {
+  createVisaGroup,
+  submitVisaGroup,
   VISA_TYPES,
   listVisas,
   getVisa,

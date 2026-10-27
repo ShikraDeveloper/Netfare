@@ -234,7 +234,16 @@ CREATE TABLE IF NOT EXISTS booking_items (
   vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
   portal_id INTEGER,
   supplier_ref TEXT NOT NULL DEFAULT '',
+  passenger_name TEXT NOT NULL DEFAULT '',
+  line_group INTEGER,
   sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS visa_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS visa_applications (
@@ -259,6 +268,7 @@ CREATE TABLE IF NOT EXISTS visa_applications (
   invoice_notes TEXT NOT NULL DEFAULT '',
   sale_total_cents INTEGER NOT NULL DEFAULT 0,
   cost_total_cents INTEGER NOT NULL DEFAULT 0,
+  group_id INTEGER,
   invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -275,6 +285,8 @@ CREATE TABLE IF NOT EXISTS visa_items (
   account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL,
   supplier_ref TEXT NOT NULL DEFAULT '',
+  passenger_name TEXT NOT NULL DEFAULT '',
+  line_group INTEGER,
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 

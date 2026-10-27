@@ -145,7 +145,7 @@ test('credit refunds are validated against the remaining balance, dates and acco
     issue_date: '2026-01-10',
     due_date: '2026-01-20',
     status: 'sent',
-    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 6_000, account_id: account('4000').id }],
+    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 6_000, account_id: account('4300').id }],
   });
   creditService.applyCredit(db, credit.id, { invoice_id: invoice.id, amount_cents: 6_000, applied_date: '2026-01-11' });
   assert.throws(
@@ -158,7 +158,7 @@ test('credit refunds are validated against the remaining balance, dates and acco
     issue_date: '2026-01-12',
     due_date: '2026-01-20',
     status: 'sent',
-    items: [{ description: 'Hotel', quantity: 1, unit_price_cents: 5_000, account_id: account('4000').id }],
+    items: [{ description: 'Hotel', quantity: 1, unit_price_cents: 5_000, account_id: account('4300').id }],
   });
   assert.throws(
     () => creditService.applyCredit(db, credit.id, { invoice_id: second.id, amount_cents: 1, applied_date: '2026-01-12' }),
@@ -308,7 +308,7 @@ test('customer statement matches A/R: advance refunds are excluded, payment refu
     issue_date: '2026-05-03',
     due_date: '2026-05-10',
     status: 'sent',
-    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 9_000, account_id: account('4000').id }],
+    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 9_000, account_id: account('4300').id }],
   });
   const paid = invoiceService.recordInvoicePayment(db, invoice.id, {
     amount_cents: 9_000,

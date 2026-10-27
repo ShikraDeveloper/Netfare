@@ -29,7 +29,7 @@ function invoicePayload(extra = {}) {
   return {
     customer_id: customerId,
     issue_date: '2026-07-01',
-    items: [{ description: 'Air ticket DXB-LHR', quantity: 1, unit_price_cents: 250_000, account_id: account('4000').id }],
+    items: [{ description: 'Airport meet & assist service', quantity: 1, unit_price_cents: 250_000, account_id: account('4300').id }],
     ...extra,
   };
 }

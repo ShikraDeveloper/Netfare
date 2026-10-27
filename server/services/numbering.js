@@ -42,6 +42,12 @@ function allocateNumber(db, kind, dateStr) {
       next: settings.next_visa_number,
       column: 'next_visa_number',
     },
+    visa_group: {
+      table: 'visa_groups',
+      prefix: 'VG',
+      next: settings.next_visa_group_number,
+      column: 'next_visa_group_number',
+    },
     advance: {
       table: 'customer_advances',
       prefix: 'ADV',

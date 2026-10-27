@@ -9,6 +9,7 @@ import {
   revenueAccounts,
   store,
 } from '../store.js';
+import { mountPassengerEditor, passengerSectionHtml, rowsFromItems } from './booking-passengers.js';
 import {
   addDaysISO,
   avatar,
@@ -47,6 +48,7 @@ function bookingRow(booking) {
           <div class="party-info">
             <div class="cell-main">${esc(booking.customer_name)}</div>
             <div class="cell-sub">${esc(booking.destination || '—')}</div>
+            ${booking.passenger_names ? `<div class="cell-sub">${esc(booking.passenger_names)}</div>` : ''}
           </div>
         </div>
       </td>
@@ -211,8 +213,8 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
   const dueDate = booking?.due_date || addDaysISO(issueDate, Number(store.settings?.payment_terms_days ?? 0));
   const travelDate = booking?.travel_date || '';
   const returnDate = booking?.return_date || '';
-  const saleItems = booking?.sale_items?.length ? booking.sale_items : [{}];
-  const costItems = booking?.cost_items?.length ? booking.cost_items : [{}];
+  const rows = rowsFromItems(booking?.sale_items || [], booking?.cost_items || []);
+  const hasMoreDetails = Boolean(booking?.notes || booking?.invoice_notes);
 
   const body = `
     <div class="form-grid">
@@ -222,13 +224,18 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
           ${optionsHtml(customers, { selected: booking?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>
+      <div class="field full">
+        <label for="bk-destination">Destination / description</label>
+        <input class="input" id="bk-destination" name="destination" value="${esc(booking?.destination || '')}"
+          placeholder="e.g. Dubai–London return · Emirates" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="bk-pnr">PNR</label>
+        <input class="input" id="bk-pnr" name="pnr" value="${esc(booking?.pnr || '')}" placeholder="Optional" maxlength="60">
+      </div>
       <div class="field">
         <label for="bk-date">Booking date</label>
         <input class="input" id="bk-date" name="booking_date" type="date" value="${esc(issueDate)}" required>
-      </div>
-      <div class="field">
-        <label for="bk-due">Payment due</label>
-        <input class="input" id="bk-due" name="due_date" type="date" value="${esc(dueDate)}" required>
       </div>
       <div class="field">
         <label for="bk-travel">Travel date</label>
@@ -238,53 +245,9 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         <label for="bk-return">Return date</label>
         <input class="input" id="bk-return" name="return_date" type="date" value="${esc(returnDate)}">
       </div>
-      <div class="field">
-        <label for="bk-destination">Destination</label>
-        <input class="input" id="bk-destination" name="destination" value="${esc(booking?.destination || '')}" placeholder="e.g. Karachi, Pakistan">
-      </div>
-      <div class="field">
-        <label for="bk-pnr">PNR / ticket no.</label>
-        <input class="input" id="bk-pnr" name="pnr" value="${esc(booking?.pnr || '')}" placeholder="Optional">
-      </div>
-      <div class="field full">
-        <label for="bk-notes">Internal notes</label>
-        <textarea class="input" id="bk-notes" name="notes" rows="2" placeholder="Only staff see this. Never printed for the customer.">${esc(booking?.notes || '')}</textarea>
-      </div>
-      <div class="field full">
-        <label for="bk-invoice-notes">Note on invoice</label>
-        <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on the customer invoice and booking confirmation.">${esc(booking?.invoice_notes || '')}</textarea>
-      </div>
 
-      <div class="field full">
-        <div class="bk-section-title">
-          <label>Sale items — what the customer pays</label>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-sale>${icon('plus', 14)} Add sale</button>
-        </div>
-        <div class="bk-wrap">
-          <div class="bk-head" data-type="sale">
-            <div>Description</div><div>Qty</div><div>Unit price</div><div>Revenue account</div><div style="text-align:right">Amount</div><div></div>
-          </div>
-          <div data-bk-lines="sale">
-            ${saleItems.map((item) => saleRow(item)).join('')}
-          </div>
-        </div>
-      </div>
-
-      <div class="field full">
-        <div class="bk-section-title">
-          <label>Cost items — what suppliers charge you</label>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-cost>${icon('plus', 14)} Add cost</button>
-        </div>
-        ${activePortals().length ? '<div class="hint" style="margin:-4px 0 8px">Suppliers marked <strong>wallet</strong> settle from their portal balance when you confirm — the rest stay payable.</div>' : ''}
-        <div class="bk-wrap">
-          <div class="bk-head" data-type="cost">
-            <div>Description</div><div>Qty</div><div>Unit cost</div><div>Cost account</div><div>Supplier</div><div>Supplier ref</div><div style="text-align:right">Amount</div><div></div>
-          </div>
-          <div data-bk-lines="cost">
-            ${costItems.map((item) => costRow(item)).join('')}
-          </div>
-        </div>
-      </div>
+      ${passengerSectionHtml(rows)}
+      ${activePortals().length ? '<div class="field full"><div class="hint">Suppliers marked <strong>wallet</strong> settle from their portal balance when you confirm — the rest stay payable.</div></div>' : ''}
 
       <div class="field full">
         <div class="totals-panel">
@@ -294,6 +257,24 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
           <div class="totals-row"><span class="muted">Profitability</span><span class="muted" id="bk-margin-percent">—</span></div>
         </div>
       </div>
+
+      <details class="field full more-details" ${hasMoreDetails ? 'open' : ''}>
+        <summary>More details</summary>
+        <div class="form-grid">
+          <div class="field">
+            <label for="bk-due">Payment due</label>
+            <input class="input" id="bk-due" name="due_date" type="date" value="${esc(dueDate)}" required>
+          </div>
+          <div class="field full">
+            <label for="bk-notes">Internal notes</label>
+            <textarea class="input" id="bk-notes" name="notes" rows="2" placeholder="Only staff see this. Never printed for the customer.">${esc(booking?.notes || '')}</textarea>
+          </div>
+          <div class="field full">
+            <label for="bk-invoice-notes">Note on invoice</label>
+            <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on the customer invoice and booking confirmation.">${esc(booking?.invoice_notes || '')}</textarea>
+          </div>
+        </div>
+      </details>
     </div>
   `;
 
@@ -306,12 +287,9 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
     async onSubmit(form) {
       const editor = modal?.overlay?._bookingEditor;
       const values = new FormData(form);
-      const items = editor ? editor.getItems() : { sale: [], cost: [] };
-      const sale = items.sale.filter((item) => item.description || item.unit_price_cents);
-      const cost = items.cost.filter((item) => item.description || item.unit_price_cents);
-      if (!sale.length) throw new Error('Add at least one sale item');
-      if (sale.some((item) => !item.description || !item.account_id)) throw new Error('Every sale line needs a description and revenue account');
-      if (cost.some((item) => !item.description || !item.account_id || !item.vendor_id)) throw new Error('Every cost line needs a description, cost account and supplier');
+      const { sale, cost, problems } = editor ? editor.getItems() : { sale: [], cost: [], problems: [] };
+      if (problems.length) throw new Error(problems[0]);
+      if (!sale.length) throw new Error('Add at least one passenger or item with a sale price');
       const payload = {
         customer_id: Number(values.get('customer_id')),
         booking_date: values.get('booking_date'),
@@ -332,7 +310,7 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
       onSaved(saved);
     },
     onMount(overlay) {
-      overlay._bookingEditor = mountBookingLines(overlay);
+      overlay._bookingEditor = mountPassengerEditor(overlay);
     },
   });
 
@@ -451,7 +429,7 @@ export async function render(container, { query } = {}) {
       if (!inDateRange(booking.booking_date, from, to)) return false;
       if (status !== 'all' && booking.status !== status) return false;
       if (!term) return true;
-      return [booking.number, booking.customer_name, booking.destination, booking.pnr, booking.status]
+      return [booking.number, booking.customer_name, booking.destination, booking.pnr, booking.status, booking.passenger_names]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
     const filteredSales = filtered

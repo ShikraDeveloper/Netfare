@@ -98,7 +98,7 @@ test('cash invoice payment posts and is limited to cash/bank accounts', () => {
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Test sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
+    items: [{ description: 'Test sale', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
   });
   assert.equal(invoice.amount_paid_cents, 0);
 
@@ -120,7 +120,7 @@ test('invoice payment to a non-cash asset is rejected', () => {
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Test sale', quantity: 1, unit_price_cents: 50_000, account_id: account('4000').id }],
+    items: [{ description: 'Test sale', quantity: 1, unit_price_cents: 50_000, account_id: account('4300').id }],
   });
   assert.throws(
     () => invoiceService.recordInvoicePayment(db, invoice.id, {
@@ -245,7 +245,7 @@ test('customer refund increases receivable and void restores payment balance', (
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Refundable sale', quantity: 1, unit_price_cents: 80_000, account_id: account('4000').id }],
+    items: [{ description: 'Refundable sale', quantity: 1, unit_price_cents: 80_000, account_id: account('4300').id }],
   });
   const paid = invoiceService.recordInvoicePayment(db, invoice.id, {
     amount_cents: 80_000,

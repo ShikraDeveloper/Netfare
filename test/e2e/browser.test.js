@@ -657,10 +657,15 @@ test('supplier portal vendor picker searches active vendors', async () => {
 });
 
 test('visa applicant toggle separates customer and visitor details', async () => {
-  await openRoute('/visas');
-  await page.locator('[data-action="new-visa"]').first().click();
+  const draft = (await getJson(baseUrl, '/api/visas')).find((visa) => visa.status === 'draft');
+  assert.ok(draft, 'Demo data should include a draft visa');
+  await openRoute(`/visas/${draft.id}`);
+  await page.locator('[data-action="edit"]').click();
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
+  assert.equal(await dialog.locator('details.more-details').count(), 1);
+  // Opens with notes already; make sure it is open either way.
+  await dialog.locator('details.more-details').evaluate((details) => { details.open = true; });
 
   const customer = dialog.locator('#visa-customer');
   const applicant = dialog.locator('#visa-applicant');
@@ -672,6 +677,7 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   await duration.fill('30');
   assert.equal(await duration.inputValue(), '30');
 
+  if (await other.isChecked()) await other.uncheck();
   await customer.selectOption({ index: 1 });
   const customerName = (await customer.locator('option:checked').innerText()).trim();
   assert.ok(customerName);
@@ -784,7 +790,7 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
     getJson(baseUrl, '/api/customers'),
     getJson(baseUrl, '/api/accounts'),
   ]);
-  const revenue = accounts.find((account) => account.code === '4000');
+  const revenue = accounts.find((account) => account.code === '4300');
   const cash = accounts.find((account) => account.code === '1000');
   assert.ok(customers[0] && revenue && cash);
 
@@ -1086,7 +1092,7 @@ test('an invoice can be marked as for someone else', async () => {
     getJson(baseUrl, '/api/customers'),
     getJson(baseUrl, '/api/accounts'),
   ]);
-  const revenue = accounts.find((account) => account.code === '4000');
+  const revenue = accounts.find((account) => account.code === '4300');
 
   await openRoute('/invoices?new=1');
   const dialog = page.locator('[role="dialog"]');
@@ -1124,6 +1130,180 @@ test('an invoice can be marked as for someone else', async () => {
   await page.locator('#invoice-search').fill('E2E Traveller');
   await page.waitForTimeout(100);
   assert.match(await page.locator('table.data tbody').innerText(), /For E2E Traveller/);
+  assertNoConsoleErrors();
+});
+
+test('the service invoice form offers only service income and points sales to bookings and visas', async () => {
+  const accounts = await getJson(baseUrl, '/api/accounts');
+  const ticket = accounts.find((account) => account.code === '4000');
+  const customers = await getJson(baseUrl, '/api/customers');
+
+  const blocked = await fetch(`${baseUrl}/api/invoices`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      customer_id: customers[0].id,
+      issue_date: '2026-10-22',
+      items: [{ description: 'E2E ticket', quantity: 1, unit_price_cents: 10_000, account_id: ticket.id }],
+    }),
+  });
+  assert.equal(blocked.status, 400);
+  assert.match((await blocked.json()).error, /Create a booking or visa/);
+
+  await openRoute('/invoices');
+  assert.match(await page.locator('#page-actions').innerText(), /New service invoice/);
+  await openRoute('/invoices?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.match(await dialog.locator('h2').first().innerText(), /New service invoice/);
+  assert.match(await dialog.locator('[data-service-invoice-hint]').innerText(), /no supplier cost/i);
+  const accountCodes = await dialog.locator('.line-account option').evaluateAll(
+    (options) => options.map((option) => option.textContent.trim().split(' ')[0]).filter((code) => /^\d+$/.test(code)),
+  );
+  assert.ok(accountCodes.length > 0);
+  for (const code of ['4000', '4100', '4320']) assert.ok(!accountCodes.includes(code), `${code} is not offered`);
+  assert.equal(accountCodes[0], '4300', 'service charges come first');
+
+  await dialog.locator('[data-service-invoice-hint] a[href="#/bookings?new=1"]').click();
+  await page.waitForFunction(() => document.querySelector('[role="dialog"] h2')?.textContent.includes('New booking'));
+  await page.locator('[role="dialog"] .modal-head [data-close]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  await openRoute('/reports/daily-sales');
+  assertNoConsoleErrors();
+});
+
+test('the booking form takes one row per passenger with sale, cost and supplier', async () => {
+  const vendors = await getJson(baseUrl, '/api/vendors');
+  const vendor = vendors.find((row) => row.is_active);
+
+  await openRoute('/bookings?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.match(await dialog.locator('label[for="bk-destination"]').innerText(), /Destination \/ description/);
+  assert.equal(await dialog.locator('details.more-details').getAttribute('open'), null, 'More details starts closed');
+
+  await dialog.locator('#bk-customer').selectOption({ index: 1 });
+  await dialog.locator('#bk-destination').fill('E2E Dubai–Paris return');
+  await dialog.locator('#bk-pnr').fill('E2EPNR1');
+  const first = dialog.locator('[data-px-row]').nth(0);
+  await first.locator('.px-label').fill('E2E Passenger One');
+  await first.locator('.px-sale').fill('1500');
+  await first.locator('.px-cost').fill('1200');
+  await first.locator('.px-vendor').selectOption(String(vendor.id));
+  await dialog.locator('[data-px-add="passenger"]').click();
+  const second = dialog.locator('[data-px-row]').nth(1);
+  assert.equal(await second.locator('.px-vendor').inputValue(), String(vendor.id), 'supplier carries over');
+  await second.locator('.px-label').fill('E2E Passenger Two');
+  await second.locator('.px-sale').fill('1500');
+  await second.locator('.px-cost').fill('1200');
+  await second.locator('[data-px-more]').click();
+  assert.equal(await second.locator('.px-details').isVisible(), true);
+  await second.locator('.px-ref').fill('TKT-2');
+  assert.equal((await dialog.locator('#bk-margin').innerText()).replace(/\s+/g, ' '), 'AED 600.00');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  const [saved] = await getJson(baseUrl, '/api/bookings?search=E2EPNR1');
+  assert.equal(saved.passenger_names, 'E2E Passenger One, E2E Passenger Two');
+  const confirmed = await postJson(baseUrl, `/api/bookings/${saved.id}/confirm`, {}, 200);
+  const invoice = await getJson(baseUrl, `/api/invoices/${confirmed.invoice_id}`);
+  assert.deepEqual(invoice.items.map((item) => item.description), [
+    'E2E Dubai–Paris return – E2E Passenger One',
+    'E2E Dubai–Paris return – E2E Passenger Two',
+  ]);
+  const detail = await getJson(baseUrl, `/api/bookings/${saved.id}`);
+  assert.equal(detail.cost_items.find((item) => item.passenger_name === 'E2E Passenger Two').supplier_ref, 'TKT-2');
+
+  await openRoute('/bookings');
+  await page.locator('#booking-search').fill('E2E Passenger Two');
+  await page.waitForTimeout(100);
+  assert.match(await page.locator('table.data tbody').innerText(), /E2E Passenger One, E2E Passenger Two/);
+  assertNoConsoleErrors();
+});
+
+test('a new visa takes several applicants, links them as a group and submits them together', async () => {
+  const vendors = await getJson(baseUrl, '/api/vendors');
+  const vendor = vendors.find((row) => row.is_active);
+
+  await openRoute('/visas?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.match(await dialog.locator('h2').first().innerText(), /New visa application/);
+  assert.equal(await dialog.locator('details.more-details').getAttribute('open'), null, 'More details starts closed');
+
+  await dialog.locator('#vg-customer').selectOption({ index: 1 });
+  const customerName = (await dialog.locator('#vg-customer option:checked').innerText()).trim();
+  await dialog.locator('#vg-country').fill('E2E Schengen');
+  const first = dialog.locator('[data-va-row]').nth(0);
+  assert.equal(await first.locator('.va-name').inputValue(), customerName, 'the first applicant defaults to the customer');
+  await first.locator('.va-passport').fill('E2EP0001');
+  await first.locator('.va-sale').fill('450');
+  await first.locator('.va-cost').fill('380');
+  await first.locator('.va-vendor').selectOption(String(vendor.id));
+  await dialog.locator('[data-va-add]').click();
+  const second = dialog.locator('[data-va-row]').nth(1);
+  assert.equal(await second.locator('.va-sale').inputValue(), '450.00', 'the price carries over');
+  assert.equal(await second.locator('.va-vendor').inputValue(), String(vendor.id), 'the supplier carries over');
+  await second.locator('.va-name').fill('E2E Visa Child');
+  await second.locator('[data-va-more]').click();
+  await second.locator('.va-nationality').fill('Pakistani');
+  assert.equal((await dialog.locator('#vg-margin').innerText()).replace(/\s+/g, ' '), 'AED 140.00');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.waitForFunction(() => location.hash.startsWith('#/visas/'));
+
+  const group = page.locator('[data-visa-group]');
+  await group.waitFor();
+  assert.match(await group.innerText(), /E2E Visa Child/);
+  const created = (await getJson(baseUrl, '/api/visas')).filter((visa) => visa.destination_country === 'E2E Schengen');
+  assert.equal(created.length, 2);
+  assert.ok(created.every((visa) => visa.group_number && visa.group_size === 2 && visa.status === 'draft'));
+
+  await group.locator('[data-action="submit-group"]').click();
+  await page.locator('[role="dialog"] [data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-action="submit-group"]'));
+  const submitted = (await getJson(baseUrl, '/api/visas')).filter((visa) => visa.destination_country === 'E2E Schengen');
+  assert.ok(submitted.every((visa) => visa.status === 'submitted' && visa.invoice_id), 'each applicant has its own invoice');
+  assert.notEqual(submitted[0].invoice_id, submitted[1].invoice_id);
+
+  await openRoute('/visas');
+  await page.locator('#visa-search').fill(created[0].group_number);
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator('table.data tbody .group-chip').count(), 2);
+  assertNoConsoleErrors();
+});
+
+test('the service invoice form asks for a description and amount, with the rest under More details', async () => {
+  const customers = await getJson(baseUrl, '/api/customers');
+  await openRoute('/invoices?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.equal(await dialog.locator('#invoice-due').isVisible(), false, 'due date sits under More details');
+  assert.equal(await dialog.locator('.line-qty').first().isVisible(), false, 'quantity sits behind ⋯');
+  assert.equal(await dialog.locator('#sum-subtotal').count(), 0, 'a single total');
+
+  await dialog.locator('#invoice-customer').selectOption(String(customers[0].id));
+  const line = dialog.locator('[data-line]').first();
+  await line.locator('.line-desc').fill('E2E meet and assist');
+  await line.locator('.line-price').fill('125');
+  await dialog.locator('[data-add-line]').click();
+  const extra = dialog.locator('[data-line]').nth(1);
+  await extra.locator('.line-desc').fill('E2E porter');
+  await extra.locator('.line-price').fill('40');
+  await extra.locator('[data-line-more]').click();
+  await extra.locator('.line-qty').fill('2');
+  assert.equal((await dialog.locator('#sum-total').innerText()).replace(/\s+/g, ' '), 'AED 205.00');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => location.hash.startsWith('#/invoices/'));
+
+  const id = Number(await page.evaluate(() => location.hash.split('/').pop()));
+  const invoice = await getJson(baseUrl, `/api/invoices/${id}`);
+  assert.equal(invoice.total_cents, 20_500);
+  assert.deepEqual(invoice.items.map((item) => [item.description, item.quantity, item.account_code]), [
+    ['E2E meet and assist', 1, '4300'],
+    ['E2E porter', 2, '4300'],
+  ]);
   assertNoConsoleErrors();
 });
 

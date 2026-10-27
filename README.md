@@ -9,7 +9,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Supplier portals & wallets** — track the money you hold with airline logins, IATA agencies, consolidators, GDS accounts and visa agents. Top up a prepaid portal, spend it on bookings, or run a supplier on credit; every movement is posted to the ledger. Prepaid wallets reconcile against the supplier's own statement, while credit accounts show a full bills, payments and supplier-refund ledger and statement.
 - **Booking lifecycle** — `draft → confirmed → travelled` (travelled only from the travel date; every status change is kept in a **Status history**), plus a cancellation workflow that reverses the sale, keeps every receipt and supplier payment, and records any cancellation charge, refund or credit.
 - **Customer advances** — take a deposit before the trip, hold it as a liability, then apply it to the invoice or refund it (ideal for cancellations).
-- **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments. Like a visa, an invoice can be marked **for someone else** (a traveller, guest or family member): it stays billed to the paying customer, and the invoice and customer statement show a **Service for** section with the person's name, nationality and a masked passport number.
+- **Invoicing & billing** — customers, invoices, line items, printable PDF-style documents, send/post, void, and payments. Ticket, package and visa sales are invoiced from a booking or visa, where the supplier cost is recorded with the sale. **New service invoice** asks for a description and amount per line (quantity and account behind **⋯**; due date, notes, terms and draft under **More details**) and is for income with no supplier cost (service charges, commission, other income or your own revenue accounts) and cannot use 4000 Ticket Sales, 4100 Tour & Package Sales or 4320 Visa & Documentation Revenue. The DSR labels these as service income with no supplier cost. Like a visa, an invoice can be marked **for someone else** (a traveller, guest or family member): it stays billed to the paying customer, and the invoice and customer statement show a **Service for** section with the person's name, nationality and a masked passport number.
 - **Refunds** — refund a customer payment, a cancellation balance, an advance, or a supplier credit. Refunds keep the original payment intact, post their own journal entry, track the remaining refundable amount, and can be voided without deleting history.
 - **Void & audit trail** — every void asks for remarks, reverses the document and its linked payments, refunds, credits or journal entry, and keeps the original in history. A searchable **Audit log** under **System** records each void with its entity, amount, remarks, action and timestamp.
 - **Credit notes & customer credits** — issue a credit note against a revenue account, post it to **2450 Customer Credits**, then apply it to one or more open invoices. Credit applications reduce the invoice balance without pretending cash was received, can be reversed, and are included on customer statements and A/R aging. A cancellation refund can also be converted into customer credit. Unapplied credit can be paid back in cash from the credit note (**Refund credit**): Dr 2450 Customer Credits / Cr bank or cash, without reducing revenue a second time.
@@ -103,7 +103,7 @@ The reset keeps your chart of accounts and settings and clears customers, vendor
 
 1. **Create a customer** (the traveller or corporate account).
 2. **Set up your portals** under **Portals & wallets** — one per airline login, IATA agency or visa agent. Link each to the supplier you bill, and top up the prepaid ones. See [Supplier portals & wallets](#supplier-portals--wallets).
-3. **Create a booking** under **Bookings** — add sale items (ticket, hotel, package, visa) and cost items (each with the supplier who is charging you). The editor shows the live margin as you type.
+3. **Create a booking** under **Bookings** — add one row per passenger with the sale price, the supplier cost and the supplier. Use **Add other item** for a hotel, service fee or insurance. **⋯** on a row holds the ticket number, quantity and accounts. The editor shows the live margin as you type.
 4. **Confirm the booking** — this posts the customer invoice (status `sent`) and one supplier bill per vendor (status `received`) in a single step, keeping the ledger balanced. Bills for suppliers linked to a prepaid portal are settled from that wallet automatically.
 5. **Collect payment** on the invoice, or **record a customer advance** first and **apply** it to the invoice later.
 6. **Pay suppliers** from the linked bills, from a portal wallet, or from the bank.
@@ -115,10 +115,11 @@ The reset keeps your chart of accounts and settings and clears customers, vendor
 | --- | --- |
 | Booking number | Auto-generated as `BK-YYYY-####` |
 | Customer | Traveller / account being invoiced |
-| Booking date / due date | Drives invoice dates; the due date defaults to the payment terms in Settings |
+| Booking date / payment due | Drives invoice dates; payment due (under **More details**) defaults to the payment terms in Settings |
 | Travel date / return date | Trip dates |
-| Destination | Free text, e.g. `London, United Kingdom` |
-| PNR / ticket | Airline record locator |
+| Destination / description | Free text, e.g. `Dubai–London return · Emirates`; each passenger's invoice line reads `<destination> – <passenger>` |
+| PNR | Airline record locator |
+| Passengers | One row per passenger: name, sale price, cost and supplier; the ticket number sits behind **⋯**. Bookings can be searched by passenger name |
 | Internal notes | Staff only: shown on screen, never printed or copied to the invoice |
 | Note on invoice | Optional customer-facing note, printed on the booking confirmation and copied to the invoice |
 
@@ -129,6 +130,7 @@ Visas live in their own **Visas** section (Travel group) because they carry appl
 | Field | Purpose |
 | --- | --- |
 | Visa number | Auto-generated as `VIS-YYYY-####` (prefix configurable in Settings) |
+| Applicants | **New visa** takes a list of applicants (name, passport no., expiry, sale, cost, supplier; **⋯** for nationality, date of birth and accounts). Each applicant becomes its own application with its own invoice, linked as a group `VG-YYYY-####` when there is more than one |
 | Customer | The traveller or corporate account being invoiced |
 | Applicant name | The person on the application; defaults to the customer name |
 | Nationality / passport no. / expiry / date of birth | Applicant details recorded with the application |
@@ -151,6 +153,8 @@ The lifecycle is **draft → submitted → approved → issued**, with **rejecte
 | Mark issued | Records that the visa was issued/collected. No extra posting. |
 | Reject | Reverses the invoice and supplier bills (available while submitted or approved). If the embassy keeps its fee, record it as an expense. |
 | Cancel | Reverses the invoice and supplier bills for a customer cancellation, including payments and applied advances. |
+
+A group shares the customer, visa type, country and dates, but each application keeps its own status, so one person can be rejected or cancelled without touching the others. The detail page lists the other applications in the group with a **Submit all** button that submits every remaining draft at once; the visa list shows a `VG-… · N` badge and can be searched by group number. Editing a draft changes one application at a time.
 
 Draft applications can be edited or deleted; once submitted they are part of the ledger and can only be rejected or cancelled. When the applicant is someone other than the customer, the invoice is still billed to the paying customer and shows a separate **Visa applicant** section with the applicant’s name, nationality, a masked passport number (last four characters), passport expiry, duration and application details. Invoices and customer statements never show the full passport number or the date of birth; the visa application keeps them for staff. The detail page shows the invoice, supplier bills, customer advances and payments side by side, and prints as a clean A4 application summary. Advances recorded on a visa are linked to that application, held in **2400 Customer Advances**, and can be applied to its invoice or refunded in the same way as booking advances. **Reports → Visa margin** lists every submitted application in a period with its sale, cost and margin. Drafts are not included, cost is the posted supplier bills less any supplier credits, and cancelled or rejected applications show their cancellation charges and retained cost.
 
@@ -276,7 +280,7 @@ The main list toolbars include a date range: **Bookings** (booking date), **Visa
 **Reports → Daily sales** is a day-by-day sales register for any period. Every sent invoice is listed under the day it was issued, with the customer, the booking or visa it came from, the sale amount, supplier cost, margin, amount paid and balance. Each day gets a subtotal and the report ends with a grand total and a six-tile summary: **Sales**, **Cost**, **Margin** (with margin percentage), **Paid**, **Outstanding** and **Cash in hand** (with the bank balance).
 
 - Only **sent** invoices count; draft and void documents are excluded.
-- Cost is the supplier bills posted for the linked booking or visa, less any supplier credits recorded against them. Direct invoices have no linked cost, so their full value shows as margin — the note at the bottom of the report makes this clear.
+- Cost is the supplier bills posted for the linked booking or visa, less any supplier credits recorded against them. Service invoices are income with no supplier cost, so their full value shows as margin; they are labelled **Service income · no supplier cost**.
 - Each day header shows the closing **Cash in hand** and **Bank** balance. Cash uses account **1000 Cash**; bank uses **1010 Bank Account**. The summary tile shows the position at the report's end date.
 - *Paid* and *Balance* are current as of today; the report groups sales by invoice date.
 - **Today** switches the period to the current date; **Print** produces a clean A4 copy with day subtotals.
@@ -411,6 +415,8 @@ All endpoints are under `/api`:
 | GET/POST/PUT/DELETE | `/bookings` | Travel bookings (with sale & cost items) |
 | POST | `/bookings/:id/confirm`, `/bookings/:id/travel`, `/bookings/:id/cancel` | Booking lifecycle |
 | GET/POST/PUT/DELETE | `/visas` | Visa applications (applicant details, sale & cost items, margin) |
+| POST | `/visas/groups` | Create one application per applicant, linked as a group (one applicant creates a plain application) |
+| POST | `/visas/groups/:groupId/submit` | Submit every draft application in a group at once |
 | POST | `/visas/:id/submit`, `/visas/:id/approve`, `/visas/:id/issue`, `/visas/:id/reject`, `/visas/:id/cancel` | Visa lifecycle |
 | GET/POST | `/advances` | Customer advances (optionally linked with `booking_id` or `visa_id`) |
 | GET/POST/PUT/DELETE | `/portals` | Supplier portals / wallets |

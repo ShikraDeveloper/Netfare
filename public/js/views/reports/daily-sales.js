@@ -58,7 +58,7 @@ export function dailySales(data) {
         ? (row.kind === 'booking'
           ? `<a href="#/bookings/${row.reference_id}">${esc(row.reference)}</a>`
           : `<a href="#/visas/${row.reference_id}">${esc(row.reference)}</a>`)
-        : 'Direct';
+        : '<span class="dsr-service-income">Service income · no supplier cost</span>';
       return `
                 <tr>
                   <td>
@@ -115,7 +115,7 @@ export function dailySales(data) {
         </table>
       </div>
       <div class="report-balance-note">
-        ${icon('check', 14)} Cost comes from the linked booking or visa; direct invoices have no linked cost. Paid and balance are current as of today. Cash in hand and bank are closing balances for each day, and at the period end in the summary.
+        ${icon('check', 14)} Cost is the supplier bills posted for each booking or visa, less supplier credits. Service invoices are income with no supplier cost, so their full amount is margin. Paid and balance are current as of today. Cash in hand and bank are closing balances for each day, and at the period end in the summary.
       </div>
     </div>
   `;

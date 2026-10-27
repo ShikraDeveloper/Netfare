@@ -61,7 +61,7 @@ test('voiding an invoice cascades payments and records remarks in the audit log'
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Consulting', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
+    items: [{ description: 'Consulting', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
   });
   invoiceService.recordInvoicePayment(db, invoice.id, {
     amount_cents: 40_000,
@@ -99,7 +99,7 @@ test('voiding an invoice with a refund and an applied credit reverses both', () 
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Package', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
+    items: [{ description: 'Package', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
   });
   const paid = invoiceService.recordInvoicePayment(db, invoice.id, {
     amount_cents: 100_000,
@@ -173,7 +173,7 @@ test('voiding a credit note reverses its invoice applications automatically', ()
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 100_000, account_id: account('4000').id }],
+    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
   });
   const credit = creditService.createCredit(db, {
     customer_id: customerId,
@@ -216,7 +216,7 @@ test('voiding an advance reverses its applied invoice payment and keeps an audit
     issue_date: '2026-10-20',
     due_date: '2026-10-20',
     status: 'sent',
-    items: [{ description: 'Visa service', quantity: 1, unit_price_cents: 30_000, account_id: account('4320').id }],
+    items: [{ description: 'Visa service', quantity: 1, unit_price_cents: 30_000, account_id: account('4300').id }],
   });
   const applied = advanceService.applyAdvance(db, advance.id, {
     invoice_id: invoice.id,

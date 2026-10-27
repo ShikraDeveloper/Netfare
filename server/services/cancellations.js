@@ -311,7 +311,7 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
           unit_price_cents: shortfall,
           account_id: cancellationIncome.id,
         }],
-      });
+      }, { jobInvoice: true });
       cancellationInvoiceId = cancellationInvoice.id;
       db.prepare(`
         UPDATE invoices SET cancellation_id = ?, booking_id = ?, visa_id = ?, updated_at = datetime('now')
