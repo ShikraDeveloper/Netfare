@@ -521,9 +521,56 @@ Verification:
   - the header with seven actions.
 - No schema change. The live file was not modified; restart needed.
 
+### Payment column, confirm preview, amount in words, receipt voucher, share by email/WhatsApp — code commit `f8200a4`
+
+- **Payment column** on the booking and visa lists:
+  - Shows **Paid / Partial / Unpaid / Overdue** from the job's invoice, with "AED … due" under partial, unpaid and overdue.
+  - Drafts show *Not invoiced*; cancelled and rejected jobs show "—".
+  - Server: shared `jobs.JOB_INVOICE_COLUMNS` and `jobs.jobPaymentStatus()`. The booking and visa queries join the invoice and return `payment_status` and `payment_balance_cents` in the list and detail payloads.
+- **Preview before posting.** **Confirm & post** (booking) and **Submit & post** (visa) now show a "This will post" panel:
+  - the customer invoice with its amount;
+  - one supplier bill per supplier;
+  - for a prepaid portal supplier, whether the wallet pays it (balance before → after) or how much stays payable;
+  - the margin.
+  - Wallet balances are fetched fresh when the dialog opens.
+  - `confirmDialog` gained a `preview` option, reusing the void-preview panel.
+- **Amount in words** on every invoice, e.g. "UAE Dirhams Seven Hundred Thirty Only", with fils. The helper is `public/js/amount-words.js`.
+- **Receipt voucher:**
+  - Each payment on an invoice has a print button that opens `#/receipts/<payment id>`, using the existing payment number (PMT-…).
+  - It shows: received from, amount in figures and words, against invoice, booking/visa, method, reference, cheque details, account received into, any refund, invoice total, invoice balance now, and signature lines.
+  - A voided payment shows a Void badge.
+  - New endpoint `GET /api/invoices/payments/:paymentId/receipt`.
+- **Share** (sent and paid invoices):
+  - Opens an editable message: greeting, invoice title and number, booking/visa, date, total, and either amount due or "fully paid".
+  - Buttons: **Email** (`mailto:` to the customer's email), **WhatsApp** (`wa.me`; local UAE numbers `05…` become `9715…`, and `00…` is stripped) and **Copy text**.
+  - Ledgerly sends nothing itself; the window says to attach the PDF with Print → Save as PDF.
+  - Helpers are in `public/js/share-links.js`. New `send` and `mail` icons.
+
+Key files:
+- Server: `server/services/jobs.js`, `server/services/bookings.js`, `server/services/visas.js`, `server/services/invoices.js`, `server/routes/invoices.js`.
+- Frontend: `public/js/ui.js`, `public/js/amount-words.js` (new), `public/js/share-links.js` (new), `public/js/views/receipt.js` (new), `public/js/app.js`, `public/js/views/invoice-detail.js`, `public/js/views/job-modals.js`, `public/js/views/booking-detail.js`, `public/js/views/visa-detail.js`, `public/js/views/bookings.js`, `public/js/views/visas.js`, `public/css/styles.css`.
+- Tests: `test/collections.test.js` (new), `test/e2e/browser.test.js`.
+- Docs: `README.md`.
+
+Verification:
+
+- `npm run check`: 167 JavaScript files syntax OK.
+- `npm test`: 128 passed. 6 new tests in `test/collections.test.js`:
+  - booking payment status through not invoiced → unpaid → partial → paid;
+  - overdue, and cancelled shows none;
+  - visa partial, and rejected shows none;
+  - receipt voucher data and the 404 case;
+  - amount in words;
+  - WhatsApp number forms, mailto and the message text.
+- `npm run test:e2e`: 28 passed.
+  - New test: Not invoiced → confirm preview names the supplier bill and AED 130.00 margin → Unpaid → payment → amount in words → Share links (`mailto:`, `wa.me`) → receipt voucher (AED 300.00, words, balance AED 430.00) → list shows "Partial AED 430.00 due".
+  - The receipt page is added to the axe audit, which is clean in light and dark.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data): booking list payment column, confirm preview on a draft booking, invoice amount in words, Share window and receipt voucher.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `c276b7d` (ticket, visa and service invoice layouts).
+1. Start from the latest `main`; the latest code commit is `f8200a4` (payment column, posting preview, amount in words, receipts, sharing).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
