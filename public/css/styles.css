@@ -1568,6 +1568,15 @@ details.ledger-checks[open] > :not(summary),
 }
 @keyframes t-burger-out { from { opacity: 1; transform: none; filter: none; } to { opacity: 0; transform: scale(0.6) rotate(90deg); filter: blur(2px); } }
 @keyframes t-burger-in { from { opacity: 0; transform: scale(0.6) rotate(-90deg); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+/* 8. Desktop hamburger: while the sidebar is shown the lines fold into a ←
+      ("hide sidebar"); hidden again, they open back into ☰. */
+.burger line { transform-box: view-box; transition: transform var(--t-base) var(--t-ease-out); }
+.burger-top { transform-origin: 4px 6px; }
+.burger-bottom { transform-origin: 4px 18px; }
+@media (min-width: 901px) {
+  .menu-btn[aria-expanded="true"] .burger-top { transform: translate(0, 6px) rotate(-45deg) scaleX(0.53); }
+  .menu-btn[aria-expanded="true"] .burger-bottom { transform: translate(0, -6px) rotate(45deg) scaleX(0.53); }
+}
 /* 5. Page change */
 .view.t-page-enter > * { animation: t-page var(--t-base) var(--t-ease-out); }
 
@@ -1579,6 +1588,7 @@ details.ledger-checks[open] > :not(summary),
   .toast-success.show .icon, .toast-success.show .icon path,
   .t-shake, .view.t-page-enter > * { animation: none !important; }
   .tab-icons > span { transition: none !important; }
+  .burger line { transition: none !important; }
   .sidebar.open .sidebar-close .burger-open, .sidebar.open .sidebar-close .burger-close { animation: none !important; }
 }
 @media print {

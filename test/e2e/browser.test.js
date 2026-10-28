@@ -1672,6 +1672,18 @@ test('quiet transitions run, mark wrong input, and switch off for reduced motion
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await burger.click();
   assert.doesNotMatch(await page.locator('#sidebar').getAttribute('class'), /\bopen\b/);
+
+  // Desktop: the hamburger folds into ← while the sidebar is shown, ☰ when hidden.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openRoute('/dashboard');
+  const topLine = () => page.evaluate(() => getComputedStyle(document.querySelector('#menu-btn .burger-top')).transform);
+  assert.equal(await page.locator('#menu-btn').getAttribute('aria-expanded'), 'true');
+  assert.notEqual(await topLine(), 'none', 'arrow while the sidebar is shown');
+  await page.locator('#menu-btn').click();
+  assert.equal(await page.locator('#menu-btn').getAttribute('aria-expanded'), 'false');
+  assert.equal(await topLine(), 'none', 'hamburger while the sidebar is hidden');
+  await page.locator('#menu-btn').click();
+  assert.equal(await page.locator('#menu-btn').getAttribute('aria-expanded'), 'true');
   await page.setViewportSize({ width: 1440, height: 1000 });
   assertNoConsoleErrors();
 });
