@@ -71,7 +71,7 @@ export async function render(container, { query } = {}) {
       <div class="toolbar">
         <div class="search-box">
           ${icon('search', 17)}
-          <input class="input" id="supplier-credit-search" type="search" placeholder="Search credits, vendors or bills…" aria-label="Search supplier credits" autocomplete="off">
+          <input class="input" id="supplier-credit-search" type="search" placeholder="Search credits, suppliers or bills…" aria-label="Search supplier credits" autocomplete="off">
         </div>
         <select class="input" id="supplier-credit-status" aria-label="Filter supplier credits" style="max-width:170px">
           <option value="all">All credits</option>

@@ -53,11 +53,11 @@ function modalBody(item = null) {
         </select>
       </div>
       <div class="field full" data-ci-recurring>
-        <label for="ci-vendor">Vendor — who you pay</label>
+        <label for="ci-vendor">Supplier — who you pay</label>
         <select class="input" id="ci-vendor" name="vendor_id">
           ${optionsHtml(vendors, { selected: item?.vendor_id, placeholder: 'Choose a vendor…' })}
         </select>
-        <div class="hint">Required for recurring bills. Generated draft bills are recorded against this vendor’s payable account.</div>
+        <div class="hint">Required for recurring bills. Generated draft bills are recorded against this supplier’s payable account.</div>
       </div>
       <div class="field full" data-ci-recurring>
         <label for="ci-account">Expense account — what the cost is for</label>

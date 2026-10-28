@@ -165,6 +165,13 @@ async function axeViolations() {
   });
 }
 
+// Page actions such as Print, Void or Audit chain sit in the "More" menu.
+async function clickPageAction(selector) {
+  const target = page.locator(`#page-actions ${selector}`).first();
+  if (!(await target.isVisible())) await page.locator('#page-actions .more-menu > summary').click();
+  await target.click();
+}
+
 function assertNoConsoleErrors() {
   assert.deepEqual(consoleErrors, [], `Browser console should have no errors:\n${consoleErrors.join('\n')}`);
 }
@@ -830,7 +837,7 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
   await paymentDialog.locator('.modal-head [data-close]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
 
-  await page.locator('[data-action="void"]').click();
+  await clickPageAction('[data-action="void"]');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
   assert.equal(await dialog.locator('#void-remarks').getAttribute('required'), '');
@@ -913,6 +920,8 @@ test('dashboard ledger checks, settlement attachments and the audit chain page',
   await openRoute('/dashboard');
   const card = page.locator('[data-ledger-checks]');
   await card.waitFor();
+  assert.equal(await card.getAttribute('open'), reconciliation.all_matched ? null : '', 'folded when everything matches');
+  if (reconciliation.all_matched) await card.locator('summary').click();
   assert.equal(await card.locator('tbody tr').count(), 10);
   assert.match(await card.locator('caption').innerText(), /Ledger checks/);
   const summary = await card.locator('.card-title p').innerText();
@@ -941,7 +950,7 @@ test('dashboard ledger checks, settlement attachments and the audit chain page',
 
   const sourceType = cancellation.source_type;
   await openRoute(`/${sourceType === 'visa' ? 'visas' : 'bookings'}/${cancellation.source_id}`);
-  await page.locator(`#page-actions a[href="#/audit-chain/${sourceType}/${cancellation.source_id}"]`).click();
+  await clickPageAction(`a[href="#/audit-chain/${sourceType}/${cancellation.source_id}"]`);
   await page.waitForFunction(() => document.querySelector('#page-title')?.textContent.startsWith('Audit chain'));
   await page.waitForSelector('.chain-summary');
   const captions = await page.$$eval('table.data caption', (nodes) => nodes.map((node) => node.textContent));
@@ -1557,6 +1566,55 @@ test('a visa security deposit is taken with the application, shown apart from sa
   await openRoute(`/customers/${visaDetail.customer_id}/statement`);
   await page.locator('[data-statement-deposits]').waitFor();
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  assertNoConsoleErrors();
+});
+
+test('simplified navigation, Today box, summary strip, More menu and phone layout', async () => {
+  await openRoute('/dashboard');
+  // Sidebar: everyday groups open, "More" starts closed and opens on click.
+  const more = page.locator('[data-nav-group="more"]');
+  assert.match(await more.getAttribute('class'), /collapsed/);
+  assert.equal(await page.locator('#main-nav a[href="#/journal"]').isVisible(), false);
+  await more.locator('.nav-group-label').click();
+  assert.equal(await page.locator('#main-nav a[href="#/journal"]').isVisible(), true);
+  await more.locator('.nav-group-label').click();
+  assert.match(await page.locator('#main-nav').innerText(), /Suppliers/);
+
+  // Today box links to the work.
+  const today = page.locator('[data-today]');
+  await today.waitFor();
+  const firstItem = today.locator('[data-today-item]').first();
+  if (await firstItem.count()) assert.match(await firstItem.getAttribute('href'), /^#\//);
+
+  // Detail page: summary strip, account codes hidden until switched on, More menu.
+  const bookings = await getJson(baseUrl, '/api/bookings');
+  const booking = bookings.find((row) => row.status === 'confirmed') || bookings[0];
+  await openRoute(`/bookings/${booking.id}`);
+  const strip = page.locator('[data-summary-strip]');
+  assert.match((await strip.innerText()).replace(/\s+/g, ' '), /Total.*Paid.*Balance.*Margin/i);
+  assert.equal(await page.locator('th.acct-col').first().isVisible(), false, 'account codes hidden by default');
+  await clickPageAction('[data-action="toggle-accounting"]');
+  assert.equal(await page.locator('th.acct-col').first().isVisible(), true);
+  await clickPageAction('[data-action="toggle-accounting"]');
+  assert.equal(await page.locator('#page-actions .more-menu').getAttribute('open'), null, 'menu closes after a choice');
+
+  // Quick dates on lists.
+  await openRoute('/invoices');
+  await page.locator('[data-date-preset="month"]').click();
+  assert.match(await page.locator('#date-from').inputValue(), /-01$/);
+
+  // Phone: tab bar and card rows.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await openRoute('/bookings');
+  const tabbar = page.locator('.tabbar');
+  assert.equal(await tabbar.isVisible(), true);
+  assert.match(await tabbar.locator('.tab-item.active').innerText(), /Bookings/);
+  const firstCell = page.locator('table.cards-sm tbody tr').first().locator('td').nth(3);
+  assert.ok(await firstCell.getAttribute('data-label'), 'cells are labelled for the card layout');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await tabbar.locator('[data-tab-more]').click();
+  assert.match(await page.locator('#sidebar').getAttribute('class'), /open/);
   await page.setViewportSize({ width: 1440, height: 1000 });
   assertNoConsoleErrors();
 });

@@ -15,6 +15,8 @@ import {
   toast,
   toCents,
   voidDialog,
+  moreMenuHtml,
+  summaryStripHtml,
 } from '../ui.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -142,8 +144,10 @@ export async function render(container, { params } = {}) {
   const marginPercent = visa.sale_total_cents ? (visa.margin_cents / visa.sale_total_cents) * 100 : 0;
 
   const actions = [];
-  actions.push(`<a class="btn btn-ghost" href="#/visas"><span>All visas</span></a>`);
-  actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
+  const menu = [
+    `<a class="btn btn-ghost" href="#/visas"><span>All visas</span></a>`,
+    `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
+  ];
   if (isDraft) {
     actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
     actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
@@ -157,8 +161,8 @@ export async function render(container, { params } = {}) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="reject"><span>Reject</span></button>`);
     actions.push(`<button class="btn btn-primary" data-action="issue">${icon('check', 15)}<span>Mark issued</span></button>`);
   }
-  if (!isCancelled && !isRejected) {
-    actions.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
+  if (visa.invoice && visa.invoice.status === 'sent' && visa.invoice.balance_cents > 0) {
+    actions.push(`<a class="btn btn-secondary" href="#/invoices/${visa.invoice.id}">${icon('plus', 15)}<span>Record payment</span></a>`);
   }
 
   const duration = visaDurationLabel(visa.duration_days);
@@ -167,11 +171,15 @@ export async function render(container, { params } = {}) {
     visa.destination_country || 'No destination',
     `${visaTypeLabel(visa.visa_type)} visa${duration ? ` · ${duration}` : ''}`,
   ];
-  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/visa/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
+  menu.push(`<a class="btn btn-ghost" href="#/audit-chain/visa/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  if (!isCancelled && !isRejected) {
+    menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
+  }
   setHeader({
     title: visa.number,
     subtitle: subtitleParts.join(' · '),
-    actions: actions.join(''),
+    actions: actions.join('') + moreMenuHtml(menu),
   });
 
   const saleRows = visa.sale_items.map((item) => `
@@ -179,7 +187,7 @@ export async function render(container, { params } = {}) {
       <td>${esc(item.description)}</td>
       <td class="num">${fmtNumber(item.quantity)}</td>
       <td class="num">${fmtMoney(item.unit_price_cents)}</td>
-      <td class="muted">${esc(item.account_code)} · ${esc(item.account_name)}</td>
+      <td class="muted acct-col">${esc(item.account_code)} · ${esc(item.account_name)}</td>
       <td class="num amount">${fmtMoney(item.amount_cents)}</td>
     </tr>
   `).join('') || `<tr><td colspan="5" class="muted">No sale items</td></tr>`;
@@ -189,7 +197,7 @@ export async function render(container, { params } = {}) {
       <td>${esc(item.description)}</td>
       <td class="num">${fmtNumber(item.quantity)}</td>
       <td class="num">${fmtMoney(item.unit_price_cents)}</td>
-      <td class="muted">${esc(item.account_code)} · ${esc(item.account_name)}</td>
+      <td class="muted acct-col">${esc(item.account_code)} · ${esc(item.account_name)}</td>
       <td>${esc(item.vendor_name || '—')}${item.supplier_ref ? `<small class="cell-sub"> · ${esc(item.supplier_ref)}</small>` : ''}</td>
       <td class="num amount">${fmtMoney(item.amount_cents)}</td>
     </tr>
@@ -288,6 +296,14 @@ export async function render(container, { params } = {}) {
   ].filter(Boolean).join('\n');
 
   container.innerHTML = `
+    ${summaryStripHtml([
+      { label: 'Status', html: statusBadge(visa.status) },
+      { label: 'Customer', value: visa.customer_name },
+      { label: 'Total', value: fmtMoney(visa.sale_total_cents) },
+      { label: 'Paid', value: fmtMoney(visa.amount_paid_cents || 0) },
+      { label: 'Balance', value: fmtMoney(visa.balance_cents || 0), tone: visa.balance_cents > 0 && visa.invoice ? 'due' : '' },
+      { label: 'Margin', value: fmtMoney(visa.margin_cents), tone: visa.margin_cents >= 0 ? 'good' : 'bad' },
+    ])}
     ${statusSteps(visa)}
     ${groupCard(visa)}
 
@@ -304,7 +320,7 @@ export async function render(container, { params } = {}) {
         <div class="callout-text">
           <h3>Internal notes</h3>
           <p>${esc(visa.notes)}</p>
-          <p class="muted">Only staff see these notes. They are not printed or copied to the customer invoice.</p>
+          <p class="muted">Staff only · not printed</p>
         </div>
       </div>` : ''}
     <div class="doc-wrap">
@@ -352,7 +368,7 @@ export async function render(container, { params } = {}) {
                 <th scope="col" style="width:38%">Description</th>
                 <th scope="col" class="num">Qty</th>
                 <th scope="col" class="num">Unit price</th>
-                <th scope="col">Revenue account</th>
+                <th scope="col" class="acct-col">Revenue account</th>
                 <th scope="col" class="num">Amount</th>
               </tr>
             </thead>
@@ -366,7 +382,7 @@ export async function render(container, { params } = {}) {
                 <th scope="col" style="width:30%">Description</th>
                 <th scope="col" class="num">Qty</th>
                 <th scope="col" class="num">Unit cost</th>
-                <th scope="col">Cost account</th>
+                <th scope="col" class="acct-col">Cost account</th>
                 <th scope="col">Supplier</th>
                 <th scope="col" class="num">Amount</th>
               </tr>

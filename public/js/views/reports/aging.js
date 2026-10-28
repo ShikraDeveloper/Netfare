@@ -25,7 +25,7 @@ export function agingReport(data, kind) {
         <table class="report-table"><caption class="sr-only">${title}</caption>
           <thead>
             <tr>
-              <th scope="col">${kind === 'ar' ? 'Customer' : 'Vendor'}</th>
+              <th scope="col">${kind === 'ar' ? 'Customer' : 'Supplier'}</th>
               <th scope="col" class="num">Current</th>
               <th scope="col" class="num">1–30 days</th>
               <th scope="col" class="num">31–60 days</th>

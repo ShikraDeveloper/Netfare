@@ -15,6 +15,8 @@ import {
   toast,
   toCents,
   voidDialog,
+  moreMenuHtml,
+  summaryStripHtml,
 } from '../ui.js';
 import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -66,8 +68,10 @@ export async function render(container, { params } = {}) {
   const marginPercent = booking.sale_total_cents ? (booking.margin_cents / booking.sale_total_cents) * 100 : 0;
 
   const actions = [];
-  actions.push(`<a class="btn btn-ghost" href="#/bookings"><span>All bookings</span></a>`);
-  actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
+  const menu = [
+    `<a class="btn btn-ghost" href="#/bookings"><span>All bookings</span></a>`,
+    `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
+  ];
   if (isDraft) {
     actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
     actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
@@ -77,15 +81,18 @@ export async function render(container, { params } = {}) {
     const travelAhead = booking.travel_date && booking.travel_date > todayISO();
     actions.push(`<button class="btn btn-secondary" data-action="travel" ${travelAhead ? `disabled title="Available from the travel date (${esc(fmtDate(booking.travel_date))})"` : ''}>${icon('check', 15)}<span>Mark travelled</span></button>`);
   }
-  if (!isCancelled) {
-    actions.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
+  if (invoice && invoice.status === 'sent' && invoice.balance_cents > 0) {
+    actions.push(`<a class="btn btn-primary" href="#/invoices/${invoice.id}">${icon('plus', 15)}<span>Record payment</span></a>`);
   }
-
-  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/booking/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
+  menu.push(`<a class="btn btn-ghost" href="#/audit-chain/booking/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  if (!isCancelled) {
+    menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
+  }
   setHeader({
     title: booking.number,
     subtitle: `${booking.customer_name} · ${booking.destination || 'No destination'} · ${booking.status.charAt(0).toUpperCase()}${booking.status.slice(1)}`,
-    actions: actions.join(''),
+    actions: actions.join('') + moreMenuHtml(menu),
   });
 
   const saleRows = booking.sale_items.map((item) => `
@@ -93,7 +100,7 @@ export async function render(container, { params } = {}) {
       <td>${esc(item.description)}</td>
       <td class="num">${fmtNumber(item.quantity)}</td>
       <td class="num">${fmtMoney(item.unit_price_cents)}</td>
-      <td class="muted">${esc(item.account_code)} · ${esc(item.account_name)}</td>
+      <td class="muted acct-col">${esc(item.account_code)} · ${esc(item.account_name)}</td>
       <td class="num amount">${fmtMoney(item.amount_cents)}</td>
     </tr>
   `).join('') || `<tr><td colspan="5" class="muted">No sale items</td></tr>`;
@@ -103,7 +110,7 @@ export async function render(container, { params } = {}) {
       <td>${esc(item.description)}</td>
       <td class="num">${fmtNumber(item.quantity)}</td>
       <td class="num">${fmtMoney(item.unit_price_cents)}</td>
-      <td class="muted">${esc(item.account_code)} · ${esc(item.account_name)}</td>
+      <td class="muted acct-col">${esc(item.account_code)} · ${esc(item.account_name)}</td>
       <td>${esc(item.vendor_name || '—')}${item.supplier_ref ? `<small class="cell-sub"> · ${esc(item.supplier_ref)}</small>` : ''}</td>
       <td class="num amount">${fmtMoney(item.amount_cents)}</td>
     </tr>
@@ -195,12 +202,20 @@ export async function render(container, { params } = {}) {
     : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'A customer invoice is created when you confirm this booking.' : 'No customer invoice linked.'}</div>`;
 
   container.innerHTML = `
+    ${summaryStripHtml([
+      { label: 'Status', html: statusBadge(booking.status) },
+      { label: 'Customer', value: booking.customer_name },
+      { label: 'Total', value: fmtMoney(booking.sale_total_cents) },
+      { label: 'Paid', value: fmtMoney(booking.amount_paid_cents || 0) },
+      { label: 'Balance', value: fmtMoney(booking.balance_cents || 0), tone: booking.balance_cents > 0 && booking.invoice ? 'due' : '' },
+      { label: 'Margin', value: fmtMoney(booking.margin_cents), tone: booking.margin_cents >= 0 ? 'good' : 'bad' },
+    ])}
     ${booking.notes ? `
       <div class="callout internal-notes no-print" data-internal-notes>
         <div class="callout-text">
           <h3>Internal notes</h3>
           <p>${esc(booking.notes)}</p>
-          <p class="muted">Only staff see these notes. They are not printed or copied to the customer invoice.</p>
+          <p class="muted">Staff only · not printed</p>
         </div>
       </div>` : ''}
     <div class="doc-wrap">
@@ -246,7 +261,7 @@ export async function render(container, { params } = {}) {
                 <th scope="col" style="width:38%">Description</th>
                 <th scope="col" class="num">Qty</th>
                 <th scope="col" class="num">Unit price</th>
-                <th scope="col">Revenue account</th>
+                <th scope="col" class="acct-col">Revenue account</th>
                 <th scope="col" class="num">Amount</th>
               </tr>
             </thead>
@@ -260,7 +275,7 @@ export async function render(container, { params } = {}) {
                 <th scope="col" style="width:30%">Description</th>
                 <th scope="col" class="num">Qty</th>
                 <th scope="col" class="num">Unit cost</th>
-                <th scope="col">Cost account</th>
+                <th scope="col" class="acct-col">Cost account</th>
                 <th scope="col">Supplier</th>
                 <th scope="col" class="num">Amount</th>
               </tr>

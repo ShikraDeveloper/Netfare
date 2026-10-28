@@ -103,7 +103,7 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data"><caption class="sr-only">Invoices</caption>
+        <table class="data cards-sm"><caption class="sr-only">Invoices</caption>
           <thead>
             <tr>
               <th scope="col">Invoice</th>

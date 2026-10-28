@@ -254,6 +254,30 @@ export function avatar(name, size = 36) {
   return `<span class="avatar" style="width:${size}px;height:${size}px;background:${color}">${esc(text)}</span>`;
 }
 
+// Less frequent page actions (print, share, audit chain, cancel…) live in a
+// "More" menu so the main step stands out. Items keep their data-action, so
+// the page binds them as usual.
+export function moreMenuHtml(items = []) {
+  const list = items.filter(Boolean);
+  if (!list.length) return '';
+  return `
+    <details class="more-menu">
+      <summary class="btn btn-secondary" aria-label="More actions">${icon('more', 16)}<span>More</span></summary>
+      <div class="more-menu-list" role="menu">${list.join('')}</div>
+    </details>`;
+}
+
+// The key figures of a booking, visa or invoice, shown above the document.
+export function summaryStripHtml(items = []) {
+  const list = items.filter(Boolean);
+  if (!list.length) return '';
+  return `<div class="summary-strip no-print" data-summary-strip>${list.map((item) => `
+    <div class="summary-strip-item${item.tone ? ` tone-${item.tone}` : ''}">
+      <span>${esc(item.label)}</span>
+      <strong>${item.html ?? esc(item.value)}</strong>
+    </div>`).join('')}</div>`;
+}
+
 export function setHeader({ title, subtitle = '', actions = '' }) {
   const titleEl = document.getElementById('page-title');
   const subtitleEl = document.getElementById('page-subtitle');
@@ -543,7 +567,7 @@ export function optionsHtml(items, { selected = '', placeholder = 'Select…', v
   return `${placeholder ? `<option value="">${esc(placeholder)}</option>` : ''}${options.join('')}`;
 }
 
-export function dateRangeHtml({ from = '', to = '', label = 'Date' } = {}) {
+export function dateRangeHtml({ from = '', to = '', label = 'Date', presets = true } = {}) {
   return `
     <div class="date-range" role="group" aria-label="${esc(label)} range">
       <span class="date-range-label">${esc(label)}</span>
@@ -554,6 +578,10 @@ export function dateRangeHtml({ from = '', to = '', label = 'Date' } = {}) {
         <button type="button" class="btn btn-secondary btn-sm date-apply" data-date-apply title="Apply date filter" aria-label="Apply date filter">${icon('search', 15)}</button>
         <button type="button" class="icon-btn date-clear" data-date-clear title="Clear dates" aria-label="Clear dates" disabled>${icon('x', 14)}</button>
       </div>
+      ${presets ? `<div class="date-presets" role="group" aria-label="Quick dates">
+        <button type="button" class="btn btn-ghost btn-sm" data-date-preset="today">Today</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-date-preset="month">This month</button>
+      </div>` : ''}
     </div>
   `;
 }
@@ -597,6 +625,14 @@ export function bindDateRange(container, onChange = () => {}) {
     }
   });
   if (apply) apply.addEventListener('click', trigger);
+  container.querySelectorAll('[data-date-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const today = todayISO();
+      from.value = button.dataset.datePreset === 'today' ? today : `${today.slice(0, 7)}-01`;
+      to.value = today;
+      trigger();
+    });
+  });
   if (clear) {
     clear.addEventListener('click', () => {
       from.value = '';

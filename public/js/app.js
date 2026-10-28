@@ -42,22 +42,26 @@ import * as auditLogsView from './views/audit-logs.js';
 import * as auditChainView from './views/audit-chain.js';
 import * as settingsView from './views/settings.js';
 
+// Everyday work first; less frequent screens sit under "More", which starts
+// closed. Groups can be collapsed and the choice is remembered per browser.
 const NAV_GROUPS = [
   {
-    label: 'Overview',
+    key: 'home',
+    label: '',
     items: [
       { section: 'dashboard', href: '#/dashboard', icon: 'dashboard', label: 'Dashboard' },
     ],
   },
   {
+    key: 'travel',
     label: 'Travel',
     items: [
       { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings' },
       { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas' },
-      { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets' },
     ],
   },
   {
+    key: 'sales',
     label: 'Sales',
     items: [
       { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices' },
@@ -65,54 +69,60 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: 'Settlements',
+    key: 'money-back',
+    label: 'Money back',
     items: [
-      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'Settlement queue' },
-      { section: 'customer-balances', href: '#/customer-balances', icon: 'wallet', label: 'Customer balances' },
+      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'To settle' },
       { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
       { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
       { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },
+      { section: 'customer-balances', href: '#/customer-balances', icon: 'wallet', label: 'Customer balances' },
     ],
   },
   {
-    label: 'Purchases',
+    key: 'suppliers',
+    label: 'Suppliers',
     items: [
+      { section: 'vendors', href: '#/vendors', icon: 'vendors', label: 'Suppliers' },
       { section: 'bills', href: '#/bills', icon: 'bill', label: 'Bills & expenses' },
       { section: 'supplier-credits', href: '#/supplier-credits', icon: 'bill', label: 'Supplier credits' },
-      { section: 'vendors', href: '#/vendors', icon: 'vendors', label: 'Vendors' },
+      { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets' },
     ],
   },
   {
-    label: 'Treasury',
+    key: 'reports',
+    label: 'Reports',
     items: [
-      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking' },
-      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation' },
-      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
-    ],
-  },
-  {
-    label: 'Compliance',
-    items: [
-      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
-    ],
-  },
-  {
-    label: 'Accounting',
-    items: [
-      { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal' },
-      { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances' },
-      { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts' },
       { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports' },
     ],
   },
   {
-    label: 'System',
+    key: 'more',
+    label: 'More',
+    collapsed: true,
     items: [
+      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking' },
+      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation' },
+      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
+      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
+      { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal' },
+      { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances' },
+      { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts' },
       { section: 'audit-logs', href: '#/audit-logs', icon: 'shield', label: 'Audit log' },
       { section: 'settings', href: '#/settings', icon: 'settings', label: 'Settings' },
     ],
   },
 ];
+
+const NAV_GROUPS_KEY = 'ledgerly.nav.groups';
+
+function readNavState() {
+  try { return JSON.parse(localStorage.getItem(NAV_GROUPS_KEY) || '{}') || {}; } catch { return {}; }
+}
+
+function saveNavState(state) {
+  try { localStorage.setItem(NAV_GROUPS_KEY, JSON.stringify(state)); } catch { /* per-browser convenience only */ }
+}
 
 const ROUTES = [
   { pattern: /^\/dashboard$/, view: dashboardView, section: 'dashboard' },
@@ -160,34 +170,118 @@ const ROUTES = [
 const sidebar = document.getElementById('sidebar');
 const scrim = document.getElementById('sidebar-scrim');
 
+// Account codes on booking and visa documents are hidden unless switched on;
+// the choice is remembered per browser.
+try { if (localStorage.getItem('ledgerly.showAccounting') === '1') document.documentElement.classList.add('show-accounting'); } catch { /* ignore */ }
+document.addEventListener('click', (event) => {
+  if (!event.target.closest('[data-action="toggle-accounting"]')) return;
+  const on = document.documentElement.classList.toggle('show-accounting');
+  try { localStorage.setItem('ledgerly.showAccounting', on ? '1' : '0'); } catch { /* ignore */ }
+});
+
+// A "More" menu closes when you pick an item or click anywhere else.
+document.addEventListener('click', (event) => {
+  document.querySelectorAll('details.more-menu[open]').forEach((menu) => {
+    const inside = menu.contains(event.target);
+    if (!inside || event.target.closest('.more-menu-list .btn, .more-menu-list .icon-btn')) menu.removeAttribute('open');
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') document.querySelectorAll('details.more-menu[open]').forEach((menu) => menu.removeAttribute('open'));
+});
+
 document.getElementById('skip-link')?.addEventListener('click', (event) => {
   event.preventDefault();
   document.getElementById('view')?.focus();
 });
 
+function navItemsHtml(group) {
+  return group.items.map((item) => `
+    <a class="nav-item" href="${item.href}" data-section="${item.section}">
+      ${icon(item.icon, 17)}
+      <span>${esc(item.label)}</span>
+    </a>
+  `).join('');
+}
+
 function buildNav() {
   const nav = document.getElementById('main-nav');
-  nav.innerHTML = NAV_GROUPS.map((group) => `
-    <div class="nav-group-label">${esc(group.label)}</div>
-    ${group.items.map((item) => `
-      <a class="nav-item" href="${item.href}" data-section="${item.section}">
-        ${icon(item.icon, 17)}
-        <span>${esc(item.label)}</span>
-      </a>
-    `).join('')}
-  `).join('');
+  const state = readNavState();
+  nav.innerHTML = NAV_GROUPS.map((group) => {
+    if (!group.label) return `<div class="nav-group" data-nav-group="${group.key}">${navItemsHtml(group)}</div>`;
+    const collapsed = state[group.key] ?? Boolean(group.collapsed);
+    return `
+      <div class="nav-group ${collapsed ? 'collapsed' : ''}" data-nav-group="${group.key}">
+        <button type="button" class="nav-group-label" aria-expanded="${!collapsed}" aria-controls="nav-${group.key}">
+          <span>${esc(group.label)}</span>${icon('chevron', 12)}
+        </button>
+        <div class="nav-group-items" id="nav-${group.key}">${navItemsHtml(group)}</div>
+      </div>`;
+  }).join('');
 
   nav.addEventListener('click', (event) => {
+    const toggle = event.target.closest('.nav-group-label');
+    if (toggle) {
+      const group = toggle.closest('[data-nav-group]');
+      const collapsed = group.classList.toggle('collapsed');
+      toggle.setAttribute('aria-expanded', String(!collapsed));
+      saveNavState({ ...readNavState(), [group.dataset.navGroup]: collapsed });
+      return;
+    }
     if (event.target.closest('.nav-item')) closeSidebar();
   });
 }
 
+// On phones a bottom tab bar holds the everyday screens; "More" opens the
+// full sidebar.
+const TABBAR_ITEMS = [
+  { section: 'dashboard', href: '#/dashboard', icon: 'dashboard', label: 'Home' },
+  { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings' },
+  { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas' },
+  { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices' },
+];
+
+function buildTabbar() {
+  const bar = document.createElement('nav');
+  bar.className = 'tabbar no-print';
+  bar.setAttribute('aria-label', 'Quick navigation');
+  bar.innerHTML = `${TABBAR_ITEMS.map((item) => `
+    <a class="tab-item" href="${item.href}" data-section="${item.section}">${icon(item.icon, 20)}<span>${esc(item.label)}</span></a>
+  `).join('')}
+    <button type="button" class="tab-item" data-tab-more aria-controls="sidebar">${icon('more', 20)}<span>More</span></button>`;
+  bar.querySelector('[data-tab-more]').addEventListener('click', () => openSidebar());
+  document.body.appendChild(bar);
+}
+
+// Phone lists: tables marked .cards-sm become cards; each cell is labelled
+// from its column header so the figures still read clearly.
+function labelCardTables(root = document) {
+  root.querySelectorAll('table.cards-sm').forEach((table) => {
+    const heads = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+    table.querySelectorAll('tbody tr').forEach((row) => {
+      Array.from(row.children).forEach((cell, index) => {
+        if (!cell.hasAttribute('data-label') && heads[index]) cell.setAttribute('data-label', heads[index]);
+      });
+    });
+  });
+}
+
 function updateNav(section) {
+  document.querySelectorAll('.tab-item[data-section]').forEach((item) => {
+    item.classList.toggle('active', item.dataset.section === section);
+  });
   document.querySelectorAll('.nav-item').forEach((item) => {
     const active = item.dataset.section === section;
     item.classList.toggle('active', active);
-    if (active) item.setAttribute('aria-current', 'page');
-    else item.removeAttribute('aria-current');
+    if (active) {
+      item.setAttribute('aria-current', 'page');
+      // Open a collapsed group when you land on one of its pages.
+      const group = item.closest('.nav-group.collapsed');
+      if (group) {
+        group.classList.remove('collapsed');
+        group.querySelector('.nav-group-label')?.setAttribute('aria-expanded', 'true');
+      }
+    } else item.removeAttribute('aria-current');
   });
 }
 
@@ -332,6 +426,9 @@ async function renderRoute() {
 
 async function boot() {
   buildNav();
+  buildTabbar();
+  new MutationObserver(() => labelCardTables(document.getElementById('view')))
+    .observe(document.getElementById('view'), { childList: true, subtree: true });
   try {
     await refreshMeta();
   } catch (error) {

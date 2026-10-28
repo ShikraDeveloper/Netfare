@@ -67,7 +67,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'bill',
     title: 'No bills yet',
-    message: 'Record a vendor bill or expense. Receiving it will post the expense and a payable to your ledger automatically.',
+    message: 'Record a supplier bill or expense. Receiving it will post the expense and a payable to your ledger automatically.',
     action: '<button class="btn btn-primary" data-action="new-bill">Record your first bill</button>',
   })}
       </div>
@@ -83,7 +83,7 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="bill-search" type="search" placeholder="Search bills or vendors…" aria-label="Search bills or vendors" autocomplete="off">
+        <input class="input" id="bill-search" type="search" placeholder="Search bills or suppliers…" aria-label="Search bills or suppliers" autocomplete="off">
       </div>
       <select class="input" id="bill-status" aria-label="Filter bills by status" style="max-width:170px">
         <option value="all">All statuses</option>
@@ -105,7 +105,7 @@ export async function render(container, { query } = {}) {
           <thead>
             <tr>
               <th scope="col">Bill</th>
-              <th scope="col">Vendor</th>
+              <th scope="col">Supplier</th>
               <th scope="col">Due date</th>
               <th scope="col">Status</th>
               <th scope="col" class="num">Total</th>
@@ -221,10 +221,10 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
 
   if (!vendors.length) {
     openModal({
-      title: 'Add a vendor first',
+      title: 'Add a supplier first',
       size: 'modal-sm',
       body: '<p class="confirm-text">Bills need a vendor. Add a vendor, then come back to record the bill.</p>',
-      submitLabel: 'Add vendor',
+      submitLabel: 'Add supplier',
       onSubmit: async () => {
         location.hash = '#/vendors?new=1';
       },
@@ -245,9 +245,9 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
   const body = `
     <div class="form-grid">
       <div class="field full">
-        <label for="bill-vendor">Vendor</label>
+        <label for="bill-vendor">Supplier</label>
         <select class="input" id="bill-vendor" name="vendor_id" required>
-          ${optionsHtml(vendors, { selected: bill?.vendor_id, placeholder: 'Choose a vendor…' })}
+          ${optionsHtml(vendors, { selected: bill?.vendor_id, placeholder: 'Choose a supplier…' })}
         </select>
       </div>
       <div class="field">

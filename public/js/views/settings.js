@@ -217,7 +217,7 @@ export async function render(container) {
             <div class="danger-row">
               <div>
                 <h4>Clear all data</h4>
-                <p>Delete every customer, vendor, invoice, bill, payment and journal entry. Your chart of accounts and settings are kept.</p>
+                <p>Delete every customer, supplier, invoice, bill, payment and journal entry. Your chart of accounts and settings are kept.</p>
               </div>
               <button class="btn btn-danger btn-sm" id="reset-data">${icon('trash', 15)} Clear</button>
             </div>
@@ -342,7 +342,7 @@ export async function render(container) {
       danger: true,
       submitLabel: 'Clear all data',
       body: `
-        <p class="confirm-text">Every customer, vendor, invoice, bill, payment and journal entry will be deleted. Your chart of accounts and settings stay in place.</p>
+        <p class="confirm-text">Every customer, supplier, invoice, bill, payment and journal entry will be deleted. Your chart of accounts and settings stay in place.</p>
         <div class="field" style="margin-top:16px">
           <label for="reset-confirm">Type <strong>RESET</strong> to confirm</label>
           <input class="input" id="reset-confirm" name="confirm" autocomplete="off" placeholder="RESET">

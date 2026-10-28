@@ -389,7 +389,7 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data visa-table"><caption class="sr-only">Visa applications</caption>
+        <table class="data cards-sm visa-table"><caption class="sr-only">Visa applications</caption>
           <thead>
             <tr>
               <th scope="col">Application</th>

@@ -107,10 +107,10 @@ async function openBatchModal(recurringItems, onSaved) {
             ${optionsHtml(recurringItems, {
               selected: first.id,
               placeholder: 'Choose a recurring bill…',
-              labelKey: (item) => `${item.name} · ${item.vendor_name || 'No vendor'} · ${fmtMoney(item.amount_cents)}`,
+              labelKey: (item) => `${item.name} · ${item.vendor_name || 'No supplier'} · ${fmtMoney(item.amount_cents)}`,
             })}
           </select>
-          <div class="hint">Only active recurring bills with a vendor can have post-dated cheques.</div>
+          <div class="hint">Only active recurring bills with a supplier can have post-dated cheques.</div>
         </div>
         <div class="field">
           <label for="pdc-first">First cheque number</label>
@@ -321,7 +321,7 @@ export async function render(container, { query } = {}) {
     <div class="toolbar">
       <div class="search-box">
         ${icon('search', 17)}
-        <input class="input" id="cheque-search" type="search" placeholder="Search cheque, vendor or bank…" aria-label="Search cheques, vendors or banks" autocomplete="off">
+        <input class="input" id="cheque-search" type="search" placeholder="Search cheque, supplier or bank…" aria-label="Search cheques, suppliers or banks" autocomplete="off">
       </div>
       <select class="input" id="cheque-status" aria-label="Filter cheques by status" style="max-width:160px">
         <option value="all">All statuses</option>
@@ -341,7 +341,7 @@ export async function render(container, { query } = {}) {
             <tr>
               <th scope="col">Cheque date</th>
               <th scope="col">Cheque</th>
-              <th scope="col">Vendor / item</th>
+              <th scope="col">Supplier / item</th>
               <th scope="col" class="num">Amount</th>
               <th scope="col">Bank</th>
               <th scope="col">Status</th>

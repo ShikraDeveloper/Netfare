@@ -217,6 +217,32 @@ async function loadSample(container) {
 
 // Control accounts compared with the documents behind them. A difference
 // means something was posted outside its normal document workflow.
+// What needs doing now, each linking to the screen where it is done.
+function todayHtml(todo) {
+  if (!todo) return '';
+  const items = [
+    { key: 'overdue_invoices', label: 'Overdue invoices', hint: 'to collect', href: '#/invoices', tone: 'red' },
+    { key: 'to_settle', label: 'Money to give back', hint: 'refunds and credits', href: '#/settlement-queue', tone: 'amber' },
+    { key: 'deposits_due', label: 'Visa deposits to refund', hint: 'visa cancelled or rejected', href: '#/reports/visa-deposits', tone: 'amber' },
+    { key: 'bills_overdue', label: 'Bills overdue', hint: 'to pay suppliers', href: '#/bills', tone: 'red' },
+    { key: 'draft_bookings', label: 'Draft bookings', hint: 'to confirm', href: '#/bookings', tone: 'blue' },
+    { key: 'draft_visas', label: 'Draft visas', hint: 'to submit', href: '#/visas', tone: 'blue' },
+  ];
+  const open = items.filter((item) => todo[item.key]?.count > 0);
+  return `
+    <section class="card today-card" data-today>
+      <div class="card-head">
+        <div class="card-title"><h2>Today</h2><p>${open.length ? 'Things that need your attention' : 'Nothing waiting. All caught up.'}</p></div>
+      </div>
+      ${open.length ? `<div class="today-grid">${open.map((item) => `
+        <a class="today-item tone-${item.tone}" href="${item.href}" data-today-item="${item.key}">
+          <strong>${todo[item.key].count}</strong>
+          <span>${esc(item.label)}<small>${todo[item.key].cents ? esc(fmtMoney(todo[item.key].cents)) + ' · ' : ''}${esc(item.hint)}</small></span>
+          ${icon('chevron', 14)}
+        </a>`).join('')}</div>` : ''}
+    </section>`;
+}
+
 function ledgerChecksCard(reconciliation) {
   if (!reconciliation || !Array.isArray(reconciliation.checks)) return '';
   const checks = reconciliation.checks;
@@ -225,14 +251,14 @@ function ledgerChecksCard(reconciliation) {
     ? `${differences} check${differences === 1 ? '' : 's'} need${differences === 1 ? 's' : ''} attention`
     : `All ${checks.length} checks match`;
   return `
-    <div class="card ledger-checks" style="margin-top:16px" data-ledger-checks>
-      <div class="card-head">
+    <details class="card ledger-checks" style="margin-top:16px" data-ledger-checks ${differences ? 'open' : ''}>
+      <summary class="card-head">
         <div class="card-title">
           <h2>Ledger checks</h2>
           <p class="${differences ? 'down' : 'up'}">${icon(differences ? 'alert' : 'check', 13)} ${esc(summary)}</p>
         </div>
-        <a class="card-link" href="#/reports/trial-balance">Trial balance ${icon('chevron', 13)}</a>
-      </div>
+        <span class="card-link">${differences ? 'Hide details' : 'Show details'} ${icon('chevron', 13)}</span>
+      </summary>
       <div class="table-wrap">
         <table class="data">
           <caption class="sr-only">Ledger checks: control accounts compared with open documents</caption>
@@ -262,7 +288,8 @@ function ledgerChecksCard(reconciliation) {
           </tbody>
         </table>
       </div>
-    </div>
+      <p class="ledger-checks-foot"><a href="#/reports/trial-balance">Open the trial balance ${icon('chevron', 12)}</a></p>
+    </details>
   `;
 }
 
@@ -341,7 +368,7 @@ export async function render(container, { query } = {}) {
     : emptyState({
       iconName: 'bill',
       title: 'No bills yet',
-      message: 'Record a vendor bill to track payables.',
+      message: 'Record a supplier bill to track payables.',
       action: '<button class="btn btn-secondary btn-sm" data-action="new-bill">Record bill</button>',
     });
 
@@ -420,6 +447,7 @@ export async function render(container, { query } = {}) {
 
   container.innerHTML = `
     ${callout}
+    ${isEmpty ? '' : todayHtml(data.todo)}
     ${complianceCallout}
     <div class="kpi-grid">
       ${kpiCard('Cash on hand', data.cash_only_cents ?? data.cash_cents, `${data.cash_only_cents > 0 ? '<a href="#/banking?new=1">Deposit cash</a> · ' : ''}Bank ${fmtMoney(data.bank_cents ?? 0, { compact: true })}`, 'wallet', 'indigo')}
@@ -427,7 +455,6 @@ export async function render(container, { query } = {}) {
       ${kpiCard(`Revenue · ${month.split(' ')[0]}`, data.revenue_mtd_cents, `Net income ${fmtMoney(data.net_income_mtd_cents, { compact: true })}`, 'trendUp', 'green')}
       ${kpiCard(`Expenses · ${month.split(' ')[0]}`, data.expenses_mtd_cents, `A/P outstanding ${fmtMoney(data.ap_outstanding_cents, { compact: true })}`, 'cash', 'amber')}
       ${kpiCard(`Booking margin · ${month.split(' ')[0]}`, bookings.margin_cents, `${bookings.booking_count} booking${bookings.booking_count === 1 ? '' : 's'} · sales ${fmtMoney(bookings.sale_cents, { compact: true })}`, 'plane', 'indigo')}
-      ${countCard('Active bookings', String((bookings.counts.confirmed || 0) + (bookings.counts.travelled || 0)), `${bookings.counts.draft || 0} draft · ${bookings.counts.cancelled || 0} cancelled`, 'plane', 'blue')}
       ${kpiCard(`Visa margin · ${month.split(' ')[0]}`, visas.margin_cents, `${visas.visa_count} application${visas.visa_count === 1 ? '' : 's'} · sales ${fmtMoney(visas.sale_cents, { compact: true })}`, 'visa', 'green')}
       ${countCard('Visa pipeline', String(visas.active_count || 0), `${visas.counts.issued || 0} issued · ${visas.counts.rejected || 0} rejected`, 'visa', 'amber')}
       ${kpiCard('Portal wallets', portals.balance_cents, `${portals.active_count} portal${portals.active_count === 1 ? '' : 's'} · ${fmtMoney(portals.outstanding_ap_cents, { compact: true })} payable`, 'wallet', 'green')}

@@ -29,15 +29,15 @@ const CONFIG = {
   },
   vendor: {
     base: '/vendors',
-    title: 'Vendors',
+    title: 'Suppliers',
     singular: 'vendor',
     icon: 'vendors',
-    addLabel: 'New vendor',
+    addLabel: 'New supplier',
     listLabel: 'Bill',
     outstandingLabel: 'Outstanding A/P',
-    emptyTitle: 'No vendors yet',
+    emptyTitle: 'No suppliers yet',
     emptyMessage: 'Add the suppliers and service providers you pay. Their details will appear on bills.',
-    emptyAction: 'Add your first vendor',
+    emptyAction: 'Add your first supplier',
     countKey: 'bill_count',
   },
 };
@@ -113,7 +113,7 @@ function partyModal({ party = null, config, onSaved }) {
       const saved = isEdit
         ? await api.put(`${config.base}/${party.id}`, payload)
         : await api.post(config.base, payload);
-      toast(isEdit ? `${config.singular === 'customer' ? 'Customer' : 'Vendor'} updated` : `${config.singular === 'customer' ? 'Customer' : 'Vendor'} added`);
+      toast(isEdit ? `${config.singular === 'customer' ? 'Customer' : 'Supplier'} updated` : `${config.singular === 'customer' ? 'Customer' : 'Supplier'} added`);
       await refreshMeta();
       window.dispatchEvent(new Event('meta-changed'));
       onSaved(saved);
@@ -179,7 +179,7 @@ export async function renderPartyView(container, { query = new URLSearchParams()
         <table class="data"><caption class="sr-only">${config.title}</caption>
           <thead>
             <tr>
-              <th scope="col">${config.singular === 'customer' ? 'Customer' : 'Vendor'}</th>
+              <th scope="col">${config.singular === 'customer' ? 'Customer' : 'Supplier'}</th>
               <th scope="col">Phone</th>
               <th scope="col" class="num">${config.listLabel}s</th>
               <th scope="col" class="num">${config.outstandingLabel}</th>
@@ -292,7 +292,7 @@ export async function renderPartyView(container, { query = new URLSearchParams()
       if (!confirmed) return;
       try {
         await api.del(`${config.base}/${party.id}`);
-        toast(`${config.singular === 'customer' ? 'Customer' : 'Vendor'} deleted`);
+        toast(`${config.singular === 'customer' ? 'Customer' : 'Supplier'} deleted`);
         await refreshMeta();
         window.dispatchEvent(new Event('meta-changed'));
         refresh();

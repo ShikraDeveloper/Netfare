@@ -369,7 +369,7 @@ export async function render(container, { query } = {}) {
     </div>
     <div class="card">
       <div class="table-wrap">
-        <table class="data"><caption class="sr-only">Bookings</caption>
+        <table class="data cards-sm"><caption class="sr-only">Bookings</caption>
           <thead>
             <tr>
               <th scope="col">Booking</th>

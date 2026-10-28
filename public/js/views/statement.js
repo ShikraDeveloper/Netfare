@@ -201,7 +201,7 @@ export async function render(container, { params = [], query = new URLSearchPara
     from: query.get('from') || '',
     to: query.get('to') || '',
   });
-  const partyLabel = kind === 'customer' ? 'Customer' : 'Vendor';
+  const partyLabel = kind === 'customer' ? 'Customer' : 'Supplier';
   const balanceLabel = kind === 'customer' ? 'Amount due' : 'Balance payable';
   const debitLabel = kind === 'customer' ? 'Invoiced' : 'Paid';
   const creditLabel = kind === 'customer' ? 'Received' : 'Billed';
@@ -236,7 +236,7 @@ export async function render(container, { params = [], query = new URLSearchPara
     </div>
 
     <div class="toolbar statement-toolbar no-print">
-      ${dateRangeHtml({ from: data.from, to: data.to, label: 'Period' })}
+      ${dateRangeHtml({ from: data.from, to: data.to, label: 'Period', presets: false })}
       <div class="statement-presets" role="group" aria-label="Statement period presets">
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="month" aria-pressed="false">This month</button>
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="year" aria-pressed="false">This year</button>

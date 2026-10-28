@@ -132,7 +132,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
         select.disabled = matches.length === 0;
 
         if (!vendors.length) {
-          hint.textContent = 'No active suppliers yet. Add a vendor first, or leave this portal unlinked.';
+          hint.textContent = 'No active suppliers yet. Add a supplier first, or leave this portal unlinked.';
         } else if (!term) {
           hint.textContent = `${vendors.length} active supplier${vendors.length === 1 ? '' : 's'}. Type to narrow the list.`;
         } else if (!matches.length) {

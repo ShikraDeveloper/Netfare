@@ -56,12 +56,12 @@ function dashboard(db) {
   `).get();
 
   const overdueAr = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total
+    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total, COUNT(*) AS count
     FROM invoices
     WHERE status = 'sent' AND total_cents > amount_paid_cents + credit_applied_cents AND due_date < ?
   `).get(today);
   const overdueAp = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total
+    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total, COUNT(*) AS count
     FROM bills WHERE status = 'received' AND total_cents > amount_paid_cents + credit_applied_cents AND due_date < ?
   `).get(today);
 
@@ -167,8 +167,22 @@ function dashboard(db) {
     portals: db.prepare('SELECT COUNT(*) AS c FROM supplier_portals').get().c,
   };
 
+  // "Today" box: the things someone should act on now.
+  const queue = require('../settlement-queue').listSettlementQueue(db, {});
+  const depositsDue = require('../visa-deposits').listDeposits(db, { status: 'open' })
+    .filter((row) => ['cancelled', 'rejected'].includes(row.visa_status));
+  const todo = {
+    overdue_invoices: { count: overdueAr.count, cents: overdueAr.total },
+    bills_overdue: { count: overdueAp.count, cents: overdueAp.total },
+    to_settle: { count: queue.totals.count, cents: queue.totals.amount_cents },
+    deposits_due: { count: depositsDue.length, cents: depositsDue.reduce((sum, row) => sum + row.held_cents, 0) },
+    draft_bookings: { count: db.prepare("SELECT COUNT(*) AS c FROM bookings WHERE status = 'draft'").get().c },
+    draft_visas: { count: db.prepare("SELECT COUNT(*) AS c FROM visa_applications WHERE status = 'draft'").get().c },
+  };
+
   return {
     as_of: today,
+    todo,
     period: { start, end },
     currency: settings.currency,
     revenue_mtd_cents: revenueMtd,

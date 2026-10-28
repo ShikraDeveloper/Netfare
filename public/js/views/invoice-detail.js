@@ -18,6 +18,8 @@ import {
   toCents,
   currencySymbol,
   voidDialog,
+  moreMenuHtml,
+  summaryStripHtml,
 } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share-links.js';
@@ -308,7 +310,7 @@ export async function render(container, { params } = {}) {
   const canVoid = invoice.status === 'sent' && !jobType && !isCancellationInvoice;
 
   const actions = [];
-  actions.push(`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`);
+  const menu = [`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`];
   if (invoice.booking_id) {
     actions.push(`<a class="btn btn-secondary" href="#/bookings/${invoice.booking_id}">${icon('plane', 15)}<span>Booking</span></a>`);
   }
@@ -316,15 +318,15 @@ export async function render(container, { params } = {}) {
     actions.push(`<a class="btn btn-secondary" href="#/visas/${invoice.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
   }
   if (isCancellationInvoice) {
-    actions.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.cancellation_id}">${icon('x', 15)}<span>Cancellation note</span></a>`);
+    menu.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.cancellation_id}">${icon('x', 15)}<span>Cancellation note</span></a>`);
   }
   if (invoice.source_cancellation_id) {
-    actions.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.source_cancellation_id}">${icon('x', 15)}<span>Cancellation ${esc(invoice.source_cancellation_number || '')}</span></a>`);
+    menu.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.source_cancellation_id}">${icon('x', 15)}<span>Cancellation ${esc(invoice.source_cancellation_number || '')}</span></a>`);
   }
   if (invoice.status === 'sent' && invoice.balance_cents > 0) {
-    actions.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
+    menu.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
   }
-  actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
+  menu.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
   if (!isDraft && !isVoid) {
     actions.push(`<button class="btn btn-secondary" data-action="share">${icon('send', 15)}<span>Share</span></button>`);
   }
@@ -335,18 +337,18 @@ export async function render(container, { params } = {}) {
   } else if (canRecordPayment) {
     actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
   }
+  menu.push(`<a class="btn btn-ghost" href="#/audit-chain/invoice/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   if (canVoid) {
-    actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
+    menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
   if (invoice.status === 'sent' && jobType) {
-    actions.push(`<a class="btn btn-danger-ghost" href="#/${jobType === 'booking' ? 'bookings' : 'visas'}/${jobType === 'booking' ? invoice.booking_id : invoice.visa_id}" data-action="cancel-job" title="This invoice belongs to a ${jobType === 'booking' ? 'booking' : 'visa application'}. Cancel the job to reverse it.">${icon('x', 15)}<span>Cancel ${jobType === 'booking' ? 'booking' : 'visa'}</span></a>`);
+    menu.push(`<a class="btn btn-danger-ghost" href="#/${jobType === 'booking' ? 'bookings' : 'visas'}/${jobType === 'booking' ? invoice.booking_id : invoice.visa_id}" data-action="cancel-job" title="This invoice belongs to a ${jobType === 'booking' ? 'booking' : 'visa application'}. Cancel the job to reverse it.">${icon('x', 15)}<span>Cancel ${jobType === 'booking' ? 'booking' : 'visa'}</span></a>`);
   }
 
-  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/invoice/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   setHeader({
     title: invoice.number,
     subtitle: `${invoice.customer_name} · Issued ${fmtDate(invoice.issue_date)}`,
-    actions: actions.join(''),
+    actions: actions.join('') + moreMenuHtml(menu),
   });
 
   const paymentRows = invoice.payments.length
@@ -409,6 +411,14 @@ export async function render(container, { params } = {}) {
   const hasJobDetails = ['ticket', 'booking', 'visa'].includes(invoice.document_kind);
 
   container.innerHTML = `
+    ${summaryStripHtml([
+      { label: 'Status', html: statusBadge(invoice.status_display) },
+      { label: 'Customer', value: invoice.customer_name },
+      { label: 'Total', value: fmtMoney(invoice.total_cents) },
+      { label: 'Paid', value: fmtMoney((invoice.amount_paid_cents || 0) + (invoice.credit_applied_cents || 0)) },
+      { label: 'Balance', value: fmtMoney(invoice.balance_cents), tone: invoice.balance_cents > 0 && invoice.status === 'sent' ? 'due' : '' },
+      { label: 'Due', value: fmtDate(invoice.due_date) },
+    ])}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">

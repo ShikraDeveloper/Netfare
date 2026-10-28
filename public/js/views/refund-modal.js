@@ -52,7 +52,7 @@ function bodyHtml({ type, source, allowTypeChange }) {
           <label for="refund-type">Refund type</label>
           <select class="input" id="refund-type" name="refund_type">
             <option value="customer" ${type === 'customer' ? 'selected' : ''}>Customer refund — money paid back to a customer</option>
-            <option value="supplier" ${type === 'supplier' ? 'selected' : ''}>Supplier refund — money returned by a vendor</option>
+            <option value="supplier" ${type === 'supplier' ? 'selected' : ''}>Supplier refund — money returned by a supplier</option>
           </select>
         </div>
       ` : ''}
