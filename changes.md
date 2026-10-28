@@ -892,9 +892,28 @@ Verification:
 - Visual check at 375px on a throwaway server (temp data dir, port 4391, demo data): ✕ in the top-right of the open sidebar next to the Ledgerly brand.
 - No schema change. The live file was not modified; restart needed.
 
+### Desktop hamburger ☰ ↔ ← — code commit `8344b1b`
+
+On desktop the ☰ button hides and shows the sidebar, but its icon never changed. The user chose ☰ ↔ ← over ☰ ↔ ✕: the sidebar is open most of the time, and a calm ← reads as "hide sidebar" without an ✕ on every page.
+
+- The header icon is now three SVG lines. At ≥901px, while the sidebar is shown, the top and bottom lines fold into the head of a **←** (rotate ±45°, scale 0.53, 220ms). When the sidebar is hidden they open back into **☰**.
+- Driven by the button's existing `aria-expanded`.
+- Phones keep the plain ☰ in the header (the sidebar covers it there) and use the ✕ inside the sidebar.
+- Off for reduced motion.
+
+Key files: `public/index.html`, `public/css/styles.css`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 158 passed.
+- `npm run test:e2e`: 33 passed. The motion test now also checks at 1440px: the top line is transformed (arrow) while expanded, untransformed (☰) after hiding, and expanded again after a second click.
+- Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): ← next to the page title with the sidebar open, ☰ with it hidden.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `2e40bd5` (hamburger ☰ → ✕ on the phone sidebar).
+1. Start from the latest `main`; the latest code commit is `8344b1b` (desktop hamburger ☰ ↔ ←).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
