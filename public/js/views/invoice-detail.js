@@ -361,6 +361,7 @@ export async function render(container, { params } = {}) {
             <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
             ${payment.advance_id ? '<span class="cell-sub">Applied from customer advance</span>' : ''}
+            ${payment.deposit_id ? `<span class="cell-sub">Paid from visa deposit ${esc(payment.reference || '')} · undo it on the visa's deposit card</span>` : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
           </div>
           <div class="payment-amount">
@@ -369,7 +370,7 @@ export async function render(container, { params } = {}) {
           </div>
           <a class="icon-btn" href="#/receipts/${payment.id}" data-receipt-link title="Print receipt ${esc(payment.number)}" aria-label="Print receipt ${esc(payment.number)}">${icon('print', 16)}</a>
           ${refundable > 0 && invoice.status === 'sent' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Refund payment">${icon('arrowUp', 16)}</button>` : ''}
-          ${refunded > 0 || invoice.status !== 'sent' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
+          ${refunded > 0 || invoice.status !== 'sent' || payment.deposit_id ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;
     }).join('')

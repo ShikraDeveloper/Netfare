@@ -136,7 +136,7 @@ ensureColumn('settings', 'next_topup_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'visa_prefix', "TEXT NOT NULL DEFAULT 'VIS'");
 ensureColumn('settings', 'next_visa_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_visa_group_number', 'INTEGER NOT NULL DEFAULT 1');
-ensureColumn('settings', 'next_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'next_visa_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('refunds', 'deposit_id', 'INTEGER');
 ensureColumn('payments', 'deposit_id', 'INTEGER');
 ensureColumn('settings', 'next_refund_number', 'INTEGER NOT NULL DEFAULT 1');
@@ -350,6 +350,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_visa_deposits_customer ON visa_deposits(customer_id);
   CREATE INDEX IF NOT EXISTS idx_visa_deposit_events_deposit ON visa_deposit_events(deposit_id);
   CREATE INDEX IF NOT EXISTS idx_refunds_deposit ON refunds(deposit_id);
+  CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
+  CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);
+  CREATE INDEX IF NOT EXISTS idx_invoices_booking ON invoices(booking_id);
+  CREATE INDEX IF NOT EXISTS idx_invoices_visa ON invoices(visa_id);
+  CREATE INDEX IF NOT EXISTS idx_bills_booking ON bills(booking_id);
+  CREATE INDEX IF NOT EXISTS idx_bills_visa ON bills(visa_id);
 `);
 
 // Travel account labels are name-aware and safe to check on every start.

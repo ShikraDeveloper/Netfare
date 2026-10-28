@@ -1543,6 +1543,21 @@ test('a visa security deposit is taken with the application, shown apart from sa
   for (const key of ['visa_deposits', 'deposits_with_suppliers']) {
     assert.equal(checks.checks.find((item) => item.key === key).matched, true, `${key} matches`);
   }
+
+  // The deposit refund page names the deposit and sends Void to the deposit card.
+  const visaDetail = await getJson(baseUrl, `/api/visas/${visaId}`);
+  const refundId = visaDetail.deposits[0].events.find((event) => event.event_type === 'refund').refund_id;
+  await openRoute(`/refunds/${refundId}`);
+  await page.locator('[data-void-elsewhere]').waitFor();
+  assert.equal(await page.locator('#page-actions [data-action="void"]').count(), 0);
+  assert.equal(await page.locator(`#page-actions a[href="#/visas/${visaId}"]`).count(), 1);
+
+  // A statement with deposits does not scroll sideways on a phone.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await openRoute(`/customers/${visaDetail.customer_id}/statement`);
+  await page.locator('[data-statement-deposits]').waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await page.setViewportSize({ width: 1440, height: 1000 });
   assertNoConsoleErrors();
 });
 

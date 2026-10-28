@@ -33,12 +33,15 @@ const ENTITY_LABELS = {
   cancellation: 'Cancellation',
   booking: 'Booking',
   visa: 'Visa application',
+  visa_deposit: 'Visa security deposit',
 };
 
 const ACTION_LABELS = {
   void: 'Void',
   cancel: 'Cancellation',
   delete: 'Delete',
+  create: 'Created',
+  forfeit: 'Forfeit',
 };
 
 function entityLabel(value) {

@@ -123,8 +123,11 @@ function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void' } = 
   if (!entry) return null;
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entryId);
   if (!lines.length) return null;
+  // A reversal never lands before the entry it reverses, so voiding a
+  // future-dated document today cannot make earlier as-of balances negative.
+  const requested = entry_date || todayISO();
   return postEntry(db, {
-    entry_date: entry_date || todayISO(),
+    entry_date: requested < entry.entry_date ? entry.entry_date : requested,
     memo: memo || `Reversal of entry #${entryId}`,
     reference: entry.reference,
     source_type,

@@ -172,6 +172,8 @@ test('a cancellation and its refund appear in section E on the cancellation day'
   assert.equal(sections.summary.refunds_cents, 40_000);
   assert.ok(sections.cash_out.some((row) => row.cash_out_cents === 40_000));
   const saleDay = dailySales(db, DAY, DAY).sections.visas[0];
-  assert.equal(saleDay.cancelled_by.number, cancellation.number, 'the visa stays on its sale day, marked cancelled');
-  assert.equal(saleDay.split.credit, 0);
+  assert.equal(saleDay.cancelled_by, null, 'the sale-day report reads as it did before the cancellation');
+  const covering = dailySales(db, DAY, later).sections.visas[0];
+  assert.equal(covering.cancelled_by.number, cancellation.number, 'a report covering the cancellation marks it cancelled');
+  assert.equal(covering.split.credit, 0);
 });

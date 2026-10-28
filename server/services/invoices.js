@@ -169,7 +169,7 @@ function getInvoice(db, id) {
     ORDER BY p.payment_date, p.id
   `).all(id).map((payment) => ({
     ...payment,
-    refundable_cents: payment.advance_id || payment.status === 'void'
+    refundable_cents: payment.advance_id || payment.deposit_id || payment.status === 'void'
       ? 0
       : Math.max(0, payment.amount_cents - payment.refunded_cents),
   }));
@@ -598,6 +598,12 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
     const payment = db.prepare('SELECT * FROM payments WHERE id = ?').get(paymentId);
     if (!payment) throw notFound('Payment not found');
     if (payment.status === 'void') throw bad('That payment is already void');
+    // A payment made from a visa security deposit is undone from the deposit
+    // card, which also restores the deposit held (2600 stays matched).
+    if (payment.deposit_id && !payload.fromDeposit) {
+      const deposit = db.prepare('SELECT number FROM visa_deposits WHERE id = ?').get(payment.deposit_id);
+      throw bad(`Payment ${payment.number} was made from visa deposit ${deposit?.number || ''}. Void the "Applied to invoice" step on the visa's Security deposit card first.`);
+    }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(payment.invoice_id);
     if (!invoice) throw notFound('Invoice not found');

@@ -29,6 +29,7 @@ const refundSelect = `
          p.number AS payment_number, bp.number AS bill_payment_number,
          cc.number AS cancellation_number, scn.number AS supplier_credit_number,
          adv.number AS advance_number, ccn.number AS credit_note_number,
+         dep.number AS deposit_number, dep.visa_id AS deposit_visa_id,
          a.code AS account_code, a.name AS account_name
   FROM refunds r
   LEFT JOIN customers c ON r.refund_type = 'customer' AND c.id = r.party_id
@@ -41,6 +42,7 @@ const refundSelect = `
   LEFT JOIN supplier_credit_notes scn ON scn.id = r.supplier_credit_note_id
   LEFT JOIN customer_advances adv ON adv.id = r.advance_id
   LEFT JOIN credit_notes ccn ON ccn.id = r.credit_note_id
+  LEFT JOIN visa_deposits dep ON dep.id = r.deposit_id
   LEFT JOIN accounts a ON a.id = r.account_id
 `;
 
@@ -49,7 +51,12 @@ function serializeRefund(row) {
   let sourceType = customer ? 'invoice' : 'bill';
   let documentId = customer ? row.invoice_id : row.bill_id;
   let documentNumber = customer ? row.invoice_number : row.bill_number;
-  if (customer && row.advance_id) {
+  if (customer && row.deposit_id) {
+    // A visa deposit refund links to the visa, where the deposit card lives.
+    sourceType = 'deposit';
+    documentId = row.deposit_visa_id;
+    documentNumber = row.deposit_number;
+  } else if (customer && row.advance_id) {
     sourceType = 'advance';
     documentId = row.advance_id;
     documentNumber = row.advance_number;
@@ -153,6 +160,12 @@ function getRefund(db, id) {
     sourceAmount = note?.amount_cents || 0;
     sourceColumn = 'credit_note_id';
     sourceApplied = note?.applied_cents || 0;
+  } else if (refund.deposit_id) {
+    // Money used for invoices, forfeited or deducted is not refundable.
+    const deposit = require('./visa-deposits').getDeposit(db, refund.deposit_id);
+    sourceAmount = deposit.collected_cents;
+    sourceColumn = 'deposit_id';
+    sourceApplied = deposit.applied_cents + deposit.forfeited_cents;
   } else if (refund.advance_id) {
     const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?')
       .get(refund.advance_id);
@@ -170,7 +183,7 @@ function getRefund(db, id) {
     ? db.prepare(`
         SELECT COALESCE(SUM(amount_cents), 0) AS total
         FROM refunds WHERE ${sourceColumn} = ? AND status = 'paid'
-      `).get(refund.cancellation_id || refund.supplier_credit_note_id || refund.credit_note_id || refund.advance_id || sourceId).total
+      `).get(refund.cancellation_id || refund.supplier_credit_note_id || refund.credit_note_id || refund.deposit_id || refund.advance_id || sourceId).total
     : 0;
   refund.total_refunded_cents = totalRefunded;
   refund.remaining_refundable_cents = Math.max(0, sourceAmount - totalRefunded - sourceApplied);
@@ -181,7 +194,7 @@ function getRefund(db, id) {
         WHERE ${sourceColumn} = ? AND status = 'paid'
           AND (refund_date < ? OR (refund_date = ? AND id < ?))
       `).get(
-        refund.cancellation_id || refund.supplier_credit_note_id || refund.credit_note_id || refund.advance_id || sourceId,
+        refund.cancellation_id || refund.supplier_credit_note_id || refund.credit_note_id || refund.deposit_id || refund.advance_id || sourceId,
         refund.refund_date, refund.refund_date, refund.id,
       ).total
     : 0;
@@ -402,6 +415,10 @@ function voidRefund(db, id, payload = {}) {
     const refund = db.prepare('SELECT * FROM refunds WHERE id = ?').get(id);
     if (!refund) throw notFound('Refund not found');
     if (refund.status === 'void') throw bad('Refund is already void');
+    if (refund.deposit_id) {
+      const deposit = db.prepare('SELECT number FROM visa_deposits WHERE id = ?').get(refund.deposit_id);
+      throw bad(`This refund belongs to visa deposit ${deposit?.number || ''}. Void it from the Security deposit card on the visa page so the deposit is restored.`.replace('  ', ' '));
+    }
     const voidDate = dateISO(payload.void_date || todayISO(), 'Void date');
     if (voidDate < refund.refund_date) {
       throw bad('Void date cannot be before the refund date');

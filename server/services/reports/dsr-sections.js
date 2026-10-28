@@ -220,7 +220,7 @@ function dsrSections(db, start, end, items) {
       JOIN customers c ON c.id = p.customer_id
       WHERE p.status = 'posted' AND p.advance_id IS NULL
         AND p.payment_date >= ? AND p.payment_date <= ?
-        AND p.invoice_id NOT IN (${placeholders})
+        ${saleIds.length ? `AND p.invoice_id NOT IN (${placeholders})` : ''}
     `).all(start, end, ...saleIds).map((row) => ({
       ...row, kind: 'payment', against: `Invoice ${row.invoice_number} · ${row.invoice_date}`,
     })),

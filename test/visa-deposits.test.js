@@ -75,7 +75,7 @@ test('a deposit is held in 2600, not counted as a sale, and refunded in full', (
   const v = visa('Full Refund');
   const salesBefore = balance('4320');
   const dep = take(v.id);
-  assert.match(dep.number, /^DEP-2026-/);
+  assert.match(dep.number, /^SD-2026-/);
   assert.deepEqual([dep.held_cents, dep.in_hand_cents, dep.status], [400_000, 400_000, 'held']);
   assert.equal(balance('2600'), -400_000);
   assert.equal(balance('4320'), salesBefore, 'no revenue');

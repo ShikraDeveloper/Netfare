@@ -41,6 +41,16 @@ function sourceInfo(refund, isCustomer) {
         description: 'Cash refund of customer credit',
         voidMessage: 'the customer credit will become available again by {amount}.',
       };
+    case 'deposit':
+      return {
+        label: 'Visa security deposit',
+        href: `#/visas/${refund.document_id}`,
+        icon: 'visa',
+        amountLabel: 'Deposit refund',
+        description: 'Refund of visa security deposit',
+        voidMessage: '',
+        voidElsewhere: 'Void deposit refunds from the Security deposit card on the visa page, so the deposit held is restored.',
+      };
     case 'advance':
       return {
         label: 'Customer advance',
@@ -112,7 +122,7 @@ export async function render(container, { params } = {}) {
       : `<span class="btn btn-secondary" aria-disabled="true">${icon(source.icon, 15)}<span>${esc(refund.document_number || source.label)}</span></span>`,
     `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
   ];
-  if (refund.status === 'paid') {
+  if (refund.status === 'paid' && !source.voidElsewhere) {
     actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
 
@@ -145,6 +155,7 @@ export async function render(container, { params } = {}) {
   `;
 
   container.innerHTML = `
+    ${source.voidElsewhere && refund.status === 'paid' ? `<div class="callout no-print" data-void-elsewhere><div class="callout-text"><p>${esc(source.voidElsewhere)}</p></div></div>` : ''}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">

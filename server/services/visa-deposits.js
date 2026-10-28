@@ -177,7 +177,7 @@ function collectDeposit(db, payload = {}) {
     const date = dateISO(payload.deposit_date || todayISO(), 'Deposit date');
     const account = cashAccount(db, payload.account_id, 'account the deposit was received into');
     const { held } = accounts(db);
-    const number = allocateNumber(db, 'deposit', date);
+    const number = allocateNumber(db, 'visa_deposit', date);
     const depositId = Number(db.prepare(`
       INSERT INTO visa_deposits (number, customer_id, visa_id, deposit_date, amount_cents, notes)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -420,7 +420,7 @@ function voidLastEvent(db, id, payload = {}) {
     if (!last) throw bad('Nothing to void');
     if (last.event_type === 'apply' && last.payment_id) {
       // The payment voids its own entry and the invoice balance.
-      require('./invoices').deleteInvoicePayment(db, last.payment_id, { remarks });
+      require('./invoices').deleteInvoicePayment(db, last.payment_id, { remarks, fromDeposit: true });
       db.prepare("UPDATE visa_deposit_events SET voided_at = datetime('now'), void_remarks = ? WHERE id = ?").run(remarks, last.id);
     } else {
       const voidEntryId = last.journal_entry_id

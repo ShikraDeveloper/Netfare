@@ -501,7 +501,7 @@ function resetAll(db) {
     db.prepare('DELETE FROM vendors').run();
     db.prepare(`
       UPDATE settings SET next_invoice_number = 1, next_bill_number = 1, next_payment_number = 1,
-        next_booking_number = 1, next_visa_number = 1, next_visa_group_number = 1, next_deposit_number = 1, next_advance_number = 1, next_topup_number = 1,
+        next_booking_number = 1, next_visa_number = 1, next_visa_group_number = 1, next_visa_deposit_number = 1, next_advance_number = 1, next_topup_number = 1,
         next_refund_number = 1, next_deposit_number = 1, next_credit_number = 1,
         next_supplier_credit_number = 1, next_cancellation_number = 1, next_portal_credit_number = 1,
         updated_at = datetime('now') WHERE id = 1

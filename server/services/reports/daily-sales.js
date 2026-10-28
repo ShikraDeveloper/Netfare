@@ -81,8 +81,13 @@ function dailySales(db, from, to) {
       : kind === 'visa'
         ? (visaCosts.get(row.visa_id) || 0)
         : 0;
-    const cancelled = Boolean(row.cancelled_by_id);
-    const cost = cancelled && kind !== 'direct'
+    // Supplier credits raised by a cancellation belong to the cancellation
+    // line, whenever it happened. The sale only counts as cancelled in this
+    // report if the cancellation is on or before the period end, so a report
+    // for an earlier period reads the same as when it was first printed.
+    const hasCancellation = Boolean(row.cancelled_by_id);
+    const cancelled = hasCancellation && row.cancelled_on <= end;
+    const cost = hasCancellation && kind !== 'direct'
       ? jobCost + (cancellationCredits.get(`${kind}:${row.booking_id || row.visa_id}`) || 0)
       : jobCost;
     const sale = row.subtotal_cents;
@@ -107,7 +112,7 @@ function dailySales(db, from, to) {
       margin_cents: sale - cost,
       paid_cents: row.amount_paid_cents,
       balance_cents: cancelled ? 0 : Math.max(0, row.total_cents - row.amount_paid_cents - (row.credit_applied_cents || 0)),
-      status_display: cancelled ? 'cancelled' : invoiceDisplayStatus(row, today),
+      status_display: cancelled ? 'cancelled' : invoiceDisplayStatus({ ...row, status: 'sent' }, today),
       is_cancellation: false,
       cancelled_by: cancelled
         ? { id: row.cancelled_by_id, number: row.cancelled_by_number, date: row.cancelled_on }

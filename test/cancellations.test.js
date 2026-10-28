@@ -88,11 +88,15 @@ function dsrLines(job, cancellationId, cancellationDate) {
   const reversal = cancelDay.days.flatMap((day) => day.rows)
     .find((row) => row.is_cancellation && row.cancellation_id === cancellationId);
   assert.ok(original, 'the original sale stays in the DSR');
-  assert.equal(original.status_display, 'cancelled');
+  assert.notEqual(original.status_display, 'cancelled', 'a report for the sale day reads as it did then');
+  assert.equal(original.cancelled_by, null);
+  const covering = reports.dailySales(db, job.booking_date, cancellationDate)
+    .days.flatMap((day) => day.rows).find((row) => !row.is_cancellation && row.id === job.invoice_id);
+  assert.equal(covering.status_display, 'cancelled', 'a report covering the cancellation marks the sale cancelled');
   assert.ok(reversal, 'the cancellation has its own line');
   const net = {};
   for (const key of ['sale_cents', 'cost_cents', 'margin_cents', 'paid_cents', 'balance_cents']) {
-    net[key] = original[key] + reversal[key];
+    net[key] = covering[key] + reversal[key];
   }
   return { original, reversal, cancelDay, net };
 }

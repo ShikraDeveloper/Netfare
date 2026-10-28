@@ -524,7 +524,8 @@ function createVisaGroup(db, payload = {}) {
       const fields = {};
       for (const key of APPLICANT_FIELDS) if (applicant[key] !== undefined) fields[key] = applicant[key];
       if (!String(fields.applicant_name || '').trim() && fields.applicant_is_customer === false) {
-        throw bad(`Applicant ${index + 1}: enter the applicant name`);
+        // The group create adds "Applicant N:" to every applicant error.
+        throw bad('Enter the applicant name');
       }
       return { ...shared, ...fields };
     };

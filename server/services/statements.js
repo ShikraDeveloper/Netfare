@@ -63,6 +63,8 @@ function customerTransactions(db, customerId) {
     LEFT JOIN invoices i ON i.id = r.invoice_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
       AND r.cancellation_id IS NULL AND r.credit_note_id IS NULL AND r.advance_id IS NULL
+      -- Visa deposit refunds belong to the separate deposit section.
+      AND r.deposit_id IS NULL
     UNION ALL
     SELECT 'credit', ca.id, cn.number, ca.applied_date, NULL, ca.amount_cents, 'applied', 'Credit note', i.number, NULL
     FROM credit_applications ca

@@ -47,6 +47,7 @@ function depositsSectionHtml(deposits) {
   return `
     <div class="statement-deposits" data-statement-deposits>
       <h3>Security deposits held for you</h3>
+      <div class="table-wrap">
       <table class="data statement-table"><caption class="sr-only">Security deposits</caption>
         <thead><tr>
           <th scope="col">Date</th><th scope="col">Reference</th><th scope="col">Description</th>
@@ -66,6 +67,7 @@ function depositsSectionHtml(deposits) {
           <tr class="statement-total"><td colspan="5"><strong>Deposits still held</strong></td><td class="num"><strong>${fmtMoney(deposits.closing_held_cents)}</strong></td></tr>
         </tbody>
       </table>
+      </div>
       <p class="muted">Deposits are refundable and are not part of the amount due above.</p>
     </div>`;
 }

@@ -27,7 +27,7 @@ Ledgerly is a local-first invoicing and double-entry accounting app built for a 
 - **Attachments** — attach PDFs, images, spreadsheets, Word files or text documents to invoices, bills, bookings, visas, cancellations (airline or embassy proof), refunds (bank receipts), customer credit notes and supplier credits. Files are stored in the local SQLite database, so full database backups include them.
 - **Double-entry ledger** — every document posts balanced journal entries automatically. A general journal supports manual accruals and adjustments.
 - **Financial reports** — dashboard with charts, income statement, balance sheet, trial balance, daily sales (DSR), booking and visa margin, and A/R / A/P aging. Booking and visa margin (report and dashboard) count only confirmed or submitted jobs, with cost taken from posted supplier bills less supplier credits; drafts are listed separately.
-- **Ledger checks** — a dashboard card compares the trial balance and each control account (1100 A/R, 2000 A/P, 2400 advances, 2500 refund payable, 2450 customer credits, 1450 supplier credits, 1400 supplier advances) with the open documents behind it. A difference means something was posted outside the normal document screens, for example an opening balance on A/R.
+- **Ledger checks** — a dashboard card compares the trial balance and each control account (1100 A/R, 2000 A/P, 2400 advances, 2500 refund payable, 2450 customer credits, 1450 supplier credits, 1400 supplier advances, 2600 visa deposits held, 1460 deposits with suppliers) with the open documents behind it. A difference means something was posted outside the normal document screens, for example an opening balance on A/R.
 - **Audit chain** — from a booking, visa, invoice, bill, cancellation, refund, credit note or supplier credit, **Audit chain** shows every linked document, a dated timeline of journal postings, reversals and void remarks, and the net effect of the whole chain on each account. It is read-only and printable.
 - **Light & dark themes** — a warm cream/navy/gold look by default, with a one-click dark mode under **Settings → Appearance**. The choice is remembered per browser; printing always uses light paper.
 - **Local by design** — Express API + SQLite + a small vanilla-JS single-page app. Chart.js is bundled locally in `public/vendor/`.
@@ -278,7 +278,7 @@ The main list toolbars include a date range: **Bookings** (booking date), **Visa
 
 ### Visa security deposits
 
-A refundable security deposit taken for a visa is **not a sale**. It is the customer's money, held until it is refunded, used for an invoice or forfeited. Each deposit gets a number (`DEP-YYYY-####`) and every step posts to the ledger:
+A refundable security deposit taken for a visa is **not a sale**. It is the customer's money, held until it is refunded, used for an invoice or forfeited. Each deposit gets a number (`SD-YYYY-####`; `DEP-` is the cash deposit series) and every step posts to the ledger:
 
 | Step | Entry |
 | --- | --- |
@@ -338,7 +338,7 @@ The default chart includes these system accounts, which the posting engine depen
 
 Travel-specific defaults also include revenue accounts **4000 Ticket Sales**, **4100 Tour & Package Sales**, **4310 Commission Income**, **4320 Visa & Documentation Revenue**, and cost accounts **5000 Air Ticket Cost**, **5100 Hotel & Tour Cost**, **5120 Visa & Supplier Cost**.
 
-You can rename accounts and add your own under **Chart of accounts**. System accounts must keep their code; their display names can be customised. Don't archive them or posting will fail with a clear error. Manual journal entries cannot post to control accounts **1100, 1400, 1450, 2000, 2400, 2450 or 2500**; use the related invoice, bill, refund, advance, credit or cancellation screen. Opening balances remain exempt. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
+You can rename accounts and add your own under **Chart of accounts**. System accounts must keep their code; their display names can be customised. Don't archive them or posting will fail with a clear error. Manual journal entries cannot post to control accounts **1100, 1400, 1450, 1460, 2000, 2400, 2450, 2500 or 2600**; use the related invoice, bill, refund, advance, credit or cancellation screen. Opening balances remain exempt. Payment and deposit pickers accept only active **cash/bank** accounts. Bill, booking and visa cost lines accept expense accounts plus valid non-cash assets such as Prepaid Expenses and Equipment; they cannot be coded to cash, receivables, payables or system accounts.
 
 ### Automatic postings
 
@@ -496,7 +496,7 @@ All endpoints are under `/api`:
 | GET/POST/PUT | `/customers`, `/vendors`, `/accounts` | Master data |
 | GET/POST/DELETE | `/journal-entries` | General journal |
 | POST | `/journal-entries/:id/void` | Reverse a manual journal entry with remarks |
-| GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging`, `/reconciliation` | Reports; `/reconciliation` returns the dashboard ledger checks (trial balance, 1100, 2000, 2400, 2500, 2450, 1450 and 1400 against their documents) |
+| GET | `/reports/dashboard`, `/income-statement`, `/balance-sheet`, `/trial-balance`, `/daily-sales`, `/bookings`, `/visas`, `/portals`, `/ar-aging`, `/ap-aging`, `/reconciliation` | Reports; `/reconciliation` returns the dashboard ledger checks (trial balance, 1100, 2000, 2400, 2500, 2450, 1450, 1400, 2600 and 1460 against their documents) |
 | GET | `/audit-logs`, `/audit-logs/:id` | Searchable void/audit history |
 | GET | `/audit-chain/:type/:id` | Linked documents, journal timeline, reversals, void remarks and net account effect (`type`: booking, visa, invoice, bill, payment, advance, cancellation, refund, credit, supplier_credit and related applications) |
 | GET/PUT | `/settings` | Company settings |
