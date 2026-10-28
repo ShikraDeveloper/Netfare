@@ -1517,3 +1517,46 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 .internal-notes h3 { font-size: 12px; margin: 0 0 2px; }
 .internal-notes p { font-size: 12.5px; margin: 0; }
 .internal-notes p { white-space: pre-line; }
+
+
+/* ---------- Motion (adapted from transitions.dev patterns) ----------
+   Short and quiet: 150–250ms, never on amounts, off for reduced motion
+   and in print. */
+:root {
+  --t-fast: 160ms;
+  --t-base: 220ms;
+  --t-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes t-menu-in { from { opacity: 0; transform: translateY(-4px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes t-reveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes t-page { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes t-shake { 0%, 100% { transform: none; } 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+@keyframes t-check-draw { from { stroke-dashoffset: 24; } to { stroke-dashoffset: 0; } }
+@keyframes t-check-pop { 0% { transform: scale(0.6); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
+
+/* 1. More menu opens from its button */
+.more-menu[open] > .more-menu-list { transform-origin: top right; animation: t-menu-in var(--t-fast) var(--t-ease-out); }
+/* 2. Panels: More details, ledger checks, sidebar groups */
+details.more-details[open] > :not(summary),
+details.ledger-checks[open] > :not(summary),
+.nav-group:not(.collapsed) > .nav-group-items { animation: t-reveal var(--t-base) var(--t-ease-out); }
+/* 3. Success check in the confirmation toast */
+.toast-success.show .icon { animation: t-check-pop var(--t-base) var(--t-ease-out); }
+.toast-success.show .icon path { stroke-dasharray: 24; animation: t-check-draw 320ms 80ms var(--t-ease-out) both; }
+/* 4. Shake on a wrong or missing entry */
+.t-shake { animation: t-shake 320ms ease-in-out; }
+.input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+/* 5. Page change */
+.view.t-page-enter > * { animation: t-page var(--t-base) var(--t-ease-out); }
+
+@media (prefers-reduced-motion: reduce) {
+  .more-menu[open] > .more-menu-list,
+  details.more-details[open] > :not(summary),
+  details.ledger-checks[open] > :not(summary),
+  .nav-group:not(.collapsed) > .nav-group-items,
+  .toast-success.show .icon, .toast-success.show .icon path,
+  .t-shake, .view.t-page-enter > * { animation: none !important; }
+}
+@media print {
+  .view.t-page-enter > *, .t-shake { animation: none !important; }
+}

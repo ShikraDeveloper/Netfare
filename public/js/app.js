@@ -405,6 +405,10 @@ async function renderRoute() {
     const cleanup = await route.view.render(viewEl, { query, params: match.slice(1), path });
     if (token !== renderToken) return;
     viewEl.setAttribute('aria-busy', 'false');
+    // Gentle fade as the new page appears.
+    viewEl.classList.remove('t-page-enter');
+    void viewEl.offsetWidth;
+    viewEl.classList.add('t-page-enter');
     viewEl.focus({ preventScroll: true });
     if (typeof cleanup === 'function') currentCleanup = cleanup;
   } catch (error) {

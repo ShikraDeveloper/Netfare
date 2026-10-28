@@ -1619,6 +1619,36 @@ test('simplified navigation, Today box, summary strip, More menu and phone layou
   assertNoConsoleErrors();
 });
 
+test('quiet transitions run, mark wrong input, and switch off for reduced motion', async () => {
+  // The suite runs with reduced motion; nothing animates then.
+  await openRoute('/invoices');
+  const pageAnimation = () => page.evaluate(() => getComputedStyle(document.querySelector('#view > *')).animationName);
+  assert.equal(await pageAnimation(), 'none', 'no motion when the system asks for reduced motion');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await openRoute('/invoices');
+  assert.equal(await pageAnimation(), 't-page');
+
+  // A missing customer: the message and the empty field shake, the field is marked.
+  await openRoute('/invoices?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  await dialog.locator('.line-desc').first().fill('E2E shake');
+  await dialog.locator('.line-price').first().fill('10');
+  await dialog.locator('[data-submit]').click();
+  await dialog.locator('.modal-error:not([hidden])').waitFor();
+  assert.equal(await dialog.locator('#invoice-customer').getAttribute('aria-invalid'), 'true');
+  await dialog.locator('.modal-head [data-close]').click();
+
+  // More menu opens with its dropdown animation.
+  const invoices = await getJson(baseUrl, '/api/invoices');
+  await openRoute(`/invoices/${invoices[0].id}`);
+  await page.locator('#page-actions .more-menu > summary').click();
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.more-menu-list')).animationName), 't-menu-in');
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),

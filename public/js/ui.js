@@ -301,6 +301,15 @@ export function emptyState({ iconName = 'file', title, message = '', action = ''
 
 let toastRoot = null;
 
+// Restart a one-off CSS animation (shake) on an element.
+export function replayAnimation(element, className) {
+  if (!element) return;
+  element.classList.remove(className);
+  void element.offsetWidth;
+  element.classList.add(className);
+  element.addEventListener('animationend', () => element.classList.remove(className), { once: true });
+}
+
 export function toast(message, type = 'success') {
   toastRoot = toastRoot || document.getElementById('toast-root');
   if (!toastRoot) return;
@@ -439,6 +448,16 @@ export function openModal(options) {
       if (errorBox) {
         errorBox.textContent = error.message || 'Something went wrong';
         errorBox.hidden = false;
+        // A small shake draws the eye to the message and the first empty
+        // required field, if there is one.
+        replayAnimation(errorBox, 't-shake');
+        const field = Array.from(form.querySelectorAll('input[required], select[required], textarea[required]'))
+          .find((input) => !String(input.value || '').trim() && input.offsetParent !== null);
+        if (field) {
+          field.setAttribute('aria-invalid', 'true');
+          field.addEventListener('input', () => field.removeAttribute('aria-invalid'), { once: true });
+          replayAnimation(field, 't-shake');
+        }
       } else {
         toast(error.message || 'Something went wrong', 'error');
       }
