@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import { esc, icon, setHeader, todayISO } from '../ui.js';
 import { incomeStatement, balanceSheet, trialBalance } from './reports/financials.js';
-import { dailySales } from './reports/daily-sales.js';
+import { dailySales, rememberProfit } from './reports/daily-sales.js';
 import { agingReport } from './reports/aging.js';
 import { bookingMargin, visaMargin } from './reports/margins.js';
 import { portalWallets } from './reports/portal-wallets.js';
@@ -110,6 +110,13 @@ export async function render(container, { params } = {}) {
   `;
 
   const body = container.querySelector('#report-body');
+
+  // DSR "Show profit" switch: shows or hides cost and margin on screen and in print.
+  body.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-dsr-profit]')) return;
+    event.target.closest('[data-dsr]')?.classList.toggle('show-profit', event.target.checked);
+    rememberProfit(event.target.checked);
+  });
 
   async function reload() {
     const fromInput = container.querySelector('#report-from');

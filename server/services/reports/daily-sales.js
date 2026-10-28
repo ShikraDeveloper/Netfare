@@ -4,6 +4,7 @@ const { dateISO, todayISO } = require('../../util');
 const { invoiceDisplayStatus } = require('../../accounting');
 const { cashBalances } = require('./aging');
 const jobCosts = require('../job-costs');
+const { dsrSections } = require('./dsr-sections');
 
 function dailySales(db, from, to) {
   const start = dateISO(from, 'From date');
@@ -225,11 +226,15 @@ function dailySales(db, from, to) {
     day.bank_cents = runningBank;
   }
 
+  const sections = dsrSections(db, start, end, items);
+  sections.summary.sales.total_cents = totals.sale_cents;
+
   return {
     from: start,
     to: end,
     days,
     totals,
+    sections,
     cash: {
       cash_cents: cash.cash_cents,
       bank_cents: cash.bank_cents,

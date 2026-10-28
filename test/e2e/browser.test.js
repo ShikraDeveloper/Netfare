@@ -1458,17 +1458,51 @@ test('a cancelled sale stays on its day in the DSR and statement, with its own c
   const cancellation = (await getJson(baseUrl, '/api/cancellations')).find((row) => row.source_type === 'booking' && row.source_id === booking.id);
 
   await openRoute('/reports/daily-sales');
-  await page.locator('.daily-sales-table').waitFor();
-  const table = page.locator('.daily-sales-table');
-  const saleRow = table.locator('tr', { has: page.locator(`a[href="#/invoices/${confirmed.invoice_id}"]`) });
+  await page.locator('[data-dsr]').waitFor();
+  const tickets = page.locator('[data-dsr-table="tickets"]');
+  const saleRow = tickets.locator('tr', { has: page.locator(`a[href="#/invoices/${confirmed.invoice_id}"]`) });
   assert.match(await saleRow.innerText(), /Cancelled/);
-  const reversal = table.locator('tr.dsr-cancellation-row', { has: page.locator(`a[href="#/cancellations/${cancellation.id}"]`) });
-  assert.match((await reversal.innerText()).replace(/\s+/g, ' '), /Reverses AED 500\.00 sale · charges AED 50\.00/);
+  const reversal = page.locator('[data-dsr-table="cancellations"] tr.dsr-cancellation-row', { has: page.locator(`a[href="#/cancellations/${cancellation.id}"]`) });
+  const cells = await reversal.locator('td').allInnerTexts();
+  assert.deepEqual(cells.slice(3, 7).map((text) => text.trim()), ['-500.00', '50.00', '—', '-450.00'], 'sale reversed, charges kept, no supplier credit, net');
 
   await openRoute(`/customers/${customer.id}/statement`);
   await page.locator('.statement-desc-title').first().waitFor();
   const titles = await page.locator('.statement-desc-title').allInnerTexts();
   assert.deepEqual(titles, ['Invoice raised', 'Payment received', 'Booking or visa cancelled', 'Cancellation charges']);
+  assertNoConsoleErrors();
+});
+
+test('the DSR shows sales by type with how each was settled, money out and a cash summary', async () => {
+  const [customers, accounts] = await Promise.all([getJson(baseUrl, '/api/customers'), getJson(baseUrl, '/api/accounts')]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const today = new Date().toLocaleDateString('en-CA');
+  const service = await postJson(baseUrl, '/api/invoices', {
+    customer_id: customers[0].id,
+    issue_date: today,
+    items: [
+      { description: 'E2E DSR meet and assist', quantity: 1, unit_price_cents: 30_000, account_id: code('4300') },
+    ],
+  });
+  await postJson(baseUrl, `/api/invoices/${service.id}/payments`, {
+    amount_cents: 10_000, payment_date: today, deposit_account_id: code('1000'), method: 'Cash',
+  });
+
+  await openRoute('/reports/daily-sales');
+  await page.locator('[data-action="daily-today"]').click();
+  await page.locator('[data-dsr-table="services"]').waitFor();
+  for (const id of ['tickets', 'visas', 'services', 'cancellations', 'collections', 'cash-out', 'summary']) {
+    assert.equal(await page.locator(`[data-dsr-section="${id}"]`).count(), 1, `section ${id}`);
+  }
+  const row = page.locator('[data-dsr-table="services"] tr', { has: page.locator(`a[href="#/invoices/${service.id}"]`) });
+  const cells = (await row.locator('td').allInnerTexts()).map((text) => text.trim());
+  assert.deepEqual(cells.slice(3), ['300.00', '100.00', '—', '—', '—', '200.00'], 'total, cash, card, bank, other, credit');
+
+  assert.equal(await page.locator('[data-dsr] th:has-text("Margin")').first().isVisible(), false, 'profit hidden by default');
+  await page.locator('[data-dsr-profit]').check();
+  assert.equal(await page.locator('[data-dsr] th:has-text("Margin")').first().isVisible(), true);
+  await page.locator('[data-dsr-profit]').uncheck();
+  assert.match(await page.locator('[data-dsr-summary]').innerText(), /Collected by mode[\s\S]*Cash[\s\S]*Opening[\s\S]*Closing/i);
   assertNoConsoleErrors();
 });
 

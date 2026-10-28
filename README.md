@@ -278,15 +278,21 @@ The main list toolbars include a date range: **Bookings** (booking date), **Visa
 
 ### Daily sales report (DSR)
 
-**Reports → Daily sales** is a day-by-day sales register for any period. Every sent invoice is listed under the day it was issued, with the customer, the booking or visa it came from, the sale amount, supplier cost, margin, amount paid and balance. Each day gets a subtotal and the report ends with a grand total and a six-tile summary: **Sales**, **Cost**, **Margin** (with margin percentage), **Paid**, **Outstanding** and **Cash in hand** (with the bank balance).
+**Reports → Daily sales** is laid out like a travel counter's daily report, for one day (**Today**) or any period. Amounts are in AED; it prints on A4 landscape.
 
+- **B. Ticket & booking sales:** one row per booking invoice with the date and time, invoice and booking number, customer, each passenger with their ticket number, PNR and route, **Fare** (everything except service fees and commission), **Fee** (4300 / 4310 lines) and **Total**, then how it was settled by the end of the period: **Cash**, **Card**, **Bank** (bank transfer or cheque), **Other** (a customer advance or credit note) and **Credit** (still unpaid).
+- **C. Visa sales:** applicant (and who paid), country and visa type, visa fee, service fee, total and the same settlement columns.
+- **D. Service income:** service invoices with their description, total and settlement.
+- **E. Cancellations & refunds:** each cancellation on its cancellation date (sale reversed, charges kept, supplier credit, net sale) and every refund paid to a customer (cancellation, advance, credit note or payment refund) with its method.
+- **F. Money collected for older invoices & advances:** payments received in the period for invoices from earlier days, and customer advances received.
+- **G. Money paid out:** cash and bank outflows from the ledger by type (supplier payments, refunds, portal top-ups, expenses and journal entries, transfers).
+- **H. Summary:** sales by type and total; collected by mode (cash, card, bank, total received, advance or credit used, on credit, refunds paid); and **Cash** (1000) and **Bank** (1010) as opening + money in − money out = closing.
+- **Show profit** adds cost and margin columns and the margin in the summary. It is off by default so a printed copy for staff carries no profit; the choice is remembered on this computer.
 - **Sent** invoices count; drafts and invoices voided as mistakes are excluded.
 - **A sale stays on the day it was made.** When a booking or visa is cancelled, its original sale stays on its own day, marked **Cancelled** with a link to the cancellation note. A separate red **cancellation line** on the cancellation date reverses the sale and any supplier credit and adds the charges the customer keeps paying. The two lines together give the net result (charges less retained cost), and a DSR printed for an earlier day does not change later.
 - Cost is the supplier bills posted for the linked booking or visa; supplier credits raised by a cancellation appear on the cancellation line, other supplier credits reduce the cost. Service invoices are income with no supplier cost, so their full value shows as margin; they are labelled **Service income · no supplier cost**.
-- Each day header shows the closing **Cash in hand** and **Bank** balance. Cash uses account **1000 Cash**; bank uses **1010 Bank Account**. The summary tile shows the position at the report's end date.
-- *Paid* and *Balance* are current as of today; the report groups sales by invoice date.
-- **Today** switches the period to the current date; **Print** produces a clean A4 copy with day subtotals.
-- Invoice numbers link to the invoice, and the reference under each number links to the booking or visa.
+- Invoice numbers link to the invoice, the reference under each links to the booking or visa, cancellation numbers link to the cancellation note, and receipts in section F link to the receipt voucher.
+- The API (`GET /api/reports/daily-sales`) still returns the day-by-day `days` and `totals`, plus the new `sections`.
 
 ## Accounting model
 
