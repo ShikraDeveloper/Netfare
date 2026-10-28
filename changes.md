@@ -606,9 +606,60 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): DSR (12 Oct sale marked Cancelled, 27 Oct cancellation lines) and the Aisha Khan statement (balance 3,080 → 2,590 after the unpaid invoice was reversed).
 - No schema change. The live file was not modified; restart needed.
 
+### New DSR layout: counter-style sections A–H — code commit `d7fd636`
+
+Built from the sample DSR the user shared (Cozmo, 9 Jan): sales lists by type with Cash / Card / Credit columns, a refund list, money paid out, and a cash summary. The staff column and visa security deposit are left out for now; staff needs login (Phase 2).
+
+- **A. Header:** company, period, "Amounts in AED · printed <date time>". Prints on A4 landscape (`@page dsr`).
+- **B. Ticket & booking sales**, one row per booking invoice:
+  - invoice no. with date and time;
+  - booking no.;
+  - customer, passengers with ticket nos. and remarks (invoice note);
+  - PNR / route;
+  - Fare, Fee, Total;
+  - Cash / Card / Bank / Other / Credit.
+  - Cancelled sales show the Cancelled badge and the CNC link.
+- **C. Visa sales:** applicant ("Paid by …" when different), country / type, visa fee, fee, total and the same settlement columns.
+- **D. Service income:** description, total and settlement.
+- **E. Cancellations & refunds:**
+  - cancellations on their date: sale reversed, charges kept, supplier credit, net sale;
+  - every customer refund paid in the period, with what it was against and the method.
+- **F. Money collected for older invoices & advances:** payments in the period against invoices from earlier days (linking to the receipt voucher), and customer advances.
+- **G. Money paid out:** ledger outflows from 1000 / 1010 by source type.
+- **H. Summary:**
+  - Sales by type and total;
+  - Collected by mode (cash, card, bank, total received, advance/credit used, on credit, refunds paid);
+  - Cash and Bank as opening + in − out = closing.
+- **Settlement columns** show how each sale stood at the end of the period. Payment method maps to the column: Cash; Credit card → Card; Bank transfer or Cheque → Bank. Advances and credit notes go to Other; whatever is still unpaid is Credit (zero for a cancelled sale).
+- **Show profit** switch adds cost and margin columns and the summary margin. It is off by default, so printed copies for staff carry no profit, and is remembered per computer.
+- Server: new `server/services/reports/dsr-sections.js` adds `sections` to `GET /api/reports/daily-sales`. The existing `days` and `totals` are unchanged.
+
+Key files: `server/services/reports/dsr-sections.js` (new), `server/services/reports/daily-sales.js`, `public/js/views/reports/daily-sales.js`, `public/js/views/reports.js`, `public/css/styles.css`, `test/dsr-sections.test.js` (new), `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 170 JavaScript files syntax OK.
+- `npm test`: 140 passed. 6 new tests in `test/dsr-sections.test.js`:
+  - method mapping;
+  - a ticket row with passengers, ticket nos., fare/fee/total, cash + card + credit split and cost/margin;
+  - visa and service sections;
+  - collections for an older invoice and an advance;
+  - cash and bank reconcile: cash in = cash settled + cash collected, bank in = bank + card + bank collected, closing = opening + in − out; supplier payment in money out; sales totals;
+  - a cancellation and its cash refund in section E, with the visa still on its sale day marked cancelled.
+- `npm run test:e2e`: 30 passed.
+  - New test: all sections render; a service sale shows 300.00 total, 100.00 cash, 200.00 credit; profit is hidden by default and appears with the switch; the summary shows the cash position.
+  - The cancellation E2E test is updated for section E.
+  - Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data):
+  - at 1500px, every table fits with profit off; with profit on, the ticket table scrolls inside its box;
+  - summary boxes checked;
+  - at 375px phone width there is no page-level horizontal scroll.
+  - Print preview was not checked in a browser.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `06db786` (cancelled sales stay on their day in the DSR and statement).
+1. Start from the latest `main`; the latest code commit is `d7fd636` (counter-style DSR sections A–H).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
