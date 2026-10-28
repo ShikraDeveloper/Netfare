@@ -828,9 +828,34 @@ Verification:
   - at 375px: bookings cards with the tab bar, dashboard Today box, labelled header buttons, invoice page with strip; no horizontal scroll.
 - No schema change. The live file was not modified; restart needed.
 
+### Quiet transitions (patterns adapted from transitions.dev) — code commit `17a0ad3`
+
+The user asked whether to add the transitions.dev library. The decision was to add five subtle effects written in our own CSS, and not to install the library, its CLI, agent skill or Refine tool. Those would bring outside code, an injected script and a sign-in into a local app that runs on live data, and the library's flashy effects (such as blurred number flips) do not suit money. The licence allows using the patterns in our own project.
+
+1. **More menu** opens from its button: a 160ms fade/scale from the top right.
+2. **Panel reveal** (220ms fade/slide) when "More details", the ledger checks line or a sidebar group opens.
+3. **Success check:** the ✓ in a success toast pops and draws itself after Confirm / Submit / Record payment and other successful saves.
+4. **Shake on a wrong entry:** when a form is refused, the error message and the first empty required field give a small shake. The field is marked `aria-invalid` with a red outline until you type in it. Implemented with a new `replayAnimation()` helper in `ui.js`.
+5. **Page change:** a gentle 220ms fade/slide as each page appears.
+
+- Shared timing tokens `--t-fast` and `--t-base`, plus an ease-out curve. Amounts are never animated.
+- **Reduced motion:** every effect is off when the system asks for reduced motion (`prefers-reduced-motion: reduce`), and none run in print.
+
+Key files: `public/css/styles.css`, `public/js/ui.js`, `public/js/app.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 158 passed.
+- `npm run test:e2e`: 33 passed.
+  - New test: no motion under the suite's reduced-motion setting; with motion allowed, pages use `t-page`, the More menu uses `t-menu-in`, and a refused form marks the empty customer field `aria-invalid`.
+  - Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data, motion on): new service invoice saved with no customer shakes and outlines the Customer field and shows "Choose a customer".
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `32d54f9` (UI/UX cleanup).
+1. Start from the latest `main`; the latest code commit is `17a0ad3` (quiet transitions).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
