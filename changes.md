@@ -657,9 +657,79 @@ Verification:
   - Print preview was not checked in a browser.
 - No schema change. The live file was not modified; restart needed.
 
+### Visa security deposit engine — code commit `5374819`
+
+A refundable visa security deposit is the customer's money, not a sale. This adds a full engine for it.
+
+- **Accounts:** **1460 Deposits with Suppliers**, **2600 Visa Security Deposits Held** and **4340 Forfeited Deposit Income**.
+  - Added to the default chart and adopted as system accounts by migration.
+  - 1460 and 2600 are control accounts, so manual journals cannot post to them.
+  - The codes were checked free on a copy of the live database.
+- **Data:**
+  - `visa_deposits` (`DEP-YYYY-####`, new settings counter `next_deposit_number`) and `visa_deposit_events`.
+  - New columns `refunds.deposit_id` and `payments.deposit_id`.
+  - Balances are always worked out from the active events.
+- **Steps** (`server/services/visa-deposits.js`, routes under `/api/visa-deposits`):
+  - Take deposit: Dr cash/bank, Cr 2600.
+  - Pay to supplier: Dr 1460, Cr cash/bank.
+  - Supplier returned, with an optional deduction the customer bears: Dr cash/bank net, Dr 2600 deduction, Cr 1460 gross.
+  - Refund: Dr 2600, Cr cash/bank, plus a customer refund row.
+  - Use for invoice: Dr 2600, Cr 1100, as a "Deposit applied" payment.
+  - Forfeit, with a reason: Dr 2600, Cr 4340 when we keep it, or Cr 1460 when the supplier kept it.
+  - Void latest step (remarks): reverses its entry, voids the refund or payment, and voids the deposit when it is the first step.
+- **Guards:**
+  - Money still with the supplier cannot be refunded, used or forfeited by us until the supplier return is recorded.
+  - Amounts are capped at what is in hand or held.
+  - No new deposit on a cancelled or rejected visa.
+  - A step cannot be dated before the deposit.
+- **Visa form:** a **Sec. deposit** column per applicant. When a deposit is entered, "Deposit received by / into" appears; the deposit is shown under the totals as "not a sale". `POST /api/visas/groups` records each applicant's deposit in the same transaction.
+- **Visa page:** a **Security deposit** card with received / with supplier / refunded / used / forfeited, the amount still held, the history, and buttons for each step.
+- **DSR:**
+  - The visa row has a **Sec. deposit** column, and the money received for it counts in cash / card / bank.
+  - Deposits for visas not sold in the period go under *Money collected*.
+  - Deposit refunds appear in section E ("Visa deposit DEP-…"), with a new "Visa deposits forfeited or deducted" table.
+  - A summary box shows received, refunded, forfeited/deducted and still held.
+  - Ledger flow labels are added for the deposit source types.
+- **Customer statement:** a separate **Security deposits held for you** section with its own running balance, never part of the amount due.
+- **Reports → Visa deposits:** a register showing still held or all deposits, with 2600 / 1460 / in-hand totals, *refund due* (cancelled or rejected visa) and *held over 90 days* flags.
+- **Ledger checks:** two new checks, 2600 against deposits still held and 1460 against deposits with suppliers. The dashboard now has 10 checks.
+- **Demo reset and JSON export** include the new tables.
+
+Key files:
+- Server: `server/services/visa-deposits.js` (new), `server/routes/visa-deposits.js` (new), `server/schema.js`, `server/migrations.js`, `server/default-accounts.js`, `server/accounting.js`, `server/services/numbering.js`, `server/services/visas.js`, `server/services/reconciliation.js`, `server/services/statements.js`, `server/services/reports/dsr-sections.js`, `server/routes/reports.js`, `server/routes/index.js`, `server/services/demo.js`, `server/routes/admin.js`.
+- Frontend: `public/js/views/visa-deposit-card.js` (new), `public/js/views/reports/visa-deposits.js` (new), `public/js/views/visa-group-form.js`, `public/js/views/visa-detail.js`, `public/js/views/reports/daily-sales.js`, `public/js/views/reports.js`, `public/js/views/statement.js`, `public/css/styles.css`.
+- Tests: `test/visa-deposits.test.js` (new), `test/phase3.test.js`, `test/e2e/browser.test.js`.
+- Docs: `README.md`.
+
+Verification:
+
+- `npm run check`: 175 JavaScript files syntax OK.
+- `npm test`: 149 passed. 9 new tests in `test/visa-deposits.test.js`:
+  - system accounts;
+  - held, not revenue, full refund;
+  - supplier route with a deduction, then refund, with the refund blocked while the supplier holds the money;
+  - use for invoice;
+  - forfeit to us (4340) and to the supplier (1460);
+  - voiding steps one at a time;
+  - limits and cancelled-visa guard;
+  - deposits entered with a visa group;
+  - DSR deposit column, cash and summary, refund in section E, and the statement deposit section kept apart from the invoice balance.
+  - The 2600 and 1460 ledger checks match after every step.
+  - `test/phase3.test.js` now lists the two new checks.
+- `npm run test:e2e`: 31 passed.
+  - New test: deposit column in the new-visa form (not in the margin) → card shows 4,000 held → refund 1,500 → 2,500 held → register row → ledger checks match.
+  - The dashboard check count is updated to 10.
+  - The register page is added to the axe audit, which is clean in light and dark.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data with two deposits):
+  - deposit card (to supplier, returned less 500, 3,500 held);
+  - today's DSR (deposits in *Money collected*, paid to supplier in *Money paid out*, summary box 6,000 received / 1,000 forfeited or deducted / 5,000 held; cash and bank add up; every table fits);
+  - deposit register.
+- Migration dry-run on a copy of live `data/accounting.db`: the three accounts were added as system accounts, both tables created, integrity ok, all 10 ledger checks match. The live file was not modified; restart needed.
+- Not done yet: paying a deposit to the supplier from a prepaid portal wallet (cash or bank only for now).
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `d7fd636` (counter-style DSR sections A–H).
+1. Start from the latest `main`; the latest code commit is `5374819` (visa security deposit engine).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
