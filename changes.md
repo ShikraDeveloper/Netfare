@@ -727,9 +727,56 @@ Verification:
 - Migration dry-run on a copy of live `data/accounting.db`: the three accounts were added as system accounts, both tables created, integrity ok, all 10 ledger checks match. The live file was not modified; restart needed.
 - Not done yet: paying a deposit to the supplier from a prepaid portal wallet (cash or bank only for now).
 
+### Audit fixes F1–F12 (OpenCode audit of 2026-10-28) — code commit `ff6dba3`
+
+OpenCode ran a full read-only audit at `9a986cd`. All 12 findings were confirmed before fixing: 8 reproduced on a temp database, 4 confirmed in the code.
+
+- **F1 (High) — DSR section F was empty on days with no sales.** With no sale invoices, the "exclude this period's sales" filter became `NOT IN (NULL)`, which hides every row. The filter is now added only when there are sales.
+- **F2 (High) — voiding a deposit-funded payment desynced 2600.** `deleteInvoicePayment` now refuses a payment made from a visa deposit, with a message pointing to the deposit card. This also covers voiding the invoice, which voids its payments. The deposit card's "Void latest step" passes `fromDeposit` and still works.
+  - On the invoice page, such payments show "Paid from visa deposit SD-… · undo it on the visa's deposit card" and have no Void button.
+  - They are not cash-refundable from the invoice (`refundable_cents` is 0).
+- **F3 (High) — deposit refunds were counted twice on the customer statement.** The general refund branch now excludes `deposit_id`. Deposit refunds only appear in the deposit section.
+- **F4 (Medium) — deposit refund page.** It showed "Invoice —" with `#/invoices/null`, and its Void always failed.
+  - It now shows source "Visa security deposit SD-…", linking to the visa.
+  - "Remaining refundable" excludes money used for invoices, forfeited or deducted.
+  - The Void button is replaced by a note to use the deposit card.
+  - `voidRefund` refuses deposit refunds with the same guidance.
+- **F5 (Medium) — an earlier period's DSR changed after a later cancellation.** A sale now counts as cancelled in a DSR only when the cancellation date is on or before the period end. Credit, balance, status and the Cancelled badge for an earlier period stay as they were. The sale-day cost still includes cost later credited by the cancellation, since that credit belongs to the cancellation line.
+- **F6 (Low)** — the statement deposit table is wrapped in `.table-wrap`, so there is no page-level horizontal scroll at 375px.
+- **F7 (Low)** — `numbering.js` declared `deposit` twice, once for visa deposits and once for cash deposits. Visa security deposits now use their own series, `visa_deposit` / `SD-YYYY-####`, with counter `next_visa_deposit_number`; `DEP-` stays the cash deposit series. Live data has no visa deposits yet.
+- **F8 (Low)** — `reverseEntry` never dates a reversal before the entry it reverses. Voiding a future-dated document today no longer makes earlier as-of balances negative. This one central change covers every void.
+- **F9 (Low)** — audit log labels added: "Visa security deposit", "Created", "Forfeit".
+- **F10 (Low)** — a group applicant error is prefixed once: "Applicant 2: Enter the applicant name".
+- **F11 (Low)** — indexes added on `invoice_items.invoice_id`, `bill_items.bill_id`, `invoices.booking_id`, `invoices.visa_id`, `bills.booking_id` and `bills.visa_id`.
+- **F12 (Low)** — README lists of control accounts and ledger checks now include 2600 and 1460.
+- **Not changed (product decision):** a partly paid invoice past its due date shows **Overdue**, not Partial; the amount due is still shown.
+
+Key files:
+- Server: `server/services/reports/dsr-sections.js`, `server/services/reports/daily-sales.js`, `server/services/statements.js`, `server/services/invoices.js`, `server/services/refunds.js`, `server/services/visa-deposits.js`, `server/services/numbering.js`, `server/accounting.js`, `server/migrations.js`, `server/services/demo.js`, `server/services/visas.js`.
+- Frontend: `public/js/views/invoice-detail.js`, `public/js/views/refund-detail.js`, `public/js/views/statement.js`, `public/js/views/audit-logs.js`.
+- Tests: `test/audit-fixes.test.js` (new), `test/cancellations.test.js`, `test/dsr-sections.test.js`, `test/visa-deposits.test.js`, `test/e2e/browser.test.js`.
+- Docs: `README.md`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 158 passed. 9 new tests in `test/audit-fixes.test.js`, one per finding: F1, F2, F3, F4, F5, F7, F8, F10, F11.
+  - Four existing assertions now follow the as-of-period rule (F5): the sale-day report is unchanged, and a report covering the cancellation marks it cancelled.
+  - One assertion now expects the SD prefix.
+- `npm run test:e2e`: 31 passed. The deposit test now also checks:
+  - the deposit refund page (note, link to the visa, no Void) for F4;
+  - a statement with deposits at 375px with no horizontal scroll, for F6.
+  - Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data):
+  - deposit-funded payment on an invoice (note, no Void);
+  - deposit refund page;
+  - audit log labels.
+  - Found and fixed while checking: the refund page's remaining refundable amount ignored the part of the deposit used for the invoice.
+- Migration dry-run on a copy of live `data/accounting.db`: the new counter and six indexes were added, integrity ok, all 10 ledger checks match. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `5374819` (visa security deposit engine).
+1. Start from the latest `main`; the latest code commit is `ff6dba3` (audit fixes F1–F12).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
