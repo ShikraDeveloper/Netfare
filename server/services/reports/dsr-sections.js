@@ -31,6 +31,10 @@ const FLOW_LABELS = {
   supplier_refund: 'Supplier refunds',
   cheque: 'Cheques',
   manual: 'Journal entries and expenses',
+  deposit_collect: 'Visa security deposits received',
+  deposit_to_supplier: 'Visa deposits paid to suppliers',
+  deposit_supplier_return: 'Visa deposits returned by suppliers',
+  deposit_refund: 'Visa deposit refunds',
   opening_balance: 'Opening balances',
   void: 'Reversals (voids)',
 };
@@ -104,6 +108,24 @@ function dsrSections(db, start, end, items) {
     settled.set(row.invoice_id, split);
   }
 
+  // Security deposits received in the period, by visa.
+  const depositRows = db.prepare(`
+    SELECT d.id, d.number, d.visa_id, d.customer_id, e.event_date AS date, e.amount_cents, e.method,
+           c.name AS customer_name, v.number AS visa_number, v.applicant_name
+    FROM visa_deposit_events e
+    JOIN visa_deposits d ON d.id = e.deposit_id
+    JOIN customers c ON c.id = d.customer_id
+    JOIN visa_applications v ON v.id = d.visa_id
+    WHERE e.event_type = 'collect' AND e.voided_at IS NULL AND e.event_date >= ? AND e.event_date <= ?
+    ORDER BY e.event_date, e.id
+  `).all(start, end);
+  const depositsByVisa = new Map();
+  for (const row of depositRows) {
+    if (!depositsByVisa.has(row.visa_id)) depositsByVisa.set(row.visa_id, []);
+    depositsByVisa.get(row.visa_id).push(row);
+  }
+  const shownDeposits = new Set();
+
   const tickets = [];
   const visas = [];
   const services = [];
@@ -141,8 +163,17 @@ function dsrSections(db, start, end, items) {
         passengers: [...(passengers.get(invoice.booking_id)?.values() || [])],
       });
     } else if (invoice.visa_id) {
+      // A deposit taken in the period shows on the visa's row, and the money
+      // received for it is added to the cash / card / bank columns.
+      const deposits = depositsByVisa.get(invoice.visa_id) || [];
+      for (const deposit of deposits) {
+        row.split[modeOf(deposit.method)] += deposit.amount_cents;
+        shownDeposits.add(deposit.id);
+      }
       visas.push({
         ...row,
+        deposit_cents: deposits.reduce((sum, deposit) => sum + deposit.amount_cents, 0),
+        deposit_numbers: deposits.map((deposit) => deposit.number),
         applicant_name: invoice.applicant_name || invoice.customer_name,
         country: invoice.destination_country || '',
         visa_type: invoice.visa_type || '',
@@ -158,20 +189,22 @@ function dsrSections(db, start, end, items) {
     SELECT r.id, r.number, r.refund_date AS date, r.amount_cents, r.method,
            c.name AS customer_name,
            x.number AS cancellation_number, i.number AS invoice_number,
-           a.number AS advance_number, cn.number AS credit_number
+           a.number AS advance_number, cn.number AS credit_number, dp.number AS deposit_number
     FROM refunds r
     JOIN customers c ON c.id = r.party_id
     LEFT JOIN cancellations x ON x.id = r.cancellation_id
     LEFT JOIN invoices i ON i.id = r.invoice_id
     LEFT JOIN customer_advances a ON a.id = r.advance_id
     LEFT JOIN credit_notes cn ON cn.id = r.credit_note_id
+    LEFT JOIN visa_deposits dp ON dp.id = r.deposit_id
     WHERE r.refund_type = 'customer' AND r.status = 'paid' AND r.refund_date >= ? AND r.refund_date <= ?
     ORDER BY r.refund_date, r.id
   `).all(start, end).map((row) => ({
     ...row,
     mode: modeOf(row.method),
-    against: row.cancellation_number
-      ? `Cancellation ${row.cancellation_number}`
+    against: row.deposit_number
+      ? `Visa deposit ${row.deposit_number}`
+      : row.cancellation_number ? `Cancellation ${row.cancellation_number}`
       : row.advance_number ? `Advance ${row.advance_number}`
         : row.credit_number ? `Credit note ${row.credit_number}`
           : row.invoice_number ? `Invoice ${row.invoice_number}` : '',
@@ -202,9 +235,12 @@ function dsrSections(db, start, end, items) {
     `).all(start, end).map((row) => ({
       ...row, kind: 'advance', against: ['Advance', row.booking_number || row.visa_number].filter(Boolean).join(' · '),
     })),
+    ...depositRows.filter((row) => !shownDeposits.has(row.id)).map((row) => ({
+      ...row, kind: 'deposit', against: `Visa deposit · ${row.visa_number}${row.applicant_name ? ` (${row.applicant_name})` : ''}`,
+    })),
   ].map((row) => ({ ...row, mode: modeOf(row.method) }))
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
-      || (a.kind === b.kind ? a.id - b.id : a.kind === 'payment' ? -1 : 1));
+      || (a.kind === b.kind ? a.id - b.id : a.kind === 'payment' ? -1 : b.kind === 'payment' ? 1 : a.kind.localeCompare(b.kind)));
 
   // Cash (1000) and bank (1010) movements from the ledger, by what caused them.
   const cashAccounts = db.prepare("SELECT id, code, name FROM accounts WHERE code IN ('1000', '1010')").all();
@@ -247,6 +283,28 @@ function dsrSections(db, start, end, items) {
   const cashIn = flowRows.filter((row) => row.cash_in_cents || row.bank_in_cents)
     .sort((a, b) => (b.cash_in_cents + b.bank_in_cents) - (a.cash_in_cents + a.bank_in_cents));
 
+  // Deposit money kept: forfeits and supplier deductions in the period.
+  const depositKept = db.prepare(`
+    SELECT e.id, e.event_type, e.event_date AS date, e.forfeit_to, e.notes,
+           CASE WHEN e.event_type = 'forfeit' THEN e.amount_cents ELSE e.deduction_cents END AS amount_cents,
+           d.number, c.name AS customer_name, v.number AS visa_number
+    FROM visa_deposit_events e
+    JOIN visa_deposits d ON d.id = e.deposit_id
+    JOIN customers c ON c.id = d.customer_id
+    JOIN visa_applications v ON v.id = d.visa_id
+    WHERE e.voided_at IS NULL AND e.event_date >= ? AND e.event_date <= ?
+      AND (e.event_type = 'forfeit' OR (e.event_type = 'supplier_return' AND e.deduction_cents > 0))
+    ORDER BY e.event_date, e.id
+  `).all(start, end).map((row) => ({
+    ...row,
+    kept_by: row.event_type === 'forfeit' && row.forfeit_to === 'agency' ? 'agency' : 'supplier',
+  }));
+  const heldAtEnd = db.prepare(`
+    SELECT COALESCE(SUM(l.credit_cents - l.debit_cents), 0) AS total
+    FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
+    WHERE a.code = '2600' AND e.entry_date <= ?
+  `).get(end).total;
+
   const sum = (rows, pick) => rows.reduce((total, row) => total + pick(row), 0);
   const settlement = emptySplit();
   for (const row of [...tickets, ...visas, ...services]) {
@@ -261,6 +319,7 @@ function dsrSections(db, start, end, items) {
     services,
     cancellations,
     refunds,
+    deposit_kept: depositKept,
     collections,
     cash_out: cashOut,
     cash_in: cashIn,
@@ -274,6 +333,12 @@ function dsrSections(db, start, end, items) {
       settlement,
       collected,
       refunds_cents: sum(refunds, (row) => row.amount_cents),
+      deposits: {
+        received_cents: sum(depositRows, (row) => row.amount_cents),
+        refunded_cents: sum(refunds.filter((row) => row.deposit_number), (row) => row.amount_cents),
+        kept_cents: sum(depositKept, (row) => row.amount_cents),
+        held_at_end_cents: heldAtEnd,
+      },
       position,
     },
   };

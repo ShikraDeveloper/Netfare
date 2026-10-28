@@ -251,6 +251,41 @@ function vendorTransactions(db, vendorId) {
   });
 }
 
+// Security deposits are the customer's money held by us, so they run as a
+// separate balance beside the invoice balance. Passing a deposit to the visa
+// supplier does not change what the customer is owed; a supplier deduction does.
+function customerDeposits(db, customerId, range) {
+  const rows = db.prepare(`
+    SELECT e.id, e.event_type, e.event_date AS date, e.amount_cents, e.deduction_cents, e.forfeit_to, e.notes,
+           d.number AS reference, v.number AS visa_number, v.applicant_name, i.number AS invoice_number
+    FROM visa_deposit_events e
+    JOIN visa_deposits d ON d.id = e.deposit_id
+    JOIN visa_applications v ON v.id = d.visa_id
+    LEFT JOIN invoices i ON i.id = e.invoice_id
+    WHERE d.customer_id = ? AND e.voided_at IS NULL
+      AND (e.event_type IN ('collect', 'refund', 'apply', 'forfeit') OR (e.event_type = 'supplier_return' AND e.deduction_cents > 0))
+    ORDER BY e.event_date, e.id
+  `).all(customerId).map((row) => {
+    const visa = `${row.visa_number}${row.applicant_name ? ` · ${row.applicant_name}` : ''}`;
+    if (row.event_type === 'collect') return { ...row, description: `Security deposit received · ${visa}`, debit_cents: 0, credit_cents: row.amount_cents };
+    if (row.event_type === 'refund') return { ...row, description: 'Deposit refunded', debit_cents: row.amount_cents, credit_cents: 0 };
+    if (row.event_type === 'apply') return { ...row, description: `Deposit used to pay invoice ${row.invoice_number || ''}`.trim(), debit_cents: row.amount_cents, credit_cents: 0 };
+    if (row.event_type === 'forfeit') return { ...row, description: `Deposit forfeited${row.notes ? ` · ${row.notes}` : ''}`, debit_cents: row.amount_cents, credit_cents: 0 };
+    return { ...row, description: `Deducted by the visa supplier${row.notes ? ` · ${row.notes}` : ''}`, debit_cents: row.deduction_cents, credit_cents: 0 };
+  });
+  if (!rows.length) return null;
+  const movement = (row) => row.credit_cents - row.debit_cents;
+  const opening = rows.filter((row) => range.from && row.date < range.from).reduce((sum, row) => sum + movement(row), 0);
+  let balance = opening;
+  const transactions = rows
+    .filter((row) => (!range.from || row.date >= range.from) && row.date <= range.to)
+    .map((row) => {
+      balance += movement(row);
+      return { ...row, balance_cents: balance };
+    });
+  return { opening_held_cents: opening, closing_held_cents: balance, transactions };
+}
+
 function buildStatement(db, { kind, partyId, from, to }) {
   const partyTable = kind === 'customer' ? 'customers' : 'vendors';
   const party = db.prepare(`SELECT * FROM ${partyTable} WHERE id = ?`).get(partyId);
@@ -300,6 +335,7 @@ function buildStatement(db, { kind, partyId, from, to }) {
     total_debit_cents: totals.debit_cents,
     total_credit_cents: totals.credit_cents,
     transactions,
+    deposits: kind === 'customer' ? customerDeposits(db, partyId, range) : null,
   };
 }
 

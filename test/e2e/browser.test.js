@@ -908,15 +908,15 @@ test('an unapplied customer credit can be refunded in cash from the credit note'
 
 test('dashboard ledger checks, settlement attachments and the audit chain page', async () => {
   const reconciliation = await getJson(baseUrl, '/api/reports/reconciliation');
-  assert.equal(reconciliation.checks.length, 8);
+  assert.equal(reconciliation.checks.length, 10);
 
   await openRoute('/dashboard');
   const card = page.locator('[data-ledger-checks]');
   await card.waitFor();
-  assert.equal(await card.locator('tbody tr').count(), 8);
+  assert.equal(await card.locator('tbody tr').count(), 10);
   assert.match(await card.locator('caption').innerText(), /Ledger checks/);
   const summary = await card.locator('.card-title p').innerText();
-  assert.match(summary, reconciliation.all_matched ? /All 8 checks match/ : /need/);
+  assert.match(summary, reconciliation.all_matched ? /All 10 checks match/ : /need/);
 
   const cancellations = await getJson(baseUrl, '/api/cancellations');
   assert.ok(cancellations[0], 'Earlier tests and demo data include a cancellation');
@@ -1506,6 +1506,46 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   assertNoConsoleErrors();
 });
 
+test('a visa security deposit is taken with the application, shown apart from sales and refunded', async () => {
+  await openRoute('/visas?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  await dialog.locator('#vg-customer').selectOption({ index: 1 });
+  await dialog.locator('#vg-country').fill('E2E Deposit UAE');
+  const row = dialog.locator('[data-va-row]').first();
+  await row.locator('.va-name').fill('E2E Deposit Visitor');
+  await row.locator('.va-sale').fill('350');
+  assert.equal(await dialog.locator('[data-deposit-received]').isVisible(), false, 'deposit fields appear only with a deposit');
+  await row.locator('.va-deposit').fill('4000');
+  assert.equal(await dialog.locator('[data-deposit-received]').isVisible(), true);
+  assert.equal((await dialog.locator('#vg-margin').innerText()).replace(/\s+/g, ' '), 'AED 350.00', 'the deposit is not part of the margin');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => location.hash.startsWith('#/visas/'));
+
+  const card = page.locator('[data-visa-deposits]');
+  await card.waitFor();
+  assert.match((await card.innerText()).replace(/\s+/g, ' '), /AED 4,000\.00 still held/);
+  await card.locator('[data-deposit-action="refund"]').click();
+  const refund = page.locator('[role="dialog"]');
+  await refund.waitFor();
+  await refund.locator('#dep-amount').fill('1500');
+  await refund.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.waitForFunction(() => document.querySelector('[data-visa-deposits]')?.innerText.includes('2,500.00 still held'));
+
+  const visaId = Number(await page.evaluate(() => location.hash.split('/').pop()));
+  await openRoute('/reports/visa-deposits');
+  await page.locator('[data-deposit-register]').waitFor();
+  const registerRow = page.locator('[data-deposit-register] tbody tr', { has: page.locator(`a[href="#/visas/${visaId}"]`) });
+  assert.match((await registerRow.innerText()).replace(/\s+/g, ' '), /AED 4,000\.00.*AED 1,500\.00.*AED 2,500\.00/);
+
+  const checks = await getJson(baseUrl, '/api/reports/reconciliation');
+  for (const key of ['visa_deposits', 'deposits_with_suppliers']) {
+    assert.equal(checks.checks.find((item) => item.key === key).matched, true, `${key} matches`);
+  }
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -1559,6 +1599,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     '/reports/balance-sheet',
     '/reports/trial-balance',
     '/reports/daily-sales',
+    '/reports/visa-deposits',
     '/reports/booking-margin',
     '/reports/visa-margin',
     '/reports/portal-wallets',

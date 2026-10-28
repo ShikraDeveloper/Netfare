@@ -5,6 +5,7 @@ import { dailySales, rememberProfit } from './reports/daily-sales.js';
 import { agingReport } from './reports/aging.js';
 import { bookingMargin, visaMargin } from './reports/margins.js';
 import { portalWallets } from './reports/portal-wallets.js';
+import { visaDeposits } from './reports/visa-deposits.js';
 
 const REPORTS = [
   { key: 'income-statement', label: 'Income statement', title: 'Income Statement' },
@@ -14,6 +15,7 @@ const REPORTS = [
   { key: 'booking-margin', label: 'Booking margin', title: 'Booking Margin' },
   { key: 'visa-margin', label: 'Visa margin', title: 'Visa Margin' },
   { key: 'portal-wallets', label: 'Portal wallets', title: 'Portal Wallets' },
+  { key: 'visa-deposits', label: 'Visa deposits', title: 'Visa Security Deposits' },
   { key: 'ar-aging', label: 'A/R aging', title: 'Accounts Receivable Aging' },
   { key: 'ap-aging', label: 'A/P aging', title: 'Accounts Payable Aging' },
 ];
@@ -26,6 +28,7 @@ function renderReport(key, data) {
   if (key === 'booking-margin') return bookingMargin(data);
   if (key === 'visa-margin') return visaMargin(data);
   if (key === 'portal-wallets') return portalWallets(data);
+  if (key === 'visa-deposits') return visaDeposits(data);
   return agingReport(data, key === 'ar-aging' ? 'ar' : 'ap');
 }
 
@@ -43,6 +46,7 @@ async function fetchReport(key, filters) {
     return api.get('/reports/daily-sales', { from: filters.from, to: filters.to });
   }
   if (key === 'portal-wallets') return api.get('/reports/portals');
+  if (key === 'visa-deposits') return api.get('/reports/visa-deposits', { status: filters.depositStatus });
   if (key === 'balance-sheet') return api.get('/reports/balance-sheet', { as_of: filters.asOf });
   if (key === 'trial-balance') return api.get('/reports/trial-balance', { as_of: filters.asOf });
   if (key === 'ar-aging') return api.get('/reports/ar-aging', { as_of: filters.asOf });
@@ -51,6 +55,16 @@ async function fetchReport(key, filters) {
 
 function controlsHtml(key, filters) {
   if (key === 'portal-wallets') return '';
+  if (key === 'visa-deposits') {
+    return `
+      <div class="field">
+        <label for="report-deposit-status">Show</label>
+        <select class="input" id="report-deposit-status">
+          <option value="open" ${filters.depositStatus !== 'all' ? 'selected' : ''}>Still held</option>
+          <option value="all" ${filters.depositStatus === 'all' ? 'selected' : ''}>All deposits</option>
+        </select>
+      </div>`;
+  }
   if (key === 'income-statement' || key === 'booking-margin' || key === 'visa-margin' || key === 'daily-sales') {
     return `
       <div class="field">
@@ -89,6 +103,7 @@ export async function render(container, { params } = {}) {
     from: `${today.slice(0, 7)}-01`,
     to: today,
     asOf: today,
+    depositStatus: 'open',
   };
 
   setHeader({
@@ -125,6 +140,8 @@ export async function render(container, { params } = {}) {
     if (fromInput) filters.from = fromInput.value;
     if (toInput) filters.to = toInput.value;
     if (asOfInput) filters.asOf = asOfInput.value;
+    const depositStatus = container.querySelector('#report-deposit-status');
+    if (depositStatus) filters.depositStatus = depositStatus.value;
     body.innerHTML = '<div class="loading" style="padding:60px 20px"><div class="spinner"></div><span>Running report…</span></div>';
     try {
       const fresh = await fetchReport(active.key, filters);
@@ -134,7 +151,7 @@ export async function render(container, { params } = {}) {
     }
   }
 
-  ['report-from', 'report-to', 'report-as-of'].forEach((id) => {
+  ['report-from', 'report-to', 'report-as-of', 'report-deposit-status'].forEach((id) => {
     const input = container.querySelector(`#${id}`);
     if (input) input.addEventListener('change', reload);
   });

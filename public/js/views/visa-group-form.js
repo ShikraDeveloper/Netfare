@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { depositAccounts } from './job-modals.js';
 import { activeCustomers, activeVendors, portalForVendorId, purchaseAccounts, revenueAccounts, store } from '../store.js';
 import {
   addDaysISO,
@@ -43,6 +44,10 @@ function applicantRowHtml(row = {}) {
       <div class="money-input"><span>${esc(currencySymbol())}</span>
         <input class="input va-cost" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Supplier cost"
           value="${row.cost ? esc(centsToInput(row.cost)) : ''}" placeholder="0.00">
+      </div>
+      <div class="money-input"><span>${esc(currencySymbol())}</span>
+        <input class="input va-deposit" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Security deposit"
+          value="${row.deposit ? esc(centsToInput(row.deposit)) : ''}" placeholder="0.00">
       </div>
       <select class="input va-vendor" aria-label="Supplier">
         ${optionsHtml(activeVendors(), { selected: row.vendorId || '', placeholder: 'Supplier…', labelKey: vendorLabel })}
@@ -115,11 +120,29 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         </div>
         <div class="bk-wrap">
           <div class="va-head" aria-hidden="true">
-            <div>Applicant</div><div>Passport no.</div><div>Expiry</div><div>Sale</div><div>Cost</div><div>Supplier</div><div></div><div></div>
+            <div>Applicant</div><div>Passport no.</div><div>Expiry</div><div>Sale</div><div>Cost</div><div>Sec. deposit</div><div>Supplier</div><div></div><div></div>
           </div>
           <div data-va-rows>${applicantRowHtml()}</div>
         </div>
         <div class="hint">Each applicant becomes a separate application with its own invoice, so one person can be rejected or cancelled without affecting the others. Use <strong>⋯</strong> for nationality, date of birth or accounts.</div>
+      </div>
+
+      <div class="field full va-deposit-received" data-deposit-received hidden>
+        <div class="form-grid">
+          <div class="field">
+            <label for="vg-deposit-method">Deposit received by</label>
+            <select class="input" id="vg-deposit-method">
+              <option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>Credit card</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="vg-deposit-account">Deposit received into</label>
+            <select class="input" id="vg-deposit-account">
+              ${optionsHtml(depositAccounts().accounts, { selected: (depositAccounts().accounts.find((a) => a.code === '1000') || depositAccounts().preferred)?.id, placeholder: '', labelKey: (account) => `${account.code} · ${account.name}` })}
+            </select>
+          </div>
+          <div class="field full"><div class="form-note">Security deposits are not a sale. They are held in <strong>2600 Visa Security Deposits Held</strong> until refunded, used for an invoice or forfeited.</div></div>
+        </div>
       </div>
 
       <div class="field full">
@@ -127,6 +150,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
           <div class="totals-row"><span>Total sale</span><span id="vg-sale">${fmtMoney(0)}</span></div>
           <div class="totals-row"><span>Total cost</span><span id="vg-cost">${fmtMoney(0)}</span></div>
           <div class="totals-row total"><span>Margin</span><span class="margin-positive" id="vg-margin">${fmtMoney(0)}</span></div>
+          <div class="totals-row"><span class="muted">Security deposits (not a sale)</span><span class="muted" id="vg-deposits">${fmtMoney(0)}</span></div>
         </div>
       </div>
 
@@ -164,10 +188,14 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
   function recalc() {
     let sale = 0;
     let cost = 0;
+    let deposits = 0;
     for (const row of rows()) {
       sale += toCents(row.querySelector('.va-sale').value);
       cost += toCents(row.querySelector('.va-cost').value);
+      deposits += toCents(row.querySelector('.va-deposit').value);
     }
+    overlayRef.querySelector('#vg-deposits').textContent = fmtMoney(deposits);
+    overlayRef.querySelector('[data-deposit-received]').hidden = deposits <= 0;
     const margin = sale - cost;
     const marginEl = overlayRef.querySelector('#vg-margin');
     marginEl.textContent = fmtMoney(margin);
@@ -231,6 +259,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         holder.innerHTML = applicantRowHtml({
           sale: toCents(previous?.querySelector('.va-sale').value),
           cost: toCents(previous?.querySelector('.va-cost').value),
+          deposit: toCents(previous?.querySelector('.va-deposit').value),
           vendorId: Number(previous?.querySelector('.va-vendor').value) || '',
           saleAccountId: Number(previous?.querySelector('.va-sale-account').value) || '',
           costAccountId: Number(previous?.querySelector('.va-cost-account').value) || '',
@@ -265,6 +294,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         applicants.push({
           applicant_is_customer: name === customerName,
           applicant_name: name,
+          deposit_cents: toCents(row.querySelector('.va-deposit').value),
           passport_number: row.querySelector('.va-passport').value.trim(),
           passport_expiry: row.querySelector('.va-expiry').value || null,
           nationality: row.querySelector('.va-nationality').value.trim(),
@@ -292,6 +322,10 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         notes: values.get('notes'),
         invoice_notes: values.get('invoice_notes'),
         applicants,
+        deposit: {
+          method: form.querySelector('#vg-deposit-method').value,
+          account_id: Number(form.querySelector('#vg-deposit-account').value) || null,
+        },
       });
       const first = result.applications[0];
       toast(result.group

@@ -18,6 +18,7 @@ import {
 } from '../ui.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
+import { bindDepositCard, depositCardHtml } from './visa-deposit-card.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 import { advanceModalBody, applyModalBody, depositAccounts, postingPreview, refundModalBody } from './job-modals.js';
@@ -430,11 +431,13 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
+    <div style="margin-top:16px">${depositCardHtml(visa)}</div>
     ${statusHistoryCard(visa.status_history)}
     ${attachmentSection({ entityType: 'visa', entityId: id, attachments })}
   `;
 
   bindAttachmentSection(container, { entityType: 'visa', entityId: id });
+  bindDepositCard(container, visa, () => render(container, { params: [String(id)] }));
 
   function refresh() {
     return render(container, { params: [String(id)] });

@@ -722,7 +722,7 @@ tr.current-row td { background: var(--surface-2); }
 /* Visa applicant rows */
 .va-head, .va-row {
   display: grid; gap: 8px; align-items: center; padding: 8px 10px;
-  grid-template-columns: minmax(150px, 1.8fr) 120px 140px 112px 112px minmax(130px, 1.4fr) 32px 30px;
+  grid-template-columns: minmax(140px, 1.8fr) 110px 132px 104px 104px 104px minmax(120px, 1.4fr) 32px 30px;
 }
 .va-head {
   font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2);
@@ -887,6 +887,30 @@ body.modal-open { overflow: hidden; }
 .doc-item-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 .doc-amount-words { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12.5px; font-weight: 600; color: var(--text-soft); }
 .doc-amount-words .doc-label { display: block; margin-bottom: 3px; }
+.deposit-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.deposit-item:last-child { border-bottom: none; }
+.deposit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.deposit-held { text-align: right; display: grid; font-size: 11px; color: var(--muted); }
+.deposit-held strong { font-size: 18px; color: var(--text); font-variant-numeric: tabular-nums; }
+.deposit-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 10px 0; }
+.deposit-figures div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; }
+.deposit-figures dt { font-size: 10.5px; color: var(--muted); }
+.deposit-figures dd { margin: 2px 0 0; font-weight: 650; font-size: 13px; font-variant-numeric: tabular-nums; }
+.deposit-events { display: grid; gap: 4px; }
+.deposit-event { display: grid; grid-template-columns: 90px 1fr auto; gap: 10px; font-size: 12.5px; align-items: baseline; }
+.deposit-event small { display: block; color: var(--muted); font-size: 11px; }
+.deposit-event.is-void { text-decoration: line-through; color: var(--muted); }
+.deposit-event-date { color: var(--muted); }
+.deposit-event-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
+.deposit-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.badge-deposit-held { background: var(--blue-soft); color: var(--blue); }
+.badge-deposit-with_supplier { background: var(--amber-soft); color: var(--amber); }
+.badge-deposit-settled { background: var(--green-soft); color: var(--green); }
+.badge-deposit-forfeited, .badge-deposit-void { background: var(--red-soft); color: var(--red); }
+.statement-deposits { margin-top: 22px; }
+.statement-deposits h3 { font-size: 13px; margin: 0 0 8px; }
+.statement-deposits p { font-size: 11.5px; margin: 6px 0 0; }
+.deposit-flag { color: var(--red); font-weight: 600; }
 .share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .receipt-amount { text-align: right; }
 .receipt-amount-value { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }

@@ -276,6 +276,26 @@ A recorded cancellation **cannot be undone**. There is no undo button: the cance
 
 The main list toolbars include a date range: **Bookings** (booking date), **Visas** (application date), **Invoices** (issue date), **Bills** (bill date), **Refunds** (refund date) and **General journal** (entry date). Choose the dates, then press the **search icon** button to apply the range; the list and its totals update. If the start date is after the end date, the two are swapped automatically. The clear button resets the range and restores the full list.
 
+### Visa security deposits
+
+A refundable security deposit taken for a visa is **not a sale**. It is the customer's money, held until it is refunded, used for an invoice or forfeited. Each deposit gets a number (`DEP-YYYY-####`) and every step posts to the ledger:
+
+| Step | Entry |
+| --- | --- |
+| **Take deposit** (on the visa page, or the **Sec. deposit** column when creating visas) | Dr cash / bank · Cr **2600 Visa Security Deposits Held** |
+| **Pay to supplier** (when the visa supplier or immigration holds it) | Dr **1460 Deposits with Suppliers** · Cr cash / bank |
+| **Supplier returned** (the visitor has left; any fine deducted) | Dr cash / bank (net) · Dr 2600 (deduction) · Cr 1460 (gross) |
+| **Refund** | Dr 2600 · Cr cash / bank; also listed as a customer refund |
+| **Use for invoice** | Dr 2600 · Cr 1100 (a payment marked *Deposit applied*) |
+| **Forfeit** (absconded, overstay) | Dr 2600 · Cr **4340 Forfeited Deposit Income** when we keep it, or Cr 1460 when the supplier kept it; a reason is required |
+
+- The visa page shows a **Security deposit** card: received, with supplier, refunded, used, forfeited or deducted, and **still held**, with the history and an action for each step. Money still with the supplier cannot be refunded or used until the supplier return is recorded.
+- **Void** undoes the latest step only (with remarks); voiding the first step voids the whole deposit.
+- **DSR:** visa rows show a **Sec. deposit** column and count the money received in cash / card / bank; deposits for visas not sold in the period appear under *Money collected*; deposit refunds, forfeits and supplier deductions appear in section E; the summary has a **Visa security deposits** box (received, refunded, forfeited / deducted, still held).
+- **Customer statement:** a separate **Security deposits held for you** section with its own balance; deposits are never part of the amount due.
+- **Reports → Visa deposits:** the deposit register (still held or all), with totals for 2600, 1460 and in hand, flagging deposits on cancelled or rejected visas (*refund due*) and deposits held over 90 days.
+- **Ledger checks** compare 2600 with the deposits still held and 1460 with the deposits held by suppliers. Both accounts are control accounts: manual journals cannot post to them.
+
 ### Daily sales report (DSR)
 
 **Reports → Daily sales** is laid out like a travel counter's daily report, for one day (**Today**) or any period. Amounts are in AED; it prints on A4 landscape.
@@ -424,6 +444,9 @@ All endpoints are under `/api`:
 | POST | `/bookings/:id/confirm`, `/bookings/:id/travel`, `/bookings/:id/cancel` | Booking lifecycle |
 | GET/POST/PUT/DELETE | `/visas` | Visa applications (applicant details, sale & cost items, margin) |
 | GET | `/invoices/payments/:paymentId/receipt` | Data for a printable receipt voucher |
+| GET/POST | `/visa-deposits` | Visa security deposits (list, take a deposit) |
+| POST | `/visa-deposits/:id/to-supplier`, `/supplier-return`, `/refund`, `/apply`, `/forfeit`, `/void-last` | Deposit steps |
+| GET | `/reports/visa-deposits` | Deposit register (`status=all` for settled ones too) |
 | POST | `/visas/groups` | Create one application per applicant, linked as a group (one applicant creates a plain application) |
 | POST | `/visas/groups/:groupId/submit` | Submit every draft application in a group at once |
 | POST | `/visas/:id/submit`, `/visas/:id/approve`, `/visas/:id/issue`, `/visas/:id/reject`, `/visas/:id/cancel` | Visa lifecycle |

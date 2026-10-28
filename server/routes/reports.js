@@ -32,6 +32,38 @@ router.get('/daily-sales', (req, res) => {
   res.json(reports.dailySales(db, req.query.from || start, req.query.to || end));
 });
 
+// Deposit register: every visa security deposit, what is still held and
+// which ones need attention.
+router.get('/visa-deposits', (req, res) => {
+  const today = todayISO();
+  const ageDays = (date) => Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86_400_000);
+  const rows = require('../services/visa-deposits').listDeposits(db, { search: req.query.search })
+    .filter((row) => !row.voided_at && (req.query.status === 'all' || row.held_cents > 0))
+    .map((row) => {
+      const age = ageDays(row.deposit_date);
+      let flag = '';
+      if (row.held_cents > 0 && ['cancelled', 'rejected'].includes(row.visa_status)) flag = 'refund_due';
+      else if (row.held_cents > 0 && age > 90) flag = 'old';
+      const { events, ...rest } = row;
+      return { ...rest, age_days: age, flag };
+    });
+  const sum = (key) => rows.reduce((total, row) => total + row[key], 0);
+  res.json({
+    as_of: today,
+    status: req.query.status === 'all' ? 'all' : 'open',
+    rows,
+    totals: {
+      collected_cents: sum('collected_cents'),
+      held_cents: sum('held_cents'),
+      with_supplier_cents: sum('with_supplier_cents'),
+      in_hand_cents: sum('in_hand_cents'),
+      refunded_cents: sum('refunded_cents'),
+      forfeited_cents: sum('forfeited_cents'),
+      refund_due_count: rows.filter((row) => row.flag === 'refund_due').length,
+    },
+  });
+});
+
 router.get('/trial-balance', (req, res) => {
   res.json(reports.trialBalance(db, req.query.as_of || todayISO()));
 });

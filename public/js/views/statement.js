@@ -40,6 +40,36 @@ const KIND_TONES = {
   cancellation_credit: 'amber',
 };
 
+// Visa security deposits run as their own balance: money we hold for the
+// customer, separate from what they owe on invoices.
+function depositsSectionHtml(deposits) {
+  if (!deposits || (!deposits.transactions.length && !deposits.opening_held_cents)) return '';
+  return `
+    <div class="statement-deposits" data-statement-deposits>
+      <h3>Security deposits held for you</h3>
+      <table class="data statement-table"><caption class="sr-only">Security deposits</caption>
+        <thead><tr>
+          <th scope="col">Date</th><th scope="col">Reference</th><th scope="col">Description</th>
+          <th scope="col" class="num">Returned / used</th><th scope="col" class="num">Received</th><th scope="col" class="num">Held</th>
+        </tr></thead>
+        <tbody>
+          ${deposits.opening_held_cents ? `<tr><td></td><td></td><td><strong>Held at start</strong></td><td></td><td></td><td class="num"><strong>${fmtMoney(deposits.opening_held_cents)}</strong></td></tr>` : ''}
+          ${deposits.transactions.map((row) => `
+            <tr>
+              <td class="nowrap">${esc(fmtDate(row.date))}</td>
+              <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
+              <td>${esc(row.description)}</td>
+              <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '<span class="statement-zero">—</span>'}</td>
+              <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '<span class="statement-zero">—</span>'}</td>
+              <td class="num">${fmtMoney(row.balance_cents)}</td>
+            </tr>`).join('')}
+          <tr class="statement-total"><td colspan="5"><strong>Deposits still held</strong></td><td class="num"><strong>${fmtMoney(deposits.closing_held_cents)}</strong></td></tr>
+        </tbody>
+      </table>
+      <p class="muted">Deposits are refundable and are not part of the amount due above.</p>
+    </div>`;
+}
+
 function transactionTitle(row, kind) {
   return (kind === 'customer' ? CUSTOMER_TITLES : VENDOR_TITLES)[row.kind] || row.description;
 }
@@ -309,6 +339,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           </tbody>
         </table>
       </div>
+      ${depositsSectionHtml(data.deposits)}
 
       <div class="statement-foot">
         <p>Please review this statement and contact us if anything looks incorrect.</p>

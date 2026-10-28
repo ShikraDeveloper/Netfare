@@ -28,6 +28,7 @@ router.use('/bookings', require('./bookings'));
 router.use('/visas', require('./visas'));
 router.use('/cancellations', require('./cancellations'));
 router.use('/advances', require('./advances'));
+router.use('/visa-deposits', require('./visa-deposits'));
 router.use('/portals', require('./portals'));
 router.use('/invoices', require('./invoices'));
 router.use('/credits', require('./credits'));

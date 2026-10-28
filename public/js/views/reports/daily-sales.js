@@ -123,15 +123,16 @@ function visaTable(rows) {
         <td class="num">${amt(row.fare_cents)}</td>
         <td class="num">${amt(row.fee_cents)}</td>
         <td class="num"><strong>${amt(row.total_cents, { blank: false })}</strong></td>
+        <td class="num" title="${esc((row.deposit_numbers || []).join(', '))}">${amt(row.deposit_cents)}</td>
         ${splitCells(row.split)}
         ${profitCells(row)}
-      </tr>`).join('') : emptyRow(13, 'No visa sales in this period.');
+      </tr>`).join('') : emptyRow(14, 'No visa sales in this period.');
   return `
     <table class="report-table dsr-table" data-dsr-table="visas"><caption class="sr-only">Visa sales</caption>
       <thead><tr>
         <th scope="col">Invoice / visa</th><th scope="col">Applicant</th>
         <th scope="col">Country / type</th><th scope="col" class="num">Visa fee</th><th scope="col" class="num">Fee</th>
-        <th scope="col" class="num">Total</th>${SPLIT_HEADS}${PROFIT_HEADS}
+        <th scope="col" class="num">Total</th><th scope="col" class="num">Sec. deposit</th>${SPLIT_HEADS}${PROFIT_HEADS}
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr>
@@ -139,6 +140,7 @@ function visaTable(rows) {
         <td class="num">${amt(sumOf(rows, (r) => r.fare_cents), { blank: false })}</td>
         <td class="num">${amt(sumOf(rows, (r) => r.fee_cents), { blank: false })}</td>
         <td class="num">${amt(sumOf(rows, (r) => r.total_cents), { blank: false })}</td>
+        <td class="num">${amt(sumOf(rows, (r) => r.deposit_cents), { blank: false })}</td>
         ${splitTotals(rows)}
         <td class="num dsr-profit">${amt(sumOf(rows, (r) => r.cost_cents), { blank: false })}</td>
         <td class="num dsr-profit">${amt(sumOf(rows, (r) => r.margin_cents), { blank: false })}</td>
@@ -167,6 +169,27 @@ function serviceTable(rows) {
         <td class="num">${amt(sumOf(rows, (r) => r.total_cents), { blank: false })}</td>
         ${splitTotals(rows)}
       </tr></tfoot>
+    </table>`;
+}
+
+function depositKeptTable(rows) {
+  if (!rows.length) return '';
+  return `
+    <table class="report-table dsr-table dsr-subtable" data-dsr-table="deposit-kept"><caption class="dsr-caption">Visa deposits forfeited or deducted</caption>
+      <thead><tr>
+        <th scope="col">Date</th><th scope="col">Deposit</th><th scope="col">Customer</th><th scope="col">Reason</th>
+        <th scope="col">Kept by</th><th scope="col" class="num">Amount</th>
+      </tr></thead>
+      <tbody>${rows.map((row) => `
+        <tr>
+          <td class="nowrap">${esc(fmtDate(row.date))}</td>
+          <td class="nowrap">${esc(row.number)}<div class="cell-sub">${esc(row.visa_number)}</div></td>
+          <td>${esc(row.customer_name)}</td>
+          <td>${esc(row.notes || '—')}</td>
+          <td>${row.kept_by === 'agency' ? 'Us (income)' : 'Supplier'}</td>
+          <td class="num"><strong>${amt(row.amount_cents, { blank: false })}</strong></td>
+        </tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="5">Total</td><td class="num">${amt(sumOf(rows, (r) => r.amount_cents), { blank: false })}</td></tr></tfoot>
     </table>`;
 }
 
@@ -302,6 +325,14 @@ function summaryHtml(data) {
         ${row('On credit (unpaid)', settlement.credit)}
         ${row('Refunds paid', -summary.refunds_cents)}
       </div>
+      ${summary.deposits ? `
+      <div class="dsr-sum-box" data-dsr-deposits>
+        <h4>Visa security deposits</h4>
+        ${row('Received', summary.deposits.received_cents)}
+        ${row('Refunded', -summary.deposits.refunded_cents)}
+        ${row('Forfeited / deducted', -summary.deposits.kept_cents)}
+        ${row('Still held (2600)', summary.deposits.held_at_end_cents, 'total')}
+      </div>` : ''}
       ${box('cash')}
       ${box('bank')}
     </div>`;
@@ -311,7 +342,7 @@ export function dailySales(data) {
   const company = store.settings?.company_name || 'My Company';
   const s = data.sections;
   const hasAnything = s && (s.tickets.length || s.visas.length || s.services.length || s.cancellations.length
-    || s.refunds.length || s.collections.length || s.cash_out.length);
+    || s.refunds.length || s.collections.length || s.cash_out.length || (s.deposit_kept || []).length);
 
   if (!hasAnything) {
     return `
@@ -337,7 +368,7 @@ export function dailySales(data) {
       ${section('B', 'Ticket & booking sales', ticketTable(s.tickets), { id: 'tickets' })}
       ${section('C', 'Visa sales', visaTable(s.visas), { id: 'visas' })}
       ${section('D', 'Service income', serviceTable(s.services), { id: 'services' })}
-      ${section('E', 'Cancellations & refunds', cancellationTables(s.cancellations, s.refunds), { id: 'cancellations' })}
+      ${section('E', 'Cancellations & refunds', cancellationTables(s.cancellations, s.refunds) + depositKeptTable(s.deposit_kept || []), { id: 'cancellations' })}
       ${section('F', 'Money collected for older invoices & advances', collectionsTable(s.collections), { id: 'collections' })}
       ${section('G', 'Money paid out', cashOutTable(s.cash_out, s.summary.position), { id: 'cash-out' })}
       <section class="dsr-section" data-dsr-section="summary">
@@ -345,7 +376,7 @@ export function dailySales(data) {
         ${summaryHtml(data)}
       </section>
       <div class="report-balance-note">
-        ${icon('check', 14)} A sale stays on the day it was made; a cancellation is its own line on the cancellation date. Cash, Card, Bank and Other show how each sale was settled by the end of the period (Other is a customer advance or credit note); Credit is still unpaid. Fare is everything except service fees and commission. Cash and bank figures come from the ledger accounts 1000 and 1010.
+        ${icon('check', 14)} A sale stays on the day it was made; a cancellation is its own line on the cancellation date. Cash, Card, Bank and Other show how each sale was settled by the end of the period (Other is a customer advance or credit note); Credit is still unpaid. Fare is everything except service fees and commission. Visa security deposits are not sales: they show in their own column and summary box, and the money received for them is counted in the cash, card and bank columns. Cash and bank figures come from the ledger accounts 1000 and 1010.
       </div>
     </div>
   `;

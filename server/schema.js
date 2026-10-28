@@ -239,6 +239,44 @@ CREATE TABLE IF NOT EXISTS booking_items (
   sort_order INTEGER NOT NULL DEFAULT 0
 );
 
+-- Refundable security deposits taken for visas. Not a sale: the money is
+-- held in 2600 until refunded, applied to an invoice or forfeited, and may be
+-- passed to the visa supplier meanwhile (1460).
+CREATE TABLE IF NOT EXISTS visa_deposits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
+  visa_id INTEGER NOT NULL REFERENCES visa_applications(id) ON DELETE RESTRICT,
+  deposit_date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  voided_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS visa_deposit_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  deposit_id INTEGER NOT NULL REFERENCES visa_deposits(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL CHECK (event_type IN ('collect', 'to_supplier', 'supplier_return', 'refund', 'apply', 'forfeit')),
+  event_date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  deduction_cents INTEGER NOT NULL DEFAULT 0,
+  forfeit_to TEXT CHECK (forfeit_to IN ('agency', 'supplier')),
+  vendor_id INTEGER REFERENCES vendors(id) ON DELETE RESTRICT,
+  account_id INTEGER REFERENCES accounts(id) ON DELETE RESTRICT,
+  method TEXT NOT NULL DEFAULT '',
+  reference TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+  payment_id INTEGER REFERENCES payments(id) ON DELETE SET NULL,
+  refund_id INTEGER REFERENCES refunds(id) ON DELETE SET NULL,
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
+  void_remarks TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS visa_groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT NOT NULL UNIQUE,

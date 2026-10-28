@@ -136,6 +136,9 @@ ensureColumn('settings', 'next_topup_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'visa_prefix', "TEXT NOT NULL DEFAULT 'VIS'");
 ensureColumn('settings', 'next_visa_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_visa_group_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('settings', 'next_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('refunds', 'deposit_id', 'INTEGER');
+ensureColumn('payments', 'deposit_id', 'INTEGER');
 ensureColumn('settings', 'next_refund_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_deposit_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('settings', 'next_credit_number', 'INTEGER NOT NULL DEFAULT 1');
@@ -339,6 +342,15 @@ function ensureRequiredAccount(code, name) {
 
 ensureRequiredAccount('1450', 'Supplier Credits');
 ensureRequiredAccount('4330', 'Cancellation Charges Income');
+ensureRequiredAccount('1460', 'Deposits with Suppliers');
+ensureRequiredAccount('2600', 'Visa Security Deposits Held');
+ensureRequiredAccount('4340', 'Forfeited Deposit Income');
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_visa_deposits_visa ON visa_deposits(visa_id);
+  CREATE INDEX IF NOT EXISTS idx_visa_deposits_customer ON visa_deposits(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_visa_deposit_events_deposit ON visa_deposit_events(deposit_id);
+  CREATE INDEX IF NOT EXISTS idx_refunds_deposit ON refunds(deposit_id);
+`);
 
 // Travel account labels are name-aware and safe to check on every start.
 db.prepare("UPDATE accounts SET name = 'Ticket Sales' WHERE code = '4000' AND name = 'Sales Revenue'").run();

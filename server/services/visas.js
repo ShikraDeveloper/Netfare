@@ -155,6 +155,7 @@ function getVisa(db, id) {
   visa.cancellation = cancellationService.getCancellationForSource(db, 'visa', id);
   visa.status_history = jobs.statusHistory(db, 'visa', id);
   visa.group = visa.group_id ? groupSummary(db, visa.group_id) : null;
+  visa.deposits = require('./visa-deposits').listDeposits(db, { visa_id: visa.id });
 
   visa.payments = visa.invoice
     ? db.prepare(`
@@ -528,9 +529,29 @@ function createVisaGroup(db, payload = {}) {
       return { ...shared, ...fields };
     };
 
+    // A security deposit taken with the application is recorded straight away.
+    const takeDeposits = (applications) => {
+      applicants.forEach((applicant, index) => {
+        if (!Number(applicant.deposit_cents)) return;
+        try {
+          require('./visa-deposits').collectDeposit(db, {
+            visa_id: applications[index].id,
+            amount_cents: applicant.deposit_cents,
+            deposit_date: payload.deposit?.deposit_date || payload.application_date,
+            account_id: payload.deposit?.account_id,
+            method: payload.deposit?.method,
+          });
+        } catch (error) {
+          if (error.status === 400) error.message = `Applicant ${index + 1} deposit: ${error.message}`;
+          throw error;
+        }
+      });
+    };
+
     if (applicants.length === 1) {
       const visa = createVisa(db, build(applicants[0], 0));
-      return { group: null, applications: [visa] };
+      takeDeposits([visa]);
+      return { group: null, applications: [getVisa(db, visa.id)] };
     }
     const customer = assertCustomer(db, payload.customer_id);
     const applicationDate = dateISO(payload.application_date, 'Application date');
@@ -545,6 +566,7 @@ function createVisaGroup(db, payload = {}) {
         throw error;
       }
     });
+    takeDeposits(created);
     // Read them back once the group is complete so each shows the full group size.
     const applications = created.map((visa) => getVisa(db, visa.id));
     return { group: groupSummary(db, groupId), applications };

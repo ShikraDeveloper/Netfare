@@ -475,8 +475,10 @@ function resetAll(db) {
     db.prepare('DELETE FROM post_dated_cheques').run();
     db.prepare('DELETE FROM compliance_logs').run();
     db.prepare('DELETE FROM compliance_items').run();
+    db.prepare('DELETE FROM visa_deposit_events').run();
     db.prepare('DELETE FROM refunds').run();
     db.prepare('DELETE FROM payments').run();
+    db.prepare('DELETE FROM visa_deposits').run();
     db.prepare('DELETE FROM bill_payments').run();
     db.prepare('DELETE FROM customer_advances').run();
     db.prepare('DELETE FROM portal_topups').run();
@@ -499,7 +501,7 @@ function resetAll(db) {
     db.prepare('DELETE FROM vendors').run();
     db.prepare(`
       UPDATE settings SET next_invoice_number = 1, next_bill_number = 1, next_payment_number = 1,
-        next_booking_number = 1, next_visa_number = 1, next_visa_group_number = 1, next_advance_number = 1, next_topup_number = 1,
+        next_booking_number = 1, next_visa_number = 1, next_visa_group_number = 1, next_deposit_number = 1, next_advance_number = 1, next_topup_number = 1,
         next_refund_number = 1, next_deposit_number = 1, next_credit_number = 1,
         next_supplier_credit_number = 1, next_cancellation_number = 1, next_portal_credit_number = 1,
         updated_at = datetime('now') WHERE id = 1
@@ -509,7 +511,7 @@ function resetAll(db) {
        'supplier_credit_notes', 'supplier_credit_items', 'supplier_credit_applications', 'portal_credits',
        'cancellations',
        'cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',
-       'bookings', 'booking_items', 'visa_applications', 'visa_items', 'visa_groups', 'customer_advances',
+       'bookings', 'booking_items', 'visa_applications', 'visa_items', 'visa_groups', 'visa_deposits', 'visa_deposit_events', 'customer_advances',
        'supplier_portals', 'portal_topups', 'portal_refunds', 'journal_lines', 'journal_entries', 'audit_logs',
        'customers', 'vendors')`).run();
     return { cleared: true };

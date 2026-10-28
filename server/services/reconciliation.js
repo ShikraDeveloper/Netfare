@@ -164,6 +164,31 @@ function controlChecks(db, summary) {
       label: 'Portal wallet balances',
       href: '#/portals',
     }),
+    ...depositChecks(db),
+  ];
+}
+
+function depositChecks(db) {
+  const totals = require('./visa-deposits').depositTotals(db);
+  return [
+    controlCheck({
+      key: 'visa_deposits',
+      code: '2600',
+      name: 'Visa Security Deposits Held',
+      ledger: -accountBalanceCents(db, '2600'),
+      documents: totals.held_cents,
+      label: 'Deposits still held',
+      href: '#/reports/visa-deposits',
+    }),
+    controlCheck({
+      key: 'deposits_with_suppliers',
+      code: '1460',
+      name: 'Deposits with Suppliers',
+      ledger: accountBalanceCents(db, '1460'),
+      documents: totals.with_supplier_cents,
+      label: 'Deposits held by suppliers',
+      href: '#/reports/visa-deposits',
+    }),
   ];
 }
 
