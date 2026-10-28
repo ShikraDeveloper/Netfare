@@ -873,9 +873,28 @@ Verification:
 - Minor note for later: at phone width the scrollable invoice item table (`.doc-items-wrap`) is not keyboard-focusable, which axe flags at 375px. Desktop axe is clean.
 - No schema change. The live file was not modified; restart needed.
 
+### Hamburger ☰ → ✕ at the top of the phone sidebar — code commit `2e40bd5`
+
+The user wanted the hamburger itself to animate. On phones the header ☰ is covered by the open sidebar, so the hamburger now also appears at the **top-right of the open sidebar**.
+
+- As the sidebar opens it turns **☰ → ✕**: the ☰ rotates out and the ✕ rotates in with a light blur, 220ms. Tapping it closes the sidebar.
+- It is hidden on desktop. The brand gets right padding so the two do not overlap.
+- With reduced motion it simply shows ✕.
+- The tab bar's More → Close (previous entry) stays.
+
+Key files: `public/index.html`, `public/js/app.js`, `public/css/styles.css`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 158 passed.
+- `npm run test:e2e`: 33 passed. The motion test now also checks at 375px: the sidebar hamburger is visible when open; under reduced motion it shows ✕; with motion it uses `t-burger-in`; tapping it closes the sidebar.
+- Visual check at 375px on a throwaway server (temp data dir, port 4391, demo data): ✕ in the top-right of the open sidebar next to the Ledgerly brand.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `171f853` (phone menu More → Close).
+1. Start from the latest `main`; the latest code commit is `2e40bd5` (hamburger ☰ → ✕ on the phone sidebar).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
