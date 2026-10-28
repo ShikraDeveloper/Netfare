@@ -1646,6 +1646,21 @@ test('quiet transitions run, mark wrong input, and switch off for reduced motion
   assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('.more-menu-list')).animationName), 't-menu-in');
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
+
+  // On a phone the tab bar's More turns into Close (✕) while the sidebar is open.
+  await page.setViewportSize({ width: 375, height: 800 });
+  await openRoute('/dashboard');
+  const more = page.locator('.tabbar [data-tab-more]');
+  const iconOpacity = (name) => page.evaluate((n) => getComputedStyle(document.querySelector(`[data-tab-more] .tab-icon-${n}`)).opacity, name);
+  assert.deepEqual([await iconOpacity('open'), await iconOpacity('close')], ['1', '0']);
+  await more.click();
+  assert.equal(await more.getAttribute('aria-expanded'), 'true');
+  assert.deepEqual([await iconOpacity('open'), await iconOpacity('close')], ['0', '1']);
+  assert.match(await more.innerText(), /Close/);
+  await more.click();
+  assert.doesNotMatch(await page.locator('#sidebar').getAttribute('class'), /\bopen\b/);
+  assert.deepEqual([await iconOpacity('open'), await iconOpacity('close')], ['1', '0']);
+  await page.setViewportSize({ width: 1440, height: 1000 });
   assertNoConsoleErrors();
 });
 

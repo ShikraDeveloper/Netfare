@@ -248,8 +248,15 @@ function buildTabbar() {
   bar.innerHTML = `${TABBAR_ITEMS.map((item) => `
     <a class="tab-item" href="${item.href}" data-section="${item.section}">${icon(item.icon, 20)}<span>${esc(item.label)}</span></a>
   `).join('')}
-    <button type="button" class="tab-item" data-tab-more aria-controls="sidebar">${icon('more', 20)}<span>More</span></button>`;
-  bar.querySelector('[data-tab-more]').addEventListener('click', () => openSidebar());
+    <button type="button" class="tab-item" data-tab-more aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
+      <span class="tab-icons" aria-hidden="true"><span class="tab-icon-open">${icon('more', 20)}</span><span class="tab-icon-close">${icon('x', 20)}</span></span>
+      <span class="tab-label-open">More</span><span class="tab-label-close">Close</span>
+    </button>`;
+  // The tab bar sits above the open sidebar, so this same button closes it.
+  bar.querySelector('[data-tab-more]').addEventListener('click', () => {
+    if (sidebar.classList.contains('open')) closeSidebar();
+    else openSidebar();
+  });
   document.body.appendChild(bar);
 }
 
@@ -326,6 +333,12 @@ function syncMenuState() {
     ? sidebar.classList.contains('open')
     : !desktopNavCollapsed();
   menuBtn.setAttribute('aria-expanded', String(expanded));
+  const tabMore = document.querySelector('[data-tab-more]');
+  if (tabMore) {
+    const open = sidebar.classList.contains('open');
+    tabMore.setAttribute('aria-expanded', String(open));
+    tabMore.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
   menuBtn.setAttribute('aria-label', expanded ? 'Hide navigation' : 'Show navigation');
   menuBtn.title = expanded ? 'Hide navigation' : 'Show navigation';
 }

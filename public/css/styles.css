@@ -1546,6 +1546,15 @@ details.ledger-checks[open] > :not(summary),
 /* 4. Shake on a wrong or missing entry */
 .t-shake { animation: t-shake 320ms ease-in-out; }
 .input[aria-invalid="true"] { border-color: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+/* 6. Phone tab bar: "More" turns into "Close" (⋮ → ✕) while the sidebar is open */
+.tab-icons { display: inline-grid; place-items: center; }
+.tab-icons > span { grid-area: 1 / 1; display: inline-grid; transition: opacity var(--t-fast) var(--t-ease-out), transform var(--t-fast) var(--t-ease-out), filter var(--t-fast) var(--t-ease-out); }
+.tab-icon-close { opacity: 0; transform: scale(0.6) rotate(-45deg); filter: blur(2px); }
+.tab-label-close { display: none; }
+[data-tab-more][aria-expanded="true"] .tab-icon-open { opacity: 0; transform: scale(0.6) rotate(45deg); filter: blur(2px); }
+[data-tab-more][aria-expanded="true"] .tab-icon-close { opacity: 1; transform: none; filter: none; }
+[data-tab-more][aria-expanded="true"] .tab-label-open { display: none; }
+[data-tab-more][aria-expanded="true"] .tab-label-close { display: inline; }
 /* 5. Page change */
 .view.t-page-enter > * { animation: t-page var(--t-base) var(--t-ease-out); }
 
@@ -1556,6 +1565,7 @@ details.ledger-checks[open] > :not(summary),
   .nav-group:not(.collapsed) > .nav-group-items,
   .toast-success.show .icon, .toast-success.show .icon path,
   .t-shake, .view.t-page-enter > * { animation: none !important; }
+  .tab-icons > span { transition: none !important; }
 }
 @media print {
   .view.t-page-enter > *, .t-shake { animation: none !important; }
