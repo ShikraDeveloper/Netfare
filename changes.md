@@ -774,9 +774,63 @@ Verification:
   - Found and fixed while checking: the refund page's remaining refundable amount ignored the part of the deposit used for the invoice.
 - Migration dry-run on a copy of live `data/accounting.db`: the new counter and six indexes were added, integrity ok, all 10 ledger checks match. The live file was not modified; restart needed.
 
+### UI/UX cleanup — simpler navigation, Today box, summary strips, phone layout — code commit `32d54f9`
+
+The goal was to make the app friendlier for everyday staff work. Accounting, data, reports and printouts do not change.
+
+**Phase 1 — everyday screens**
+- **Sidebar:**
+  - Reorganised from 9 groups / 22 items into: Dashboard; Travel (Bookings, Visas); Sales (Invoices, Customers); Money back (To settle, Cancellations, Refunds, Credit notes, Customer balances); Suppliers (Suppliers, Bills & expenses, Supplier credits, Portals & wallets); Reports.
+  - **More** starts closed and holds Banking, Bank reconciliation, Cheques, Compliance, Journal, Opening balances, Chart of accounts, Audit log and Settings.
+  - Groups fold on click and are remembered (`ledgerly.nav.groups` in localStorage).
+  - Landing on a page inside a folded group opens that group.
+- **Dashboard:**
+  - A new **Today** box lists overdue invoices, money to give back (settlement queue), visa deposits to refund (cancelled or rejected visa), overdue bills, draft bookings and draft visas. Each is a link with its count and amount. The data comes from a new `todo` block on `GET /api/reports/dashboard`.
+  - Eight summary tiles in two rows; "Active bookings" was folded into the booking margin tile.
+  - Ledger checks are one line ("All 10 checks match") that opens the table. It opens by itself when a check does not match.
+- **Booking, visa and invoice pages:**
+  - A **summary strip** at the top: status, customer, total, paid, balance (red when due), margin (booking and visa) or due date (invoice).
+  - The main step stays as a button: Confirm / Submit / Send & post / Record payment, plus Approve / Issue / Reject and Mark travelled. Booking and visa pages link to their invoice with "Record payment" when money is due.
+  - All-list link, Print, Audit chain, Cancel / Void, credit note and cancellation links move into a **More ⋯** menu. It closes on a choice, an outside click or Escape. Items keep their `data-action`, so existing handlers work.
+- **Wording:** "Vendor" becomes **Supplier** across screens, including the list, forms, bills, cheques, compliance, aging and settings. Routes and the API are unchanged.
+
+**Phase 2 — tidier details**
+- Account-code columns on booking and visa documents are hidden unless switched on with **More → Show or hide account codes**, which is remembered per browser.
+- **Today** and **This month** quick-date buttons on every list date filter. The statement keeps its own presets.
+- The internal-notes box is smaller ("Staff only · not printed").
+
+**Phase 3 — phones**
+- A bottom **tab bar** (Home, Bookings, Visas, Invoices, More) at ≤900px. More opens the full sidebar.
+- The bookings, visas and invoices lists become **cards** at ≤680px. Cells are labelled from their column headers automatically, so each figure reads clearly.
+- Bigger touch targets: buttons and inputs at least 40–42px, and 16px input text so phones do not zoom in.
+- Header buttons keep their labels on phones; they used to show bare "+" icons.
+
+**Fixed during the work:** a constant name clashed with an existing one (`NAV_STATE_KEY`) and stopped the app loading. E2E caught it; `npm run check` did not, because it only checks each file's syntax.
+
+Key files:
+- Frontend: `public/js/app.js`, `public/js/ui.js`, `public/js/views/dashboard.js`, `public/js/views/booking-detail.js`, `public/js/views/visa-detail.js`, `public/js/views/invoice-detail.js`, `public/js/views/bookings.js`, `public/js/views/visas.js`, `public/js/views/invoices.js`, `public/js/views/statement.js`, `public/js/views/parties.js`, plus the supplier wording in `bills.js`, `bill-detail.js`, `cheques.js`, `supplier-credits.js`, `portals.js`, `refund-modal.js`, `settings.js`, `compliance/modal.js`, `reports/aging.js`; and `public/css/styles.css`.
+- Server: `server/services/reports/dashboard.js`.
+- Tests: `test/e2e/browser.test.js`.
+- Docs: `README.md`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 158 passed.
+- `npm run test:e2e`: 32 passed.
+  - New test: More group folded and opening; Suppliers label; Today links; summary strip; account codes hidden then shown from More; More closes after a choice; This month quick date; at 375px, the tab bar is active on Bookings, cells are labelled, there is no horizontal scroll, and More opens the sidebar.
+  - Existing tests open the More menu where Void, Print or Audit chain moved (`clickPageAction`).
+  - The ledger checks test opens the folded card first.
+  - Axe light and dark is clean.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data):
+  - desktop dashboard (Today box, 8 tiles, one-line checks);
+  - booking page (strip, open More menu, no account codes);
+  - at 375px: bookings cards with the tab bar, dashboard Today box, labelled header buttons, invoice page with strip; no horizontal scroll.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `ff6dba3` (audit fixes F1–F12).
+1. Start from the latest `main`; the latest code commit is `32d54f9` (UI/UX cleanup).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
