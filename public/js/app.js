@@ -321,6 +321,9 @@ function closeSidebar() {
 }
 
 const menuBtn = document.getElementById('menu-btn');
+// On phones the hamburger reappears at the top of the open sidebar and turns
+// into ✕; it closes the sidebar.
+document.getElementById('sidebar-close')?.addEventListener('click', () => closeSidebar());
 const mobileNav = window.matchMedia('(max-width: 900px)');
 const NAV_STATE_KEY = 'ledgerly.navCollapsed';
 

@@ -1660,6 +1660,18 @@ test('quiet transitions run, mark wrong input, and switch off for reduced motion
   await more.click();
   assert.doesNotMatch(await page.locator('#sidebar').getAttribute('class'), /\bopen\b/);
   assert.deepEqual([await iconOpacity('open'), await iconOpacity('close')], ['1', '0']);
+
+  // The hamburger reappears at the top of the open sidebar as ✕ and closes it.
+  await page.locator('#menu-btn').click();
+  const burger = page.locator('#sidebar-close');
+  assert.equal(await burger.isVisible(), true);
+  const burgerOpacity = (name) => page.evaluate((n) => getComputedStyle(document.querySelector(`#sidebar-close .burger-${n}`)).opacity, name);
+  assert.deepEqual([await burgerOpacity('open'), await burgerOpacity('close')], ['0', '1']);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('#sidebar-close .burger-close')).animationName), 't-burger-in');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await burger.click();
+  assert.doesNotMatch(await page.locator('#sidebar').getAttribute('class'), /\bopen\b/);
   await page.setViewportSize({ width: 1440, height: 1000 });
   assertNoConsoleErrors();
 });
