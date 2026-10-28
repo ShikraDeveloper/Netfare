@@ -853,9 +853,29 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data, motion on): new service invoice saved with no customer shakes and outlines the Customer field and shows "Choose a customer".
 - No schema change. The live file was not modified; restart needed.
 
+### Phone menu: "More" turns into "Close" (⋮ → ✕) — code commit `171f853`
+
+The user asked for a hamburger transition. transitions.dev has no dedicated one; the closest is its "Icon swap" pattern.
+
+- **First try:** swap ☰ → ✕ on the header menu button. E2E showed that on a phone the open sidebar (248–262px from the left) covers that button, so the ✕ would never be seen or tapped. Reverted.
+- **Final:** the **More** button in the phone tab bar becomes **Close** with a ✕ while the sidebar is open, using a 160ms scale/rotate/blur icon swap. Tapping it closes the sidebar. The tab bar sits above the sidebar and the dark overlay (z-index 45 vs 40 / 35), so the button stays visible on the right.
+- `aria-expanded` and `aria-label` ("Open menu" / "Close menu") stay in step through `syncMenuState()`.
+- Off for reduced motion. The tab bar is not printed.
+
+Key files: `public/js/app.js`, `public/css/styles.css`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 158 passed.
+- `npm run test:e2e`: 33 passed. The motion test now also checks at 375px: More shows ⋮; tapping it gives `aria-expanded=true`, the ✕ icon and "Close"; tapping again closes the sidebar and brings ⋮ back.
+- Visual check at 375px on a throwaway server (temp data dir, port 4391, demo data): the sidebar opens and the tab bar shows ✕ Close.
+- Minor note for later: at phone width the scrollable invoice item table (`.doc-items-wrap`) is not keyboard-focusable, which axe flags at 375px. Desktop axe is clean.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `17a0ad3` (quiet transitions).
+1. Start from the latest `main`; the latest code commit is `171f853` (phone menu More → Close).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
