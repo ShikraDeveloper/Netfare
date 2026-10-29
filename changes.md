@@ -911,9 +911,58 @@ Verification:
 - Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): ← next to the page title with the sidebar open, ☰ with it hidden.
 - No schema change. The live file was not modified; restart needed.
 
+### IFRS wording across reports, accounts and screens — code commit `95165e5`
+
+The user asked for accounting-standard wording. The rule applied: proper IFRS terms in reports and on accounting screens; on staff screens, the same terms kept short. Sources checked: IAS 1 (presentation and line items; IAS 1 allows label changes), IFRS 15 (contract liabilities, refund liabilities, trade receivables, principal vs agent) and the FTA tax invoice / tax credit note rules.
+
+- **Statement of Profit or Loss** (was Income Statement):
+  - Revenue → **Cost of sales** → **Gross profit** → **Operating expenses** → **Profit (or Loss) for the period**.
+  - `incomeStatement` adds `cost_of_sales`, `operating_expenses`, `cost_of_sales_total_cents`, `gross_profit_cents`, `operating_expenses_total_cents` and `profit_cents`. The old fields are kept.
+  - Cost of sales is every expense account of subtype `cogs`. **5120 is moved from operating expense to cost of sales**, alongside 5000 and 5100. The label "Cost of goods sold" becomes "Cost of sales".
+- **Statement of Financial Position** (was Balance Sheet): the unclosed result reads "Profit for the period (not yet closed to retained earnings)". Report tabs read "Profit or loss" and "Financial position".
+- **Account names:**
+  - 1100 Trade Receivables, 1200 Prepayments, 1400 Advances to Suppliers, 1460 Refundable Deposits Paid.
+  - 2000 Trade Payables, 2400 Contract Liabilities (Customer Advances), 2500 Refund Liabilities, 2600 Refundable Security Deposits Held.
+  - 4300 Service Fee Income, 4330 Cancellation Fee Income.
+  - 5000 / 5100 / 5120 Cost of Sales – Air Tickets / Hotels & Tours / Visas.
+  - A migration renames an account only when it still has the old default name; a name the user changed is kept. The old "Cost of Goods Sold" → 5000 rename now goes straight to the new name.
+  - `ensureRequiredAccount` uses the new names.
+  - The same names replace the old ones in screen hints, server messages, previews and the README (30 files).
+- **Statement of account:** columns **Debit / Credit**; balance label **Balance due** (customer) / **Balance payable** (supplier).
+- **Gross profit wording** (was "Margin" / "Profitability"):
+  - Booking and visa forms, pages and lists; summary strips; confirm preview; the DSR column, summary and switch ("Show cost & gross profit").
+  - The dashboard tiles "Booking / Visa gross profit"; the report tabs "Booking / Visa gross profit"; "Gross margin %".
+- **Dashboard:** Cash in hand / Cash at bank, Trade receivables, Trade payables, "Profit for the month".
+- **Settlements:** the menu item and page title both read "Settlements".
+- **"Post" kept** as the standard ledger term.
+- **Help lines:**
+  - Void dialog: "Void is for a mistake … if a customer cancelled, use Cancel".
+  - Cancellation form: "Cancel is for a customer cancellation (for a mistake, void instead)".
+  - Draft delete: "Delete is only for drafts".
+- **Vouchers:** a customer refund prints as **Payment voucher · customer refund**; a supplier refund as **Receipt voucher · supplier refund**.
+- **For the accountant (not changed):** under IFRS 15 an agency acting as agent reports ticket revenue net (commission or markup). Ledgerly records gross sales with cost of sales. Profit is the same; revenue differs.
+
+Key files:
+- Server: `server/default-accounts.js`, `server/migrations.js`, `server/services/reports/financials.js`, plus the account names in `server/services/*`.
+- Frontend: `public/js/views/reports/financials.js`, `public/js/views/reports.js`, `public/js/views/statement.js`, `public/js/views/dashboard.js`, `public/js/views/settlement-queue.js`, `public/js/views/customer-balances.js`, `public/js/app.js`, `public/js/ui.js`, `public/js/views/cancellation-modal.js`, `public/js/views/refund-detail.js`, `public/js/views/accounts.js`, the booking / visa / DSR / margin views, and `public/css/styles.css`.
+- Tests: `test/ifrs-terms.test.js` (new), `test/credit-refunds.test.js`, `test/e2e/browser.test.js`.
+- Docs: `README.md`.
+
+Verification:
+
+- `npm run check`: 176 JavaScript files syntax OK.
+- `npm test`: 161 passed. 3 new tests in `test/ifrs-terms.test.js`:
+  - the new names, with 5000 / 5100 / 5120 as cost of sales;
+  - an old default name is renamed on start, a custom name is kept, and 5120 moves to cogs;
+  - P&L revenue 1,000 − cost of sales 800 = gross profit 200 − rent 50 = profit 150, with the right accounts in each section; the financial position shows "Profit for the period".
+- `npm run test:e2e`: 33 passed. Five assertions now expect the new wording: Settlements, Debit/Credit, Gross profit in the confirm preview, the DSR profit column and the summary strip.
+- Migration dry-run on a copy of live `data/accounting.db`: all 13 accounts still had their default names and were renamed; 5120 moved to cost of sales; integrity ok; all 10 ledger checks match. P&L for 2026: revenue 700.00, cost of sales 569.00, gross profit 131.00, profit 131.00.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data): the Statement of Profit or Loss with cost of sales and gross profit.
+- No schema change (data only). The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `8344b1b` (desktop hamburger ☰ ↔ ←).
+1. Start from the latest `main`; the latest code commit is `95165e5` (IFRS wording).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
