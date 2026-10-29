@@ -490,16 +490,18 @@ test('cancelling a paid booking offers refund, credit or defer settlement', asyn
   assertNoConsoleErrors();
 });
 
-test('customer statement shows summary cards, presets and clean ledger rows', async () => {
+test('customer statement shows one summary line, presets and short ledger rows', async () => {
   const customers = await getJson(baseUrl, '/api/customers');
   const customer = customers.find((row) => row.invoice_count > 0);
   assert.ok(customer, 'Demo data should include a customer with an invoice');
 
   await openRoute(`/customers/${customer.id}/statement`);
-  const kpis = await page.locator('.kpi-grid .kpi').allInnerTexts();
-  assert.equal(kpis.length, 4, 'Statement should show four summary cards');
-  assert.match(kpis[1], /Debit/, 'Statement of account uses Debit');
-  assert.match(kpis[2], /Credit/, 'Statement of account uses Credit');
+  assert.equal(await page.locator('.kpi-grid').count(), 0, 'No separate summary cards');
+  const summary = await page.locator('[data-statement-summary] > div').allInnerTexts();
+  assert.equal(summary.length, 4, 'Opening, Debit, Credit and Balance due on one line');
+  assert.match(summary[1], /Debit/i, 'Statement of account uses Debit');
+  assert.match(summary[2], /Credit/i, 'Statement of account uses Credit');
+  assert.match(summary[3], /Balance due/i);
   assert.equal(await page.locator('.statement-presets [data-statement-preset]').count(), 3);
   assert.match(await page.locator('.statement-status').innerText(), /Settled|Payment due|Credit balance/);
 
@@ -513,8 +515,9 @@ test('customer statement shows summary cards, presets and clean ledger rows', as
   assert.match(await page.locator('#date-from').inputValue(), /^\d{4}-01-01$/);
 
   await page.emulateMedia({ media: 'print' });
-  assert.equal(await page.locator('.kpi-grid').isVisible(), false, 'Summary cards should not print');
+  assert.equal(await page.locator('.statement-toolbar').isVisible(), false, 'Period controls should not print');
   assert.equal(await page.locator('.statement-card').isVisible(), true, 'The statement document should print');
+  assert.equal(await page.locator('[data-statement-summary]').isVisible(), true, 'The summary line prints');
   await page.emulateMedia({ media: 'screen' });
   assertNoConsoleErrors();
 });
@@ -528,6 +531,10 @@ test('customer statement shows the visa applicant and invoice item', async () =>
   await openRoute(`/customers/${visitor.customer_id}/statement`);
   const invoiceRow = page.locator('.statement-table tbody tr').filter({ hasText: invoice.number }).first();
   await invoiceRow.waitFor();
+  // Visa details stay folded until the row's Details button opens them.
+  assert.equal(await invoiceRow.locator('.statement-visa').isVisible(), false);
+  await invoiceRow.locator('[data-statement-row-toggle]').click();
+  assert.equal(await invoiceRow.locator('.statement-visa').isVisible(), true);
   const applicantText = (await invoiceRow.locator('.statement-visa').innerText()).replace(/\u2011/g, '-');
   assert.ok(applicantText.includes(visitor.applicant_name), 'Statement should name the visa applicant');
   assert.match(applicantText, /Visitor/);
@@ -546,6 +553,12 @@ test('customer statement shows the visa applicant and invoice item', async () =>
     (await page.locator('.statement-parties').innerText()).includes(invoice.customer_name),
     'Bill To should stay with the paying customer',
   );
+  // Show details opens every row and is remembered.
+  await page.locator('[data-statement-details]').check();
+  await page.reload();
+  await page.locator('.statement-card.show-details').waitFor();
+  assert.equal(await page.locator('[data-statement-row-toggle]').first().isVisible(), false);
+  await page.locator('[data-statement-details]').uncheck();
   assertNoConsoleErrors();
 });
 
@@ -1767,6 +1780,9 @@ test('advances are used on confirm, recorded from the customer page and shown on
   const section = page.locator('[data-statement-advances]');
   await section.waitFor();
   assert.match(await section.innerText(), /Advances held for you/);
+  // One line with the amount; the history opens on click.
+  assert.equal(await section.locator('table').isVisible(), false);
+  await section.locator('summary').click();
   assert.match((await section.innerText()).replace(/\s+/g, ' '), /Advance used to pay invoice/);
   assertNoConsoleErrors();
 });

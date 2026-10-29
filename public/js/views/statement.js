@@ -40,13 +40,18 @@ const KIND_TONES = {
   cancellation_credit: 'amber',
 };
 
-// Visa security deposits run as their own balance: money we hold for the
-// customer, separate from what they owe on invoices.
-function depositsSectionHtml(deposits, { title = 'Security deposits held for you', attr = 'data-statement-deposits', note = 'Deposits are refundable and are not part of the amount due above.', label = 'Deposits still held' } = {}) {
-  if (!deposits || (!deposits.transactions.length && !deposits.opening_held_cents)) return '';
+// Advances and visa security deposits run as their own balances: money we
+// hold for the customer, separate from what they owe on invoices. Each shows
+// as one line; its history opens on click.
+function heldSectionHtml(held, { title, attr, note }) {
+  if (!held || (!held.transactions.length && !held.opening_held_cents)) return '';
   return `
-    <div class="statement-deposits" ${attr}>
-      <h3>${esc(title)}</h3>
+    <details class="statement-held${held.closing_held_cents ? '' : ' is-empty'}" ${attr}>
+      <summary>
+        <span class="statement-held-title">${esc(title)}</span>
+        <strong>${fmtMoney(held.closing_held_cents)}</strong>
+        <span class="statement-held-more no-print">History</span>
+      </summary>
       <div class="table-wrap">
       <table class="data statement-table"><caption class="sr-only">${esc(title)}</caption>
         <thead><tr>
@@ -54,8 +59,8 @@ function depositsSectionHtml(deposits, { title = 'Security deposits held for you
           <th scope="col" class="num">Returned / used</th><th scope="col" class="num">Received</th><th scope="col" class="num">Held</th>
         </tr></thead>
         <tbody>
-          ${deposits.opening_held_cents ? `<tr><td></td><td></td><td><strong>Held at start</strong></td><td></td><td></td><td class="num"><strong>${fmtMoney(deposits.opening_held_cents)}</strong></td></tr>` : ''}
-          ${deposits.transactions.map((row) => `
+          ${held.opening_held_cents ? `<tr><td></td><td></td><td>Held at start</td><td></td><td></td><td class="num">${fmtMoney(held.opening_held_cents)}</td></tr>` : ''}
+          ${held.transactions.map((row) => `
             <tr>
               <td class="nowrap">${esc(fmtDate(row.date))}</td>
               <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
@@ -64,12 +69,11 @@ function depositsSectionHtml(deposits, { title = 'Security deposits held for you
               <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '<span class="statement-zero">—</span>'}</td>
               <td class="num">${fmtMoney(row.balance_cents)}</td>
             </tr>`).join('')}
-          <tr class="statement-total"><td colspan="5"><strong>${esc(label)}</strong></td><td class="num"><strong>${fmtMoney(deposits.closing_held_cents)}</strong></td></tr>
         </tbody>
       </table>
       </div>
       <p class="muted">${esc(note)}</p>
-    </div>`;
+    </details>`;
 }
 
 function transactionTitle(row, kind) {
@@ -92,20 +96,33 @@ function transactionDetail(row, kind) {
   return parts.join(' · ');
 }
 
-function transactionItemsHtml(row) {
+function itemLabel(item) {
+  const quantity = Number(item.quantity) || 1;
+  return quantity === 1 ? item.description : `${quantity} × ${item.description}`;
+}
+
+// One short line under the title: the first item, then due date or method.
+function transactionSubHtml(row, kind) {
   const items = Array.isArray(row.items) ? row.items : [];
-  if (!items.length) return '';
-  const visible = items.slice(0, 3);
-  const lines = visible.map((item) => {
-    const quantity = Number(item.quantity) || 1;
-    const label = quantity === 1 ? item.description : `${quantity} × ${item.description}`;
-    return `<div class="statement-item-line">${esc(label)}</div>`;
-  });
-  const remaining = items.length - visible.length;
-  if (remaining > 0) {
-    lines.push(`<div class="statement-item-line statement-item-more">+${remaining} more item${remaining === 1 ? '' : 's'}</div>`);
+  const parts = [];
+  if (items.length) {
+    const more = items.length > 1 ? ` +${items.length - 1} more` : '';
+    parts.push(`<span class="statement-item-line">${esc(itemLabel(items[0]))}</span>${more}`);
   }
-  return lines.join('');
+  const detail = transactionDetail(row, kind);
+  if (detail) parts.push(esc(detail).replace(/-/g, '&#8209;'));
+  return parts.length ? `<div class="statement-row-sub">${parts.join(' · ')}</div>` : '';
+}
+
+// Everything else about the row (all items, visa, traveller) stays folded
+// until the row's Details button or the Show details switch opens it.
+function transactionExtraHtml(row) {
+  const items = Array.isArray(row.items) ? row.items : [];
+  const itemList = items.length > 1
+    ? `<ul class="statement-extra-items">${items.map((item) => `<li>${esc(itemLabel(item))}</li>`).join('')}</ul>`
+    : '';
+  const html = `${itemList}${visaDetailsHtml(row)}${beneficiaryDetailsHtml(row)}`;
+  return html.trim() ? `<div class="statement-extra">${html}</div>` : '';
 }
 
 function titleCase(value) {
@@ -159,17 +176,10 @@ function visaDetailsHtml(row) {
   `;
 }
 
-function summaryCard(label, valueCents, meta, iconName, color) {
-  return `
-    <div class="kpi">
-      <div class="kpi-top">
-        <span class="kpi-label">${esc(label)}</span>
-        <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
-      </div>
-      <div class="kpi-value">${fmtMoney(valueCents)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
-    </div>
-  `;
+const DETAILS_KEY = 'ledgerly.statement.details';
+
+function readShowDetails() {
+  try { return localStorage.getItem(DETAILS_KEY) === '1'; } catch { return false; }
 }
 
 function presetRange(preset) {
@@ -204,20 +214,14 @@ export async function render(container, { params = [], query = new URLSearchPara
   const partyLabel = kind === 'customer' ? 'Customer' : 'Supplier';
   // Statement of account columns follow the ledger: Debit / Credit / Balance.
   const balanceLabel = kind === 'customer' ? 'Balance due' : 'Balance payable';
-  const debitLabel = 'Debit';
-  const creditLabel = 'Credit';
-  const debitCount = data.transactions.filter((row) => row.debit_cents > 0).length;
-  const creditCount = data.transactions.filter((row) => row.credit_cents > 0).length;
-  const transactionCount = data.transactions.length;
-  const transactionText = `${transactionCount} transaction${transactionCount === 1 ? '' : 's'}`;
   const closing = data.closing_balance_cents;
   const closingStatus = closing === 0
     ? { text: 'Settled', className: 'settled' }
     : closing > 0
       ? { text: kind === 'customer' ? 'Payment due' : 'Payable', className: 'due' }
       : { text: kind === 'customer' ? 'Credit balance' : 'Advance paid', className: 'credit' };
-  const balanceColor = closing > 0 ? 'amber' : closing < 0 ? 'blue' : 'green';
-  const openingMeta = data.from ? `At ${fmtDate(data.from)}` : 'Start of history';
+  const showDetails = readShowDetails();
+  const hasExtras = data.transactions.some((row) => transactionExtraHtml(row));
 
   setHeader({
     title: `${data.party.name} statement`,
@@ -229,13 +233,6 @@ export async function render(container, { params = [], query = new URLSearchPara
   });
 
   container.innerHTML = `
-    <div class="kpi-grid no-print">
-      ${summaryCard('Opening balance', data.opening_balance_cents, openingMeta, 'wallet', 'indigo')}
-      ${summaryCard(debitLabel, data.total_debit_cents, `${debitCount} debit entr${debitCount === 1 ? 'y' : 'ies'} in period`, 'invoice', 'blue')}
-      ${summaryCard(creditLabel, data.total_credit_cents, `${creditCount} credit entr${creditCount === 1 ? 'y' : 'ies'} in period`, 'check', 'green')}
-      ${summaryCard(balanceLabel, closing, `${closingStatus.text} · ${transactionText}`, 'bill', balanceColor)}
-    </div>
-
     <div class="toolbar statement-toolbar no-print">
       ${dateRangeHtml({ from: data.from, to: data.to, label: 'Period', presets: false })}
       <div class="statement-presets" role="group" aria-label="Statement period presets">
@@ -243,9 +240,10 @@ export async function render(container, { params = [], query = new URLSearchPara
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="year" aria-pressed="false">This year</button>
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="all" aria-pressed="false">All time</button>
       </div>
+      ${hasExtras ? `<label class="statement-details-switch"><input type="checkbox" data-statement-details ${showDetails ? 'checked' : ''}> Show details</label>` : ''}
     </div>
 
-    <div class="card statement-card">
+    <div class="card statement-card${showDetails ? ' show-details' : ''}">
       <div class="statement-head">
         <div>
           <div class="statement-brand">${esc(data.company.company_name || 'My Company')}</div>
@@ -266,17 +264,19 @@ export async function render(container, { params = [], query = new URLSearchPara
           ${data.party.address ? `<p class="statement-address">${esc(data.party.address)}</p>` : ''}
           ${data.party.email || data.party.phone ? `<p class="statement-contact">${esc([data.party.phone, data.party.email].filter(Boolean).join(' · '))}</p>` : ''}
         </div>
-        <div class="statement-balance-box">
-          <span>${balanceLabel}</span>
-          <div class="statement-balance-value">
-            <strong>${fmtMoney(closing)}</strong>
-            <span class="statement-status ${closingStatus.className}">${closingStatus.text}</span>
-          </div>
-          <small>As of ${esc(fmtDate(data.to, { long: true }))}</small>
-          ${data.unapplied_credits_cents > 0 ? `<small>Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</small>` : ''}
-          ${data.unapplied_supplier_credits_cents > 0 ? `<small>Open supplier credits: ${fmtMoney(data.unapplied_supplier_credits_cents)}</small>` : ''}
+      </div>
+
+      <div class="statement-summary" data-statement-summary>
+        <div><span>Opening</span><strong>${fmtMoney(data.opening_balance_cents)}</strong></div>
+        <div><span>Debit</span><strong>${fmtMoney(data.total_debit_cents)}</strong></div>
+        <div><span>Credit</span><strong>${fmtMoney(data.total_credit_cents)}</strong></div>
+        <div class="statement-summary-due">
+          <span>${balanceLabel} · ${esc(fmtDate(data.to))}</span>
+          <strong>${fmtMoney(closing)} <span class="statement-status ${closingStatus.className}">${closingStatus.text}</span></strong>
         </div>
       </div>
+      ${data.unapplied_credits_cents > 0 ? `<p class="statement-note">Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</p>` : ''}
+      ${data.unapplied_supplier_credits_cents > 0 ? `<p class="statement-note">Open supplier credits: ${fmtMoney(data.unapplied_supplier_credits_cents)}</p>` : ''}
 
       <div class="table-wrap">
         <table class="data statement-table"><caption class="sr-only">Account statement</caption>
@@ -307,8 +307,8 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td class="num"></td>
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
-            ${data.transactions.length ? data.transactions.map((row) => {
-              const detail = transactionDetail(row, kind);
+            ${data.transactions.length ? data.transactions.map((row, index) => {
+              const extra = transactionExtraHtml(row);
               return `
                 <tr>
                   <td class="nowrap">${esc(fmtDate(row.date))}</td>
@@ -318,10 +318,9 @@ export async function render(container, { params = [], query = new URLSearchPara
                       <span class="statement-desc-dot ${KIND_TONES[row.kind] || 'slate'}" aria-hidden="true"></span>
                       <div class="statement-desc-content">
                         <div class="statement-desc-title">${esc(transactionTitle(row, kind))}</div>
-                        ${transactionItemsHtml(row)}
-                        ${detail ? `<div class="cell-sub">${esc(detail).replace(/-/g, '&#8209;')}</div>` : ''}
-                        ${visaDetailsHtml(row)}
-                        ${beneficiaryDetailsHtml(row)}
+                        ${transactionSubHtml(row, kind)}
+                        ${extra ? `<button type="button" class="statement-row-toggle no-print" data-statement-row-toggle aria-expanded="false" aria-controls="statement-extra-${index}">Details</button>
+                          <div id="statement-extra-${index}" class="statement-extra-wrap">${extra}</div>` : ''}
                       </div>
                     </div>
                   </td>
@@ -342,8 +341,8 @@ export async function render(container, { params = [], query = new URLSearchPara
           </tbody>
         </table>
       </div>
-      ${depositsSectionHtml(data.advances, { title: 'Advances held for you', attr: 'data-statement-advances', note: 'Money received before an invoice. It is used for your next invoice or refunded, and is not part of the amount due above.', label: 'Advances still held' })}
-      ${depositsSectionHtml(data.deposits)}
+      ${heldSectionHtml(data.advances, { title: 'Advances held for you', attr: 'data-statement-advances', note: 'Money received before an invoice. It is used for your next invoice or refunded, and is not part of the amount due above.' })}
+      ${heldSectionHtml(data.deposits, { title: 'Security deposits held for you', attr: 'data-statement-deposits', note: 'Deposits are refundable and are not part of the amount due above.' })}
 
       <div class="statement-foot">
         <p>Please review this statement and contact us if anything looks incorrect.</p>
@@ -373,6 +372,19 @@ export async function render(container, { params = [], query = new URLSearchPara
     });
   });
   markActivePreset(container);
+
+  const card = container.querySelector('.statement-card');
+  container.querySelector('[data-statement-details]')?.addEventListener('change', (event) => {
+    card.classList.toggle('show-details', event.target.checked);
+    try { localStorage.setItem(DETAILS_KEY, event.target.checked ? '1' : '0'); } catch { /* not stored */ }
+  });
+  container.querySelectorAll('[data-statement-row-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', open ? 'true' : 'false');
+      button.closest('tr').classList.toggle('open', open);
+    });
+  });
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);
