@@ -1103,9 +1103,27 @@ Verification:
 - Visual check of the form on a throwaway server (temp data dir, port 4391, demo data) at 1400px.
 - Schema change: one nullable column, added by migration on start. The live file was not modified; restart needed.
 
+### Bank debits need no supplier — code commit `01d8088`
+
+The user found that the bank charges form still asked for a supplier.
+
+- With **"The bank takes this amount itself"** ticked, the supplier field reads **Supplier (optional)**. Its empty choice reads "None — the bank itself", and a hint explains it.
+- Left empty, `normalizePayload` uses a supplier named after the debit account, "`<account name>` (bank debits)" (for example "Bank Account (bank debits)"). It is created on first use with a note and reused after that, the same way as the Sundry supplier for quick expenses. A named supplier can still be chosen.
+- A normal recurring bill (no bank debit) still says "Choose a vendor".
+
+Key files: `server/services/compliance.js`, `public/js/views/compliance/modal.js`, `test/bank-debit.test.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 182 files OK.
+- `npm test`: 174 passed. New test: a bank debit with no supplier gets "Bank Account (bank debits)", which is reused, and its bill is paid; a rent bill without a supplier is still refused.
+- `npm run test:e2e`: 37 passed. The bank charges test now saves without choosing a supplier and sees "Bank Account (bank debits)" on the row.
+- Visual check of the form on a throwaway server (port 4391).
+- No schema change; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `0afceae` (Bank Charges account and Compliance bank debits).
+1. Start from the latest `main`; the latest code commit is `01d8088` (bank debits need no supplier).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
