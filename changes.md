@@ -1049,9 +1049,33 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): the Record advance button on the customer balance page and the statement.
 - No schema change. The live file was not modified; restart needed.
 
+### Simpler customer statement — code commit `2f59a97`
+
+The user found the customer statement too complex. On demo data, Aisha Khan's statement was about 1,980px tall for 13 rows. It is now about 1,480px.
+
+- **One summary line:** Opening · Debit · Credit · **Balance due** with the Settled / Payment due / Credit balance pill. It sits inside the document, so it also prints. It replaces the four KPI cards above the page and the separate balance-due box. On a phone, Opening and Balance due take a full row and Debit / Credit sit side by side.
+- **Short rows:** each row shows its title plus one muted line: the first item ("+N more" if there are others), then the due date, method or "Against INV-…". All items, the visa applicant box and the "Service for" traveller box are folded behind a small **Details ▸** button on the row.
+- **Show details switch:** in the toolbar, shown only when some row has details. It opens every row and is remembered per browser (`ledgerly.statement.details`). The print follows the switch.
+- **Held balances:** **Advances held for you** and **Security deposits held for you** each show as one line with the amount. The history table opens with **History ▸** (a `<details>`). An empty one (AED 0.00 held) is left off the printout; a section with no history at all is not shown.
+- **Print:** period controls, Details buttons and the skip link are hidden. Debit / Credit / Balance columns and all amounts are unchanged.
+- Supplier statements use the same screen and get the same layout.
+
+Key files: `public/js/views/statement.js`, `public/css/styles.css`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 181 JavaScript files syntax OK.
+- `npm test`: 169 passed.
+- `npm run test:e2e`: 36 passed, axe clean. Updated tests:
+  - The summary test checks that no KPI cards remain, the summary line has 4 parts (Debit, Credit, Balance due), period controls don't print and the summary line does.
+  - In the visa applicant test the details are hidden until the row's Details button is clicked; Show details hides the row buttons, survives a reload, and is switched back off.
+  - The advances test checks the history table is folded until the summary is clicked.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data) at 1400px, 375px (no sideways scroll) and an A4 PDF print.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `ee22a2d` (customer advance fixes).
+1. Start from the latest `main`; the latest code commit is `2f59a97` (simpler customer statement).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
