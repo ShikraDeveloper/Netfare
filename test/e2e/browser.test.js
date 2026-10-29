@@ -1688,6 +1688,29 @@ test('quiet transitions run, mark wrong input, and switch off for reduced motion
   assertNoConsoleErrors();
 });
 
+test('the reports home groups reports and each report has quick periods', async () => {
+  await openRoute('/reports');
+  const home = page.locator('[data-reports-home]');
+  await home.waitFor();
+  assert.deepEqual(
+    (await home.locator('h2').allInnerTexts()).map((text) => text.trim().toLowerCase()),
+    ['daily work', 'how the business is doing', 'for your accountant'],
+  );
+  assert.equal(await home.locator('[data-report-link]').count(), 10);
+  await home.locator('[data-report-link="income-statement"]').click();
+  await page.locator('[data-profit-or-loss]').waitFor();
+  assert.match(await page.locator('#page-title').innerText(), /Statement of Profit or Loss/);
+  assert.equal(await page.locator('.tabs').count(), 0, 'no long tab strip');
+  await page.locator('[data-preset="year"]').click();
+  await page.waitForFunction(() => document.querySelector('#report-from')?.value.endsWith('-01-01'));
+  await page.locator('[data-profit-or-loss]').waitFor();
+  await page.locator('[data-preset="last-month"]').click();
+  assert.match(await page.locator('#report-to').inputValue(), /^\d{4}-\d{2}-\d{2}$/);
+  await page.locator('#page-actions [data-all-reports]').click();
+  await page.locator('[data-reports-home]').waitFor();
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -1740,6 +1763,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     '/reports/income-statement',
     '/reports/balance-sheet',
     '/reports/trial-balance',
+    '/reports',
     '/reports/daily-sales',
     '/reports/visa-deposits',
     '/reports/booking-margin',

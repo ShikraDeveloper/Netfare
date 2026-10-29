@@ -7,18 +7,56 @@ import { bookingMargin, visaMargin } from './reports/margins.js';
 import { portalWallets } from './reports/portal-wallets.js';
 import { visaDeposits } from './reports/visa-deposits.js';
 
+// Reports grouped by who uses them. `period` reports take a date range,
+// `asOf` reports a single date.
 const REPORTS = [
-  { key: 'income-statement', label: 'Profit or loss', title: 'Statement of Profit or Loss' },
-  { key: 'balance-sheet', label: 'Financial position', title: 'Statement of Financial Position' },
-  { key: 'trial-balance', label: 'Trial balance', title: 'Trial Balance' },
-  { key: 'daily-sales', label: 'Daily sales', title: 'Daily Sales' },
-  { key: 'booking-margin', label: 'Booking gross profit', title: 'Booking Gross Profit' },
-  { key: 'visa-margin', label: 'Visa gross profit', title: 'Visa Gross Profit' },
-  { key: 'portal-wallets', label: 'Portal wallets', title: 'Portal Wallets' },
-  { key: 'visa-deposits', label: 'Visa deposits', title: 'Visa Security Deposits' },
-  { key: 'ar-aging', label: 'A/R aging', title: 'Trade Receivables Aging' },
-  { key: 'ap-aging', label: 'A/P aging', title: 'Trade Payables Aging' },
+  { key: 'daily-sales', group: 'daily', label: 'Daily sales', title: 'Daily Sales Report', icon: 'cash', kind: 'period',
+    description: 'What was sold today, how it was paid, refunds and the cash position.' },
+  { key: 'ar-aging', group: 'daily', label: 'Who owes us', title: 'Trade Receivables Aging', icon: 'invoice', kind: 'asOf',
+    description: 'Unpaid customer invoices by how overdue they are.' },
+  { key: 'visa-deposits', group: 'daily', label: 'Visa deposits', title: 'Visa Security Deposits', icon: 'visa', kind: 'none',
+    description: 'Deposits still held, with the ones due for refund.' },
+  { key: 'income-statement', group: 'performance', label: 'Profit or loss', title: 'Statement of Profit or Loss', icon: 'trendUp', kind: 'period',
+    description: 'Revenue, cost of sales, gross profit and profit for a period.' },
+  { key: 'booking-margin', group: 'performance', label: 'Booking gross profit', title: 'Booking Gross Profit', icon: 'plane', kind: 'period',
+    description: 'Sale, supplier cost and gross profit for each booking.' },
+  { key: 'visa-margin', group: 'performance', label: 'Visa gross profit', title: 'Visa Gross Profit', icon: 'visa', kind: 'period',
+    description: 'Sale, supplier cost and gross profit for each visa application.' },
+  { key: 'balance-sheet', group: 'accountant', label: 'Financial position', title: 'Statement of Financial Position', icon: 'accounts', kind: 'asOf',
+    description: 'Assets, liabilities and equity on a date (balance sheet).' },
+  { key: 'trial-balance', group: 'accountant', label: 'Trial balance', title: 'Trial Balance', icon: 'journal', kind: 'asOf',
+    description: 'Debit and credit balance of every account on a date.' },
+  { key: 'ap-aging', group: 'accountant', label: 'What we owe suppliers', title: 'Trade Payables Aging', icon: 'bill', kind: 'asOf',
+    description: 'Unpaid supplier bills by how overdue they are.' },
+  { key: 'portal-wallets', group: 'accountant', label: 'Portal wallets', title: 'Portal Wallets', icon: 'wallet', kind: 'none',
+    description: 'Money held with airlines, agencies and visa agents.' },
 ];
+
+const GROUPS = [
+  { key: 'daily', title: 'Daily work' },
+  { key: 'performance', title: 'How the business is doing' },
+  { key: 'accountant', title: 'For your accountant' },
+];
+
+function reportsHome(container) {
+  setHeader({ title: 'Reports', subtitle: 'Pick a report. Every figure comes from your posted ledger.', actions: '' });
+  container.innerHTML = `
+    <div class="reports-home" data-reports-home>
+      ${GROUPS.map((group) => `
+        <section class="reports-group">
+          <h2>${esc(group.title)}</h2>
+          <div class="reports-grid">
+            ${REPORTS.filter((report) => report.group === group.key).map((report) => `
+              <a class="report-card-link" href="#/reports/${report.key}" data-report-link="${report.key}">
+                <span class="report-card-icon">${icon(report.icon, 18)}</span>
+                <span class="report-card-text"><strong>${esc(report.label)}</strong><small>${esc(report.description)}</small></span>
+                ${icon('chevron', 14)}
+              </a>`).join('')}
+          </div>
+        </section>`).join('')}
+    </div>`;
+  return () => {};
+}
 
 function renderReport(key, data) {
   if (key === 'income-statement') return incomeStatement(data);
@@ -53,9 +91,17 @@ async function fetchReport(key, filters) {
   return api.get('/reports/ap-aging', { as_of: filters.asOf });
 }
 
-function controlsHtml(key, filters) {
-  if (key === 'portal-wallets') return '';
-  if (key === 'visa-deposits') {
+function monthStart(iso) { return `${iso.slice(0, 7)}-01`; }
+function lastMonthRange(iso) {
+  const first = new Date(`${monthStart(iso)}T00:00:00Z`);
+  const end = new Date(first.getTime() - 86_400_000);
+  const toIso = (date) => date.toISOString().slice(0, 10);
+  return { from: `${toIso(end).slice(0, 7)}-01`, to: toIso(end) };
+}
+
+// Quick ranges first, exact dates after.
+function controlsHtml(report, filters) {
+  if (report.key === 'visa-deposits') {
     return `
       <div class="field">
         <label for="report-deposit-status">Show</label>
@@ -65,8 +111,14 @@ function controlsHtml(key, filters) {
         </select>
       </div>`;
   }
-  if (key === 'income-statement' || key === 'booking-margin' || key === 'visa-margin' || key === 'daily-sales') {
+  if (report.kind === 'period') {
     return `
+      <div class="report-presets" role="group" aria-label="Quick periods">
+        <button type="button" class="btn btn-secondary btn-sm" data-preset="today" data-action="daily-today">Today</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-preset="month">This month</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-preset="last-month">Last month</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-preset="year">This year</button>
+      </div>
       <div class="field">
         <label for="report-from">From</label>
         <input class="input" id="report-from" type="date" value="${esc(filters.from)}">
@@ -74,53 +126,52 @@ function controlsHtml(key, filters) {
       <div class="field">
         <label for="report-to">To</label>
         <input class="input" id="report-to" type="date" value="${esc(filters.to)}">
-      </div>
-      ${key === 'daily-sales' ? `
-        <div class="field">
-          <label>Quick</label>
-          <button type="button" class="btn btn-secondary" data-action="daily-today">Today</button>
-        </div>` : ''}
-    `;
+      </div>`;
   }
-  return `
-    <div class="field">
-      <label for="report-as-of">As of</label>
-      <input class="input" id="report-as-of" type="date" value="${esc(filters.asOf)}">
-    </div>
-  `;
+  if (report.kind === 'asOf') {
+    return `
+      <div class="report-presets" role="group" aria-label="Quick dates">
+        <button type="button" class="btn btn-secondary btn-sm" data-preset="as-today">Today</button>
+        <button type="button" class="btn btn-secondary btn-sm" data-preset="as-month-end">End of last month</button>
+      </div>
+      <div class="field">
+        <label for="report-as-of">As of</label>
+        <input class="input" id="report-as-of" type="date" value="${esc(filters.asOf)}">
+      </div>`;
+  }
+  return '';
 }
 
 export async function render(container, { params } = {}) {
-  const requested = params?.[0] || 'income-statement';
+  const requested = params?.[0];
+  if (!requested) return reportsHome(container);
   const active = REPORTS.find((report) => report.key === requested);
   if (!active) {
-    location.hash = '#/reports/income-statement';
+    location.hash = '#/reports';
     return;
   }
 
   const today = todayISO();
   const filters = {
-    from: `${today.slice(0, 7)}-01`,
+    from: monthStart(today),
     to: today,
     asOf: today,
     depositStatus: 'open',
   };
 
   setHeader({
-    title: 'Reports',
-    subtitle: 'Financial statements built from your posted ledger',
-    actions: `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
+    title: active.title,
+    subtitle: active.description,
+    actions: `
+      <a class="btn btn-ghost" href="#/reports" data-all-reports>${icon('reports', 15)}<span>All reports</span></a>
+      <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
   });
 
   const data = await fetchReport(active.key, filters);
 
+  const controls = controlsHtml(active, filters);
   container.innerHTML = `
-    <div class="tabs no-print">
-      ${REPORTS.map((report) => `<a class="tab ${report.key === active.key ? 'active' : ''}" href="#/reports/${report.key}">${esc(report.label)}</a>`).join('')}
-    </div>
-    <div class="report-controls no-print">
-      ${controlsHtml(active.key, filters)}
-    </div>
+    ${controls ? `<div class="report-controls no-print">${controls}</div>` : ''}
     <div id="report-body">${renderReport(active.key, data)}</div>
   `;
 
@@ -156,16 +207,20 @@ export async function render(container, { params } = {}) {
     if (input) input.addEventListener('change', reload);
   });
 
-  const todayButton = container.querySelector('[data-action="daily-today"]');
-  if (todayButton) {
-    todayButton.addEventListener('click', () => {
-      filters.from = today;
-      filters.to = today;
-      container.querySelector('#report-from').value = today;
-      container.querySelector('#report-to').value = today;
+  container.querySelectorAll('[data-preset]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const preset = button.dataset.preset;
+      const set = (id, value) => { const input = container.querySelector(`#${id}`); if (input) input.value = value; };
+      if (preset === 'today') { set('report-from', today); set('report-to', today); }
+      if (preset === 'month') { set('report-from', monthStart(today)); set('report-to', today); }
+      if (preset === 'last-month') { const range = lastMonthRange(today); set('report-from', range.from); set('report-to', range.to); }
+      if (preset === 'year') { set('report-from', `${today.slice(0, 4)}-01-01`); set('report-to', today); }
+      if (preset === 'as-today') set('report-as-of', today);
+      if (preset === 'as-month-end') set('report-as-of', lastMonthRange(today).to);
+      container.querySelectorAll('[data-preset]').forEach((other) => other.classList.toggle('active', other === button));
       reload();
     });
-  }
+  });
 
   const print = () => window.print();
   container.querySelectorAll('[data-action="print"]').forEach((button) => button.addEventListener('click', print));
