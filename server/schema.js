@@ -536,6 +536,7 @@ CREATE TABLE IF NOT EXISTS compliance_items (
   end_date TEXT,
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'done')),
   auto_create_bill INTEGER NOT NULL DEFAULT 0,
+  auto_debit_account_id INTEGER REFERENCES accounts(id),
   reminder_days INTEGER NOT NULL DEFAULT 14,
   notes TEXT NOT NULL DEFAULT '',
   last_generated_date TEXT,

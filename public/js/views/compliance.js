@@ -18,7 +18,7 @@ export async function render(container, { query } = {}) {
   const items = data.items;
 
   if (data.generated?.length) {
-    toast(`${data.generated.length} draft bill${data.generated.length === 1 ? '' : 's'} created from compliance`);
+    toast(`${data.generated.length} bill${data.generated.length === 1 ? '' : 's'} created from compliance`);
   }
   if (data.errors?.length) {
     toast(`${data.errors.length} compliance item${data.errors.length === 1 ? '' : 's'} could not generate a bill`, 'error');
@@ -66,7 +66,7 @@ export async function render(container, { query } = {}) {
   const notice = data.generated?.length
     ? `<div class="callout" style="border-color:var(--green-soft);background:var(--green-soft)">
         <div class="callout-icon" style="background:var(--surface);color:var(--green)">${icon('check', 20)}</div>
-        <div class="callout-text"><h3>Draft bills created</h3><p>${data.generated.map((row) => `<a href="#/bills/${row.bill_id}">${esc(row.bill_number)}</a>`).join(' · ')}</p></div>
+        <div class="callout-text"><h3>Bills created</h3><p>${data.generated.map((row) => `<a href="#/bills/${row.bill_id}">${esc(row.bill_number)}</a>`).join(' · ')}</p></div>
       </div>`
     : '';
   const errorNotice = data.errors?.length
@@ -200,7 +200,7 @@ export async function render(container, { query } = {}) {
       try {
         const result = await api.post('/compliance/run-due', {});
         if (result.generated?.length) {
-          toast(`${result.generated.length} draft bill${result.generated.length === 1 ? '' : 's'} created`);
+          toast(`${result.generated.length} bill${result.generated.length === 1 ? '' : 's'} created`);
         } else {
           toast('No auto due bills to create');
         }

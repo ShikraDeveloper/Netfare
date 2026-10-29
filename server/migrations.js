@@ -189,6 +189,9 @@ ensureColumn('refunds', 'credit_note_id', 'INTEGER');
 ensureColumn('credit_notes', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'anchor_date', 'TEXT');
 ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
+// Set when the bank takes the amount itself (account charges): each period's
+// bill is created already paid from this cash or bank account.
+ensureColumn('compliance_items', 'auto_debit_account_id', 'INTEGER REFERENCES accounts(id)');
 ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 ensureColumn('post_dated_cheques', 'batch_index', 'INTEGER NOT NULL DEFAULT 0');
 

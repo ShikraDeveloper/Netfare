@@ -23,7 +23,7 @@ export const STATUS_OPTIONS = [
 export const PAYMENT_METHODS = ['Bank transfer', 'Cheque', 'Cash', 'Credit card', 'Other'];
 
 export const CATEGORIES = {
-  recurring_bill: ['Office rent', 'Utilities', 'Salaries', 'Internet & phone', 'Software', 'Insurance', 'Trade licence', 'Other'],
+  recurring_bill: ['Office rent', 'Utilities', 'Salaries', 'Internet & phone', 'Software', 'Insurance', 'Trade licence', 'Bank charges', 'Other'],
   filing: ['Corporate tax', 'Payroll', 'Other'],
   renewal: ['Trade licence', 'Lease', 'Insurance', 'Vehicle registration', 'Visa quota', 'Other'],
 };
@@ -75,7 +75,9 @@ export function rowHtml(item) {
   const actions = [];
   if (item.status === 'active') {
     if (item.kind === 'recurring_bill') {
-      actions.push(`<button class="btn btn-secondary btn-sm" data-generate="${item.id}" title="Create a draft bill">${icon('bill', 14)}<span>Create bill</span></button>`);
+      actions.push(item.auto_debit_account_id
+        ? `<button class="btn btn-secondary btn-sm" data-generate="${item.id}" title="Record this period's bank debit">${icon('bill', 14)}<span>Record debit</span></button>`
+        : `<button class="btn btn-secondary btn-sm" data-generate="${item.id}" title="Create a draft bill">${icon('bill', 14)}<span>Create bill</span></button>`);
     } else {
       actions.push(`<button class="btn btn-success btn-sm" data-complete="${item.id}" title="Mark complete">${icon('check', 14)}<span>Mark done</span></button>`);
     }
@@ -94,7 +96,9 @@ export function rowHtml(item) {
       <td>${kindBadge(item.kind)}</td>
       <td>
         <div class="cell-main">${esc(item.frequency_label)}</div>
-        <div class="cell-sub">${item.variable_amount ? 'Variable amount' : item.auto_create_bill ? 'Auto draft' : item.kind === 'recurring_bill' ? 'Manual draft' : 'Reminder'}${item.payment_method === 'Cheque' ? ' · Cheque' : ''}</div>
+        <div class="cell-sub">${item.auto_debit_account_id
+          ? `Bank debit · ${esc(item.auto_debit_account_name || '')}${item.variable_amount ? ' · variable' : ''}`
+          : item.variable_amount ? 'Variable amount' : item.auto_create_bill ? 'Auto draft' : item.kind === 'recurring_bill' ? 'Manual draft' : 'Reminder'}${!item.auto_debit_account_id && item.payment_method === 'Cheque' ? ' · Cheque' : ''}</div>
       </td>
       <td>
         <div class="cell-main nowrap">${esc(fmtDate(item.next_due_date))}</div>

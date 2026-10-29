@@ -1,5 +1,6 @@
 import { api } from '../../api.js';
 import { activeVendors, expenseAccounts } from '../../store.js';
+import { depositAccounts } from '../job-modals.js';
 import {
   centsToInput,
   currencySymbol,
@@ -30,6 +31,8 @@ function modalBody(item = null) {
   const category = item?.category || CATEGORIES[kind][0];
   const frequency = item?.frequency || (kind === 'renewal' ? 'yearly' : kind === 'filing' ? 'quarterly' : 'monthly');
   const amount = item?.amount_cents != null ? centsToInput(item.amount_cents) : '';
+  const { accounts: bankAccounts, preferred: preferredBank } = depositAccounts();
+  const bankDebit = Boolean(item?.auto_debit_account_id);
   return `
     <div class="form-grid">
       <div class="field full">
@@ -77,7 +80,7 @@ function modalBody(item = null) {
           <input class="input" id="ci-amount" name="amount" type="number" min="0" step="0.01" value="${amount}" placeholder="0.00">
         </div>
       </div>
-      <div class="field" data-ci-recurring>
+      <div class="field" data-ci-recurring data-ci-not-debit>
         <label for="ci-payment-method">Payment method</label>
         <select class="input" id="ci-payment-method" name="payment_method">
           ${PAYMENT_METHODS.map((method) => `<option value="${esc(method)}" ${method === (item?.payment_method || 'Bank transfer') ? 'selected' : ''}>${esc(method)}</option>`).join('')}
@@ -110,7 +113,20 @@ function modalBody(item = null) {
         </label>
         <div class="hint">For utilities such as Etihad WE, DEWA or phone bills. The amount above is only an estimate; when you create the bill you’ll enter the actual amount. Auto-draft is disabled.</div>
       </div>
-      <div class="field full" data-ci-recurring id="ci-auto-field">
+      <div class="field full" data-ci-recurring>
+        <label class="checkline" style="display:flex;align-items:center;gap:8px;font-size:13px">
+          <input type="checkbox" id="ci-bank-debit" name="bank_debit" ${bankDebit ? 'checked' : ''}>
+          <span>The bank takes this amount itself (bank debit)</span>
+        </label>
+        <div class="hint">For bank account charges and standing orders. Each period is recorded as <strong>already paid</strong> on its due date, with no draft to approve (Dr expense · Cr bank). If the amount varies, you enter it when it is due.</div>
+      </div>
+      <div class="field full" data-ci-recurring data-ci-debit>
+        <label for="ci-debit-account">Debited from</label>
+        <select class="input" id="ci-debit-account" name="auto_debit_account_id">
+          ${optionsHtml(bankAccounts, { selected: item?.auto_debit_account_id || preferredBank?.id, labelKey: (account) => `${account.code} · ${account.name}` })}
+        </select>
+      </div>
+      <div class="field full" data-ci-recurring data-ci-not-debit id="ci-auto-field">
         <label class="checkline" style="display:flex;align-items:center;gap:8px;font-size:13px">
           <input type="checkbox" id="ci-auto" name="auto_create_bill" ${item?.auto_create_bill ? 'checked' : ''}>
           <span>Auto-create a draft bill when due</span>
@@ -135,11 +151,23 @@ function syncVariableFields(overlay) {
       ? (variable ? 'Typical amount (optional)' : 'Amount')
       : 'Fee / estimate (optional)';
   }
+  const bankDebit = recurring && overlay.querySelector('#ci-bank-debit')?.checked;
+  overlay.querySelectorAll('[data-ci-debit]').forEach((el) => { el.hidden = !bankDebit; });
+  overlay.querySelectorAll('[data-ci-not-debit]').forEach((el) => { el.hidden = !recurring || bankDebit; });
   const auto = overlay.querySelector('#ci-auto');
   const autoField = overlay.querySelector('#ci-auto-field');
   if (auto && variable) auto.checked = false;
   if (auto) auto.disabled = Boolean(variable);
-  if (autoField) autoField.hidden = Boolean(variable);
+  if (autoField) autoField.hidden = Boolean(variable) || bankDebit || !recurring;
+}
+
+// Choosing "Bank charges" on a new item fills in the usual set-up.
+function applyBankChargesDefaults(overlay) {
+  if (overlay.querySelector('#ci-category').value !== 'Bank charges') return;
+  const account = expenseAccounts().find((row) => row.code === '6700');
+  if (account) overlay.querySelector('#ci-account').value = String(account.id);
+  overlay.querySelector('#ci-bank-debit').checked = true;
+  syncVariableFields(overlay);
 }
 
 function syncKindFields(overlay, { resetCategory = false, isNew = false } = {}) {
@@ -172,6 +200,8 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
       const kindSelect = overlay.querySelector('#ci-kind');
       kindSelect.addEventListener('change', () => syncKindFields(overlay, { resetCategory: true, isNew: !full }));
       overlay.querySelector('#ci-variable')?.addEventListener('change', () => syncVariableFields(overlay));
+      overlay.querySelector('#ci-bank-debit')?.addEventListener('change', () => syncVariableFields(overlay));
+      if (!full) overlay.querySelector('#ci-category').addEventListener('change', () => applyBankChargesDefaults(overlay));
       syncKindFields(overlay, { isNew: !full });
     },
     async onSubmit(form) {
@@ -183,6 +213,7 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
       if (!nextDue) throw new Error('Choose the next due date');
       if (endDate && endDate < nextDue) throw new Error('End date cannot be before the next due date');
       const variable = recurring && values.get('variable_amount') === 'on';
+      const bankDebit = recurring && values.get('bank_debit') === 'on';
       const amount = recurring ? toCents(values.get('amount')) : toCents(values.get('amount') || 0);
       if (recurring && !variable && amount <= 0) throw new Error('Enter an amount greater than zero for a recurring bill');
       if (recurring && !Number(values.get('vendor_id'))) throw new Error('Choose a vendor');
@@ -201,7 +232,8 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
         next_due_date: nextDue,
         end_date: endDate || null,
         reminder_days: Number(values.get('reminder_days') || 14),
-        auto_create_bill: recurring && !variable && values.get('auto_create_bill') === 'on',
+        auto_create_bill: recurring && !variable && (bankDebit || values.get('auto_create_bill') === 'on'),
+        auto_debit_account_id: bankDebit ? Number(values.get('auto_debit_account_id')) || null : null,
         notes: values.get('notes'),
       };
       const saved = full
@@ -216,8 +248,9 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
 }
 
 export async function openGenerateBillModal(item, onSaved = null) {
+  const bankDebit = Boolean(item.auto_debit_account_id);
   return openModal({
-    title: `Create draft bill — ${item.name}`,
+    title: bankDebit ? `Record bank debit — ${item.name}` : `Create draft bill — ${item.name}`,
     subtitle: item.variable_amount
       ? `${fmtDate(item.next_due_date)} · enter this period’s actual amount`
       : `${fmtDate(item.next_due_date)} · review before creating the draft`,
@@ -232,10 +265,10 @@ export async function openGenerateBillModal(item, onSaved = null) {
           <div class="hint">${item.variable_amount ? 'Enter the amount from this month’s bill.' : 'Change this if this period’s bill is different.'}</div>
         </div>
         <div class="field">
-          <label for="gb-date">Bill date</label>
+          <label for="gb-date">${bankDebit ? 'Date debited' : 'Bill date'}</label>
           <input class="input" id="gb-date" name="bill_date" type="date" value="${esc(item.next_due_date)}" required>
         </div>
-        <div class="field">
+        <div class="field" ${bankDebit ? 'hidden' : ''}>
           <label for="gb-due">Due date</label>
           <input class="input" id="gb-due" name="due_date" type="date" value="${esc(item.next_due_date)}" required>
         </div>
@@ -244,17 +277,19 @@ export async function openGenerateBillModal(item, onSaved = null) {
           <textarea class="input" id="gb-notes" name="notes" rows="2" placeholder="Optional note for this bill"></textarea>
         </div>
         <div class="field full">
-          <div class="form-note">This creates a <strong>draft bill</strong>; nothing posts to the ledger until you receive it under Bills.</div>
+          <div class="form-note">${bankDebit
+            ? `Recorded as a <strong>paid bill</strong> from ${esc(item.auto_debit_account_code || '')} ${esc(item.auto_debit_account_name || 'the bank')} on this date (Dr ${esc(item.account_code || 'expense')} · Cr bank).`
+            : 'This creates a <strong>draft bill</strong>; nothing posts to the ledger until you receive it under Bills.'}</div>
         </div>
       </div>
     `,
-    submitLabel: 'Create draft bill',
+    submitLabel: bankDebit ? 'Record bank debit' : 'Create draft bill',
     async onSubmit(form) {
       const values = new FormData(form);
       const amount = toCents(values.get('amount'));
       if (amount <= 0) throw new Error('Enter the actual amount for this period');
       const billDate = values.get('bill_date');
-      const dueDate = values.get('due_date');
+      const dueDate = bankDebit ? billDate : values.get('due_date');
       if (!billDate) throw new Error('Choose the bill date');
       if (!dueDate) throw new Error('Choose the due date');
       if (dueDate < billDate) throw new Error('Due date cannot be before the bill date');
@@ -264,7 +299,7 @@ export async function openGenerateBillModal(item, onSaved = null) {
         due_date: dueDate,
         notes: values.get('notes'),
       });
-      toast(`Draft bill ${result.bill.number} created`);
+      toast(bankDebit ? `Bank debit ${result.bill.number} recorded as paid` : `Draft bill ${result.bill.number} created`);
       if (onSaved) await onSaved(result);
     },
   });

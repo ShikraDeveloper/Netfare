@@ -1787,6 +1787,46 @@ test('advances are used on confirm, recorded from the customer page and shown on
   assertNoConsoleErrors();
 });
 
+test('monthly bank charges in Compliance are recorded as paid bank debits', async () => {
+  const vendors = await getJson(baseUrl, '/api/vendors');
+  const vendor = vendors.find((row) => row.is_active);
+  const lastMonth = new Date();
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  const due = lastMonth.toLocaleDateString('en-CA');
+
+  await openRoute('/compliance');
+  await clickPageAction('[data-action="new-compliance"]');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.equal(await dialog.locator('#ci-debit-account').isVisible(), false, 'bank debit is off by default');
+  await dialog.locator('#ci-category').selectOption('Bank charges');
+  assert.equal(await dialog.locator('#ci-bank-debit').isChecked(), true, 'Bank charges turns bank debit on');
+  assert.match(await dialog.locator('#ci-account option:checked').innerText(), /6700 · Bank Charges/);
+  assert.match(await dialog.locator('#ci-debit-account option:checked').innerText(), /1010/);
+  assert.equal(await dialog.locator('#ci-auto-field').isVisible(), false, 'no draft option for a bank debit');
+  assert.equal(await dialog.locator('#ci-payment-method').isVisible(), false);
+  await dialog.locator('#ci-name').fill('E2E bank maintenance charges');
+  await dialog.locator('#ci-vendor').selectOption(String(vendor.id));
+  await dialog.locator('#ci-amount').fill('26.25');
+  await dialog.locator('#ci-next-due').fill(due);
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  // Run due bills records the due period as a paid bill.
+  const row = page.locator('tr', { hasText: 'E2E bank maintenance charges' });
+  await row.waitFor();
+  assert.match((await row.innerText()).replace(/\s+/g, ' '), /Bank debit/);
+  await clickPageAction('[data-action="run-due"]');
+  await page.waitForFunction((date) => {
+    const cell = [...document.querySelectorAll('tr')].find((tr) => tr.textContent.includes('E2E bank maintenance charges'));
+    return cell && /Last bill/.test(cell.textContent);
+  }, due);
+  const bills = await getJson(baseUrl, '/api/bills');
+  const bill = bills.find((row) => row.bill_date === due && row.total_cents === 2_625 && row.status_display === 'paid');
+  assert.ok(bill, 'the bank charge is a paid bill on its due date');
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),

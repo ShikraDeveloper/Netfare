@@ -12,6 +12,7 @@ const {
   addDays,
   isTruthy,
 } = require('../util');
+const { isCashAccount } = require('../accounting');
 const billService = require('./bills');
 
 const KINDS = ['recurring_bill', 'filing', 'renewal'];
@@ -41,10 +42,12 @@ const DEFAULT_CATEGORY = {
 const itemSelect = `
   SELECT ci.*, v.name AS vendor_name,
          a.code AS account_code, a.name AS account_name,
+         d.code AS auto_debit_account_code, d.name AS auto_debit_account_name,
          (SELECT COUNT(*) FROM compliance_logs l WHERE l.item_id = ci.id) AS log_count
   FROM compliance_items ci
   LEFT JOIN vendors v ON v.id = ci.vendor_id
   LEFT JOIN accounts a ON a.id = ci.account_id
+  LEFT JOIN accounts d ON d.id = ci.auto_debit_account_id
 `;
 
 function pad2(n) {
@@ -302,9 +305,22 @@ function normalizePayload(db, payload = {}, existing = null) {
     if (!variableAmount && amount <= 0) throw bad('Recurring bill amount must be greater than zero');
   }
 
+  let autoDebitAccount = null;
+  const autoDebitId = payload.auto_debit_account_id !== undefined
+    ? payload.auto_debit_account_id
+    : existing?.auto_debit_account_id;
+  if (kind === 'recurring_bill' && autoDebitId != null && autoDebitId !== '') {
+    autoDebitAccount = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(autoDebitId));
+    if (!autoDebitAccount) throw bad('Choose a valid bank account');
+    if (!autoDebitAccount.is_active) throw bad('That bank account is archived');
+    if (!isCashAccount(autoDebitAccount)) throw bad('The bank debit account must be a cash or bank account');
+  }
+
+  // A fixed amount the bank takes itself is recorded on its date without
+  // asking; a variable one waits for the amount to be entered.
   const autoCreateBill = kind === 'recurring_bill'
     && !variableAmount
-    && isTruthy(payload.auto_create_bill ?? existing?.auto_create_bill ?? 0);
+    && (Boolean(autoDebitAccount) || isTruthy(payload.auto_create_bill ?? existing?.auto_create_bill ?? 0));
 
   return {
     kind,
@@ -322,6 +338,7 @@ function normalizePayload(db, payload = {}, existing = null) {
     end_date: endDate,
     status,
     auto_create_bill: autoCreateBill ? 1 : 0,
+    auto_debit_account_id: autoDebitAccount ? autoDebitAccount.id : null,
     reminder_days: reminderDays,
     notes,
   };
@@ -334,14 +351,14 @@ function createCompliance(db, payload = {}) {
       INSERT INTO compliance_items (
         name, kind, category, vendor_id, account_id, amount_cents, variable_amount,
         payment_method, frequency, anchor_date, period_index, next_due_date, end_date, status,
-        auto_create_bill, reminder_days, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        auto_create_bill, auto_debit_account_id, reminder_days, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       data.name, data.kind, data.category, data.vendor_id, data.account_id,
       data.amount_cents, data.variable_amount, data.payment_method,
       data.frequency, data.anchor_date, data.period_index,
       data.next_due_date, data.end_date, data.status,
-      data.auto_create_bill, data.reminder_days, data.notes,
+      data.auto_create_bill, data.auto_debit_account_id, data.reminder_days, data.notes,
     );
     const id = Number(info.lastInsertRowid);
     db.prepare(`
@@ -362,14 +379,14 @@ function updateCompliance(db, id, payload = {}) {
         name = ?, kind = ?, category = ?, vendor_id = ?, account_id = ?,
         amount_cents = ?, variable_amount = ?, payment_method = ?,
         frequency = ?, anchor_date = ?, period_index = ?, next_due_date = ?, end_date = ?, status = ?,
-        auto_create_bill = ?, reminder_days = ?, notes = ?, updated_at = datetime('now')
+        auto_create_bill = ?, auto_debit_account_id = ?, reminder_days = ?, notes = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       data.name, data.kind, data.category, data.vendor_id, data.account_id,
       data.amount_cents, data.variable_amount, data.payment_method,
       data.frequency, data.anchor_date, data.period_index,
       data.next_due_date, data.end_date, data.status,
-      data.auto_create_bill, data.reminder_days, data.notes, id,
+      data.auto_create_bill, data.auto_debit_account_id, data.reminder_days, data.notes, id,
     );
     db.prepare(`
       INSERT INTO compliance_logs (item_id, action, event_date, detail)
@@ -412,13 +429,15 @@ function generateBill(db, id, payload = {}) {
       : billDate;
     if (dueDate < billDate) throw bad('Due date cannot be before the bill date');
 
-    const bill = billService.createBill(db, {
+    const bankDebit = Boolean(item.auto_debit_account_id);
+    const method = bankDebit ? 'Bank debit' : item.payment_method || 'Bank transfer';
+    let bill = billService.createBill(db, {
       vendor_id: item.vendor_id,
       bill_date: billDate,
-      due_date: dueDate,
-      status: 'draft',
-      default_payment_method: item.payment_method || 'Bank transfer',
-      notes: `Compliance: ${item.name}${payload.notes ? ` · ${payload.notes}` : ''}`,
+      due_date: bankDebit ? billDate : dueDate,
+      status: bankDebit ? 'received' : 'draft',
+      default_payment_method: method,
+      notes: `Compliance: ${item.name}${bankDebit ? ' · bank debit' : ''}${payload.notes ? ` · ${payload.notes}` : ''}`,
       items: [{
         description: item.name,
         quantity: 1,
@@ -426,6 +445,15 @@ function generateBill(db, id, payload = {}) {
         account_id: item.account_id,
       }],
     });
+    if (bankDebit) {
+      billService.recordBillPayment(db, bill.id, {
+        amount_cents: amount,
+        payment_date: billDate,
+        payment_account_id: item.auto_debit_account_id,
+        method,
+      });
+      bill = billService.getBill(db, bill.id);
+    }
 
     const nextPeriod = Number(item.period_index || 0) + 1;
     const next = scheduledDate(item.anchor_date || item.next_due_date, item.frequency, nextPeriod);
@@ -439,7 +467,9 @@ function generateBill(db, id, payload = {}) {
     db.prepare(`
       INSERT INTO compliance_logs (item_id, action, event_date, detail, bill_id)
       VALUES (?, 'bill_generated', ?, ?, ?)
-    `).run(id, billDate, `Draft bill ${bill.number} created`, bill.id);
+    `).run(id, billDate, bankDebit
+      ? `Bill ${bill.number} recorded as paid by bank debit`
+      : `Draft bill ${bill.number} created`, bill.id);
 
     return { item: getCompliance(db, id), bill };
   })();

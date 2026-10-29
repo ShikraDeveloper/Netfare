@@ -37,5 +37,6 @@ module.exports = [
   ['6400', 'Marketing', 'expense', 'operating_expense', 'debit', 0, 0],
   ['6500', 'Software & Subscriptions', 'expense', 'operating_expense', 'debit', 0, 0],
   ['6600', 'Travel & Meals', 'expense', 'operating_expense', 'debit', 0, 0],
+  ['6700', 'Bank Charges', 'expense', 'operating_expense', 'debit', 0, 0],
   ['6900', 'Other Expenses', 'expense', 'other_expense', 'debit', 0, 0],
 ];
