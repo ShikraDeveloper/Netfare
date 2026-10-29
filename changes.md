@@ -1121,9 +1121,54 @@ Verification:
 - Visual check of the form on a throwaway server (port 4391).
 - No schema change; restart needed.
 
+### Bank charges, petty cash, portal-wallet deposits and two small fixes — code commit `ed5e74f`
+
+The user picked items 1, 2, 3, 7, 8, 11 and 12 from the pending list.
+
+1. **Bank charges field on payment forms.**
+   - New optional "Bank charges" field on **Record payment** (invoice), **Record bill payment** and the **Refund** form. It is hidden and cleared for Cash.
+   - New columns `bank_charges_cents` on `payments`, `bill_payments` and `refunds`. The helpers `bankChargesCents` / `bankChargeLines` are in `server/accounting.js`.
+   - The charge is added to the same journal entry: Dr 6700 Bank Charges · Cr the bank. The document is settled for the full amount: for example, invoice 1,000 paid with 15 charges → 1100 is credited 1,000, the bank nets 985, and 6700 gets 15. A void reverses the whole entry, charge included.
+   - On a receipt, and on money from a supplier refund, the charge cannot be more than the amount. On a bill payment or customer refund it is extra, on top.
+   - The invoice payment row shows "Bank kept AED …"; the bill payment row shows "Plus bank charges AED …".
+2. **Bank reconciliation → Add bank charge.**
+   - A fold-out "Add bank charge: on the statement but not in the books" takes the amount, the date on the statement and a description.
+   - `POST /api/bank-reconciliations/bank-charge` saves a paid Quick expense to 6700 from the account being reconciled, method "Bank debit", supplier "`<account>` (bank debits)".
+   - The list reloads, keeps the lines already ticked, and ticks the new line. The charge must be dated after the last reconciliation. It is undone from Bills & expenses.
+   - `bankDebitVendor` moved from compliance.js to bills.js.
+3. **Today box reminder:** "Recurring bills due" (count, plus the total of fixed amounts) links to Compliance while any active recurring bill is due. This is a reminder only; Run due bills is still a click.
+4. **Petty cash** (new page under More → Petty cash).
+   - New account **1020 Petty Cash** (cash). Banking's bank total no longer counts it.
+   - **Top up** from bank or cash reuses the cash transfer, with the memo "Petty cash top-up".
+   - **Record spend** opens Quick expense paid from 1020.
+   - **Count cash** saves to the new table `petty_cash_counts`. A difference posts to 6900 Other Expenses: a shortage is Dr 6900 · Cr 1020, an overage the opposite way. A count that matches posts nothing. A count can be voided.
+   - The **float** (`settings.petty_cash_float_cents`) shows how much to top up.
+   - The page has an activity table with a running balance, and a counts table. The DSR labels count entries "Petty cash count differences".
+5. **Visa deposit paid from a portal wallet.**
+   - The deposit card's **Paid from** list adds prepaid portal wallets that have a balance. Choosing one fills in the supplier and posts Dr 1460 · Cr 1400 Advances to Suppliers. The wallet balance must cover it on that date.
+   - A supplier return can go **Back to portal wallet** (Dr 1400 for the net).
+   - New column `visa_deposit_events.portal_id`. Portal balances (`aggregates`, `balanceAsOf`, `lockBalance`), the portal ledger (rows "Visa deposit … paid / returned") and the 1400 comparison all count these events; voided ones are left out.
+6. **Small fixes:**
+   - A short statement prints on one A4 page (tighter print spacing; the footer is kept together).
+   - The `.doc-items-wrap` tables on invoice, bill, booking, visa, portal, credit, cancellation and refund pages have `tabindex="0"`, `role="region"` and a focus outline, so they scroll with the keyboard on a phone.
+
+Key files: `server/accounting.js`, `server/services/{invoices,bills,refunds,bank-reconciliations,cash-deposits,petty-cash,visa-deposits,compliance}.js`, `server/services/portals/{common,ledger,lifecycle}.js`, `server/services/reports/{dashboard,dsr-sections}.js`, `server/routes/{petty-cash,bank-reconciliations,index}.js`, `server/{default-accounts,migrations,schema}.js`, `public/js/bank-charges.js` (new), `public/js/views/petty-cash.js` (new), `public/js/views/{invoice-detail,bill-detail,refund-modal,bank-reconciliation,dashboard,quick-expense,visa-deposit-card}.js`, `public/js/app.js`, `public/css/styles.css`, tests.
+
+Verification:
+
+- `npm run check`: 188 files OK.
+- `npm test`: 182 passed. New tests:
+  - `test/bank-charges.test.js`: invoice net to bank with the void reversing it; bill payment with charges on top; refunds both ways and the limits; reconciliation charge as a paid 6700 bill and a tickable line.
+  - `test/petty-cash.test.js`: 1020 is not counted as bank; top-up, spend, running balance and the top-up to the float; shortage, overage, matched count and void.
+  - The wallet deposit test in `test/visa-deposits.test.js`: wallet pays with no bank movement, the 1400 and deposit checks match, the portal ledger row and zero difference, return net into the wallet, insufficient balance refused.
+  - The Today reminder in `test/bank-debit.test.js`.
+- `npm run test:e2e`: 38 passed, axe clean, with `/petty-cash` added to the axe routes. New test: the payment form's bank charges field (hidden for Cash), AED 15 saved and shown; the reconciliation charge added and ticked; petty cash top-up 500 and a short count of 490.
+- Visual check: an A4 PDF of the statement (one page) on a throwaway server (port 4391). The in-app browser pane's screenshots did not show the open dialogs, so the new forms were checked through the E2E suite instead.
+- Schema changes: new table `petty_cash_counts`; nullable or defaulted columns on payments, bill_payments, refunds, visa_deposit_events and settings; account 1020 added on start. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `01d8088` (bank debits need no supplier).
+1. Start from the latest `main`; the latest code commit is `ed5e74f` (bank charges, petty cash, portal-wallet deposits).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
