@@ -82,6 +82,22 @@ test('a variable bank debit waits for the amount, then is recorded paid', () => 
   assert.equal(balance('1010'), before - 1_890);
 });
 
+test('a bank debit needs no supplier: it is kept under the bank account\'s own name', () => {
+  const item = bankCharges({ name: 'No supplier charges', vendor_id: null, next_due_date: '2027-01-05' });
+  assert.equal(item.vendor_name, 'Bank Account (bank debits)');
+  const again = bankCharges({ name: 'Second charge', vendor_id: undefined, next_due_date: '2027-01-06' });
+  assert.equal(again.vendor_id, item.vendor_id, 'the same supplier record is reused');
+  const { bill } = compliance.generateBill(db, item.id);
+  assert.equal(bill.status_display, 'paid');
+  assert.throws(
+    () => compliance.createCompliance(db, {
+      kind: 'recurring_bill', name: 'Rent', account_id: account('6000').id, amount_cents: 100, next_due_date: '2027-01-01',
+    }),
+    (error) => error.status === 400 && /Choose a vendor/.test(error.message),
+    'a normal recurring bill still needs a supplier',
+  );
+});
+
 test('switching the bank debit off brings back draft bills; the account must be cash or bank', () => {
   const item = bankCharges({ name: 'Card fee', next_due_date: '2026-12-01' });
   const plain = compliance.updateCompliance(db, item.id, { auto_debit_account_id: null, auto_create_bill: false });

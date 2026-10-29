@@ -226,6 +226,18 @@ function getCompliance(db, id) {
   return item;
 }
 
+function bankDebitVendor(db, account) {
+  const name = `${account.name} (bank debits)`;
+  const existing = db.prepare('SELECT * FROM vendors WHERE name = ? ORDER BY id LIMIT 1').get(name);
+  if (existing) {
+    if (!existing.is_active) db.prepare('UPDATE vendors SET is_active = 1 WHERE id = ?').run(existing.id);
+    return existing;
+  }
+  const id = Number(db.prepare('INSERT INTO vendors (name, notes) VALUES (?, ?)')
+    .run(name, `Charges the bank debits from ${account.code} ${account.name} itself.`).lastInsertRowid);
+  return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
+}
+
 function defaultFrequency(kind) {
   return kind === 'renewal' ? 'yearly' : kind === 'filing' ? 'quarterly' : 'monthly';
 }
@@ -299,12 +311,6 @@ function normalizePayload(db, payload = {}, existing = null) {
   const variableAmount = kind === 'recurring_bill'
     && isTruthy(payload.variable_amount ?? existing?.variable_amount ?? 0);
 
-  if (kind === 'recurring_bill') {
-    if (!vendor) throw bad('Choose a vendor for a recurring bill');
-    if (!account) throw bad('Choose an expense account for a recurring bill');
-    if (!variableAmount && amount <= 0) throw bad('Recurring bill amount must be greater than zero');
-  }
-
   let autoDebitAccount = null;
   const autoDebitId = payload.auto_debit_account_id !== undefined
     ? payload.auto_debit_account_id
@@ -314,6 +320,16 @@ function normalizePayload(db, payload = {}, existing = null) {
     if (!autoDebitAccount) throw bad('Choose a valid bank account');
     if (!autoDebitAccount.is_active) throw bad('That bank account is archived');
     if (!isCashAccount(autoDebitAccount)) throw bad('The bank debit account must be a cash or bank account');
+  }
+
+  // Money the bank takes itself needs no supplier: it is recorded against
+  // the bank's own supplier record, created on first use.
+  if (autoDebitAccount && !vendor) vendor = bankDebitVendor(db, autoDebitAccount);
+
+  if (kind === 'recurring_bill') {
+    if (!vendor) throw bad('Choose a vendor for a recurring bill');
+    if (!account) throw bad('Choose an expense account for a recurring bill');
+    if (!variableAmount && amount <= 0) throw bad('Recurring bill amount must be greater than zero');
   }
 
   // A fixed amount the bank takes itself is recorded on its date without

@@ -56,11 +56,12 @@ function modalBody(item = null) {
         </select>
       </div>
       <div class="field full" data-ci-recurring>
-        <label for="ci-vendor">Supplier — who you pay</label>
+        <label for="ci-vendor" id="ci-vendor-label">Supplier — who you pay</label>
         <select class="input" id="ci-vendor" name="vendor_id">
           ${optionsHtml(vendors, { selected: item?.vendor_id, placeholder: 'Choose a vendor…' })}
         </select>
-        <div class="hint">Required for recurring bills. Generated draft bills are recorded against this supplier’s payable account.</div>
+        <div class="hint" data-ci-not-debit>Required for recurring bills. Generated draft bills are recorded against this supplier’s payable account.</div>
+        <div class="hint" data-ci-debit>Not needed for a bank debit. Leave it empty and the charges are kept under the bank’s own name.</div>
       </div>
       <div class="field full" data-ci-recurring>
         <label for="ci-account">Expense account — what the cost is for</label>
@@ -153,6 +154,10 @@ function syncVariableFields(overlay) {
   }
   const bankDebit = recurring && overlay.querySelector('#ci-bank-debit')?.checked;
   overlay.querySelectorAll('[data-ci-debit]').forEach((el) => { el.hidden = !bankDebit; });
+  const vendorLabel = overlay.querySelector('#ci-vendor-label');
+  if (vendorLabel) vendorLabel.innerHTML = bankDebit ? 'Supplier <span class="muted">(optional)</span>' : 'Supplier — who you pay';
+  const vendorEmpty = overlay.querySelector('#ci-vendor option[value=""]');
+  if (vendorEmpty) vendorEmpty.textContent = bankDebit ? 'None — the bank itself' : 'Choose a vendor…';
   overlay.querySelectorAll('[data-ci-not-debit]').forEach((el) => { el.hidden = !recurring || bankDebit; });
   const auto = overlay.querySelector('#ci-auto');
   const autoField = overlay.querySelector('#ci-auto-field');
@@ -216,14 +221,14 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
       const bankDebit = recurring && values.get('bank_debit') === 'on';
       const amount = recurring ? toCents(values.get('amount')) : toCents(values.get('amount') || 0);
       if (recurring && !variable && amount <= 0) throw new Error('Enter an amount greater than zero for a recurring bill');
-      if (recurring && !Number(values.get('vendor_id'))) throw new Error('Choose a vendor');
+      if (recurring && !bankDebit && !Number(values.get('vendor_id'))) throw new Error('Choose a vendor');
       if (recurring && !Number(values.get('account_id'))) throw new Error('Choose an expense account');
       const payload = {
         kind: selectedKind,
         name: values.get('name'),
         category: values.get('category'),
         status: values.get('status'),
-        vendor_id: recurring ? Number(values.get('vendor_id')) : null,
+        vendor_id: recurring ? Number(values.get('vendor_id')) || null : null,
         account_id: recurring ? Number(values.get('account_id')) : null,
         amount_cents: amount,
         variable_amount: variable,

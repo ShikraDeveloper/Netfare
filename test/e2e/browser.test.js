@@ -1788,8 +1788,6 @@ test('advances are used on confirm, recorded from the customer page and shown on
 });
 
 test('monthly bank charges in Compliance are recorded as paid bank debits', async () => {
-  const vendors = await getJson(baseUrl, '/api/vendors');
-  const vendor = vendors.find((row) => row.is_active);
   const lastMonth = new Date();
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   const due = lastMonth.toLocaleDateString('en-CA');
@@ -1806,7 +1804,8 @@ test('monthly bank charges in Compliance are recorded as paid bank debits', asyn
   assert.equal(await dialog.locator('#ci-auto-field').isVisible(), false, 'no draft option for a bank debit');
   assert.equal(await dialog.locator('#ci-payment-method').isVisible(), false);
   await dialog.locator('#ci-name').fill('E2E bank maintenance charges');
-  await dialog.locator('#ci-vendor').selectOption(String(vendor.id));
+  // No supplier needed for money the bank takes itself.
+  assert.match(await dialog.locator('#ci-vendor-label').innerText(), /optional/);
   await dialog.locator('#ci-amount').fill('26.25');
   await dialog.locator('#ci-next-due').fill(due);
   await dialog.locator('[data-submit]').click();
@@ -1815,6 +1814,7 @@ test('monthly bank charges in Compliance are recorded as paid bank debits', asyn
   // Run due bills records the due period as a paid bill.
   const row = page.locator('tr', { hasText: 'E2E bank maintenance charges' });
   await row.waitFor();
+  assert.match((await row.innerText()).replace(/\s+/g, ' '), /Bank Account \(bank debits\)/);
   assert.match((await row.innerText()).replace(/\s+/g, ' '), /Bank debit/);
   await clickPageAction('[data-action="run-due"]');
   await page.waitForFunction((date) => {
