@@ -12,6 +12,10 @@ router.get('/workspace', (req, res) => {
   res.json(service.getWorkspace(db, req.query));
 });
 
+router.post('/bank-charge', (req, res) => {
+  res.status(201).json(service.recordBankCharge(db, req.body || {}));
+});
+
 router.get('/:id', (req, res) => {
   res.json(service.getReconciliation(db, Number(req.params.id)));
 });

@@ -53,6 +53,8 @@ test('the chart of accounts has 6700 Bank Charges as an operating expense', () =
 
 test('a fixed bank debit is recorded as a paid bill on each due date, with no draft', () => {
   const item = bankCharges();
+  const { dashboard } = require('../server/services/reports/dashboard');
+  assert.equal(dashboard(db).todo.recurring_due.count, 1, 'the Today box reminds to run due bills');
   assert.equal(item.auto_create_bill, true, 'a fixed bank debit runs by itself');
   assert.equal(item.auto_debit_account_code, '1010');
 

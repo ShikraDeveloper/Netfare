@@ -16,6 +16,9 @@ const {
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
 
+// Petty cash is a cash float of its own, not a bank account.
+const PETTY_CASH_CODE = '1020';
+
 function accountBalanceAsOf(db, accountId, asOf) {
   const row = db.prepare(`
     SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS balance
@@ -43,10 +46,12 @@ function cashBalances(db) {
     ORDER BY a.code
   `).all();
   const cashRow = rows.find((row) => row.id === cash?.id) || null;
-  const bankRows = rows.filter((row) => row.id !== cash?.id);
+  const pettyRow = rows.find((row) => row.code === PETTY_CASH_CODE) || null;
+  const bankRows = rows.filter((row) => row.id !== cash?.id && row !== pettyRow);
   return {
     cash_account: cashRow,
     cash_balance_cents: cashRow ? cashRow.balance_cents : 0,
+    petty_cash_balance_cents: pettyRow ? pettyRow.balance_cents : 0,
     bank_balance_cents: bankRows.reduce((sum, row) => sum + row.balance_cents, 0),
     bank_accounts: bankRows,
     accounts: rows,
@@ -150,9 +155,10 @@ function createDeposit(db, payload = {}) {
       optionalStr(payload.notes, 'Notes', 1000),
     );
     const id = Number(info.lastInsertRowid);
+    const label = to.code === PETTY_CASH_CODE ? 'Petty cash top-up' : 'Cash deposit';
     const entryId = postEntry(db, {
       entry_date: depositDate,
-      memo: `Cash deposit ${number} — ${from.name} to ${to.name}`,
+      memo: `${label} ${number} — ${from.name} to ${to.name}`,
       reference: number,
       source_type: 'cash_deposit',
       source_id: id,
@@ -201,6 +207,8 @@ function listCashAccounts(db) {
 }
 
 module.exports = {
+  PETTY_CASH_CODE,
+  accountBalanceAsOf,
   cashBalances,
   listCashAccounts,
   listDeposits,

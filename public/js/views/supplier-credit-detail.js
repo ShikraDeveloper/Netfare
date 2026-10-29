@@ -137,7 +137,7 @@ export async function render(container, { params } = {}) {
           </div>
         </div>
 
-        <div class="doc-items-wrap">
+        <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
           <table class="doc-items"><caption class="sr-only">Supplier credit lines</caption>
             <thead><tr><th scope="col" style="width:56%">Description</th><th scope="col">Cost account</th><th scope="col" class="num">Amount</th></tr></thead>
             <tbody>${items.map((item) => `<tr><td>${esc(item.description)}</td><td>${esc(item.account_code)} · ${esc(item.account_name)}</td><td class="num amount">${fmtMoney(item.amount_cents)}</td></tr>`).join('')}</tbody>

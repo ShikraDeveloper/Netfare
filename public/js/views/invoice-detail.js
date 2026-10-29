@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
@@ -261,6 +262,7 @@ function paymentModalBody(invoice) {
         <label for="payment-reference">Reference</label>
         <input class="input" id="payment-reference" name="reference" placeholder="e.g. wire reference" autocomplete="off">
       </div>
+      ${bankChargesFieldHtml('received')}
       <div class="field" data-cheque-field hidden>
         <label for="cheque-number">Cheque number</label>
         <input class="input" id="cheque-number" name="cheque_number" placeholder="e.g. 004512" autocomplete="off">
@@ -281,7 +283,7 @@ function paymentModalBody(invoice) {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">Recording a payment debits your bank or cash account and credits Trade Receivables. The invoice balance updates automatically.</div>
+        <div class="form-note">Recording a payment debits your bank or cash account and credits Trade Receivables. The invoice balance updates automatically. Bank charges, if any, are posted separately to 6700 Bank Charges.</div>
       </div>
     </div>
   `;
@@ -362,6 +364,7 @@ export async function render(container, { params } = {}) {
             <strong>${esc(payment.method || 'Payment')}</strong>
             <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
+            ${payment.bank_charges_cents ? `<span class="cell-sub">Bank kept ${fmtMoney(payment.bank_charges_cents)} · 6700 Bank Charges</span>` : ''}
             ${payment.advance_id ? '<span class="cell-sub">Applied from customer advance</span>' : ''}
             ${payment.deposit_id ? `<span class="cell-sub">Paid from visa deposit ${esc(payment.reference || '')} · undo it on the visa's deposit card</span>` : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
@@ -458,7 +461,7 @@ export async function render(container, { params } = {}) {
         ${visaApplicantHtml(invoice)}
         ${beneficiaryHtml(invoice)}
 
-        <div class="doc-items-wrap">
+        <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
           <table class="doc-items"><caption class="sr-only">Invoice line items</caption>
             <thead>
               <tr>
@@ -640,6 +643,7 @@ export async function render(container, { params } = {}) {
             syncCheque();
           });
           syncCheque();
+          bindBankCharges(overlay, method);
         },
         async onSubmit(form) {
           const values = new FormData(form);
@@ -659,6 +663,7 @@ export async function render(container, { params } = {}) {
             cheque_date: values.get('cheque_date'),
             bank_name: values.get('bank_name'),
             deposit_account_id: Number(values.get('deposit_account_id')),
+            bank_charges_cents: readBankCharges(form),
           });
           toast(`Payment of ${fmtMoney(amount)} recorded`);
           refresh();

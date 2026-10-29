@@ -17,6 +17,7 @@ const SYSTEM_CODES = {
   DEPOSITS_WITH_SUPPLIERS: '1460',
   VISA_DEPOSITS: '2600',
   FORFEITED_DEPOSITS: '4340',
+  BANK_CHARGES: '6700',
 };
 
 // Accounts that are maintained by a subledger. Manual journals may not post
@@ -194,8 +195,32 @@ function billDisplayStatus(bill, today = todayISO()) {
   return bill.due_date < today ? 'overdue' : 'received';
 }
 
+// Charges the bank takes on a transfer. They are posted in the same entry as
+// the payment (Dr 6700 Bank Charges · Cr the bank), so a void reverses both.
+function bankChargesCents(payload, { max = null } = {}) {
+  const value = payload?.bank_charges_cents;
+  if (value == null || value === '') return 0;
+  const charges = cents(value, 'Bank charges');
+  if (max != null && charges > max) throw bad('Bank charges cannot be more than the amount');
+  return charges;
+}
+
+function bankChargeLines(db, charges, bankAccount, label) {
+  if (!charges) return [];
+  const expense = accountByCode(db, SYSTEM_CODES.BANK_CHARGES);
+  if (!expense || !expense.is_active || expense.type !== 'expense') {
+    throw bad('Bank charges need the 6700 Bank Charges expense account. Restore it in Chart of accounts.');
+  }
+  return [
+    { account_id: expense.id, debit_cents: charges, credit_cents: 0, description: `Bank charges · ${label}` },
+    { account_id: bankAccount.id, debit_cents: 0, credit_cents: charges, description: `Bank charges · ${label}` },
+  ];
+}
+
 module.exports = {
   SYSTEM_CODES,
+  bankChargesCents,
+  bankChargeLines,
   CONTROL_ACCOUNT_CODES,
   getSettings,
   accountByCode,

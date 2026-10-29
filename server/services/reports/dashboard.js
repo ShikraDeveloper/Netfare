@@ -171,7 +171,15 @@ function dashboard(db) {
   const queue = require('../settlement-queue').listSettlementQueue(db, {});
   const depositsDue = require('../visa-deposits').listDeposits(db, { status: 'open' })
     .filter((row) => ['cancelled', 'rejected'].includes(row.visa_status));
+  // Recurring bills (rent, bank charges…) are only created when someone
+  // presses Run due bills on Compliance, so remind them here.
+  const recurringDue = db.prepare(`
+    SELECT COUNT(*) AS count, COALESCE(SUM(CASE WHEN variable_amount = 0 THEN amount_cents ELSE 0 END), 0) AS total
+    FROM compliance_items
+    WHERE kind = 'recurring_bill' AND status = 'active' AND next_due_date <= ?
+  `).get(today);
   const todo = {
+    recurring_due: { count: recurringDue.count, cents: recurringDue.total },
     overdue_invoices: { count: overdueAr.count, cents: overdueAr.total },
     bills_overdue: { count: overdueAp.count, cents: overdueAp.total },
     to_settle: { count: queue.totals.count, cents: queue.totals.amount_cents },

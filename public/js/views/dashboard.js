@@ -225,6 +225,7 @@ function todayHtml(todo) {
     { key: 'to_settle', label: 'Money to give back', hint: 'refunds and credits', href: '#/settlement-queue', tone: 'amber' },
     { key: 'deposits_due', label: 'Visa deposits to refund', hint: 'visa cancelled or rejected', href: '#/reports/visa-deposits', tone: 'amber' },
     { key: 'bills_overdue', label: 'Bills overdue', hint: 'to pay suppliers', href: '#/bills', tone: 'red' },
+    { key: 'recurring_due', label: 'Recurring bills due', hint: 'press Run due bills', href: '#/compliance', tone: 'amber' },
     { key: 'draft_bookings', label: 'Draft bookings', hint: 'to confirm', href: '#/bookings', tone: 'blue' },
     { key: 'draft_visas', label: 'Draft visas', hint: 'to submit', href: '#/visas', tone: 'blue' },
   ];

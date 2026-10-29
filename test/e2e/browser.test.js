@@ -1827,6 +1827,67 @@ test('monthly bank charges in Compliance are recorded as paid bank debits', asyn
   assertNoConsoleErrors();
 });
 
+test('bank charges on a payment, a charge added in bank reconciliation, and petty cash', async () => {
+  const [customers, accounts] = await Promise.all([getJson(baseUrl, '/api/customers'), getJson(baseUrl, '/api/accounts')]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const invoice = await postJson(baseUrl, '/api/invoices', {
+    customer_id: customers[0].id, issue_date: new Date().toLocaleDateString('en-CA'), status: 'sent',
+    items: [{ description: 'E2E charges service', quantity: 1, unit_price_cents: 100_000, account_id: code('4300') }],
+  });
+
+  // Record payment: the bank charges field shows for a transfer, hides for cash.
+  await openRoute(`/invoices/${invoice.id}`);
+  await clickPageAction('[data-action="payment"]');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.equal(await dialog.locator('#bank-charges').isVisible(), true);
+  await dialog.locator('#payment-method').selectOption('Cash');
+  assert.equal(await dialog.locator('#bank-charges').isVisible(), false, 'no bank charge on cash');
+  await dialog.locator('#payment-method').selectOption('Bank transfer');
+  await dialog.locator('#bank-charges').fill('15');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('.payment-item', { hasText: 'Bank kept' }).waitFor();
+  const paid = await getJson(baseUrl, `/api/invoices/${invoice.id}`);
+  assert.equal(paid.status_display, 'paid');
+  assert.equal(paid.payments[0].bank_charges_cents, 1_500);
+
+  // Bank reconciliation: add a charge that is on the statement, ticked straight away.
+  await openRoute('/bank-reconciliation');
+  await clickPageAction('[data-action="new-reconciliation"]');
+  const recon = page.locator('[role="dialog"]');
+  await recon.waitFor();
+  await recon.locator('#recon-account').selectOption(String(code('1010')));
+  await recon.locator('#recon-balance').fill('0');
+  await recon.locator('[data-load-workspace]').click();
+  await recon.locator('[data-recon-charge] summary').click();
+  await recon.locator('#recon-charge-amount').fill('26.25');
+  await recon.locator('[data-recon-charge-add]').click();
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-line-select]:checked')]
+    .some((input) => input.dataset.amount === '-2625'));
+  await recon.locator('[data-close]').first().click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  // Petty cash: top up from the bank, then count it short.
+  await openRoute('/petty-cash');
+  await clickPageAction('[data-action="pc-top-up"]');
+  const topUp = page.locator('[role="dialog"]');
+  await topUp.locator('#pc-amount').fill('500');
+  await topUp.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('[data-petty-lines]').waitFor();
+  await clickPageAction('[data-action="pc-count"]');
+  const count = page.locator('[role="dialog"]');
+  await count.locator('#pc-counted').fill('490');
+  assert.match(await count.locator('[data-count-diff]').innerText(), /Short by/);
+  await count.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('[data-petty-counts]').waitFor();
+  const petty = await getJson(baseUrl, '/api/petty-cash');
+  assert.equal(petty.balance_cents, 49_000);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -1868,6 +1929,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     ...(credits[0] ? [`/credits/${credits[0].id}`] : []),
     '/cheques',
     '/compliance',
+    '/petty-cash',
     '/accounts',
     '/banking',
     '/bank-reconciliation',

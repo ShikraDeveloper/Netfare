@@ -15,6 +15,8 @@ const {
 const {
   systemAccount,
   isCashAccount,
+  bankChargesCents,
+  bankChargeLines,
   postEntry,
   reverseEntry,
   invoiceBalanceCents,
@@ -554,12 +556,14 @@ function recordInvoicePayment(db, invoiceId, payload) {
       ? dateISO(payload.cheque_date, 'Cheque date')
       : (isCheque ? paymentDate : null);
     const bankName = optionalStr(payload.bank_name, 'Bank name', 100);
+    // The customer settles the full amount; what the bank keeps is our cost.
+    const charges = bankChargesCents(payload, { max: amount });
 
     const info = db.prepare(`
       INSERT INTO payments (
         number, customer_id, invoice_id, payment_date, amount_cents, method, reference,
-        cheque_number, cheque_date, bank_name, deposit_account_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cheque_number, cheque_date, bank_name, deposit_account_id, bank_charges_cents
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       invoice.customer_id,
@@ -572,6 +576,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
       chequeDate,
       bankName,
       account.id,
+      charges,
     );
     const paymentId = Number(info.lastInsertRowid);
     const entryId = postEntry(db, {
@@ -583,6 +588,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
       lines: [
         { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Payment ${number}${chequeNumber ? ` · Cheque ${chequeNumber}` : ''}` },
         { account_id: ar.id, debit_cents: 0, credit_cents: amount, description: `Invoice ${invoice.number}` },
+        ...bankChargeLines(db, charges, account, `payment ${number}`),
       ],
     });
     db.prepare('UPDATE payments SET journal_entry_id = ? WHERE id = ?').run(entryId, paymentId);

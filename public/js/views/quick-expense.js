@@ -8,11 +8,11 @@ import { depositAccounts } from './job-modals.js';
 
 const MAX_RECEIPT_BYTES = 15 * 1024 * 1024;
 
-export function openQuickExpenseModal({ onSaved = () => {} } = {}) {
+export function openQuickExpenseModal({ onSaved = () => {}, paidFromCode = '1000' } = {}) {
   const accounts = purchaseAccounts();
   const preferredAccount = accounts.find((account) => account.code === '6900') || accounts[0];
   const { accounts: payFrom } = depositAccounts();
-  const cash = payFrom.find((account) => account.code === '1000') || payFrom[0];
+  const cash = payFrom.find((account) => account.code === paidFromCode) || payFrom[0];
 
   return openModal({
     title: 'Quick expense',

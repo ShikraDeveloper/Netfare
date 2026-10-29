@@ -14,6 +14,8 @@ const {
   systemAccount,
   isCashAccount,
   isPurchaseAccount,
+  bankChargesCents,
+  bankChargeLines,
   postEntry,
   reverseEntry,
   billBalanceCents,
@@ -390,12 +392,14 @@ function recordBillPayment(db, billId, payload) {
       ? dateISO(payload.cheque_date, 'Cheque date')
       : (isCheque ? paymentDate : null);
     const bankName = optionalStr(payload.bank_name, 'Bank name', 100);
+    // Transfer charges the bank adds on top of what the supplier receives.
+    const charges = bankChargesCents(payload);
 
     const info = db.prepare(`
       INSERT INTO bill_payments (
         number, bill_id, vendor_id, payment_date, amount_cents, method, reference,
-        cheque_number, cheque_date, bank_name, payment_account_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cheque_number, cheque_date, bank_name, payment_account_id, bank_charges_cents
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       bill.id,
@@ -408,6 +412,7 @@ function recordBillPayment(db, billId, payload) {
       chequeDate,
       bankName,
       account.id,
+      charges,
     );
     const paymentId = Number(info.lastInsertRowid);
     const entryId = postEntry(db, {
@@ -419,6 +424,7 @@ function recordBillPayment(db, billId, payload) {
       lines: [
         { account_id: ap.id, debit_cents: amount, credit_cents: 0, description: `Bill ${bill.number}` },
         { account_id: account.id, debit_cents: 0, credit_cents: amount, description: `Payment ${number}${chequeNumber ? ` · Cheque ${chequeNumber}` : ''}` },
+        ...bankChargeLines(db, charges, account, `payment ${number}`),
       ],
     });
     db.prepare('UPDATE bill_payments SET journal_entry_id = ? WHERE id = ?').run(entryId, paymentId);
@@ -509,6 +515,20 @@ function sundryVendor(db) {
   return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
 }
 
+// Charges the bank debits itself are kept under the bank's own supplier
+// record, created on first use.
+function bankDebitVendor(db, account) {
+  const name = `${account.name} (bank debits)`;
+  const existing = db.prepare('SELECT * FROM vendors WHERE name = ? ORDER BY id LIMIT 1').get(name);
+  if (existing) {
+    if (!existing.is_active) db.prepare('UPDATE vendors SET is_active = 1 WHERE id = ?').run(existing.id);
+    return existing;
+  }
+  const id = Number(db.prepare('INSERT INTO vendors (name, notes) VALUES (?, ?)')
+    .run(name, `Charges the bank debits from ${account.code} ${account.name} itself.`).lastInsertRowid);
+  return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
+}
+
 function createQuickExpense(db, payload = {}) {
   return db.transaction(() => {
     const vendorId = payload.vendor_id ? assertVendor(db, payload.vendor_id).id : sundryVendor(db).id;
@@ -539,6 +559,7 @@ function createQuickExpense(db, payload = {}) {
 
 module.exports = {
   createQuickExpense,
+  bankDebitVendor,
   SUNDRY_VENDOR,
   listBills,
   getBill,

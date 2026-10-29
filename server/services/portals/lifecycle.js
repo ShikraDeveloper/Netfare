@@ -78,6 +78,15 @@ function getPortal(db, id) {
     ORDER BY bp.payment_date DESC, bp.id DESC
   `).all(id);
 
+  result.deposit_movements = db.prepare(`
+    SELECT e.*, d.number AS deposit_number, d.visa_id, va.number AS visa_number, va.applicant_name
+    FROM visa_deposit_events e
+    JOIN visa_deposits d ON d.id = e.deposit_id
+    JOIN visa_applications va ON va.id = d.visa_id
+    WHERE e.portal_id = ? AND e.voided_at IS NULL AND e.event_type IN ('to_supplier', 'supplier_return')
+    ORDER BY e.event_date DESC, e.id DESC
+  `).all(id);
+
   result.open_bills = portal.vendor_id ? db.prepare(`
     SELECT b.id, b.number, b.bill_date, b.total_cents, b.amount_paid_cents, b.credit_applied_cents,
            (b.total_cents - b.amount_paid_cents - b.credit_applied_cents) AS balance_cents,

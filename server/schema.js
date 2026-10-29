@@ -575,6 +575,19 @@ CREATE TABLE IF NOT EXISTS post_dated_cheques (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS petty_cash_counts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  count_date TEXT NOT NULL,
+  counted_cents INTEGER NOT NULL,
+  book_cents INTEGER NOT NULL,
+  difference_cents INTEGER NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS cash_deposits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT NOT NULL UNIQUE,

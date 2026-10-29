@@ -39,6 +39,16 @@ function accountSelect(id, preferCash = true) {
   return `<select class="input" id="${id}" name="account_id">${optionsHtml(accounts, { selected: chosen?.id, placeholder: 'Choose account…', labelKey: (a) => `${a.code} · ${a.name}` })}</select>`;
 }
 
+// "Paid from" with the bank and cash accounts plus any prepaid portal
+// wallets (values "acc:<id>" and "portal:<id>").
+function paidFromSelect(id, wallets) {
+  const { accounts, preferred } = depositAccounts();
+  return `<select class="input" id="${id}">
+    <optgroup label="Bank and cash">${accounts.map((a) => `<option value="acc:${a.id}" ${a.id === preferred?.id ? 'selected' : ''}>${esc(`${a.code} · ${a.name}`)}</option>`).join('')}</optgroup>
+    ${wallets.length ? `<optgroup label="Supplier portal wallet">${wallets.map((w) => `<option value="portal:${w.id}" data-vendor="${w.vendor_id}">${esc(`${w.name} · ${fmtMoney(w.balance_cents)} available`)}</option>`).join('')}</optgroup>` : ''}
+  </select>`;
+}
+
 function amountField(id, label, cents, hint = '') {
   return `
     <div class="field">
@@ -153,28 +163,54 @@ export function bindDepositCard(container, visa, refresh) {
         return;
       }
       if (action === 'to-supplier') {
+        let wallets = [];
+        try {
+          wallets = (await api.get('/portals')).filter((row) => row.settlement === 'prepaid' && row.vendor_id && row.is_active && row.balance_cents > 0);
+        } catch { /* bank and cash only */ }
         openModal({
           title: `Pay ${deposit.number} to the supplier`,
           body: `<div class="form-grid">
             ${amountField('dep-amount', 'Amount', deposit.in_hand_cents, `In hand ${fmtMoney(deposit.in_hand_cents)}`)}
             ${dateField('dep-date', 'Date paid')}
+            <div class="field full"><label for="dep-paid-from">Paid from</label>${paidFromSelect('dep-paid-from', wallets)}
+              ${wallets.length ? '<div class="hint">Choose a portal wallet to pay from the balance already with the supplier.</div>' : ''}</div>
             <div class="field full"><label for="dep-vendor">Supplier</label><select class="input" id="dep-vendor" required>${optionsHtml(activeVendors(), { placeholder: 'Choose supplier…' })}</select></div>
-            <div class="field"><label for="dep-method">Method</label>${methodSelect('dep-method', 'Bank transfer')}</div>
-            <div class="field"><label for="dep-account">Paid from</label>${accountSelect('dep-account', false)}</div>
-            <div class="field full"><div class="form-note">Moves the money to <strong>1460 Refundable Deposits Paid</strong>. The customer is still owed the full deposit.</div></div>
+            <div class="field" data-dep-method><label for="dep-method">Method</label>${methodSelect('dep-method', 'Bank transfer')}</div>
+            <div class="field full"><div class="form-note" data-dep-note>Moves the money to <strong>1460 Refundable Deposits Paid</strong>. The customer is still owed the full deposit.</div></div>
           </div>`,
           submitLabel: 'Record payment',
-          onSubmit: (form) => run(api.post(`/visa-deposits/${deposit.id}/to-supplier`, {
-            amount_cents: toCents(form.querySelector('#dep-amount').value),
-            event_date: form.querySelector('#dep-date').value,
-            vendor_id: Number(form.querySelector('#dep-vendor').value),
-            method: form.querySelector('#dep-method').value,
-            account_id: Number(form.querySelector('#dep-account').value),
-          }), 'Deposit paid to supplier', refresh),
+          onMount(overlay) {
+            const from = overlay.querySelector('#dep-paid-from');
+            const vendor = overlay.querySelector('#dep-vendor');
+            const sync = () => {
+              const wallet = from.value.startsWith('portal:');
+              overlay.querySelector('[data-dep-method]').hidden = wallet;
+              if (wallet) vendor.value = from.selectedOptions[0].dataset.vendor;
+              vendor.disabled = wallet;
+              overlay.querySelector('[data-dep-note]').innerHTML = wallet
+                ? 'Paid from the portal wallet: <strong>Dr 1460 Refundable Deposits Paid · Cr 1400 Advances to Suppliers</strong>. The wallet balance goes down; no bank payment.'
+                : 'Moves the money to <strong>1460 Refundable Deposits Paid</strong>. The customer is still owed the full deposit.';
+            };
+            from.addEventListener('change', sync);
+            sync();
+          },
+          onSubmit: (form) => {
+            const [kind, sourceId] = form.querySelector('#dep-paid-from').value.split(':');
+            return run(api.post(`/visa-deposits/${deposit.id}/to-supplier`, {
+              amount_cents: toCents(form.querySelector('#dep-amount').value),
+              event_date: form.querySelector('#dep-date').value,
+              vendor_id: Number(form.querySelector('#dep-vendor').value),
+              method: form.querySelector('#dep-method').value,
+              account_id: kind === 'acc' ? Number(sourceId) : null,
+              portal_id: kind === 'portal' ? Number(sourceId) : null,
+            }), kind === 'portal' ? 'Deposit paid from the portal wallet' : 'Deposit paid to supplier', refresh);
+          },
         });
         return;
       }
       if (action === 'supplier-return') {
+        const lastPaid = (deposit.events || []).filter((e) => e.event_type === 'to_supplier' && !e.voided_at).at(-1);
+        const fromWallet = Boolean(lastPaid?.portal_id);
         openModal({
           title: `Supplier returned ${deposit.number}`,
           body: `<div class="form-grid">
@@ -183,7 +219,9 @@ export function bindDepositCard(container, visa, refresh) {
               <div class="money-input"><span>${esc(currencySymbol())}</span><input class="input" id="dep-deduction" type="number" min="0" step="0.01" value="0"></div>
               <div class="hint">Fines or charges taken out; the customer bears them.</div></div>
             ${dateField('dep-date', 'Date returned')}
-            <div class="field"><label for="dep-account">Received into</label>${accountSelect('dep-account', false)}</div>
+            <div class="field"><label for="dep-account">Received into</label>${fromWallet
+              ? accountSelect('dep-account', false).replace(/ selected(?=>)/g, '').replace('<option value=""', `<option value="wallet" selected>Back to portal wallet${lastPaid.reference ? ` · ${esc(lastPaid.reference)}` : ''}</option><option value=""`)
+              : accountSelect('dep-account', false)}</div>
             <div class="field full"><label for="dep-notes">Reason for any deduction</label><input class="input" id="dep-notes" autocomplete="off" placeholder="e.g. overstay fine 2 days"></div>
           </div>`,
           submitLabel: 'Record return',
@@ -191,7 +229,8 @@ export function bindDepositCard(container, visa, refresh) {
             amount_cents: toCents(form.querySelector('#dep-amount').value),
             deduction_cents: toCents(form.querySelector('#dep-deduction').value),
             event_date: form.querySelector('#dep-date').value,
-            account_id: Number(form.querySelector('#dep-account').value),
+            to_wallet: form.querySelector('#dep-account').value === 'wallet',
+            account_id: Number(form.querySelector('#dep-account').value) || null,
             notes: form.querySelector('#dep-notes').value,
           }), 'Supplier return recorded', refresh),
         });

@@ -226,18 +226,6 @@ function getCompliance(db, id) {
   return item;
 }
 
-function bankDebitVendor(db, account) {
-  const name = `${account.name} (bank debits)`;
-  const existing = db.prepare('SELECT * FROM vendors WHERE name = ? ORDER BY id LIMIT 1').get(name);
-  if (existing) {
-    if (!existing.is_active) db.prepare('UPDATE vendors SET is_active = 1 WHERE id = ?').run(existing.id);
-    return existing;
-  }
-  const id = Number(db.prepare('INSERT INTO vendors (name, notes) VALUES (?, ?)')
-    .run(name, `Charges the bank debits from ${account.code} ${account.name} itself.`).lastInsertRowid);
-  return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
-}
-
 function defaultFrequency(kind) {
   return kind === 'renewal' ? 'yearly' : kind === 'filing' ? 'quarterly' : 'monthly';
 }
@@ -324,7 +312,7 @@ function normalizePayload(db, payload = {}, existing = null) {
 
   // Money the bank takes itself needs no supplier: it is recorded against
   // the bank's own supplier record, created on first use.
-  if (autoDebitAccount && !vendor) vendor = bankDebitVendor(db, autoDebitAccount);
+  if (autoDebitAccount && !vendor) vendor = billService.bankDebitVendor(db, autoDebitAccount);
 
   if (kind === 'recurring_bill') {
     if (!vendor) throw bad('Choose a vendor for a recurring bill');

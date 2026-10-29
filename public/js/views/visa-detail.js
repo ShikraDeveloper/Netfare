@@ -360,7 +360,7 @@ export async function render(container, { params } = {}) {
           </div>
         </div>
 
-        <div class="doc-items-wrap">
+        <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
           <div class="doc-label" style="margin-bottom:8px">Sale items</div>
           <table class="doc-items"><caption class="sr-only">Visa sale items</caption>
             <thead>

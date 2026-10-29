@@ -192,6 +192,15 @@ ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
 // Set when the bank takes the amount itself (account charges): each period's
 // bill is created already paid from this cash or bank account.
 ensureColumn('compliance_items', 'auto_debit_account_id', 'INTEGER REFERENCES accounts(id)');
+// Bank charges taken on the transfer, posted to 6700 in the payment's entry.
+ensureColumn('payments', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('bill_payments', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('refunds', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
+// The amount petty cash is topped back up to (imprest float).
+ensureColumn('settings', 'petty_cash_float_cents', 'INTEGER NOT NULL DEFAULT 0');
+// A visa deposit paid to the supplier from (or returned into) a prepaid
+// portal wallet instead of the bank.
+ensureColumn('visa_deposit_events', 'portal_id', 'INTEGER REFERENCES supplier_portals(id)');
 ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 ensureColumn('post_dated_cheques', 'batch_index', 'INTEGER NOT NULL DEFAULT 0');
 

@@ -3,6 +3,7 @@
 const { bad, notFound, dateISO, todayISO, cents, optionalStr } = require('../util');
 const { isCashAccount } = require('../accounting');
 const audit = require('./audit');
+const billService = require('./bills');
 
 function getAccount(db, accountId) {
   const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(accountId));
@@ -197,7 +198,35 @@ function deleteReconciliation(db, id, payload = {}) {
   return voidReconciliation(db, id, payload);
 }
 
+// A charge on the bank statement that is not in the books yet: saved as a
+// paid expense to 6700 Bank Charges, debited from the account being
+// reconciled, so it shows under Bills & expenses and can be voided there.
+function recordBankCharge(db, payload = {}) {
+  return db.transaction(() => {
+    const account = getAccount(db, payload.account_id);
+    const expense = db.prepare("SELECT * FROM accounts WHERE code = '6700'").get();
+    if (!expense || !expense.is_active) throw bad('Add the 6700 Bank Charges expense account first');
+    const date = dateISO(payload.charge_date || todayISO(), 'Charge date');
+    const latest = latestForAccount(db, account.id);
+    if (latest && date <= latest.statement_date) {
+      throw bad(`The charge date must be after the last reconciliation (${latest.statement_date})`);
+    }
+    const bill = billService.createQuickExpense(db, {
+      description: optionalStr(payload.description, 'Description', 300) || 'Bank charges',
+      amount_cents: cents(payload.amount_cents, 'Amount', { min: 1 }),
+      expense_date: date,
+      account_id: expense.id,
+      payment_account_id: account.id,
+      vendor_id: billService.bankDebitVendor(db, account).id,
+      method: 'Bank debit',
+      notes: 'Added from bank reconciliation',
+    });
+    return { bill, entry_id: bill.payments[0].journal_entry_id };
+  })();
+}
+
 module.exports = {
+  recordBankCharge,
   getWorkspace,
   listReconciliations,
   createReconciliation,

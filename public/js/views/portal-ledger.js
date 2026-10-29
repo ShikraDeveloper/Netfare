@@ -233,7 +233,7 @@ export async function render(container, { params, query } = {}) {
           </div>
         </div>
 
-        <div class="doc-items-wrap">
+        <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
           <div class="doc-label" style="margin-bottom:8px">${isCredit ? (hasCreditRefunds ? 'Bills, payments & refunds' : 'Bills & payments') : 'Ledger movements'}</div>
           <table class="doc-items ledger-table"><caption class="sr-only">Portal ledger</caption>
             <thead>

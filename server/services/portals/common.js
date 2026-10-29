@@ -24,6 +24,19 @@ const portalSelect = `
 // deleting such a payment automatically restores the balance.
 // ---------------------------------------------------------------------------
 
+// Visa deposits paid from a wallet use it up; a supplier return into the
+// wallet gives the net back. Voided events do not count.
+const DEPOSIT_WALLET_NET = `
+  SELECT portal_id, COALESCE(SUM(CASE WHEN event_type = 'to_supplier' THEN amount_cents
+                                      ELSE -(amount_cents - deduction_cents) END), 0) AS total
+  FROM visa_deposit_events
+  WHERE portal_id IS NOT NULL AND voided_at IS NULL AND event_type IN ('to_supplier', 'supplier_return')
+`;
+
+function depositWalletNet(db, portalId, asOf = '9999-12-31') {
+  return db.prepare(`${DEPOSIT_WALLET_NET} AND portal_id = ? AND event_date <= ?`).get(portalId, asOf)?.total || 0;
+}
+
 function aggregates(db) {
   const topups = new Map();
   const credits = new Map();
@@ -41,6 +54,9 @@ function aggregates(db) {
   for (const row of db.prepare(
     "SELECT portal_id, COALESCE(SUM(amount_cents), 0) AS total FROM bill_payments WHERE portal_id IS NOT NULL AND status = 'posted' GROUP BY portal_id",
   ).all()) consumed.set(row.portal_id, row.total);
+  for (const row of db.prepare(`${DEPOSIT_WALLET_NET} GROUP BY portal_id`).all()) {
+    consumed.set(row.portal_id, (consumed.get(row.portal_id) || 0) + row.total);
+  }
   return { topups, credits, refunds, consumed };
 }
 
@@ -69,7 +85,7 @@ function balanceAsOf(db, portalId, asOf) {
   const consumed = db.prepare(
     "SELECT COALESCE(SUM(amount_cents), 0) AS t FROM bill_payments WHERE portal_id = ? AND status = 'posted' AND payment_date <= ?",
   ).get(portalId, asOf).t;
-  return topup + credits - refunded - consumed;
+  return topup + credits - refunded - consumed - depositWalletNet(db, portalId, asOf);
 }
 
 function lockBalance(db, portalId) {
@@ -77,7 +93,7 @@ function lockBalance(db, portalId) {
   const credit = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_credits WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
   const refunded = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM portal_refunds WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
   const consumed = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS t FROM bill_payments WHERE portal_id = ? AND status = 'posted'").get(portalId).t;
-  return topup + credit - refunded - consumed;
+  return topup + credit - refunded - consumed - depositWalletNet(db, portalId);
 }
 
 // True when removing a movement would leave the wallet negative on any date.
@@ -143,6 +159,7 @@ function assertAccount(db, accountId, label) {
 }
 
 module.exports = {
+  depositWalletNet,
   SUPPLIER_ADVANCES,
   AP,
   PORTAL_TYPES,

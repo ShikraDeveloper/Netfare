@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import {
+  currencySymbol,
   emptyState,
   esc,
   fmtDate,
@@ -161,7 +162,7 @@ function openReconcileModal({ accounts, onSaved }) {
       const balanceInput = overlay.querySelector('#recon-balance');
       const workspaceEl = overlay.querySelector('#recon-workspace');
 
-      async function load() {
+      async function load({ tick = [], tickEntry = null } = {}) {
         loadButton.disabled = true;
         try {
           workspace = await api.get('/bank-reconciliations/workspace', {
@@ -169,7 +170,14 @@ function openReconcileModal({ accounts, onSaved }) {
             statement_date: dateInput.value,
           });
           workspaceEl.innerHTML = workspaceHtml(workspace);
-          wireWorkspace(workspaceEl, workspace, balanceInput);
+          const tickIds = new Set(tick.map(String));
+          for (const line of workspace.lines) {
+            if (tickEntry && line.entry_id === tickEntry) tickIds.add(String(line.id));
+          }
+          workspaceEl.querySelectorAll('[data-line-select]').forEach((input) => {
+            if (tickIds.has(input.value)) input.checked = true;
+          });
+          wireWorkspace(workspaceEl, workspace, balanceInput, load);
         } catch (error) {
           workspace = null;
           workspaceEl.innerHTML = `<div class="recon-placeholder error-text">${esc(error.message)}</div>`;
@@ -183,7 +191,7 @@ function openReconcileModal({ accounts, onSaved }) {
         workspace = null;
         workspaceEl.innerHTML = '<div class="recon-placeholder">Choose an account and statement date, then load transactions.</div>';
       };
-      loadButton.addEventListener('click', load);
+      loadButton.addEventListener('click', () => load());
       accountSelect.addEventListener('change', reset);
       dateInput.addEventListener('change', reset);
       balanceInput.addEventListener('input', () => {
@@ -235,12 +243,55 @@ function workspaceHtml(workspace) {
         </tbody>
       </table>
     </div>
-    <p class="hint" style="margin:10px 0 0">Only transactions that appear on the bank statement should be ticked. Use a journal entry for bank charges or other missing items.</p>
+    <p class="hint" style="margin:10px 0 0">Only transactions that appear on the bank statement should be ticked.</p>
+    <details class="recon-charge" data-recon-charge>
+      <summary>${icon('plus', 14)}<span>Add bank charge</span><span class="muted">: on the statement but not in the books</span></summary>
+      <div class="recon-charge-form">
+        <div class="field">
+          <label for="recon-charge-amount">Amount</label>
+          <div class="money-input"><span>${esc(currencySymbol())}</span><input class="input" id="recon-charge-amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00"></div>
+        </div>
+        <div class="field">
+          <label for="recon-charge-date">Date on statement</label>
+          <input class="input" id="recon-charge-date" type="date" value="${esc(workspace.statement_date)}">
+        </div>
+        <div class="field">
+          <label for="recon-charge-description">Description</label>
+          <input class="input" id="recon-charge-description" value="Bank charges" autocomplete="off">
+        </div>
+        <button type="button" class="btn btn-secondary" data-recon-charge-add>Add and tick</button>
+      </div>
+      <p class="hint">Saved as a paid expense to 6700 Bank Charges from this account (Dr 6700 · Cr bank). Undo it from Bills &amp; expenses.</p>
+    </details>
   `;
 }
 
-function wireWorkspace(root, workspace, balanceInput) {
+function wireWorkspace(root, workspace, balanceInput, reload) {
   const update = () => updateDifference(root, workspace, balanceInput);
+  const addCharge = root.querySelector('[data-recon-charge-add]');
+  addCharge?.addEventListener('click', async () => {
+    const amount = toCents(root.querySelector('#recon-charge-amount').value);
+    if (amount <= 0) {
+      toast('Enter the bank charge amount', 'error');
+      return;
+    }
+    // Keep what was ticked; the new charge is ticked as well.
+    const ticked = [...root.querySelectorAll('[data-line-select]:checked')].map((input) => input.value);
+    addCharge.disabled = true;
+    try {
+      const result = await api.post('/bank-reconciliations/bank-charge', {
+        account_id: workspace.account.id,
+        amount_cents: amount,
+        charge_date: root.querySelector('#recon-charge-date').value,
+        description: root.querySelector('#recon-charge-description').value,
+      });
+      toast(`Bank charge ${fmtMoney(amount)} recorded (${result.bill.number})`);
+      await reload({ tick: ticked, tickEntry: result.entry_id });
+    } catch (error) {
+      toast(error.message, 'error');
+      addCharge.disabled = false;
+    }
+  });
   root.querySelectorAll('[data-line-select]').forEach((input) => input.addEventListener('change', update));
   const selectAll = root.querySelector('[data-select-all]');
   if (selectAll) {

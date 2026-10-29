@@ -10,6 +10,8 @@ const {
 } = require('../util');
 const {
   systemAccount,
+  bankChargesCents,
+  bankChargeLines,
   postEntry,
   reverseEntry,
   getEntryWithLines,
@@ -274,6 +276,9 @@ function createRefund(db, payload = {}) {
     const notes = optionalStr(payload.notes, 'Notes', 1000);
     const account = refundAccount(db, payload.account_id);
     const number = allocateNumber(db, 'refund', refundDate);
+    // Paying a customer, the bank's charge is extra; receiving from a
+    // supplier, it comes out of the money received.
+    const charges = bankChargesCents(payload, type === 'supplier' ? { max: amount } : {});
 
     if (type === 'customer') {
       const paymentId = Number(payload.payment_id);
@@ -312,11 +317,11 @@ function createRefund(db, payload = {}) {
         INSERT INTO refunds (
           number, refund_type, status, party_id, invoice_id, payment_id,
           bill_id, bill_payment_id, refund_date, amount_cents, method,
-          reference, notes, account_id
-        ) VALUES (?, ?, 'paid', ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?)
+          reference, notes, account_id, bank_charges_cents
+        ) VALUES (?, ?, 'paid', ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         number, 'customer', payment.customer_id, payment.invoice_id, payment.id,
-        refundDate, amount, method, reference, notes, account.id,
+        refundDate, amount, method, reference, notes, account.id, charges,
       );
       const refundId = Number(info.lastInsertRowid);
       const entryId = postEntry(db, {
@@ -328,6 +333,7 @@ function createRefund(db, payload = {}) {
         lines: [
           { account_id: ar.id, debit_cents: amount, credit_cents: 0, description: `Refund ${number}` },
           { account_id: account.id, debit_cents: 0, credit_cents: amount, description: `Refund to ${customer?.name || 'customer'}` },
+          ...bankChargeLines(db, charges, account, `refund ${number}`),
         ],
       });
       db.prepare('UPDATE refunds SET journal_entry_id = ? WHERE id = ?').run(entryId, refundId);
@@ -385,11 +391,11 @@ function createRefund(db, payload = {}) {
       INSERT INTO refunds (
         number, refund_type, status, party_id, invoice_id, payment_id,
         bill_id, bill_payment_id, supplier_credit_note_id, refund_date,
-        amount_cents, method, reference, notes, account_id
-      ) VALUES (?, 'supplier', 'paid', ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        amount_cents, method, reference, notes, account_id, bank_charges_cents
+      ) VALUES (?, 'supplier', 'paid', ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number, billPayment.vendor_id, bill.id, billPayment.id, creditNote.id,
-      refundDate, amount, method, reference, notes, account.id,
+      refundDate, amount, method, reference, notes, account.id, charges,
     );
     const refundId = Number(info.lastInsertRowid);
     const entryId = postEntry(db, {
@@ -401,6 +407,7 @@ function createRefund(db, payload = {}) {
       lines: [
         { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Refund received from ${vendor?.name || 'vendor'}` },
         { account_id: supplierCredits.id, debit_cents: 0, credit_cents: amount, description: `Supplier credit ${creditNote.number}` },
+        ...bankChargeLines(db, charges, account, `refund ${number}`),
       ],
     });
     db.prepare('UPDATE refunds SET journal_entry_id = ? WHERE id = ?').run(entryId, refundId);

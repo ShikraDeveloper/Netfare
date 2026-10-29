@@ -42,6 +42,7 @@ router.use('/cash', require('./cash'));
 router.use('/journal-entries', require('./journal'));
 router.use('/opening-balances', require('./opening-balances'));
 router.use('/bank-reconciliations', require('./bank-reconciliations'));
+router.use('/petty-cash', require('./petty-cash'));
 router.use('/reports', require('./reports'));
 router.use('/settings', require('./settings'));
 router.use('/audit-logs', require('./audit-logs'));

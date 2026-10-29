@@ -192,7 +192,7 @@ export async function render(container, { params } = {}) {
           </div>
         </div>
 
-        <div class="doc-items-wrap">
+        <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
           <table class="doc-items"><caption class="sr-only">Refund source lines</caption>
             <thead>
               <tr>

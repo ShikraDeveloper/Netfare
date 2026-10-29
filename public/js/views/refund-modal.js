@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
 import { cashAccounts } from '../store.js';
 import {
   centsToInput,
@@ -91,6 +92,7 @@ function bodyHtml({ type, source, allowTypeChange }) {
         <label for="refund-reference">Reference</label>
         <input class="input" id="refund-reference" name="reference" placeholder="e.g. transfer reference" autocomplete="off">
       </div>
+      ${bankChargesFieldHtml('refund')}
       <div class="field full">
         <label for="refund-account" id="refund-account-label">${type === 'customer' ? 'Refund from' : 'Deposit to'}</label>
         <select class="input" id="refund-account" name="account_id">
@@ -278,6 +280,7 @@ export function openRefundModal({
           const target = accounts.find((candidate) => candidate.code === code);
           if (target) account.value = String(target.id);
         });
+        bindBankCharges(overlay, method);
       }
 
       if (sourceSelect) {
@@ -329,6 +332,7 @@ export function openRefundModal({
         reference: values.get('reference'),
         notes: values.get('notes'),
         account_id: accountId,
+        bank_charges_cents: readBankCharges(form),
       });
       toast(`${refund.number} · ${fmtMoney(amount)} refunded`);
       if (onSaved) await onSaved(refund);

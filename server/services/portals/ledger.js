@@ -269,6 +269,7 @@ function portalLedger(db, portalId, options = {}) {
     ...portal.credits.map((credit) => credit.credit_date),
     ...portal.refunds.map((refund) => refund.refund_date),
     ...portal.settlements.map((settlement) => settlement.payment_date),
+    ...portal.deposit_movements.map((event) => event.event_date),
   ].filter(Boolean).sort();
   const defaultFrom = activityDates[0] || today;
   const lastActivity = activityDates[activityDates.length - 1] || today;
@@ -283,6 +284,7 @@ function portalLedger(db, portalId, options = {}) {
     ...portal.credits.map((credit) => credit.journal_entry_id),
     ...portal.refunds.map((refund) => refund.journal_entry_id),
     ...portal.settlements.map((settlement) => settlement.journal_entry_id),
+    ...portal.deposit_movements.map((event) => event.journal_entry_id),
   ].filter(Boolean);
 
   const linesByEntry = new Map();
@@ -365,6 +367,23 @@ function portalLedger(db, portalId, options = {}) {
       booking_id: settlement.booking_id || null,
       visa_id: settlement.visa_id || null,
     })),
+    ...portal.deposit_movements.map((event) => {
+      const net = event.event_type === 'to_supplier' ? event.amount_cents : event.amount_cents - event.deduction_cents;
+      return {
+        key: `deposit-${event.id}`,
+        kind: event.event_type === 'to_supplier' ? 'deposit_paid' : 'deposit_returned',
+        date: event.event_date,
+        order: 2,
+        reference: event.deposit_number,
+        description: event.event_type === 'to_supplier' ? `Visa deposit ${event.deposit_number} paid` : `Visa deposit ${event.deposit_number} returned`,
+        detail: `${event.applicant_name || ''}${event.visa_number ? ` · ${event.visa_number}` : ''}`,
+        debit_cents: event.event_type === 'to_supplier' ? 0 : net,
+        credit_cents: event.event_type === 'to_supplier' ? net : 0,
+        entry_id: event.journal_entry_id || null,
+        source_id: event.id,
+        visa_id: event.visa_id,
+      };
+    }),
   ].sort((a, b) => {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.order !== b.order) return a.order - b.order;
@@ -401,6 +420,8 @@ function portalLedger(db, portalId, options = {}) {
       + (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_credits WHERE status = 'posted')
       - (SELECT COALESCE(SUM(amount_cents), 0) FROM portal_refunds WHERE status = 'posted')
       - (SELECT COALESCE(SUM(amount_cents), 0) FROM bill_payments WHERE portal_id IS NOT NULL AND status = 'posted')
+      - (SELECT COALESCE(SUM(CASE WHEN event_type = 'to_supplier' THEN amount_cents ELSE -(amount_cents - deduction_cents) END), 0)
+         FROM visa_deposit_events WHERE portal_id IS NOT NULL AND voided_at IS NULL AND event_type IN ('to_supplier', 'supplier_return'))
       AS balance
   `).get().balance;
 

@@ -196,3 +196,37 @@ test('the DSR shows the deposit on the visa row and the statement keeps a separa
   assert.deepEqual(deps.map((item) => [item.event_type, item.credit_cents, item.debit_cents]), [['collect', 200_000, 0], ['refund', 0, 200_000]]);
   assert.ok(!statement.transactions.some((item) => item.reference === dep.number), 'deposits stay out of the invoice balance');
 });
+
+test('a deposit can be paid from a prepaid portal wallet and returned into it', () => {
+  const portalService = require('../server/services/portals');
+  const portal = portalService.createPortal(db, { name: 'Visa Agent Wallet', portal_type: 'visa_agent', settlement: 'prepaid', vendor_id: vendorId });
+  portalService.topUp(db, { portal_id: portal.id, topup_date: '2026-11-01', amount_cents: 500_000, deposit_account_id: bank(), method: 'Bank transfer' });
+  const bankBefore = balance('1010');
+  const v = visa('Wallet Deposit');
+  const dep = take(v.id, 300_000);
+
+  assertBadRequest(
+    () => deposits.payToSupplier(db, dep.id, { portal_id: portal.id, event_date: '2026-10-01' }),
+    /before|date/i,
+  );
+  const sent = deposits.payToSupplier(db, dep.id, { portal_id: portal.id, event_date: '2026-11-02' });
+  assert.equal(sent.with_supplier_cents, 300_000);
+  assert.equal(portalService.getPortal(db, portal.id).balance_cents, 200_000, 'the wallet pays it');
+  assert.equal(balance('1010'), bankBefore, 'no bank payment');
+  assertChecksMatch();
+  assert.equal(reconciliation.reconciliationSummary(db).all_matched, true, '1400 still matches the wallets');
+
+  const ledger = portalService.portalLedger(db, portal.id);
+  assert.ok(ledger.rows.some((row) => row.kind === 'deposit_paid' && row.credit_cents === 300_000));
+  assert.equal(ledger.reconciliation.difference_cents, 0);
+
+  deposits.supplierReturn(db, dep.id, { amount_cents: 300_000, deduction_cents: 20_000, event_date: '2026-11-20', to_wallet: true });
+  assert.equal(portalService.getPortal(db, portal.id).balance_cents, 480_000, 'the net comes back to the wallet');
+  assertChecksMatch();
+  assert.equal(reconciliation.reconciliationSummary(db).all_matched, true);
+
+  assertBadRequest(
+    () => deposits.payToSupplier(db, take(visa('Too Big').id, 900_000).id, { portal_id: portal.id, event_date: '2026-11-21' }),
+    /only .* available/i,
+  );
+});

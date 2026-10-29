@@ -145,13 +145,14 @@ function insertEvent(db, depositId, fields) {
   const info = db.prepare(`
     INSERT INTO visa_deposit_events (
       deposit_id, event_type, event_date, amount_cents, deduction_cents, forfeit_to, vendor_id,
-      account_id, method, reference, notes, invoice_id, payment_id, refund_id, journal_entry_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      account_id, method, reference, notes, invoice_id, payment_id, refund_id, journal_entry_id, portal_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     depositId, fields.event_type, fields.event_date, fields.amount_cents, fields.deduction_cents || 0,
     fields.forfeit_to || null, fields.vendor_id || null, fields.account_id || null,
     fields.method || '', fields.reference || '', fields.notes || '',
     fields.invoice_id || null, fields.payment_id || null, fields.refund_id || null, fields.journal_entry_id || null,
+    fields.portal_id || null,
   );
   return Number(info.lastInsertRowid);
 }
@@ -206,6 +207,25 @@ function collectDeposit(db, payload = {}) {
   })();
 }
 
+// A prepaid portal wallet linked to the supplier, with enough balance on the
+// date. Paying from it moves the money from 1400 Advances to Suppliers.
+function walletFor(db, portalId, vendorId, date, amount) {
+  const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(portalId));
+  if (!portal) throw bad('Choose the portal wallet');
+  if (!portal.is_active) throw bad('That portal is archived');
+  if (portal.settlement !== 'prepaid') throw bad('Only a prepaid portal wallet can pay a deposit');
+  if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
+  if (vendorId && portal.vendor_id !== vendorId) throw bad(`Portal "${portal.name}" belongs to another supplier`);
+  if (amount != null) {
+    const { lockBalance, balanceAsOf } = require('./portals/common');
+    const available = Math.min(lockBalance(db, portal.id), balanceAsOf(db, portal.id, date));
+    if (amount > available) {
+      throw bad(`Portal "${portal.name}" has only ${(Math.max(0, available) / 100).toFixed(2)} available on that date`);
+    }
+  }
+  return portal;
+}
+
 function payToSupplier(db, id, payload = {}) {
   return db.transaction(() => {
     const deposit = loadOpen(db, id);
@@ -213,26 +233,30 @@ function payToSupplier(db, id, payload = {}) {
     if (amount <= 0 || amount > deposit.in_hand_cents) {
       throw bad(`Only ${(deposit.in_hand_cents / 100).toFixed(2)} of this deposit is in hand to pass to a supplier`);
     }
-    const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(Number(payload.vendor_id));
-    if (!vendor) throw bad('Choose the supplier');
-    const account = cashAccount(db, payload.account_id, 'account the deposit was paid from');
     const date = eventDate(deposit, payload.event_date, 'Payment date');
+    const portal = payload.portal_id ? walletFor(db, payload.portal_id, Number(payload.vendor_id) || null, date, amount) : null;
+    const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(portal ? portal.vendor_id : Number(payload.vendor_id));
+    if (!vendor) throw bad('Choose the supplier');
+    const account = portal
+      ? systemAccount(db, SYSTEM_CODES.SUPPLIER_ADVANCES, 'Advances to Suppliers')
+      : cashAccount(db, payload.account_id, 'account the deposit was paid from');
     const { withSuppliers } = accounts(db);
     const entryId = postEntry(db, {
       entry_date: date,
-      memo: `Deposit ${deposit.number} paid to ${vendor.name}`,
+      memo: `Deposit ${deposit.number} paid to ${vendor.name}${portal ? ` from portal ${portal.name}` : ''}`,
       reference: deposit.number,
       source_type: 'deposit_to_supplier',
       source_id: deposit.id,
       lines: [
         { account_id: withSuppliers.id, debit_cents: amount, credit_cents: 0, description: `Deposit ${deposit.number} with ${vendor.name}` },
-        { account_id: account.id, debit_cents: 0, credit_cents: amount, description: `Deposit ${deposit.number}` },
+        { account_id: account.id, debit_cents: 0, credit_cents: amount, description: portal ? `Portal ${portal.name}` : `Deposit ${deposit.number}` },
       ],
     });
     insertEvent(db, deposit.id, {
-      event_type: 'to_supplier', event_date: date, amount_cents: amount, vendor_id: vendor.id, account_id: account.id,
-      method: optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
-      reference: optionalStr(payload.reference, 'Reference', 200), journal_entry_id: entryId,
+      event_type: 'to_supplier', event_date: date, amount_cents: amount, vendor_id: vendor.id,
+      account_id: portal ? null : account.id, portal_id: portal ? portal.id : null,
+      method: portal ? 'Portal wallet' : optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
+      reference: optionalStr(payload.reference, 'Reference', 200) || (portal ? portal.name : ''), journal_entry_id: entryId,
     });
     return getDeposit(db, deposit.id);
   })();
@@ -250,12 +274,20 @@ function supplierReturn(db, id, payload = {}) {
     const net = gross - deduction;
     const date = eventDate(deposit, payload.event_date, 'Return date');
     const { held, withSuppliers } = accounts(db);
-    const vendorId = (deposit.events.filter((e) => e.event_type === 'to_supplier' && !e.voided_at).at(-1) || {}).vendor_id || null;
+    const lastPaid = deposit.events.filter((e) => e.event_type === 'to_supplier' && !e.voided_at).at(-1) || {};
+    const vendorId = lastPaid.vendor_id || null;
     const lines = [
       { account_id: withSuppliers.id, debit_cents: 0, credit_cents: gross, description: `Deposit ${deposit.number} settled by supplier` },
     ];
     let accountId = null;
-    if (net > 0) {
+    let portal = null;
+    if (net > 0 && payload.to_wallet) {
+      // Back into the portal wallet it was paid from.
+      if (!lastPaid.portal_id) throw bad('This deposit was not paid from a portal wallet');
+      portal = walletFor(db, lastPaid.portal_id, null, date, null);
+      const advances = systemAccount(db, SYSTEM_CODES.SUPPLIER_ADVANCES, 'Advances to Suppliers');
+      lines.unshift({ account_id: advances.id, debit_cents: net, credit_cents: 0, description: `Deposit ${deposit.number} back to portal ${portal.name}` });
+    } else if (net > 0) {
       const account = cashAccount(db, payload.account_id, 'account the supplier paid into');
       accountId = account.id;
       lines.unshift({ account_id: account.id, debit_cents: net, credit_cents: 0, description: `Deposit ${deposit.number} returned` });
@@ -273,7 +305,8 @@ function supplierReturn(db, id, payload = {}) {
     });
     insertEvent(db, deposit.id, {
       event_type: 'supplier_return', event_date: date, amount_cents: gross, deduction_cents: deduction,
-      vendor_id: vendorId, account_id: accountId, method: optionalStr(payload.method, 'Method', 100),
+      vendor_id: vendorId, account_id: accountId, portal_id: portal ? portal.id : null,
+      method: portal ? 'Portal wallet' : optionalStr(payload.method, 'Method', 100),
       reference: optionalStr(payload.reference, 'Reference', 200),
       notes: optionalStr(payload.notes, 'Reason for the deduction', 500), journal_entry_id: entryId,
     });

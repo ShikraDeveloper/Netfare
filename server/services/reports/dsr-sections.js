@@ -36,6 +36,7 @@ const FLOW_LABELS = {
   deposit_supplier_return: 'Visa deposits returned by suppliers',
   deposit_refund: 'Visa deposit refunds',
   opening_balance: 'Opening balances',
+  petty_cash_count: 'Petty cash count differences',
   void: 'Reversals (voids)',
 };
 

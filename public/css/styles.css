@@ -1342,6 +1342,7 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
   .modal-error { max-width: 100%; width: 100%; margin-bottom: 4px; }
   .doc-items { min-width: 520px; }
   .doc-items-wrap { overflow-x: auto; }
+  .doc-items-wrap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
   .toast-root { right: 12px; left: 12px; bottom: 12px; align-items: stretch; }
   .toast { max-width: none; }
 }
@@ -1363,6 +1364,13 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 .field-inline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .recon-workspace { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
 .recon-placeholder { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 24px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.recon-charge { margin-top: 12px; border: 1px dashed var(--border-strong); border-radius: 10px; padding: 0 12px; }
+.recon-charge > summary { display: flex; align-items: center; gap: 6px; padding: 10px 0; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); list-style: none; }
+.recon-charge > summary::-webkit-details-marker { display: none; }
+.recon-charge > summary .muted { font-weight: 400; }
+.recon-charge-form { display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 10px; align-items: end; }
+.recon-charge .hint { margin: 8px 0 12px; }
+@media (max-width: 700px) { .recon-charge-form { grid-template-columns: 1fr; } }
 .recon-modal-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .recon-modal-cards > div { background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; display: flex; flex-direction: column; gap: 2px; }
 .recon-modal-cards span { font-size: 9.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
@@ -1473,6 +1481,17 @@ tr.open .statement-extra-wrap, .show-details .statement-extra-wrap { display: bl
   .statement-summary, .statement-summary > div, .statement-held { background: transparent !important; }
   .statement-held:not([open]) .table-wrap, .statement-held:not([open]) p { display: none; }
   .statement-held.is-empty, .skip-link { display: none !important; }
+  /* Keep a short statement on one page. */
+  .statement-head { padding-bottom: 10px; }
+  .statement-brand { font-size: 17px; }
+  .statement-parties { padding: 10px 0 8px; }
+  .statement-summary { margin-bottom: 10px; }
+  .statement-summary > div { padding: 6px 10px; }
+  .statement-summary strong { font-size: 12px; }
+  .statement-summary-due strong { font-size: 14px; }
+  .statement-row-sub { font-size: 9px; }
+  .statement-table td { padding-top: 4px; padding-bottom: 4px; }
+  .statement-foot { margin-top: 10px; padding-top: 8px; break-inside: avoid; }
   .detail-grid, .kpi-grid { display: none !important; }
   .doc-wrap { max-width: none; margin: 0; }
   .data th { background: #f5f5f5; }
