@@ -1073,9 +1073,39 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data) at 1400px, 375px (no sideways scroll) and an A4 PDF print.
 - No schema change. The live file was not modified; restart needed.
 
+### Bank Charges account and bank debits in Compliance — code commit `0afceae`
+
+The user wanted the monthly bank account maintenance charges to be a recurring Compliance item. Before this change a recurring bill always made a draft bill that had to be approved and then paid, even though the bank had already taken the money.
+
+- **New account 6700 Bank Charges** (expense, operating_expense). It is added on start through the default chart (`INSERT OR IGNORE`), so the live file gets it on restart. It is not a system account; the name can be changed.
+- **Bank debit on recurring bills:**
+  - New column `compliance_items.auto_debit_account_id`: an `ensureColumn` migration plus the schema for new files.
+  - The form has a checkbox **"The bank takes this amount itself (bank debit)"** with **Debited from** (cash and bank accounts, 1010 by default). When it is ticked, Payment method and the auto-draft option are hidden.
+  - `generateBill` with a bank debit creates the bill as `received` and records its payment from that account on the bill date, method "Bank debit". The bill is paid at once: Dr expense · Cr 2000, then Dr 2000 · Cr bank, so in net Dr 6700 · Cr 1010.
+  - The log reads "Bill BILL-… recorded as paid by bank debit".
+  - A fixed amount is created by **Run due bills**; each due month is recorded on its own date. A variable amount waits; the row button reads **Record debit**, and its form asks for the amount and the "Date debited".
+  - The account must be an active cash or bank account. Turning the option off brings back draft bills.
+- **"Bank charges" category:** choosing it on a new item fills in 6700 Bank Charges and ticks the bank debit.
+- The list shows "Bank debit · Bank Account". The toasts and the callout say "bills created" instead of "draft bills created".
+- **Correction to the earlier explanation:** due bills, including bank debits, are created when **Run due bills** is clicked on Compliance. Nothing runs on its own in the background.
+
+Key files: `server/default-accounts.js`, `server/migrations.js`, `server/schema.js`, `server/services/compliance.js`, `public/js/views/compliance.js`, `public/js/views/compliance/modal.js`, `public/js/views/compliance/shared.js`, `test/bank-debit.test.js` (new), `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 182 JavaScript files syntax OK.
+- `npm test`: 173 passed. 4 new tests in `test/bank-debit.test.js`:
+  - 6700 exists as an operating expense;
+  - a fixed bank debit makes three paid bills for three due months, each paid on its date with method Bank debit, nothing left in 2000, the next due date moved on, and ledger checks matched;
+  - a variable one waits, then is recorded paid and the bank goes down;
+  - turning it off gives a draft again, and a non-bank account is refused.
+- `npm run test:e2e`: 37 passed, axe clean. New test: Bank charges category → bank debit on, 6700 and 1010 chosen, payment method and auto-draft hidden; save; Run due bills; a paid AED 26.25 bill on the due date.
+- Visual check of the form on a throwaway server (temp data dir, port 4391, demo data) at 1400px.
+- Schema change: one nullable column, added by migration on start. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `2f59a97` (simpler customer statement).
+1. Start from the latest `main`; the latest code commit is `0afceae` (Bank Charges account and Compliance bank debits).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
