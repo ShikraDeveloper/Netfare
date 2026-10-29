@@ -1019,9 +1019,39 @@ Verification:
 - Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): the form with its defaults.
 - No schema change. The live file was not modified; restart needed.
 
+### Customer advances: used on confirm, on the statement, recordable from the customer page — code commit `ee22a2d`
+
+These are the three gaps from the advance review, plus a fourth found while fixing them.
+
+- **Used on confirm / submit:**
+  - `confirmBooking`, `submitVisa` and `submitVisaGroup` take `{ apply_advances: true }`, which the screens send. Within the same transaction, `jobs.applyOpenAdvances` applies the job's open advances to the new invoice: oldest first, up to the invoice total, each dated the later of the invoice date and the advance date.
+  - The result lists `applied_advances`; the screen shows a message per advance; the confirm preview lists "Paid from advance ADV-… −AED …".
+  - Any remaining amount stays as an advance.
+  - Without the option (old API callers), nothing changes.
+- **On the customer statement:** a new **Advances held for you** section, built from advances (received, credit), "Advance applied" payments (used for invoice X, debit) and advance refunds (debit), with opening and closing held balances. Voided advances, payments and refunds are excluded. It is never part of the amount due. The deposit section's table is reused with its own title and note.
+- **Recordable from the customer side:** **Customer balances → customer** has a **Record advance** button for an advance with no booking or visa (new `customer-advance-modals.js`).
+- **Found while fixing:** an advance with no job sent Settlements to the customer balance page, which had no way to use or refund it. Each advance row there now has **Use for invoice** (choose an unpaid invoice of the customer) and **Refund**.
+
+Key files: `server/services/jobs.js`, `server/services/bookings.js`, `server/services/visas.js`, `server/routes/bookings.js`, `server/routes/visas.js`, `server/services/statements.js`, `public/js/views/job-modals.js`, `public/js/views/booking-detail.js`, `public/js/views/visa-detail.js`, `public/js/views/statement.js`, `public/js/views/customer-advance-modals.js` (new), `public/js/views/customer-balance-detail.js`, `test/advance-fixes.test.js` (new), `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 180 JavaScript files syntax OK.
+- `npm test`: 169 passed. 5 new tests in `test/advance-fixes.test.js`:
+  - two advances pay a booking invoice oldest first, with dates and the remainder kept, and ledger checks matched;
+  - nothing is applied without the option or to another job's invoice;
+  - visa submit and group submit apply their own advances;
+  - the statement advances section (received / applied / refunded, a voided one excluded, opening balance) and the amount due unaffected;
+  - an advance with no job is used and refunded.
+- `npm run test:e2e`: 36 passed.
+  - New test: the confirm preview shows "Paid from advance … −AED 200.00" and the invoice is paid 200; Record advance on the customer balance page shows Use for invoice; the statement shows "Advances held for you" with "Advance used to pay invoice".
+  - The statement summary test reads the first statement table, because a customer with advances now has two.
+- Visual check on a throwaway server (temp data dir, port 4391, demo data): the Record advance button on the customer balance page and the statement.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `8e454ae` (quick expense).
+1. Start from the latest `main`; the latest code commit is `ee22a2d` (customer advance fixes).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
