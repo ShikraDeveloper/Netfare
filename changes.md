@@ -960,9 +960,39 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): the Statement of Profit or Loss with cost of sales and gross profit.
 - No schema change (data only). The live file was not modified; restart needed.
 
+### Reports section simplified — code commit `4d30e9f`
+
+The reports page had a strip of 10 tabs with accounting names and the same date fields everywhere.
+
+- **Reports home** (`#/reports`): cards in three groups, each with an icon and one line explaining it.
+  - **Daily work:** Daily sales, Who owes us (trade receivables aging), Visa deposits.
+  - **How the business is doing:** Profit or loss, Booking gross profit, Visa gross profit.
+  - **For your accountant:** Financial position, Trial balance, What we owe suppliers (trade payables aging), Portal wallets.
+- **Each report:**
+  - The page title is the report's proper name (e.g. Statement of Profit or Loss), with its one-line explanation as the subtitle.
+  - An **All reports** button and Print are in the header. The tab strip is gone.
+- **Quick periods:**
+  - Date-range reports: **Today, This month, Last month, This year**, then From / To.
+  - Single-date reports: **Today, End of last month**, then As of.
+  - Reports with no date (Visa deposits, Portal wallets) show no date controls.
+  - The chosen quick button is highlighted.
+- Report URLs are unchanged, so dashboard and other links still work.
+
+Key files: `public/js/views/reports.js`, `public/css/styles.css`, `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 177 JavaScript files syntax OK.
+- `npm test`: 161 passed.
+- `npm run test:e2e`: 34 passed.
+  - New test: the three groups and 10 cards; opening Profit or loss shows the proper title with no tab strip; This year sets 1 January; Last month sets a date; All reports goes back.
+  - The reports home is added to the axe audit, which is clean in light and dark.
+- Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): the reports home, and Booking gross profit with the quick periods.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `95165e5` (IFRS wording).
+1. Start from the latest `main`; the latest code commit is `4d30e9f` (reports section simplified).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
