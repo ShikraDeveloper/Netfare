@@ -354,7 +354,7 @@ function deleteVisa(db, id) {
   })();
 }
 
-function submitVisa(db, id) {
+function submitVisa(db, id, options = {}) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
@@ -385,7 +385,9 @@ function submitVisa(db, id) {
     db.prepare("UPDATE visa_applications SET status = 'submitted', invoice_id = ?, updated_at = datetime('now') WHERE id = ?")
       .run(invoice.id, id);
     jobs.recordStatus(db, 'visa', id, { from: 'draft', to: 'submitted', remarks: `Invoice ${invoice.number} posted` });
+    const appliedAdvances = options.apply_advances ? jobs.applyOpenAdvances(db, 'visa', id, invoice) : [];
     const result = getVisa(db, id);
+    if (appliedAdvances.length) result.applied_advances = appliedAdvances;
     if (result.passport_warning) warnings.push(result.passport_warning);
     if (warnings.length) result.warnings = warnings;
     return result;
@@ -575,7 +577,7 @@ function createVisaGroup(db, payload = {}) {
 }
 
 // Submit every draft application in the group at once, or none of them.
-function submitVisaGroup(db, groupId) {
+function submitVisaGroup(db, groupId, options = {}) {
   return db.transaction(() => {
     const group = groupSummary(db, groupId);
     if (!group) throw notFound('Visa group not found');
@@ -583,7 +585,7 @@ function submitVisaGroup(db, groupId) {
     if (!drafts.length) throw bad('This group has no draft applications to submit');
     const warnings = [];
     const submitted = drafts.map((row) => {
-      const result = submitVisa(db, row.id);
+      const result = submitVisa(db, row.id, options);
       for (const warning of result.warnings || []) warnings.push(`${result.number}: ${warning}`);
       return result;
     });

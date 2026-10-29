@@ -17,7 +17,7 @@ router.post('/groups', (req, res) => {
 });
 
 router.post('/groups/:groupId/submit', (req, res) => {
-  res.json(service.submitVisaGroup(db, Number(req.params.groupId)));
+  res.json(service.submitVisaGroup(db, Number(req.params.groupId), req.body || {}));
 });
 
 router.get('/:id', (req, res) => {
@@ -33,7 +33,7 @@ router.delete('/:id', (req, res) => {
 });
 
 router.post('/:id/submit', (req, res) => {
-  res.json(service.submitVisa(db, Number(req.params.id)));
+  res.json(service.submitVisa(db, Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/approve', (req, res) => {

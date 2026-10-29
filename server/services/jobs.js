@@ -238,7 +238,30 @@ function jobPaymentStatus(job, closedStatuses = []) {
   return { ...rest, payment_status: paymentStatus, payment_balance_cents: balance };
 }
 
+// Open advances recorded on the job pay its new invoice straight away, in the
+// order they were received, up to the invoice total. Each is dated the later
+// of the invoice date and the advance date.
+function applyOpenAdvances(db, sourceType, jobId, invoice) {
+  const column = sourceType === 'booking' ? 'booking_id' : 'visa_id';
+  const advances = db.prepare(`
+    SELECT * FROM customer_advances
+    WHERE ${column} = ? AND voided_at IS NULL AND amount_cents - applied_cents - refunded_cents > 0
+    ORDER BY advance_date, id
+  `).all(Number(jobId));
+  const advanceService = require('./advances');
+  const applied = [];
+  for (const advance of advances) {
+    const fresh = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoice.id);
+    if (invoiceBalanceCents(fresh) <= 0) break;
+    const paymentDate = advance.advance_date > fresh.issue_date ? advance.advance_date : fresh.issue_date;
+    const result = advanceService.applyAdvance(db, advance.id, { invoice_id: invoice.id, payment_date: paymentDate });
+    applied.push({ number: advance.number, amount_cents: result.applied_cents });
+  }
+  return applied;
+}
+
 module.exports = {
+  applyOpenAdvances,
   JOB_INVOICE_COLUMNS,
   jobPaymentStatus,
   normalizeJobItems,

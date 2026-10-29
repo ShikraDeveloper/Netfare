@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { openApplyAdvance, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
 import {
   emptyState,
   esc,
@@ -84,6 +85,9 @@ function advanceRows(advances) {
         <td class="num">${fmtMoney(advance.applied_cents)}</td>
         <td class="num">${fmtMoney(advance.refunded_cents)}</td>
         <td class="num amount-ok">${fmtMoney(advance.remaining_cents)}</td>
+        <td class="nowrap">${advance.remaining_cents > 0 ? `
+          <button class="btn btn-ghost btn-sm" data-advance-apply="${advance.id}">Use for invoice</button>
+          <button class="btn btn-ghost btn-sm" data-advance-refund="${advance.id}">Refund</button>` : ''}</td>
       </tr>
     `;
   }).join('');
@@ -125,6 +129,7 @@ export async function render(container, { params } = {}) {
     actions: `
       <a class="btn btn-ghost" href="#/customer-balances">${icon('chevron', 15)}<span>All balances</span></a>
       <a class="btn btn-secondary" href="#/customers/${customer.id}/statement">${icon('file', 15)}<span>Statement</span></a>
+      <button class="btn btn-primary" data-action="record-advance">${icon('plus', 15)}<span>Record advance</span></button>
     `,
   });
 
@@ -194,7 +199,7 @@ export async function render(container, { params } = {}) {
         </div>
         <div class="table-wrap">
           <table class="data"><caption class="sr-only">Customer advances for ${esc(customer.name)}</caption>
-            <thead><tr><th scope="col">Advance</th><th scope="col">Job</th><th scope="col" class="num">Received</th><th scope="col" class="num">Applied</th><th scope="col" class="num">Refunded</th><th scope="col" class="num">Remaining</th></tr></thead>
+            <thead><tr><th scope="col">Advance</th><th scope="col">Job</th><th scope="col" class="num">Received</th><th scope="col" class="num">Applied</th><th scope="col" class="num">Refunded</th><th scope="col" class="num">Remaining</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
             <tbody>${advanceRows(data.advances)}</tbody>
           </table>
         </div>
@@ -217,8 +222,15 @@ export async function render(container, { params } = {}) {
     ` : ''}
   `;
 
+  const refresh = () => render(container, { params: [String(id)] });
+  document.querySelector('#page-actions [data-action="record-advance"]')?.addEventListener('click', () => openRecordAdvance(customer, refresh));
+  const advanceById = new Map(data.advances.map((advance) => [String(advance.id), advance]));
   container.onclick = (event) => {
-    if (event.target.closest('a')) return;
+    const apply = event.target.closest('[data-advance-apply]');
+    if (apply) return openApplyAdvance(advanceById.get(apply.dataset.advanceApply), customer.id, refresh);
+    const refund = event.target.closest('[data-advance-refund]');
+    if (refund) return openRefundAdvance(advanceById.get(refund.dataset.advanceRefund), refresh);
+    if (event.target.closest('a, button')) return;
     const row = event.target.closest('tr[data-href]');
     if (row) location.hash = row.dataset.href;
   };

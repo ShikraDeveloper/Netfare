@@ -483,7 +483,7 @@ export async function render(container, { params } = {}) {
       });
       if (!confirmed) return;
       try {
-        const result = await api.post(`/visas/groups/${visa.group.id}/submit`, {});
+        const result = await api.post(`/visas/groups/${visa.group.id}/submit`, { apply_advances: true });
         toast(`${result.submitted.length} application${result.submitted.length === 1 ? '' : 's'} submitted and posted`);
         (result.warnings || []).forEach((warning) => toast(warning, 'error'));
         refresh();
@@ -505,8 +505,9 @@ export async function render(container, { params } = {}) {
       });
       if (!confirmed) return;
       try {
-        const result = await api.post(`/visas/${id}/submit`, {});
+        const result = await api.post(`/visas/${id}/submit`, { apply_advances: true });
         toast(`${visa.number} submitted and posted`);
+        (result?.applied_advances || []).forEach((row) => toast(`Advance ${row.number} applied: ${fmtMoney(row.amount_cents)}`));
         if (Array.isArray(result?.warnings)) {
           result.warnings.forEach((warning) => toast(warning, 'error'));
         }

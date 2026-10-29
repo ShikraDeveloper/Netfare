@@ -503,7 +503,7 @@ test('customer statement shows summary cards, presets and clean ledger rows', as
   assert.equal(await page.locator('.statement-presets [data-statement-preset]').count(), 3);
   assert.match(await page.locator('.statement-status').innerText(), /Settled|Payment due|Credit balance/);
 
-  const ledgerText = await page.locator('.statement-table tbody').innerText();
+  const ledgerText = await page.locator('.statement-table tbody').first().innerText();
   assert.match(ledgerText, /Invoice raised/, 'Invoice descriptions should not repeat the reference');
   assert.doesNotMatch(ledgerText, /Invoice INV-/);
   assert.ok(await page.locator('.statement-desc-dot').count() > 0, 'Ledger rows should carry a type marker');
@@ -1727,6 +1727,47 @@ test('a quick expense is saved and paid in one step', async () => {
   assert.equal(bill.status_display, 'paid');
   assert.equal(bill.vendor_name, 'Sundry (cash expenses)');
   assert.equal(bill.payments[0].method, 'Cash');
+  assertNoConsoleErrors();
+});
+
+test('advances are used on confirm, recorded from the customer page and shown on the statement', async () => {
+  const [vendors, accounts] = await Promise.all([getJson(baseUrl, '/api/vendors'), getJson(baseUrl, '/api/accounts')]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const customer = await postJson(baseUrl, '/api/customers', { name: 'E2E Advance Customer' });
+  const booking = await postJson(baseUrl, '/api/bookings', {
+    customer_id: customer.id, booking_date: '2026-10-20', due_date: '2026-10-20',
+    sale_items: [{ description: 'E2E ticket', quantity: 1, unit_price_cents: 50_000, account_id: code('4000') }],
+    cost_items: [{ description: 'E2E fare', quantity: 1, unit_price_cents: 40_000, account_id: code('5000'), vendor_id: vendors.find((row) => row.is_active).id }],
+  });
+  await postJson(baseUrl, '/api/advances', {
+    customer_id: customer.id, booking_id: booking.id, amount_cents: 20_000, advance_date: '2026-10-19', deposit_account_id: code('1010'),
+  });
+
+  await openRoute(`/bookings/${booking.id}`);
+  await page.locator('[data-action="confirm"]').click();
+  const preview = page.locator('[role="dialog"] [data-preview]');
+  await preview.waitFor();
+  assert.match((await preview.innerText()).replace(/\s+/g, ' '), /Paid from advance ADV-\d{4}-\d{4} .*−AED 200\.00/);
+  await page.locator('[role="dialog"] [data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[data-action="confirm"]'));
+  const confirmed = await getJson(baseUrl, `/api/bookings/${booking.id}`);
+  assert.equal(confirmed.invoice.amount_paid_cents, 20_000);
+
+  // A general advance from the customer balance page.
+  await openRoute(`/customer-balances/${customer.id}`);
+  await page.locator('#page-actions [data-action="record-advance"]').click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  await dialog.locator('#ca-amount').fill('150');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('[data-advance-apply]').first().waitFor();
+
+  await openRoute(`/customers/${customer.id}/statement?to=2026-12-31`);
+  const section = page.locator('[data-statement-advances]');
+  await section.waitFor();
+  assert.match(await section.innerText(), /Advances held for you/);
+  assert.match((await section.innerText()).replace(/\s+/g, ' '), /Advance used to pay invoice/);
   assertNoConsoleErrors();
 });
 

@@ -38,6 +38,18 @@ export function postingPreview(job, portals = null) {
     }
     items.push({ label: `Supplier bill — ${row.name}`, note, value: fmtMoney(row.cents) });
   }
+  // Open advances on the job pay the new invoice straight away.
+  let toApply = job.sale_total_cents || 0;
+  for (const advance of (job.advances || []).filter((row) => !row.voided && row.remaining_cents > 0)) {
+    if (toApply <= 0) break;
+    const amount = Math.min(advance.remaining_cents, toApply);
+    toApply -= amount;
+    items.push({
+      label: `Paid from advance ${advance.number}`,
+      note: 'Applied to the invoice automatically (Dr 2400 · Cr 1100).',
+      value: `−${fmtMoney(amount)}`,
+    });
+  }
   const margin = (job.sale_total_cents || 0) - (job.cost_total_cents || 0);
   return {
     heading: 'This will post',

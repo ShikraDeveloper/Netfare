@@ -373,8 +373,9 @@ export async function render(container, { params } = {}) {
       });
       if (!confirmed) return;
       try {
-        const result = await api.post(`/bookings/${id}/confirm`, {});
+        const result = await api.post(`/bookings/${id}/confirm`, { apply_advances: true });
         toast(`${booking.number} confirmed and posted`);
+        (result?.applied_advances || []).forEach((row) => toast(`Advance ${row.number} applied: ${fmtMoney(row.amount_cents)}`));
         if (Array.isArray(result?.warnings)) {
           result.warnings.forEach((warning) => toast(warning, 'error'));
         }

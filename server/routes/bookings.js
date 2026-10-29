@@ -25,7 +25,7 @@ router.delete('/:id', (req, res) => {
 });
 
 router.post('/:id/confirm', (req, res) => {
-  res.json(service.confirmBooking(db, Number(req.params.id)));
+  res.json(service.confirmBooking(db, Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/travel', (req, res) => {

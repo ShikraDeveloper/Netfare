@@ -288,6 +288,58 @@ function customerDeposits(db, customerId, range) {
   return { opening_held_cents: opening, closing_held_cents: balance, transactions };
 }
 
+// Customer advances are money received before an invoice, held in 2400. Like
+// security deposits they run as their own balance: received adds, used for an
+// invoice or refunded reduces. Voided advances, applications and refunds drop out.
+function customerAdvances(db, customerId, range) {
+  const rows = [
+    ...db.prepare(`
+      SELECT 'received' AS event_type, a.id, a.number AS reference, a.advance_date AS date, a.amount_cents,
+             b.number AS booking_number, v.number AS visa_number, '' AS invoice_number
+      FROM customer_advances a
+      LEFT JOIN bookings b ON b.id = a.booking_id
+      LEFT JOIN visa_applications v ON v.id = a.visa_id
+      WHERE a.customer_id = ? AND a.voided_at IS NULL
+    `).all(customerId),
+    ...db.prepare(`
+      SELECT 'applied' AS event_type, p.id, a.number AS reference, p.payment_date AS date, p.amount_cents,
+             '' AS booking_number, '' AS visa_number, i.number AS invoice_number
+      FROM payments p
+      JOIN customer_advances a ON a.id = p.advance_id
+      JOIN invoices i ON i.id = p.invoice_id
+      WHERE a.customer_id = ? AND a.voided_at IS NULL AND p.status = 'posted'
+    `).all(customerId),
+    ...db.prepare(`
+      SELECT 'refunded' AS event_type, r.id, a.number AS reference, r.refund_date AS date, r.amount_cents,
+             '' AS booking_number, '' AS visa_number, '' AS invoice_number
+      FROM refunds r
+      JOIN customer_advances a ON a.id = r.advance_id
+      WHERE a.customer_id = ? AND a.voided_at IS NULL AND r.status = 'paid'
+    `).all(customerId),
+  ];
+  if (!rows.length) return null;
+  const order = { received: 1, applied: 2, refunded: 3 };
+  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : order[a.event_type] - order[b.event_type] || a.id - b.id));
+  const described = rows.map((row) => {
+    if (row.event_type === 'received') {
+      const job = row.booking_number ? ` · booking ${row.booking_number}` : row.visa_number ? ` · visa ${row.visa_number}` : '';
+      return { ...row, description: `Advance received${job}`, debit_cents: 0, credit_cents: row.amount_cents };
+    }
+    if (row.event_type === 'applied') return { ...row, description: `Advance used to pay invoice ${row.invoice_number}`, debit_cents: row.amount_cents, credit_cents: 0 };
+    return { ...row, description: 'Advance refunded', debit_cents: row.amount_cents, credit_cents: 0 };
+  });
+  const movement = (row) => row.credit_cents - row.debit_cents;
+  const opening = described.filter((row) => range.from && row.date < range.from).reduce((sum, row) => sum + movement(row), 0);
+  let balance = opening;
+  const transactions = described
+    .filter((row) => (!range.from || row.date >= range.from) && row.date <= range.to)
+    .map((row) => {
+      balance += movement(row);
+      return { ...row, balance_cents: balance };
+    });
+  return { opening_held_cents: opening, closing_held_cents: balance, transactions };
+}
+
 function buildStatement(db, { kind, partyId, from, to }) {
   const partyTable = kind === 'customer' ? 'customers' : 'vendors';
   const party = db.prepare(`SELECT * FROM ${partyTable} WHERE id = ?`).get(partyId);
@@ -338,6 +390,7 @@ function buildStatement(db, { kind, partyId, from, to }) {
     total_credit_cents: totals.credit_cents,
     transactions,
     deposits: kind === 'customer' ? customerDeposits(db, partyId, range) : null,
+    advances: kind === 'customer' ? customerAdvances(db, partyId, range) : null,
   };
 }
 

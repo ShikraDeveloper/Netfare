@@ -42,13 +42,13 @@ const KIND_TONES = {
 
 // Visa security deposits run as their own balance: money we hold for the
 // customer, separate from what they owe on invoices.
-function depositsSectionHtml(deposits) {
+function depositsSectionHtml(deposits, { title = 'Security deposits held for you', attr = 'data-statement-deposits', note = 'Deposits are refundable and are not part of the amount due above.', label = 'Deposits still held' } = {}) {
   if (!deposits || (!deposits.transactions.length && !deposits.opening_held_cents)) return '';
   return `
-    <div class="statement-deposits" data-statement-deposits>
-      <h3>Security deposits held for you</h3>
+    <div class="statement-deposits" ${attr}>
+      <h3>${esc(title)}</h3>
       <div class="table-wrap">
-      <table class="data statement-table"><caption class="sr-only">Security deposits</caption>
+      <table class="data statement-table"><caption class="sr-only">${esc(title)}</caption>
         <thead><tr>
           <th scope="col">Date</th><th scope="col">Reference</th><th scope="col">Description</th>
           <th scope="col" class="num">Returned / used</th><th scope="col" class="num">Received</th><th scope="col" class="num">Held</th>
@@ -64,11 +64,11 @@ function depositsSectionHtml(deposits) {
               <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '<span class="statement-zero">—</span>'}</td>
               <td class="num">${fmtMoney(row.balance_cents)}</td>
             </tr>`).join('')}
-          <tr class="statement-total"><td colspan="5"><strong>Deposits still held</strong></td><td class="num"><strong>${fmtMoney(deposits.closing_held_cents)}</strong></td></tr>
+          <tr class="statement-total"><td colspan="5"><strong>${esc(label)}</strong></td><td class="num"><strong>${fmtMoney(deposits.closing_held_cents)}</strong></td></tr>
         </tbody>
       </table>
       </div>
-      <p class="muted">Deposits are refundable and are not part of the amount due above.</p>
+      <p class="muted">${esc(note)}</p>
     </div>`;
 }
 
@@ -342,6 +342,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           </tbody>
         </table>
       </div>
+      ${depositsSectionHtml(data.advances, { title: 'Advances held for you', attr: 'data-statement-advances', note: 'Money received before an invoice. It is used for your next invoice or refunded, and is not part of the amount due above.', label: 'Advances still held' })}
       ${depositsSectionHtml(data.deposits)}
 
       <div class="statement-foot">

@@ -259,7 +259,7 @@ function deleteBooking(db, id) {
   })();
 }
 
-function confirmBooking(db, id) {
+function confirmBooking(db, id, options = {}) {
   return db.transaction(() => {
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!booking) throw notFound('Booking not found');
@@ -281,7 +281,9 @@ function confirmBooking(db, id) {
 
     db.prepare("UPDATE bookings SET status = 'confirmed', invoice_id = ?, updated_at = datetime('now') WHERE id = ?").run(invoice.id, id);
     jobs.recordStatus(db, 'booking', id, { from: 'draft', to: 'confirmed', remarks: `Invoice ${invoice.number} posted` });
+    const appliedAdvances = options.apply_advances ? jobs.applyOpenAdvances(db, 'booking', id, invoice) : [];
     const result = getBooking(db, id);
+    if (appliedAdvances.length) result.applied_advances = appliedAdvances;
     if (warnings.length) result.warnings = warnings;
     return result;
   })();
