@@ -990,9 +990,38 @@ Verification:
 - Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): the reports home, and Booking gross profit with the quick periods.
 - No schema change. The live file was not modified; restart needed.
 
+### Quick expense (paid now) — code commit `8e454ae`
+
+Before this, a small expense already paid took two steps: a bill, then a payment on that bill.
+
+- A **Quick expense** button on Bills & expenses (also in the empty state) opens one form:
+  - what it was for, amount and date paid;
+  - expense account (default 6900 Other Expenses), paid from (default 1000 Cash) and method (Cash, Credit card, Bank transfer, Cheque with its number, Other);
+  - optional supplier, receipt no., and receipt photo or PDF.
+- `POST /api/bills/quick-expense` (`createQuickExpense`) creates a received bill and a full payment on the same date, in one transaction:
+  - Dr expense / Cr 2000, then Dr 2000 / Cr cash or bank.
+  - Trade Payables nets to zero, so the result is Dr expense / Cr cash or bank.
+  - Because it is an ordinary bill it voids, appears on the P&L, the DSR "money paid out", the supplier statement and the audit log like any bill.
+- With no supplier, a **Sundry (cash expenses)** supplier is created once and reused (reactivated if it was archived).
+- The bill note reads "Quick expense · paid now".
+- The receipt is uploaded as a bill attachment after saving. If the upload fails, the expense stays saved and a message says to attach the receipt on the bill page.
+
+Key files: `server/services/bills.js`, `server/routes/bills.js`, `public/js/views/quick-expense.js` (new), `public/js/views/bills.js`, `test/quick-expense.test.js` (new), `test/e2e/browser.test.js`, `README.md`.
+
+Verification:
+
+- `npm run check`: 178 JavaScript files syntax OK.
+- `npm test`: 164 passed. 3 new tests in `test/quick-expense.test.js`:
+  - without a supplier it is paid, on the sundry supplier, with expense up, cash down, 2000 at zero and ledger checks matched; the sundry supplier is reused;
+  - with a named supplier, voiding brings the cash back;
+  - validation (description, amount, expense account, cash or bank account, cheque number) with nothing half-saved.
+- `npm run test:e2e`: 35 passed. New test: Quick expense from the Bills page with AED 45 creates a paid bill on Sundry (cash expenses), paid in cash.
+- Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): the form with its defaults.
+- No schema change. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `4d30e9f` (reports section simplified).
+1. Start from the latest `main`; the latest code commit is `8e454ae` (quick expense).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
