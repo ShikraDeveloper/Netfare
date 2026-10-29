@@ -340,10 +340,33 @@ function ensureRequiredAccount(code, name) {
   if (!account.is_system) db.prepare('UPDATE accounts SET is_system = 1 WHERE id = ?').run(account.id);
 }
 
+// IFRS account names (IAS 1 / IFRS 15). Only accounts still carrying the old
+// default name are renamed; a name the user changed is left alone.
+const IFRS_ACCOUNT_NAMES = [
+  ['1100', 'Accounts Receivable', 'Trade Receivables'],
+  ['1200', 'Prepaid Expenses', 'Prepayments'],
+  ['1400', 'Supplier Advances', 'Advances to Suppliers'],
+  ['1460', 'Deposits with Suppliers', 'Refundable Deposits Paid'],
+  ['2000', 'Accounts Payable', 'Trade Payables'],
+  ['2400', 'Customer Advances', 'Contract Liabilities (Customer Advances)'],
+  ['2500', 'Refund Payable', 'Refund Liabilities'],
+  ['2600', 'Visa Security Deposits Held', 'Refundable Security Deposits Held'],
+  ['4300', 'Service Charges & Markup', 'Service Fee Income'],
+  ['4330', 'Cancellation Charges Income', 'Cancellation Fee Income'],
+  ['5000', 'Air Ticket Cost', 'Cost of Sales – Air Tickets'],
+  ['5100', 'Hotel & Tour Cost', 'Cost of Sales – Hotels & Tours'],
+  ['5120', 'Visa & Supplier Cost', 'Cost of Sales – Visas'],
+];
+for (const [code, oldName, newName] of IFRS_ACCOUNT_NAMES) {
+  db.prepare('UPDATE accounts SET name = ? WHERE code = ? AND name = ?').run(newName, code, oldName);
+}
+// Visa supplier cost is cost of sales, like ticket and tour cost.
+db.prepare("UPDATE accounts SET subtype = 'cogs' WHERE code = '5120' AND subtype = 'operating_expense'").run();
+
 ensureRequiredAccount('1450', 'Supplier Credits');
-ensureRequiredAccount('4330', 'Cancellation Charges Income');
-ensureRequiredAccount('1460', 'Deposits with Suppliers');
-ensureRequiredAccount('2600', 'Visa Security Deposits Held');
+ensureRequiredAccount('4330', 'Cancellation Fee Income');
+ensureRequiredAccount('1460', 'Refundable Deposits Paid');
+ensureRequiredAccount('2600', 'Refundable Security Deposits Held');
 ensureRequiredAccount('4340', 'Forfeited Deposit Income');
 db.exec(`
   CREATE INDEX IF NOT EXISTS idx_visa_deposits_visa ON visa_deposits(visa_id);
@@ -361,7 +384,7 @@ db.exec(`
 // Travel account labels are name-aware and safe to check on every start.
 db.prepare("UPDATE accounts SET name = 'Ticket Sales' WHERE code = '4000' AND name = 'Sales Revenue'").run();
 db.prepare("UPDATE accounts SET name = 'Tour & Package Sales' WHERE code = '4100' AND name = 'Service Revenue'").run();
-db.prepare("UPDATE accounts SET name = 'Air Ticket Cost' WHERE code = '5000' AND name = 'Cost of Goods Sold'").run();
+db.prepare("UPDATE accounts SET name = 'Cost of Sales – Air Tickets' WHERE code = '5000' AND name IN ('Cost of Goods Sold', 'Air Ticket Cost')").run();
 db.prepare("UPDATE accounts SET is_system = 1 WHERE code = '1400' AND is_system = 0").run();
 
 

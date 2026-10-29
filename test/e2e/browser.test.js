@@ -389,9 +389,9 @@ test('customer balances and settlement queue stay derived from live documents', 
 
   await openRoute('/settlement-queue');
   assert.equal(await page.locator('.kpi').count(), 4);
-  assert.match(await page.locator('#page-title').innerText(), /Settlement queue/i);
+  assert.match(await page.locator('#page-title').innerText(), /Settlements/i);
   const tableCaption = await page.locator('table.data caption').first().innerText();
-  assert.match(tableCaption, /Settlement queue/i);
+  assert.match(tableCaption, /Settlements to make/i);
 
   await page.selectOption('#queue-type', 'customer_credit');
   await page.waitForTimeout(100);
@@ -474,7 +474,7 @@ test('cancelling a paid booking offers refund, credit or defer settlement', asyn
   await choice.waitFor();
   const choiceText = await choice.innerText();
   assert.match(choiceText, /Choose how to settle/i);
-  assert.match(choiceText, /2500 Refund Payable/i);
+  assert.match(choiceText, /2500 Refund Liabilities/i);
   assert.equal(await choice.locator('[data-choice="refund"]').count(), 1);
   assert.equal(await choice.locator('[data-choice="credit"]').count(), 1);
   assert.equal(await choice.locator('[data-choice="defer"]').count(), 1);
@@ -498,8 +498,8 @@ test('customer statement shows summary cards, presets and clean ledger rows', as
   await openRoute(`/customers/${customer.id}/statement`);
   const kpis = await page.locator('.kpi-grid .kpi').allInnerTexts();
   assert.equal(kpis.length, 4, 'Statement should show four summary cards');
-  assert.match(kpis[1], /Invoiced/, 'Customer debits should be labelled Invoiced');
-  assert.match(kpis[2], /Received/, 'Customer credits should be labelled Received');
+  assert.match(kpis[1], /Debit/, 'Statement of account uses Debit');
+  assert.match(kpis[2], /Credit/, 'Statement of account uses Credit');
   assert.equal(await page.locator('.statement-presets [data-statement-preset]').count(), 3);
   assert.match(await page.locator('.statement-status').innerText(), /Settled|Payment due|Credit balance/);
 
@@ -1403,7 +1403,7 @@ test('confirm preview, payment column, amount in words, receipt voucher and shar
   const previewText = (await preview.innerText()).replace(/\s+/g, ' ');
   assert.match(previewText, /Customer invoice/);
   assert.ok(previewText.includes(`Supplier bill — ${vendor.name}`));
-  assert.match(previewText, /Margin AED 130\.00/);
+  assert.match(previewText, /Gross profit AED 130\.00/);
   await page.locator('[role="dialog"] [data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   await page.waitForFunction(() => !document.querySelector('[data-action="confirm"]'));
@@ -1507,9 +1507,9 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   const cells = (await row.locator('td').allInnerTexts()).map((text) => text.trim());
   assert.deepEqual(cells.slice(3), ['300.00', '100.00', '—', '—', '—', '200.00'], 'total, cash, card, bank, other, credit');
 
-  assert.equal(await page.locator('[data-dsr] th:has-text("Margin")').first().isVisible(), false, 'profit hidden by default');
+  assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Gross profit")').first().isVisible(), false, 'profit hidden by default');
   await page.locator('[data-dsr-profit]').check();
-  assert.equal(await page.locator('[data-dsr] th:has-text("Margin")').first().isVisible(), true);
+  assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Gross profit")').first().isVisible(), true);
   await page.locator('[data-dsr-profit]').uncheck();
   assert.match(await page.locator('[data-dsr-summary]').innerText(), /Collected by mode[\s\S]*Cash[\s\S]*Opening[\s\S]*Closing/i);
   assertNoConsoleErrors();
@@ -1592,7 +1592,7 @@ test('simplified navigation, Today box, summary strip, More menu and phone layou
   const booking = bookings.find((row) => row.status === 'confirmed') || bookings[0];
   await openRoute(`/bookings/${booking.id}`);
   const strip = page.locator('[data-summary-strip]');
-  assert.match((await strip.innerText()).replace(/\s+/g, ' '), /Total.*Paid.*Balance.*Margin/i);
+  assert.match((await strip.innerText()).replace(/\s+/g, ' '), /Total.*Paid.*Balance.*Gross profit/i);
   assert.equal(await page.locator('th.acct-col').first().isVisible(), false, 'account codes hidden by default');
   await clickPageAction('[data-action="toggle-accounting"]');
   assert.equal(await page.locator('th.acct-col').first().isVisible(), true);

@@ -34,10 +34,10 @@ function cashAccount(db, accountId, label) {
 
 function accounts(db) {
   return {
-    held: systemAccount(db, SYSTEM_CODES.VISA_DEPOSITS, 'Visa Security Deposits Held'),
-    withSuppliers: systemAccount(db, SYSTEM_CODES.DEPOSITS_WITH_SUPPLIERS, 'Deposits with Suppliers'),
+    held: systemAccount(db, SYSTEM_CODES.VISA_DEPOSITS, 'Refundable Security Deposits Held'),
+    withSuppliers: systemAccount(db, SYSTEM_CODES.DEPOSITS_WITH_SUPPLIERS, 'Refundable Deposits Paid'),
     forfeited: systemAccount(db, SYSTEM_CODES.FORFEITED_DEPOSITS, 'Forfeited Deposit Income'),
-    ar: systemAccount(db, SYSTEM_CODES.AR, 'Accounts Receivable'),
+    ar: systemAccount(db, SYSTEM_CODES.AR, 'Trade Receivables'),
   };
 }
 

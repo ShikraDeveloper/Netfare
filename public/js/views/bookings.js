@@ -135,7 +135,7 @@ export function mountBookingLines(overlay, defaults = {}) {
     marginEl.className = margin >= 0 ? 'margin-positive' : 'margin-negative';
     overlay.querySelector('#bk-sale').textContent = fmtMoney(sale);
     overlay.querySelector('#bk-cost').textContent = fmtMoney(cost);
-    overlay.querySelector('#bk-margin-percent').textContent = sale ? `${((margin / sale) * 100).toFixed(1)}% margin` : '—';
+    overlay.querySelector('#bk-margin-percent').textContent = sale ? `${((margin / sale) * 100).toFixed(1)}% gross margin` : '—';
     return { sale, cost, margin };
   }
 
@@ -255,8 +255,8 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         <div class="totals-panel">
           <div class="totals-row"><span>Total sale</span><span id="bk-sale">${fmtMoney(0)}</span></div>
           <div class="totals-row"><span>Total cost</span><span id="bk-cost">${fmtMoney(0)}</span></div>
-          <div class="totals-row total"><span>Margin</span><span class="margin-positive" id="bk-margin">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span class="muted">Profitability</span><span class="muted" id="bk-margin-percent">—</span></div>
+          <div class="totals-row total"><span>Gross profit</span><span class="margin-positive" id="bk-margin">${fmtMoney(0)}</span></div>
+          <div class="totals-row"><span class="muted">Gross margin</span><span class="muted" id="bk-margin-percent">—</span></div>
         </div>
       </div>
 
@@ -327,7 +327,7 @@ export async function render(container, { query } = {}) {
 
   setHeader({
     title: 'Bookings',
-    subtitle: `${bookings.length} booking${bookings.length === 1 ? '' : 's'} · ${openCount} confirmed · ${fmtMoney(marginTotal)} margin`,
+    subtitle: `${bookings.length} booking${bookings.length === 1 ? '' : 's'} · ${openCount} confirmed · ${fmtMoney(marginTotal)} gross profit`,
     actions: `<button class="btn btn-primary" data-action="new-booking">${icon('plus', 16)}<span>New booking</span></button>`,
   });
 
@@ -379,7 +379,7 @@ export async function render(container, { query } = {}) {
               <th scope="col">Payment</th>
               <th scope="col" class="num">Sale</th>
               <th scope="col" class="num">Cost</th>
-              <th scope="col" class="num">Margin</th>
+              <th scope="col" class="num">Gross profit</th>
               <th scope="col"></th>
             </tr>
           </thead>
@@ -446,7 +446,7 @@ export async function render(container, { query } = {}) {
     if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;
     const subtitleEl = document.getElementById('page-subtitle');
     if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} booking${filtered.length === 1 ? '' : 's'} · ${confirmed} confirmed · ${fmtMoney(filteredMargin)} margin`;
+      subtitleEl.textContent = `${filtered.length} booking${filtered.length === 1 ? '' : 's'} · ${confirmed} confirmed · ${fmtMoney(filteredMargin)} gross profit`;
     }
     renderPage();
   }

@@ -289,7 +289,7 @@ function normalizePayload(db, payload = {}, existing = null) {
     if (!account) throw bad('Choose a valid account');
     if (!account.is_active) throw bad('That account is archived');
     if (account.type !== 'expense' && account.code !== '1200') {
-      throw bad('Choose an expense account or Prepaid Expenses');
+      throw bad('Choose an expense account or Prepayments');
     }
   }
 

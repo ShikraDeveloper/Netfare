@@ -263,9 +263,9 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
       }
     }
 
-    const ar = systemAccount(db, '1100', 'Accounts Receivable');
-    const refundPayable = systemAccount(db, '2500', 'Refund Payable');
-    const cancellationIncome = systemAccount(db, '4330', 'Cancellation Charges Income');
+    const ar = systemAccount(db, '1100', 'Trade Receivables');
+    const refundPayable = systemAccount(db, '2500', 'Refund Liabilities');
+    const cancellationIncome = systemAccount(db, '4330', 'Cancellation Fee Income');
 
     if (received > 0) {
       postEntry(db, {
@@ -392,7 +392,7 @@ function refundCancellation(db, id, payload = {}) {
     if (!account.is_active) throw bad('That account is archived');
     if (!isCashAccount(account)) throw bad('Refunds must be paid from a bank or cash account');
     const method = optionalStr(payload.method, 'Refund method', 100) || 'Bank transfer';
-    const refundPayable = systemAccount(db, '2500', 'Refund Payable');
+    const refundPayable = systemAccount(db, '2500', 'Refund Liabilities');
     const number = allocateNumber(db, 'refund', refundDate);
     const info = db.prepare(`
       INSERT INTO refunds (

@@ -257,7 +257,7 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         <div class="form-note" data-service-invoice-hint>
           <strong>For income with no supplier cost</strong>, such as service fees, commission or consultancy.
           Selling a ticket, package or visa? Create a <a href="#/bookings?new=1">booking</a> or
-          <a href="#/visas?new=1">visa</a> instead, so the supplier cost and margin are recorded with the sale.
+          <a href="#/visas?new=1">visa</a> instead, so the supplier cost and gross profit are recorded with the sale.
         </div>
       </div>
       <div class="field full">

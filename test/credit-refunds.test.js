@@ -296,7 +296,7 @@ test('customer statement matches A/R: advance refunds are excluded, payment refu
     refund_date: '2026-05-02',
   });
 
-  // An advance refund moves 2400 Customer Advances to the bank; it never
+  // An advance refund moves 2400 Contract Liabilities (Customer Advances) to the bank; it never
   // creates a receivable, so it must not appear on the A/R statement.
   let statement = statements.customerStatement(db, customerId, { from: '2026-01-01', to: '2026-12-31' });
   assert.equal(statement.transactions.length, 0, 'advance refund is not an A/R line');

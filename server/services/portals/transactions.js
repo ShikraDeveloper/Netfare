@@ -26,7 +26,7 @@ function topUp(db, payload) {
     const amount = cents(payload.amount_cents, 'Top-up amount', { min: 1 });
     const date = dateISO(payload.topup_date || todayISO(), 'Top-up date');
     const account = assertAccount(db, payload.deposit_account_id, 'source account');
-    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
     const number = allocateNumber(db, 'topup', date);
 
     const info = db.prepare(`
@@ -196,7 +196,7 @@ function refundPortal(db, id, payload = {}) {
     if (amount > balance) throw bad('Withdrawal is more than the available portal balance on that date');
 
     const account = assertAccount(db, payload.payment_account_id, 'refund account');
-    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
 
     const info = db.prepare(`
       INSERT INTO portal_refunds (portal_id, refund_date, amount_cents, method, reference, notes, payment_account_id)
@@ -246,7 +246,7 @@ function settleBillFromPortal(db, payload) {
       throw bad(`Portal "${portal.name}" is not linked to this bill's supplier`);
     }
     if (portal.settlement !== 'prepaid') {
-      throw bad('Only a prepaid portal wallet can settle a bill. Pay credit-account bills through Accounts Payable.');
+      throw bad('Only a prepaid portal wallet can settle a bill. Pay credit-account bills through Trade Payables.');
     }
 
     const date = dateISO(payload.settle_date || todayISO(), 'Settlement date');
@@ -261,8 +261,8 @@ function settleBillFromPortal(db, payload) {
     const amount = Math.min(requested, billBalance, available);
     if (amount <= 0) throw bad('Nothing to settle from this portal');
 
-    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
-    const ap = systemAccount(db, AP, 'Accounts Payable');
+    const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
+    const ap = systemAccount(db, AP, 'Trade Payables');
     const number = allocateNumber(db, 'bill_payment', date);
 
     const info = db.prepare(`
@@ -328,7 +328,7 @@ function autoSettleBill(db, billId, settleDate) {
 }
 
 // A supplier credit on a prepaid portal becomes wallet value without any cash
-// moving. Internally the supplier credit is settled into Supplier Advances.
+// moving. Internally the supplier credit is settled into Advances to Suppliers.
 function recordPortalCredit(db, payload = {}) {
   const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(payload.portal_id));
   if (!portal) throw bad('Choose a portal');
@@ -354,7 +354,7 @@ function recordPortalCredit(db, payload = {}) {
     if (bill.vendor_id !== portal.vendor_id) throw bad('The bill belongs to a different supplier');
   }
 
-  const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Supplier Advances');
+  const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
   const supplierCredits = systemAccount(db, '1450', 'Supplier Credits');
   const number = allocateNumber(db, 'portal_credit', date);
   const info = db.prepare(`

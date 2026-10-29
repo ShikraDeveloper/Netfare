@@ -73,7 +73,7 @@ export async function render(container) {
   setHeader({
     title: 'Customer balances',
     subtitle: `${active.length} active customer${active.length === 1 ? '' : 's'} · ${fmtMoney(totals.outstanding)} due · ${fmtMoney(creditBalance)} available credit`,
-    actions: `<a class="btn btn-secondary" href="#/settlement-queue">${icon('clock', 15)}<span>Settlement queue</span></a>`,
+    actions: `<a class="btn btn-secondary" href="#/settlement-queue">${icon('clock', 15)}<span>Settlements</span></a>`,
   });
 
   if (!balances.length) {

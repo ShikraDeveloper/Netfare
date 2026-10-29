@@ -7,11 +7,11 @@ export function bookingMargin(data) {
   if (!data.rows.length) {
     return `
       <div class="report-card">
-        ${reportHeader('Booking Margin', periodLabel(data.from, data.to), company)}
+        ${reportHeader('Booking Gross Profit', periodLabel(data.from, data.to), company)}
         ${emptyState({
     iconName: 'plane',
     title: 'No bookings in this period',
-    message: 'Create a travel booking to track sale price, supplier cost and margin.',
+    message: 'Create a travel booking to track sale price, supplier cost and gross profit.',
   })}
       </div>
     `;
@@ -19,9 +19,9 @@ export function bookingMargin(data) {
 
   return `
     <div class="report-card">
-      ${reportHeader('Booking Margin', periodLabel(data.from, data.to), company)}
+      ${reportHeader('Booking Gross Profit', periodLabel(data.from, data.to), company)}
       <div class="table-wrap">
-        <table class="report-table"><caption class="sr-only">Booking margin report</caption>
+        <table class="report-table"><caption class="sr-only">Booking gross profit report</caption>
           <thead>
             <tr>
               <th scope="col">Booking</th>
@@ -29,8 +29,8 @@ export function bookingMargin(data) {
               <th scope="col">Destination</th>
               <th scope="col" class="num">Sale</th>
               <th scope="col" class="num">Cost</th>
-              <th scope="col" class="num">Margin</th>
-              <th scope="col" class="num">Margin %</th>
+              <th scope="col" class="num">Gross profit</th>
+              <th scope="col" class="num">Gross margin %</th>
             </tr>
           </thead>
           <tbody>
@@ -68,11 +68,11 @@ export function visaMargin(data) {
   if (!data.rows.length) {
     return `
       <div class="report-card">
-        ${reportHeader('Visa Margin', periodLabel(data.from, data.to), company)}
+        ${reportHeader('Visa Gross Profit', periodLabel(data.from, data.to), company)}
         ${emptyState({
     iconName: 'visa',
     title: 'No visa applications in this period',
-    message: 'Create a visa application to track sale price, supplier cost and margin. Rejected and cancelled applications are excluded.',
+    message: 'Create a visa application to track sale price, supplier cost and gross profit. Rejected and cancelled applications are excluded.',
   })}
       </div>
     `;
@@ -80,9 +80,9 @@ export function visaMargin(data) {
 
   return `
     <div class="report-card">
-      ${reportHeader('Visa Margin', periodLabel(data.from, data.to), company)}
+      ${reportHeader('Visa Gross Profit', periodLabel(data.from, data.to), company)}
       <div class="table-wrap">
-        <table class="report-table"><caption class="sr-only">Visa margin report</caption>
+        <table class="report-table"><caption class="sr-only">Visa gross profit report</caption>
           <thead>
             <tr>
               <th scope="col">Visa</th>
@@ -92,8 +92,8 @@ export function visaMargin(data) {
               <th scope="col">Status</th>
               <th scope="col" class="num">Sale</th>
               <th scope="col" class="num">Cost</th>
-              <th scope="col" class="num">Margin</th>
-              <th scope="col" class="num">Margin %</th>
+              <th scope="col" class="num">Gross profit</th>
+              <th scope="col" class="num">Gross margin %</th>
             </tr>
           </thead>
           <tbody>

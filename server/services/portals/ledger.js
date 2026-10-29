@@ -240,7 +240,7 @@ function creditPortalLedger(db, portal, options = {}) {
     current_balance_cents: portal.outstanding_ap_cents,
     unapplied_supplier_credits_cents: openSupplierCredits,
     account_code: AP,
-    account_name: 'Accounts Payable',
+    account_name: 'Trade Payables',
     rows,
     counts: {
       bills: bills.length,
@@ -434,7 +434,7 @@ function portalLedger(db, portalId, options = {}) {
     closing_cents: closingCents,
     current_balance_cents: portal.balance_cents,
     account_code: SUPPLIER_ADVANCES,
-    account_name: 'Supplier Advances',
+    account_name: 'Advances to Suppliers',
     rows,
     counts: {
       topups: portal.topups.length,
@@ -444,7 +444,7 @@ function portalLedger(db, portalId, options = {}) {
     },
     reconciliation: {
       account_code: SUPPLIER_ADVANCES,
-      account_name: 'Supplier Advances',
+      account_name: 'Advances to Suppliers',
       gl_balance_cents: gl.balance,
       portal_total_cents: allPortalBalanceCents,
       difference_cents: gl.balance - allPortalBalanceCents,

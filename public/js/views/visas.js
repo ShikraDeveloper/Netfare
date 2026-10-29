@@ -199,8 +199,8 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         <div class="totals-panel">
           <div class="totals-row"><span>Total sale</span><span id="bk-sale">${fmtMoney(0)}</span></div>
           <div class="totals-row"><span>Total cost</span><span id="bk-cost">${fmtMoney(0)}</span></div>
-          <div class="totals-row total"><span>Margin</span><span class="margin-positive" id="bk-margin">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span class="muted">Profitability</span><span class="muted" id="bk-margin-percent">—</span></div>
+          <div class="totals-row total"><span>Gross profit</span><span class="margin-positive" id="bk-margin">${fmtMoney(0)}</span></div>
+          <div class="totals-row"><span class="muted">Gross margin</span><span class="muted" id="bk-margin-percent">—</span></div>
         </div>
       </div>
       <details class="field full more-details"${visa?.notes || visa?.invoice_notes ? ' open' : ''}>
@@ -350,7 +350,7 @@ export async function render(container, { query } = {}) {
 
   setHeader({
     title: 'Visas',
-    subtitle: `${visas.length} application${visas.length === 1 ? '' : 's'} · ${activeCount} in progress · ${issuedCount} issued · ${fmtMoney(marginTotal)} margin`,
+    subtitle: `${visas.length} application${visas.length === 1 ? '' : 's'} · ${activeCount} in progress · ${issuedCount} issued · ${fmtMoney(marginTotal)} gross profit`,
     actions: `<button class="btn btn-primary" data-action="new-visa">${icon('plus', 16)}<span>New visa</span></button>`,
   });
 
@@ -362,7 +362,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'visa',
     title: 'No visa applications yet',
-    message: 'Track tourist, visit and business visas with applicant details, embassy costs and margin. Submitting posts the invoice and supplier bills.',
+    message: 'Track tourist, visit and business visas with applicant details, embassy costs and gross profit. Submitting posts the invoice and supplier bills.',
     action: '<button class="btn btn-primary" data-action="new-visa">Create your first visa application</button>',
   })}
       </div>
@@ -399,7 +399,7 @@ export async function render(container, { query } = {}) {
               <th scope="col">Payment</th>
               <th scope="col" class="num">Sale</th>
               <th scope="col" class="num">Cost</th>
-              <th scope="col" class="num">Margin</th>
+              <th scope="col" class="num">Gross profit</th>
               <th scope="col"></th>
             </tr>
           </thead>
@@ -478,7 +478,7 @@ export async function render(container, { query } = {}) {
     if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;
     const subtitleEl = document.getElementById('page-subtitle');
     if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} application${filtered.length === 1 ? '' : 's'} · ${active} in progress · ${issued} issued · ${fmtMoney(filteredMargin)} margin`;
+      subtitleEl.textContent = `${filtered.length} application${filtered.length === 1 ? '' : 's'} · ${active} in progress · ${issued} issued · ${fmtMoney(filteredMargin)} gross profit`;
     }
     renderPage();
   }

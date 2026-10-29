@@ -387,7 +387,7 @@ export async function render(container, { query } = {}) {
     : emptyState({
       iconName: 'plane',
       title: 'No bookings yet',
-      message: 'Create a travel booking to track sale price, supplier cost and margin.',
+      message: 'Create a travel booking to track sale price, supplier cost and gross profit.',
       action: '<button class="btn btn-primary btn-sm" data-action="new-booking">Create booking</button>',
     });
 
@@ -406,7 +406,7 @@ export async function render(container, { query } = {}) {
     : emptyState({
       iconName: 'visa',
       title: 'No visa applications yet',
-      message: 'Create a visa application to track applicants, embassy costs and margin.',
+      message: 'Create a visa application to track applicants, embassy costs and gross profit.',
       action: '<button class="btn btn-primary btn-sm" data-action="new-visa">Create visa</button>',
     });
 
@@ -450,12 +450,12 @@ export async function render(container, { query } = {}) {
     ${isEmpty ? '' : todayHtml(data.todo)}
     ${complianceCallout}
     <div class="kpi-grid">
-      ${kpiCard('Cash on hand', data.cash_only_cents ?? data.cash_cents, `${data.cash_only_cents > 0 ? '<a href="#/banking?new=1">Deposit cash</a> · ' : ''}Bank ${fmtMoney(data.bank_cents ?? 0, { compact: true })}`, 'wallet', 'indigo')}
-      ${kpiCard('Outstanding A/R', data.ar_outstanding_cents, `${data.ar_count} open invoice${data.ar_count === 1 ? '' : 's'} · ${overdueAr}`, 'invoice', 'blue')}
-      ${kpiCard(`Revenue · ${month.split(' ')[0]}`, data.revenue_mtd_cents, `Net income ${fmtMoney(data.net_income_mtd_cents, { compact: true })}`, 'trendUp', 'green')}
-      ${kpiCard(`Expenses · ${month.split(' ')[0]}`, data.expenses_mtd_cents, `A/P outstanding ${fmtMoney(data.ap_outstanding_cents, { compact: true })}`, 'cash', 'amber')}
-      ${kpiCard(`Booking margin · ${month.split(' ')[0]}`, bookings.margin_cents, `${bookings.booking_count} booking${bookings.booking_count === 1 ? '' : 's'} · sales ${fmtMoney(bookings.sale_cents, { compact: true })}`, 'plane', 'indigo')}
-      ${kpiCard(`Visa margin · ${month.split(' ')[0]}`, visas.margin_cents, `${visas.visa_count} application${visas.visa_count === 1 ? '' : 's'} · sales ${fmtMoney(visas.sale_cents, { compact: true })}`, 'visa', 'green')}
+      ${kpiCard('Cash in hand', data.cash_only_cents ?? data.cash_cents, `${data.cash_only_cents > 0 ? '<a href="#/banking?new=1">Deposit cash</a> · ' : ''}Cash at bank ${fmtMoney(data.bank_cents ?? 0, { compact: true })}`, 'wallet', 'indigo')}
+      ${kpiCard('Trade receivables', data.ar_outstanding_cents, `${data.ar_count} open invoice${data.ar_count === 1 ? '' : 's'} · ${overdueAr}`, 'invoice', 'blue')}
+      ${kpiCard(`Revenue · ${month.split(' ')[0]}`, data.revenue_mtd_cents, `Profit for the month ${fmtMoney(data.net_income_mtd_cents, { compact: true })}`, 'trendUp', 'green')}
+      ${kpiCard(`Expenses · ${month.split(' ')[0]}`, data.expenses_mtd_cents, `Trade payables ${fmtMoney(data.ap_outstanding_cents, { compact: true })}`, 'cash', 'amber')}
+      ${kpiCard(`Booking gross profit · ${month.split(' ')[0]}`, bookings.margin_cents, `${bookings.booking_count} booking${bookings.booking_count === 1 ? '' : 's'} · sales ${fmtMoney(bookings.sale_cents, { compact: true })}`, 'plane', 'indigo')}
+      ${kpiCard(`Visa gross profit · ${month.split(' ')[0]}`, visas.margin_cents, `${visas.visa_count} application${visas.visa_count === 1 ? '' : 's'} · sales ${fmtMoney(visas.sale_cents, { compact: true })}`, 'visa', 'green')}
       ${countCard('Visa pipeline', String(visas.active_count || 0), `${visas.counts.issued || 0} issued · ${visas.counts.rejected || 0} rejected`, 'visa', 'amber')}
       ${kpiCard('Portal wallets', portals.balance_cents, `${portals.active_count} portal${portals.active_count === 1 ? '' : 's'} · ${fmtMoney(portals.outstanding_ap_cents, { compact: true })} payable`, 'wallet', 'green')}
     </div>

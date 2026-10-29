@@ -106,7 +106,7 @@ function paymentModalBody(bill) {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">Paying a bill debits Accounts Payable and credits your bank or cash account. The bill balance updates automatically.</div>
+        <div class="form-note">Paying a bill debits Trade Payables and credits your bank or cash account. The bill balance updates automatically.</div>
       </div>
     </div>
   `;
@@ -379,7 +379,7 @@ export async function render(container, { params } = {}) {
     deleteButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: 'Delete this draft?',
-        message: `Draft ${bill.number} will be permanently deleted. Nothing has been posted to the ledger yet.`,
+        message: `Draft ${bill.number} will be permanently deleted. Delete is only for drafts: nothing has been posted to the ledger yet.`,
         confirmLabel: 'Delete draft',
       });
       if (!confirmed) return;

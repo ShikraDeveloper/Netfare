@@ -72,7 +72,7 @@ const NAV_GROUPS = [
     key: 'money-back',
     label: 'Money back',
     items: [
-      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'To settle' },
+      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'Settlements' },
       { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
       { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
       { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },

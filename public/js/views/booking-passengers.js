@@ -144,7 +144,7 @@ export function mountPassengerEditor(overlay) {
     marginEl.className = margin >= 0 ? 'margin-positive' : 'margin-negative';
     overlay.querySelector('#bk-sale').textContent = fmtMoney(sale);
     overlay.querySelector('#bk-cost').textContent = fmtMoney(cost);
-    overlay.querySelector('#bk-margin-percent').textContent = sale ? `${((margin / sale) * 100).toFixed(1)}% margin` : '—';
+    overlay.querySelector('#bk-margin-percent').textContent = sale ? `${((margin / sale) * 100).toFixed(1)}% gross margin` : '—';
   }
 
   function updateRemoveButtons() {

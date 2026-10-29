@@ -72,7 +72,7 @@ export async function render(container) {
   const { items, totals } = data;
 
   setHeader({
-    title: 'Settlement queue',
+    title: 'Settlements',
     subtitle: `${totals.count} open settlement${totals.count === 1 ? '' : 's'} · ${fmtMoney(totals.amount_cents)} to apply or refund`,
     actions: `<a class="btn btn-secondary" href="#/customer-balances">${icon('customers', 15)}<span>Customer balances</span></a>`,
   });
@@ -103,7 +103,7 @@ export async function render(container) {
 
     <div class="card">
       <div class="table-wrap">
-        <table class="data"><caption class="sr-only">Settlement queue</caption>
+        <table class="data"><caption class="sr-only">Settlements to make</caption>
           <thead>
             <tr>
               <th scope="col">Type</th>

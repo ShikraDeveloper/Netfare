@@ -56,19 +56,32 @@ function incomeStatement(db, from, to) {
     ORDER BY a.code
   `).all(start, end);
 
+  // IAS 1 layout: revenue, cost of sales, gross profit, other expenses,
+  // profit for the period. Cost of sales is every expense account of subtype
+  // 'cogs' (air tickets, hotels and tours, visas).
   const revenue = rows.filter((row) => row.type === 'revenue');
   const expenses = rows.filter((row) => row.type === 'expense');
-  const revenueTotal = revenue.reduce((sum, row) => sum + row.amount_cents, 0);
-  const expenseTotal = expenses.reduce((sum, row) => sum + row.amount_cents, 0);
+  const costOfSales = expenses.filter((row) => row.subtype === 'cogs');
+  const operatingExpenses = expenses.filter((row) => row.subtype !== 'cogs');
+  const sum = (list) => list.reduce((total, row) => total + row.amount_cents, 0);
+  const revenueTotal = sum(revenue);
+  const expenseTotal = sum(expenses);
+  const costOfSalesTotal = sum(costOfSales);
 
   return {
     from: start,
     to: end,
     revenue,
     expenses,
+    cost_of_sales: costOfSales,
+    operating_expenses: operatingExpenses,
     revenue_total_cents: revenueTotal,
+    cost_of_sales_total_cents: costOfSalesTotal,
+    gross_profit_cents: revenueTotal - costOfSalesTotal,
+    operating_expenses_total_cents: expenseTotal - costOfSalesTotal,
     expenses_total_cents: expenseTotal,
     net_income_cents: revenueTotal - expenseTotal,
+    profit_cents: revenueTotal - expenseTotal,
   };
 }
 
@@ -113,7 +126,7 @@ function balanceSheet(db, asOf = todayISO()) {
     equity.push({
       id: null,
       code: '—',
-      name: 'Current Period Earnings',
+      name: 'Profit for the period (not yet closed to retained earnings)',
       type: 'equity',
       amount_cents: currentEarnings,
       is_current_earnings: true,

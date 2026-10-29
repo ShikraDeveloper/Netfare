@@ -541,7 +541,7 @@ export function voidDialog({
           <label for="void-remarks">Remarks <span class="muted">(required)</span></label>
           <textarea class="input" id="void-remarks" name="remarks" rows="3" maxlength="2000"
             placeholder="Why is this being voided?" required></textarea>
-          <div class="hint">This reason is saved in the audit log. Posted amounts are reversed and the original record is kept for the audit trail.</div>
+          <div class="hint">Void is for a mistake: posted amounts are reversed and the original record is kept for the audit trail. If a customer cancelled a booking or visa, use Cancel instead. This reason is saved in the audit log.</div>
         </div>
       `,
       size: 'modal-sm',

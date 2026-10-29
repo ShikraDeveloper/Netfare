@@ -208,7 +208,7 @@ export async function render(container, { params } = {}) {
       { label: 'Total', value: fmtMoney(booking.sale_total_cents) },
       { label: 'Paid', value: fmtMoney(booking.amount_paid_cents || 0) },
       { label: 'Balance', value: fmtMoney(booking.balance_cents || 0), tone: booking.balance_cents > 0 && booking.invoice ? 'due' : '' },
-      { label: 'Margin', value: fmtMoney(booking.margin_cents), tone: booking.margin_cents >= 0 ? 'good' : 'bad' },
+      { label: 'Gross profit', value: fmtMoney(booking.margin_cents), tone: booking.margin_cents >= 0 ? 'good' : 'bad' },
     ])}
     ${booking.notes ? `
       <div class="callout internal-notes no-print" data-internal-notes>
@@ -289,8 +289,8 @@ export async function render(container, { params } = {}) {
           <div class="doc-totals">
             <div class="totals-row"><span>Total sale</span><span>${fmtMoney(booking.sale_total_cents)}</span></div>
             <div class="totals-row"><span>Total cost</span><span>${fmtMoney(booking.cost_total_cents)}</span></div>
-            <div class="totals-row total"><span>Margin</span><span class="${marginClass}">${fmtMoney(booking.margin_cents)}</span></div>
-            <div class="totals-row"><span class="muted">Profitability</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
+            <div class="totals-row total"><span>Gross profit</span><span class="${marginClass}">${fmtMoney(booking.margin_cents)}</span></div>
+            <div class="totals-row"><span class="muted">Gross margin</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
             <div class="totals-row balance"><span>Customer balance</span><span>${fmtMoney(booking.balance_cents)}</span></div>
           </div>
         </div>

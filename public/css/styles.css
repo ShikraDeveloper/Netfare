@@ -971,6 +971,7 @@ html:not(.show-accounting) .acct-col { display: none; }
 .ledger-checks > summary::-webkit-details-marker { display: none; }
 .ledger-checks:not([open]) > summary { border-bottom: none; }
 .ledger-checks-foot { padding: 10px 20px 16px; margin: 0; font-size: 12.5px; }
+.report-net.subtotal { margin: 4px 0 18px; font-size: 14px; }
 .share-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .receipt-amount { text-align: right; }
 .receipt-amount-value { font-size: 26px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }

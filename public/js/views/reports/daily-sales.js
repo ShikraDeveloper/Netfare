@@ -37,7 +37,7 @@ function dateLine(date, createdAt) {
 
 const SPLIT_KEYS = ['cash', 'card', 'bank', 'other', 'credit'];
 const SPLIT_HEADS = '<th scope="col" class="num">Cash</th><th scope="col" class="num">Card</th><th scope="col" class="num">Bank</th><th scope="col" class="num">Other</th><th scope="col" class="num">Credit</th>';
-const PROFIT_HEADS = '<th scope="col" class="num dsr-profit">Cost</th><th scope="col" class="num dsr-profit">Margin</th>';
+const PROFIT_HEADS = '<th scope="col" class="num dsr-profit">Cost</th><th scope="col" class="num dsr-profit">Gross profit</th>';
 
 function splitCells(split) {
   return SPLIT_KEYS.map((key) => `<td class="num">${amt(split[key])}</td>`).join('');
@@ -220,7 +220,7 @@ function cancellationTables(cancellations, refunds) {
       <thead><tr>
         <th scope="col">Date</th><th scope="col">Cancellation</th><th scope="col">Customer</th>
         <th scope="col" class="num">Sale reversed</th><th scope="col" class="num">Charges kept</th>
-        <th scope="col" class="num">Supplier credit</th><th scope="col" class="num">Net sale</th><th scope="col" class="num dsr-profit">Margin</th>
+        <th scope="col" class="num">Supplier credit</th><th scope="col" class="num">Net sale</th><th scope="col" class="num dsr-profit">Gross profit</th>
       </tr></thead>
       <tbody>${cancelBody}</tbody>
       <tfoot><tr>
@@ -312,7 +312,7 @@ function summaryHtml(data) {
         ${row('Total sales', sales.total_cents, 'total')}
         <div class="dsr-profit">
           ${row('Cost', data.totals.cost_cents)}
-          ${row(`Margin · ${data.totals.margin_percent.toFixed(1)}%`, data.totals.margin_cents, 'total')}
+          ${row(`Gross profit · ${data.totals.margin_percent.toFixed(1)}% gross margin`, data.totals.margin_cents, 'total')}
         </div>
       </div>
       <div class="dsr-sum-box">
@@ -363,7 +363,7 @@ export function dailySales(data) {
       ${reportHeader('Daily Sales Report', periodLabel(data.from, data.to), company)}
       <div class="dsr-meta">
         <span>Amounts in AED · printed ${esc(printed)}</span>
-        <label class="checkbox-row dsr-profit-toggle no-print"><input type="checkbox" data-dsr-profit ${profitShown() ? 'checked' : ''}> <span>Show profit (cost and margin)</span></label>
+        <label class="checkbox-row dsr-profit-toggle no-print"><input type="checkbox" data-dsr-profit ${profitShown() ? 'checked' : ''}> <span>Show cost &amp; gross profit</span></label>
       </div>
       ${section('B', 'Ticket & booking sales', ticketTable(s.tickets), { id: 'tickets' })}
       ${section('C', 'Visa sales', visaTable(s.visas), { id: 'visas' })}

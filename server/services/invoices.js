@@ -267,7 +267,7 @@ function insertItems(db, invoiceId, items) {
 }
 
 function postInvoice(db, invoice, customer, items) {
-  const ar = systemAccount(db, '1100', 'Accounts Receivable');
+  const ar = systemAccount(db, '1100', 'Trade Receivables');
   const grouped = new Map();
   for (const item of items) {
     grouped.set(item.account_id, (grouped.get(item.account_id) || 0) + item.amount_cents);
@@ -544,7 +544,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
     if (!account.is_active) throw bad('That deposit account is archived');
     if (!isCashAccount(account)) throw bad('Deposit account must be an active cash or bank account');
     const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
-    const ar = systemAccount(db, '1100', 'Accounts Receivable');
+    const ar = systemAccount(db, '1100', 'Trade Receivables');
     const number = allocateNumber(db, 'payment', paymentDate);
     const method = optionalStr(payload.method, 'Payment method', 100) || 'Bank transfer';
     const isCheque = ['Cheque', 'Check'].includes(method);

@@ -49,7 +49,7 @@ export function topUpModalBody(portal) {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">This moves money from your bank into <strong>Supplier Advances</strong> — an asset, not an expense. It becomes a cost only when a booking uses the wallet.</div>
+        <div class="form-note">This moves money from your bank into <strong>Advances to Suppliers</strong> — an asset, not an expense. It becomes a cost only when a booking uses the wallet.</div>
       </div>
     </div>
   `;
@@ -88,7 +88,7 @@ export function withdrawModalBody(portal) {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">Use this when the portal refunds unused money or you move the balance back to the bank. It credits <strong>Supplier Advances</strong>.</div>
+        <div class="form-note">Use this when the portal refunds unused money or you move the balance back to the bank. It credits <strong>Advances to Suppliers</strong>.</div>
       </div>
     </div>
   `;
@@ -116,7 +116,7 @@ export function settleModalBody(portal) {
         <input class="input" id="st-date" name="settle_date" type="date" value="${todayISO()}" required>
       </div>
       <div class="field full">
-        <div class="form-note">The bill is marked paid and the amount moves from <strong>Supplier Advances</strong> to settle the payable, with no new money leaving your bank.</div>
+        <div class="form-note">The bill is marked paid and the amount moves from <strong>Advances to Suppliers</strong> to settle the payable, with no new money leaving your bank.</div>
       </div>
     </div>
   `;

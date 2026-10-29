@@ -137,7 +137,7 @@ function createCredit(db, payload = {}) {
 }
 
 // A cancellation refund converted into store credit does not touch revenue a
-// second time. It moves the liability from Refund Payable to Customer Credits.
+// second time. It moves the liability from Refund Liabilities to Customer Credits.
 function createCreditFromCancellation(db, payload = {}) {
   return db.transaction(() => {
     const cancellation = db.prepare('SELECT * FROM cancellations WHERE id = ?').get(Number(payload.cancellation_id));
@@ -160,7 +160,7 @@ function createCreditFromCancellation(db, payload = {}) {
     if (amount > refundDue) {
       throw bad(`Credit amount exceeds the unrefunded cancellation balance of ${(Math.max(0, refundDue) / 100).toFixed(2)}`);
     }
-    const revenueAccount = systemAccount(db, '4330', 'Cancellation Charges Income');
+    const revenueAccount = systemAccount(db, '4330', 'Cancellation Fee Income');
     const number = allocateNumber(db, 'credit', creditDate);
     const info = db.prepare(`
       INSERT INTO credit_notes (
@@ -178,7 +178,7 @@ function createCreditFromCancellation(db, payload = {}) {
     );
     const creditId = Number(info.lastInsertRowid);
     const credits = systemAccount(db, '2450', 'Customer Credits');
-    const refundPayable = systemAccount(db, '2500', 'Refund Payable');
+    const refundPayable = systemAccount(db, '2500', 'Refund Liabilities');
     const entryId = postEntry(db, {
       entry_date: creditDate,
       memo: `Cancellation ${cancellation.number} refund converted to customer credit ${number}`,
@@ -212,7 +212,7 @@ function applyCredit(db, creditId, payload = {}) {
     if (amount > balance) throw bad(`Credit amount exceeds the invoice balance of ${(balance / 100).toFixed(2)}`);
     const appliedDate = dateISO(payload.applied_date || todayISO(), 'Applied date');
     const credits = systemAccount(db, '2450', 'Customer Credits');
-    const ar = systemAccount(db, '1100', 'Accounts Receivable');
+    const ar = systemAccount(db, '1100', 'Trade Receivables');
 
     const info = db.prepare(`
       INSERT INTO credit_applications (credit_note_id, invoice_id, applied_date, amount_cents)

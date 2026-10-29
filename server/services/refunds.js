@@ -307,7 +307,7 @@ function createRefund(db, payload = {}) {
       }
 
       const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(payment.customer_id);
-      const ar = systemAccount(db, '1100', 'Accounts Receivable');
+      const ar = systemAccount(db, '1100', 'Trade Receivables');
       const info = db.prepare(`
         INSERT INTO refunds (
           number, refund_type, status, party_id, invoice_id, payment_id,

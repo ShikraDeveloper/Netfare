@@ -37,7 +37,7 @@ function sourceSummary(source) {
 
 function refundNote(type) {
   return type === 'customer'
-    ? 'This posts a debit to Accounts Receivable and a credit to the bank or cash account. The invoice balance increases by the refund.'
+    ? 'This posts a debit to Trade Receivables and a credit to the bank or cash account. The invoice balance increases by the refund.'
     : 'This posts a debit to the bank or cash account and a credit to 1450 Supplier Credits. A supplier credit note is created and the original bill stays settled; it is not reopened.';
 }
 

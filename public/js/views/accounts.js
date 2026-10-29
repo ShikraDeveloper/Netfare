@@ -32,7 +32,7 @@ const SUBTYPES = [
   ['equity', 'Equity'],
   ['operating_revenue', 'Operating revenue'],
   ['other_revenue', 'Other revenue'],
-  ['cogs', 'Cost of goods sold'],
+  ['cogs', 'Cost of sales'],
   ['operating_expense', 'Operating expense'],
   ['other_expense', 'Other expense'],
 ];

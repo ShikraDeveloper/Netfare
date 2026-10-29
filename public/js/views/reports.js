@@ -8,16 +8,16 @@ import { portalWallets } from './reports/portal-wallets.js';
 import { visaDeposits } from './reports/visa-deposits.js';
 
 const REPORTS = [
-  { key: 'income-statement', label: 'Income statement', title: 'Income Statement' },
-  { key: 'balance-sheet', label: 'Balance sheet', title: 'Balance Sheet' },
+  { key: 'income-statement', label: 'Profit or loss', title: 'Statement of Profit or Loss' },
+  { key: 'balance-sheet', label: 'Financial position', title: 'Statement of Financial Position' },
   { key: 'trial-balance', label: 'Trial balance', title: 'Trial Balance' },
   { key: 'daily-sales', label: 'Daily sales', title: 'Daily Sales' },
-  { key: 'booking-margin', label: 'Booking margin', title: 'Booking Margin' },
-  { key: 'visa-margin', label: 'Visa margin', title: 'Visa Margin' },
+  { key: 'booking-margin', label: 'Booking gross profit', title: 'Booking Gross Profit' },
+  { key: 'visa-margin', label: 'Visa gross profit', title: 'Visa Gross Profit' },
   { key: 'portal-wallets', label: 'Portal wallets', title: 'Portal Wallets' },
   { key: 'visa-deposits', label: 'Visa deposits', title: 'Visa Security Deposits' },
-  { key: 'ar-aging', label: 'A/R aging', title: 'Accounts Receivable Aging' },
-  { key: 'ap-aging', label: 'A/P aging', title: 'Accounts Payable Aging' },
+  { key: 'ar-aging', label: 'A/R aging', title: 'Trade Receivables Aging' },
+  { key: 'ap-aging', label: 'A/P aging', title: 'Trade Payables Aging' },
 ];
 
 function renderReport(key, data) {

@@ -302,7 +302,7 @@ export async function render(container, { params } = {}) {
       { label: 'Total', value: fmtMoney(visa.sale_total_cents) },
       { label: 'Paid', value: fmtMoney(visa.amount_paid_cents || 0) },
       { label: 'Balance', value: fmtMoney(visa.balance_cents || 0), tone: visa.balance_cents > 0 && visa.invoice ? 'due' : '' },
-      { label: 'Margin', value: fmtMoney(visa.margin_cents), tone: visa.margin_cents >= 0 ? 'good' : 'bad' },
+      { label: 'Gross profit', value: fmtMoney(visa.margin_cents), tone: visa.margin_cents >= 0 ? 'good' : 'bad' },
     ])}
     ${statusSteps(visa)}
     ${groupCard(visa)}
@@ -396,8 +396,8 @@ export async function render(container, { params } = {}) {
           <div class="doc-totals">
             <div class="totals-row"><span>Total sale</span><span>${fmtMoney(visa.sale_total_cents)}</span></div>
             <div class="totals-row"><span>Total cost</span><span>${fmtMoney(visa.cost_total_cents)}</span></div>
-            <div class="totals-row total"><span>Margin</span><span class="${marginClass}">${fmtMoney(visa.margin_cents)}</span></div>
-            <div class="totals-row"><span class="muted">Profitability</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
+            <div class="totals-row total"><span>Gross profit</span><span class="${marginClass}">${fmtMoney(visa.margin_cents)}</span></div>
+            <div class="totals-row"><span class="muted">Gross margin</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
             <div class="totals-row balance"><span>Customer balance</span><span>${fmtMoney(visa.balance_cents)}</span></div>
           </div>
         </div>

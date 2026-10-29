@@ -141,7 +141,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
               ${optionsHtml(depositAccounts().accounts, { selected: (depositAccounts().accounts.find((a) => a.code === '1000') || depositAccounts().preferred)?.id, placeholder: '', labelKey: (account) => `${account.code} · ${account.name}` })}
             </select>
           </div>
-          <div class="field full"><div class="form-note">Security deposits are not a sale. They are held in <strong>2600 Visa Security Deposits Held</strong> until refunded, used for an invoice or forfeited.</div></div>
+          <div class="field full"><div class="form-note">Security deposits are not a sale. They are held in <strong>2600 Refundable Security Deposits Held</strong> until refunded, used for an invoice or forfeited.</div></div>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         <div class="totals-panel">
           <div class="totals-row"><span>Total sale</span><span id="vg-sale">${fmtMoney(0)}</span></div>
           <div class="totals-row"><span>Total cost</span><span id="vg-cost">${fmtMoney(0)}</span></div>
-          <div class="totals-row total"><span>Margin</span><span class="margin-positive" id="vg-margin">${fmtMoney(0)}</span></div>
+          <div class="totals-row total"><span>Gross profit</span><span class="margin-positive" id="vg-margin">${fmtMoney(0)}</span></div>
           <div class="totals-row"><span class="muted">Security deposits (not a sale)</span><span class="muted" id="vg-deposits">${fmtMoney(0)}</span></div>
         </div>
       </div>

@@ -138,7 +138,7 @@ export function bindDepositCard(container, visa, refresh) {
             <div class="field"><label for="dep-method">Method</label>${methodSelect('dep-method')}</div>
             <div class="field"><label for="dep-account">Received into</label>${accountSelect('dep-account')}</div>
             <div class="field full"><label for="dep-ref">Reference</label><input class="input" id="dep-ref" autocomplete="off" placeholder="Optional"></div>
-            <div class="field full"><div class="form-note">Not a sale: held in <strong>2600 Visa Security Deposits Held</strong>.</div></div>
+            <div class="field full"><div class="form-note">Not a sale: held in <strong>2600 Refundable Security Deposits Held</strong>.</div></div>
           </div>`,
           submitLabel: 'Record deposit',
           onSubmit: (form) => run(api.post('/visa-deposits', {
@@ -161,7 +161,7 @@ export function bindDepositCard(container, visa, refresh) {
             <div class="field full"><label for="dep-vendor">Supplier</label><select class="input" id="dep-vendor" required>${optionsHtml(activeVendors(), { placeholder: 'Choose supplier…' })}</select></div>
             <div class="field"><label for="dep-method">Method</label>${methodSelect('dep-method', 'Bank transfer')}</div>
             <div class="field"><label for="dep-account">Paid from</label>${accountSelect('dep-account', false)}</div>
-            <div class="field full"><div class="form-note">Moves the money to <strong>1460 Deposits with Suppliers</strong>. The customer is still owed the full deposit.</div></div>
+            <div class="field full"><div class="form-note">Moves the money to <strong>1460 Refundable Deposits Paid</strong>. The customer is still owed the full deposit.</div></div>
           </div>`,
           submitLabel: 'Record payment',
           onSubmit: (form) => run(api.post(`/visa-deposits/${deposit.id}/to-supplier`, {

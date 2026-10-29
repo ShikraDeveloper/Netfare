@@ -180,7 +180,7 @@ export async function render(container, { params, query } = {}) {
       </div>
     </div>
     <div class="stmt-hint no-print">${isCredit
-    ? 'Every bill, payment and supplier refund is a posted journal entry. Bills and supplier refunds credit Accounts Payable; payments debit it. Open a row to see the double-entry lines.'
+    ? 'Every bill, payment and supplier refund is a posted journal entry. Bills and supplier refunds credit Trade Payables; payments debit it. Open a row to see the double-entry lines.'
     : 'Every movement is a posted journal entry. Debits increase the wallet, credits consume it. Open a row to see the double-entry lines.'}</div>
 
     <div class="doc-wrap">
@@ -265,7 +265,7 @@ export async function render(container, { params, query } = {}) {
             <strong>Notes</strong>
             ${isCredit
     ? `Bills and supplier refunds increase what you owe to ${esc(portal.vendor_name || 'the supplier')}; payments reduce it. The running balance is the supplier payable after each entry.`
-    : 'Wallet top-ups debit Supplier Advances and withdrawals or bill settlements credit it. The running balance is the portal\'s position in that account after each entry.'}
+    : 'Wallet top-ups debit Advances to Suppliers and withdrawals or bill settlements credit it. The running balance is the portal\'s position in that account after each entry.'}
             ${portal.outstanding_ap_cents ? `\nSupplier payable not settled yet: ${fmtMoney(portal.outstanding_ap_cents)}.` : ''}
           </div>
           <div class="doc-totals">

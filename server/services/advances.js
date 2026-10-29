@@ -110,7 +110,7 @@ function createAdvance(db, payload) {
     if (!account.is_active) throw bad('That deposit account is archived');
     if (!isCashAccount(account)) throw bad('Deposit account must be an active cash or bank account');
 
-    const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Customer Advances');
+    const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     const number = allocateNumber(db, 'advance', advanceDate);
 
     const info = db.prepare(`
@@ -162,8 +162,8 @@ function applyAdvance(db, id, payload = {}) {
     if (invoiceBalance <= 0) throw bad('That invoice is already fully paid');
     const amount = Math.min(remaining, invoiceBalance);
 
-    const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Customer Advances');
-    const ar = systemAccount(db, AR_ACCOUNT, 'Accounts Receivable');
+    const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
+    const ar = systemAccount(db, AR_ACCOUNT, 'Trade Receivables');
     const paymentDate = dateISO(payload.payment_date || todayISO(), 'Application date');
     const number = allocateNumber(db, 'payment', paymentDate);
 
@@ -226,7 +226,7 @@ function refundAdvance(db, id, payload = {}) {
     if (!account.is_active) throw bad('That account is archived');
     if (!isCashAccount(account)) throw bad('Refund account must be an active cash or bank account');
 
-    const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Customer Advances');
+    const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
 
     const entryId = postEntry(db, {

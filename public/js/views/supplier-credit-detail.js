@@ -360,7 +360,7 @@ export async function render(container, { params } = {}) {
             <input class="input" id="sc-apply-date" name="applied_date" type="date" value="${todayISO()}" required>
           </div>
           <div class="field full">
-            <div class="form-note">This debits Accounts Payable and credits 1450 Supplier Credits. The bill balance drops without recording a cash payment.</div>
+            <div class="form-note">This debits Trade Payables and credits 1450 Supplier Credits. The bill balance drops without recording a cash payment.</div>
           </div>
         </div>
       `,

@@ -28,7 +28,7 @@ function refundPayableReconciliation(db) {
   `).get().total;
   return {
     account_code: '2500',
-    account_name: 'Refund Payable',
+    account_name: 'Refund Liabilities',
     account_balance_cents: balance,
     open_refund_cents: open,
     difference_cents: balance - open,
@@ -95,7 +95,7 @@ function controlChecks(db, summary) {
     controlCheck({
       key: 'receivables',
       code: '1100',
-      name: 'Accounts Receivable',
+      name: 'Trade Receivables',
       ledger: accountBalanceCents(db, '1100'),
       documents: documentTotal(db, `
         SELECT COALESCE(SUM(MAX(0, total_cents - amount_paid_cents - credit_applied_cents)), 0) AS total
@@ -107,7 +107,7 @@ function controlChecks(db, summary) {
     controlCheck({
       key: 'payables',
       code: '2000',
-      name: 'Accounts Payable',
+      name: 'Trade Payables',
       ledger: -accountBalanceCents(db, '2000'),
       documents: documentTotal(db, `
         SELECT COALESCE(SUM(MAX(0, total_cents - amount_paid_cents - credit_applied_cents)), 0) AS total
@@ -119,7 +119,7 @@ function controlChecks(db, summary) {
     controlCheck({
       key: 'customer_advances',
       code: '2400',
-      name: 'Customer Advances',
+      name: 'Contract Liabilities (Customer Advances)',
       ledger: -accountBalanceCents(db, '2400'),
       documents: documentTotal(db, `
         SELECT COALESCE(SUM(amount_cents - applied_cents - refunded_cents), 0) AS total
@@ -131,7 +131,7 @@ function controlChecks(db, summary) {
     controlCheck({
       key: 'refund_payable',
       code: '2500',
-      name: 'Refund Payable',
+      name: 'Refund Liabilities',
       ledger: summary.refund_payable.account_balance_cents,
       documents: summary.refund_payable.open_refund_cents,
       label: 'Unpaid cancellation refunds',
@@ -158,7 +158,7 @@ function controlChecks(db, summary) {
     controlCheck({
       key: 'supplier_advances',
       code: '1400',
-      name: 'Supplier Advances',
+      name: 'Advances to Suppliers',
       ledger: summary.supplier_advances.account_balance_cents,
       documents: summary.supplier_advances.portal_balance_cents,
       label: 'Portal wallet balances',
@@ -174,7 +174,7 @@ function depositChecks(db) {
     controlCheck({
       key: 'visa_deposits',
       code: '2600',
-      name: 'Visa Security Deposits Held',
+      name: 'Refundable Security Deposits Held',
       ledger: -accountBalanceCents(db, '2600'),
       documents: totals.held_cents,
       label: 'Deposits still held',
@@ -183,7 +183,7 @@ function depositChecks(db) {
     controlCheck({
       key: 'deposits_with_suppliers',
       code: '1460',
-      name: 'Deposits with Suppliers',
+      name: 'Refundable Deposits Paid',
       ledger: accountBalanceCents(db, '1460'),
       documents: totals.with_supplier_cents,
       label: 'Deposits held by suppliers',
@@ -204,7 +204,7 @@ function reconciliationSummary(db) {
     customer_credits: customerCredits,
     supplier_advances: {
       account_code: '1400',
-      account_name: 'Supplier Advances',
+      account_name: 'Advances to Suppliers',
       account_balance_cents: supplierAdvances,
       portal_balance_cents: portal.totals.balance_cents,
       difference_cents: supplierAdvances - portal.totals.balance_cents,

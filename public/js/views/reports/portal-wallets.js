@@ -61,7 +61,7 @@ export function portalWallets(data) {
         </table>
       </div>
       <div class="report-balance-note">
-        ${icon('wallet', 14)} Wallet balances sit in <strong>1400 Supplier Advances</strong> until a booking uses them.
+        ${icon('wallet', 14)} Wallet balances sit in <strong>1400 Advances to Suppliers</strong> until a booking uses them.
       </div>
     </div>
   `;

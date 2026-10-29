@@ -281,7 +281,7 @@ function paymentModalBody(invoice) {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">Recording a payment debits your bank or cash account and credits Accounts Receivable. The invoice balance updates automatically.</div>
+        <div class="form-note">Recording a payment debits your bank or cash account and credits Trade Receivables. The invoice balance updates automatically.</div>
       </div>
     </div>
   `;
@@ -577,7 +577,7 @@ export async function render(container, { params } = {}) {
     deleteButton.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: 'Delete this draft?',
-        message: `Draft ${invoice.number} will be permanently deleted. Nothing has been posted to the ledger yet.`,
+        message: `Draft ${invoice.number} will be permanently deleted. Delete is only for drafts: nothing has been posted to the ledger yet.`,
         confirmLabel: 'Delete draft',
       });
       if (!confirmed) return;

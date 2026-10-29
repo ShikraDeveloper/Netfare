@@ -60,7 +60,7 @@ export function cancellationModalBody(job) {
       </div>
       <div class="field full">
         <div class="form-note">
-          <strong>This cannot be undone.</strong> Recording a cancellation creates a permanent cancellation note,
+          <strong>Cancel is for a customer cancellation</strong> (for a mistake, void instead). <strong>This cannot be undone.</strong> Recording a cancellation creates a permanent cancellation note,
           voids the customer invoice and keeps every receipt intact. Check the date, charges and supplier credit
           amounts before saving.
         </div>
@@ -143,7 +143,7 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
           } else if (shortfall > 0) {
             summaryNote.textContent = `Charges exceed money held by ${fmtMoney(shortfall)}. A cancellation invoice will be issued for the shortfall.`;
           } else if (refundDue > 0) {
-            summaryNote.textContent = 'Refund due will be held in 2500 Refund Payable. You can pay it or convert it to customer credit after posting.';
+            summaryNote.textContent = 'Refund due will be held in 2500 Refund Liabilities. You can pay it or convert it to customer credit after posting.';
           } else {
             summaryNote.textContent = 'No customer refund is due.';
           }

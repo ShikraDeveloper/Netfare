@@ -4,7 +4,7 @@ import { reportHeader } from './common.js';
 
 export function agingReport(data, kind) {
   const company = store.settings?.company_name || 'My Company';
-  const title = kind === 'ar' ? 'Accounts Receivable Aging' : 'Accounts Payable Aging';
+  const title = kind === 'ar' ? 'Trade Receivables Aging' : 'Trade Payables Aging';
   if (!data.rows.length) {
     return `
       <div class="report-card">

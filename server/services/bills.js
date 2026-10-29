@@ -165,7 +165,7 @@ function insertItems(db, billId, items) {
 }
 
 function postBill(db, bill, vendor, items) {
-  const ap = systemAccount(db, '2000', 'Accounts Payable');
+  const ap = systemAccount(db, '2000', 'Trade Payables');
   const grouped = new Map();
   for (const item of items) {
     grouped.set(item.account_id, (grouped.get(item.account_id) || 0) + item.amount_cents);
@@ -380,7 +380,7 @@ function recordBillPayment(db, billId, payload) {
     if (!account.is_active) throw bad('That payment account is archived');
     if (!isCashAccount(account)) throw bad('Payment account must be an active cash or bank account');
     const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(bill.vendor_id);
-    const ap = systemAccount(db, '2000', 'Accounts Payable');
+    const ap = systemAccount(db, '2000', 'Trade Payables');
     const number = allocateNumber(db, 'bill_payment', paymentDate);
     const method = optionalStr(payload.method, 'Payment method', 100) || 'Bank transfer';
     const isCheque = ['Cheque', 'Check'].includes(method);

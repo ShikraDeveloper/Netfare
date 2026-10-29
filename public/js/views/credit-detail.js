@@ -77,7 +77,7 @@ export async function render(container, { params = [] } = {}) {
                 : '<span class="source source-standalone">Standalone credit</span>'}</strong>
             </div>
             ${isCancellation
-              ? `<div><span>Accounting</span><strong>Liability transfer: 2500 Refund Payable → 2450 Customer Credits</strong></div>
+              ? `<div><span>Accounting</span><strong>Liability transfer: 2500 Refund Liabilities → 2450 Customer Credits</strong></div>
                  <div><span>Reference account</span><strong>${esc(credit.revenue_account_code)} ${esc(credit.revenue_account_name)}</strong></div>`
               : `<div><span>Revenue account</span><strong>${esc(credit.revenue_account_code)} ${esc(credit.revenue_account_name)}</strong></div>
                  <div><span>Accounting</span><strong>Revenue reduction: Dr revenue / Cr 2450 Customer Credits</strong></div>`}

@@ -20,14 +20,14 @@ export function postingPreview(job, portals = null) {
   }
   const items = [{
     label: `Customer invoice — ${job.customer_name || 'customer'}`,
-    note: 'Receivable in 1100 Accounts Receivable; payment due by the job due date.',
+    note: 'Receivable in 1100 Trade Receivables; payment due by the job due date.',
     value: fmtMoney(job.sale_total_cents),
   }];
   for (const [vendorId, row] of bySupplier) {
     const portal = portals
       ? portals.find((row) => row.vendor_id === vendorId && row.is_active) || null
       : portalForVendorId(vendorId);
-    let note = 'Supplier bill, payable in 2000 Accounts Payable.';
+    let note = 'Supplier bill, payable in 2000 Trade Payables.';
     if (portal && portal.settlement === 'prepaid') {
       const wallet = Number(portal.balance_cents) || 0;
       note = wallet >= row.cents
@@ -43,7 +43,7 @@ export function postingPreview(job, portals = null) {
     heading: 'This will post',
     icon: 'check',
     items,
-    total: { label: 'Margin', value: fmtMoney(margin) },
+    total: { label: 'Gross profit', value: fmtMoney(margin) },
     note: bySupplier.size ? '' : 'No supplier cost is recorded, so no bill is created.',
   };
 }
@@ -89,7 +89,7 @@ export function advanceModalBody(job, kind = 'booking') {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">${kind === 'visa' ? 'Money received before the application is invoiced.' : 'Money received before the trip.'} It is held as a <strong>Customer Advances</strong> liability until you apply it to an invoice.</div>
+        <div class="form-note">${kind === 'visa' ? 'Money received before the application is invoiced.' : 'Money received before the trip.'} It is held as a <strong>Contract Liabilities (Customer Advances)</strong> liability until you apply it to an invoice.</div>
       </div>
     </div>
   `;
@@ -113,7 +113,7 @@ export function applyModalBody(job, advances) {
         <input class="input" value="${esc(job.invoice.number)} · ${fmtMoney(job.invoice.balance_cents)} due" disabled>
       </div>
       <div class="field full">
-        <div class="form-note">Applying the advance reduces the invoice balance and moves the amount from Customer Advances to Accounts Receivable.</div>
+        <div class="form-note">Applying the advance reduces the invoice balance and moves the amount from Contract Liabilities (Customer Advances) to Trade Receivables.</div>
       </div>
     </div>
   `;
@@ -142,7 +142,7 @@ export function refundModalBody(advance) {
         </select>
       </div>
       <div class="field full">
-        <div class="form-note">Refunding debits Customer Advances and credits your bank or cash account.</div>
+        <div class="form-note">Refunding debits Contract Liabilities (Customer Advances) and credits your bank or cash account.</div>
       </div>
     </div>
   `;

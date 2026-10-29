@@ -342,7 +342,7 @@ function createSupplierCreditForCancellation(db, payload) {
 }
 
 function applySupplierCreditRow(db, creditId, billId, amount, appliedDate) {
-  const ap = systemAccount(db, '2000', 'Accounts Payable');
+  const ap = systemAccount(db, '2000', 'Trade Payables');
   const supplierCredits = systemAccount(db, '1450', 'Supplier Credits');
   const info = db.prepare(`
     INSERT INTO supplier_credit_applications (credit_note_id, bill_id, applied_date, amount_cents)

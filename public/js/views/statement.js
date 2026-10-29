@@ -202,9 +202,10 @@ export async function render(container, { params = [], query = new URLSearchPara
     to: query.get('to') || '',
   });
   const partyLabel = kind === 'customer' ? 'Customer' : 'Supplier';
-  const balanceLabel = kind === 'customer' ? 'Amount due' : 'Balance payable';
-  const debitLabel = kind === 'customer' ? 'Invoiced' : 'Paid';
-  const creditLabel = kind === 'customer' ? 'Received' : 'Billed';
+  // Statement of account columns follow the ledger: Debit / Credit / Balance.
+  const balanceLabel = kind === 'customer' ? 'Balance due' : 'Balance payable';
+  const debitLabel = 'Debit';
+  const creditLabel = 'Credit';
   const debitCount = data.transactions.filter((row) => row.debit_cents > 0).length;
   const creditCount = data.transactions.filter((row) => row.credit_cents > 0).length;
   const transactionCount = data.transactions.length;

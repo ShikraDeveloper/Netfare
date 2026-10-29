@@ -101,7 +101,7 @@ export async function render(container, { params, query } = {}) {
         <div class="callout-icon">${icon('wallet', 18)}</div>
         <div class="callout-text">
           <h3>Choose how to settle ${fmtMoney(remaining)}</h3>
-          <p>The cancellation is recorded and the money is held in <strong>2500 Refund Payable</strong>. Pay it back to the customer, convert it to a customer credit, or leave it open and decide later.</p>
+          <p>The cancellation is recorded and the money is held in <strong>2500 Refund Liabilities</strong>. Pay it back to the customer, convert it to a customer credit, or leave it open and decide later.</p>
         </div>
         <div class="callout-actions">
           <button class="btn btn-primary" data-choice="refund">${icon('arrowUp', 15)}<span>Pay refund</span></button>
@@ -166,7 +166,7 @@ export async function render(container, { params, query } = {}) {
         <div class="doc-total-area">
           <div class="doc-notes">
             <strong>How this was recorded</strong>
-            Receipts and supplier payments remain in the ledger. The original customer invoice was voided, cancellation charges were recognised in 4330 Cancellation Charges Income, and any unused supplier cost remains in profit and loss. The refund due below is held in 2500 Refund Payable until it is paid or converted to customer credit.
+            Receipts and supplier payments remain in the ledger. The original customer invoice was voided, cancellation charges were recognised in 4330 Cancellation Fee Income, and any unused supplier cost remains in profit and loss. The refund due below is held in 2500 Refund Liabilities until it is paid or converted to customer credit.
           </div>
           <div class="doc-totals">
             <div class="totals-row"><span>Charges to customer</span><span>${fmtMoney(cancellation.customer_charges_cents)}</span></div>
@@ -268,7 +268,7 @@ export async function render(container, { params, query } = {}) {
       history.replaceState(null, '', `#/cancellations/${id}`);
       const panel = document.querySelector('[data-settlement-choice]');
       if (panel) panel.remove();
-      toast('Refund kept in 2500 Refund Payable');
+      toast('Refund kept in 2500 Refund Liabilities');
     });
   });
 
@@ -314,7 +314,7 @@ export async function render(container, { params, query } = {}) {
             </select>
           </div>
           <div class="field full">
-            <div class="form-note">This debits 2500 Refund Payable and credits the bank or cash account. The cancellation and original receipts stay intact.</div>
+            <div class="form-note">This debits 2500 Refund Liabilities and credits the bank or cash account. The cancellation and original receipts stay intact.</div>
           </div>
         </div>
       `,
@@ -361,7 +361,7 @@ export async function render(container, { params, query } = {}) {
             <textarea class="input" id="cancel-credit-notes" name="notes" rows="2" placeholder="Internal note for the customer credit"></textarea>
           </div>
           <div class="field full">
-            <div class="form-note">This moves the amount from 2500 Refund Payable to 2450 Customer Credits. The customer can then use it against a future invoice.</div>
+            <div class="form-note">This moves the amount from 2500 Refund Liabilities to 2450 Customer Credits. The customer can then use it against a future invoice.</div>
           </div>
         </div>
       `,

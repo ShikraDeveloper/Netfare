@@ -167,7 +167,7 @@ export async function render(container, { params } = {}) {
             </div>
           </div>
           <div class="doc-meta">
-            <div class="doc-kind">${isCustomer ? 'Customer refund' : 'Supplier refund'}</div>
+            <div class="doc-kind">${isCustomer ? 'Payment voucher · customer refund' : 'Receipt voucher · supplier refund'}</div>
             <div class="doc-number">${esc(refund.number)}</div>
             <div class="doc-status">${statusBadge(refund.status)}</div>
             <dl class="doc-meta-grid">
