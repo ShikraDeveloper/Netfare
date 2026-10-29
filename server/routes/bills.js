@@ -12,6 +12,10 @@ router.post('/', (req, res) => {
   res.status(201).json(service.createBill(db, req.body || {}));
 });
 
+router.post('/quick-expense', (req, res) => {
+  res.status(201).json(service.createQuickExpense(db, req.body || {}));
+});
+
 router.get('/:id', (req, res) => {
   res.json(service.getBill(db, Number(req.params.id)));
 });

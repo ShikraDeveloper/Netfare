@@ -492,7 +492,54 @@ function deleteBillPayment(db, paymentId, payload = {}) {
   })();
 }
 
+// Quick expense (paid now): a small expense already paid, such as a taxi or
+// office supplies. It is a bill and its payment on the same date, so it voids,
+// reports and appears on statements exactly like any bill; Trade Payables nets
+// to zero. Without a supplier it is booked to a "Sundry (cash expenses)" one.
+const SUNDRY_VENDOR = 'Sundry (cash expenses)';
+
+function sundryVendor(db) {
+  const existing = db.prepare('SELECT * FROM vendors WHERE name = ? ORDER BY id LIMIT 1').get(SUNDRY_VENDOR);
+  if (existing) {
+    if (!existing.is_active) db.prepare('UPDATE vendors SET is_active = 1 WHERE id = ?').run(existing.id);
+    return existing;
+  }
+  const id = Number(db.prepare('INSERT INTO vendors (name, notes) VALUES (?, ?)')
+    .run(SUNDRY_VENDOR, 'Used for quick expenses paid without a named supplier.').lastInsertRowid);
+  return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
+}
+
+function createQuickExpense(db, payload = {}) {
+  return db.transaction(() => {
+    const vendorId = payload.vendor_id ? assertVendor(db, payload.vendor_id).id : sundryVendor(db).id;
+    const date = dateISO(payload.expense_date || todayISO(), 'Date');
+    const amount = cents(payload.amount_cents, 'Amount', { min: 1 });
+    const method = optionalStr(payload.method, 'Payment method', 100) || 'Cash';
+    const description = str(payload.description, 'What it was for', { max: 300 });
+    const bill = createBill(db, {
+      vendor_id: vendorId,
+      bill_date: date,
+      due_date: date,
+      status: 'received',
+      default_payment_method: method,
+      notes: ['Quick expense · paid now', optionalStr(payload.notes, 'Notes', 1000)].filter(Boolean).join(' · '),
+      items: [{ description, quantity: 1, unit_price_cents: amount, account_id: payload.account_id }],
+    });
+    recordBillPayment(db, bill.id, {
+      amount_cents: amount,
+      payment_date: date,
+      payment_account_id: payload.payment_account_id,
+      method,
+      reference: payload.reference,
+      cheque_number: payload.cheque_number,
+    });
+    return getBill(db, bill.id);
+  })();
+}
+
 module.exports = {
+  createQuickExpense,
+  SUNDRY_VENDOR,
   listBills,
   getBill,
   createBill,

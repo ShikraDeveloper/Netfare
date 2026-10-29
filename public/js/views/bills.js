@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { openQuickExpenseModal } from './quick-expense.js';
 import { activeVendors, purchaseAccounts, store } from '../store.js';
 import { lineItemsHtml, mountLineItems } from '../line-items.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -58,8 +59,12 @@ export async function render(container, { query } = {}) {
   setHeader({
     title: 'Bills & expenses',
     subtitle: `${bills.length} bill${bills.length === 1 ? '' : 's'} · ${fmtMoney(outstanding)} payable across ${openCount}`,
-    actions: `<button class="btn btn-primary" data-action="new-bill">${icon('plus', 16)}<span>New bill</span></button>`,
+    actions: `
+      <button class="btn btn-secondary" data-action="quick-expense">${icon('cash', 16)}<span>Quick expense</span></button>
+      <button class="btn btn-primary" data-action="new-bill">${icon('plus', 16)}<span>New bill</span></button>`,
   });
+  const quick = () => openQuickExpenseModal({ onSaved: (bill) => { location.hash = `#/bills/${bill.id}`; } });
+  document.querySelectorAll('[data-action="quick-expense"]').forEach((button) => button.addEventListener('click', quick));
 
   if (!bills.length) {
     container.innerHTML = `
@@ -68,13 +73,14 @@ export async function render(container, { query } = {}) {
     iconName: 'bill',
     title: 'No bills yet',
     message: 'Record a supplier bill or expense. Receiving it will post the expense and a payable to your ledger automatically.',
-    action: '<button class="btn btn-primary" data-action="new-bill">Record your first bill</button>',
+    action: '<button class="btn btn-secondary" data-action="quick-expense">Quick expense</button> <button class="btn btn-primary" data-action="new-bill">Record your first bill</button>',
   })}
       </div>
     `;
     document.querySelectorAll('[data-action="new-bill"]').forEach((button) => {
       button.addEventListener('click', () => openBillModal({ onSaved: (bill) => { location.hash = `#/bills/${bill.id}`; } }));
     });
+    container.querySelectorAll('[data-action="quick-expense"]').forEach((button) => button.addEventListener('click', quick));
     maybeOpenNew(query, true);
     return;
   }

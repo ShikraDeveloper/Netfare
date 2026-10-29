@@ -1711,6 +1711,25 @@ test('the reports home groups reports and each report has quick periods', async 
   assertNoConsoleErrors();
 });
 
+test('a quick expense is saved and paid in one step', async () => {
+  await openRoute('/bills');
+  await page.locator('#page-actions [data-action="quick-expense"]').click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  assert.match(await dialog.locator('h2').first().innerText(), /Quick expense/);
+  await dialog.locator('#qe-description').fill('E2E taxi to embassy');
+  await dialog.locator('#qe-amount').fill('45');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => /^#\/bills\/\d+/.test(location.hash));
+  const id = Number(await page.evaluate(() => location.hash.split('/').pop()));
+  const bill = await getJson(baseUrl, `/api/bills/${id}`);
+  assert.equal(bill.total_cents, 4_500);
+  assert.equal(bill.status_display, 'paid');
+  assert.equal(bill.vendor_name, 'Sundry (cash expenses)');
+  assert.equal(bill.payments[0].method, 'Cash');
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
