@@ -1200,9 +1200,38 @@ Verification:
 - Schema changes: two new tables, `invoices.payment_link`, a settings counter and account 1030 (added on start). Older "Credit card" payments already posted to 1010 are unchanged. The live file was not modified; restart needed.
 - Housekeeping: an empty `test/share-links.test.js` was created by mistake during this work and removed before the commit.
 
+### Code cleanup after the full check — code commit `7c56032`
+
+The user asked for a read-only check of the whole backend and frontend for dead code, dead schema, conflicts and record integrity, then a second, deeper verification of that report, then "Yes, fix them". The live records were already sound (10/10 ledger checks, no unbalanced entries, every document has its entry). This commit removes what the check found.
+
+- **Dead functions removed:**
+  - Backend: `compliance.nextDate`, `audit.forEntity`, `cancellations.cancellationAdjustment` plus `retainedCostCents` (used only by it, so its `job-costs` require went too), `util.conflict`, `cash-deposits.accountBalance`, and the `AUDIT_CHAIN_TYPES` export.
+  - Frontend: `ui.formValues`, `ui.debounce`, `store.accountById`, `portals.portalSubtitle`.
+- **16 unused imports removed:** `portal-reconcile.js` (9), `visas.js` (3), `visa-detail.js`, `reports/daily-sales.js`, `routes/reports.js`, `services/advances.js`.
+- **Dead column:** `post_dated_cheques.batch_index` was never written or read. It is removed from the schema and dropped by migration (`dropColumn`). The migration was tested on a copy of the live files: the column is gone, integrity ok, 10/10 checks.
+- **CSS:**
+  - 15 unused classes removed (36 rules or rule parts): `amount-pos`, `daily-sales-table`, `daily-summary`, `dsr-reversal`, `flush`, `form-section-title`, `mono`, `payment-list`, `quick-stat(s)`, `report-day-*` and `tabs`. The script that removed them also checked the braces stay balanced.
+  - An emptied `@media (min-width: 901px)` block was removed.
+  - Duplicate selectors were merged, keeping what applied before: `.row-actions` (gap 2px), `.source-cash_deposit` (blue; the overridden teal rule removed), `.statement-parties` (padding 18px 0 14px) and `.internal-notes p`.
+- **Routes:**
+  - Removed the duplicate DELETE routes that only repeated Void: `DELETE /bank-reconciliations/:id`, `DELETE /portals/topups/:id`, `DELETE /credits/applications/:id` and `DELETE /supplier-credits/applications/:id`. The pass-through `deleteReconciliation` and `deleteTopup` were removed too; tests now call `voidReconciliation`.
+  - Removed `DELETE /api/advances/:id` and `deleteAdvance`, which erased the advance row and left its journal entries without a source. No screen used it; Void Advance remains.
+- **Payment method accounts:** new `bindMethodAccount` in `public/js/payment-methods.js`, used by invoice payment, booking/visa advances, customer advance, visa deposit, visa group deposit and refunds. Card and Payment link now go to 1030 everywhere money is received. On refunds, customer refunds follow the same rule, while supplier refunds go to Cash or Bank. The visa group deposit list also gained "Payment link".
+- **Not changed (reported only):** no ledger check for 1030 yet; the `chart.js` npm package is not needed at runtime (the dashboard loads `public/vendor/chart.umd.js`); large files, repeated balance SQL and per-view KPI helpers were left as they are.
+
+Key files: 36 files across `server/` and `public/` (net 213 lines removed), `test/hardening.test.js`, `test/p1.test.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 193 files OK.
+- `npm test`: 186 passed.
+- `npm run test:e2e`: 39 passed, axe clean. The payment link test now also checks that Record advance switches to 1030 for Payment link and 1000 for Cash.
+- Re-scans after the change: no unused exports among the removed names, no functions that are never called, no unused imports, no dead CSS classes, no duplicate selectors.
+- Schema change: one column dropped on start. The live file was not modified; restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `99071f0` (card and payment link settlements).
+1. Start from the latest `main`; the latest code commit is `7c56032` (code cleanup after the full check).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
