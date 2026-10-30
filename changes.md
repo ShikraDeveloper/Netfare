@@ -1166,9 +1166,43 @@ Verification:
 - Visual check: an A4 PDF of the statement (one page) on a throwaway server (port 4391). The in-app browser pane's screenshots did not show the open dialogs, so the new forms were checked through the E2E suite instead.
 - Schema changes: new table `petty_cash_counts`; nullable or defaulted columns on payments, bill_payments, refunds, visa_deposit_events and settings; account 1020 added on start. The live file was not modified; restart needed.
 
+## 2026-10-30
+
+### Card and payment link settlements — code commit `99071f0`
+
+The user asked how card payments, payment links and their charges work. Before this change "Credit card" was only a method label and there was no payment link. Gateway payouts arrive days later, several payments in one batch, less the fee, so they did not match the books. The user asked to build the clearing and settlement flow.
+
+- **New account 1030 Card & Payment Link Clearing** (asset, cash-type so it can be chosen as "Deposit to"). It is a control account, so manual journals cannot post to it, and it is kept out of Banking's bank total (`card_clearing_cents`).
+- **New method "Payment link"** (`public/js/payment-methods.js`) on Record payment, advances (booking, visa, customer), visa deposits and refunds. Choosing Credit card or Payment link sets Deposit to → 1030, Cash → 1000, and the others → 1010. The Bank charges field is hidden when Deposit to is 1030, because the fee is taken at settlement.
+- **Card settlements page** (More → Card settlements, `/api/card-settlements`):
+  - The open items are the 1030 journal lines not yet settled. Voided entries and their reversals drop out.
+  - Tick the items in a payout, enter the amount received, the date and the bank account; the fee is worked out (selected − received). Saving posts one entry, `CS-YYYY-NNNN`: Dr bank (net) · Dr 6700 Bank Charges (fee) · Cr 1030 (gross).
+  - Rules: the date cannot be before the last item, the net cannot be more than the items, and an item can only be settled once.
+  - Voiding a settlement reverses its entry and puts the items back; it is blocked while the payout is ticked in a bank reconciliation.
+  - `reverseEntry` now refuses to reverse an entry whose 1030 line is in a posted settlement. So a settled card payment must have its settlement voided first, or be refunded instead.
+  - New tables `card_settlements` and `card_settlement_lines`, and `settings.next_card_settlement_number`.
+- **Payment link on invoices:** More → Add / Change payment link (`PUT /api/invoices/:id/payment-link`, https only, empty removes it; new column `invoices.payment_link`). While a balance is due, the invoice shows "Pay online by card: …" under Payment terms, which also prints, and the WhatsApp/email message adds the link.
+- The DSR counts "Payment link" in the Card column; its row is labelled "Card & payment link". Settlement entries are labelled "Card & payment link settlements".
+
+Key files: `server/services/card-settlements.js` (new), `server/routes/card-settlements.js` (new), `server/accounting.js`, `server/services/{invoices,cash-deposits,numbering}.js`, `server/services/reports/dsr-sections.js`, `server/{default-accounts,migrations,schema}.js`, `public/js/payment-methods.js` (new), `public/js/views/card-settlements.js` (new), `public/js/bank-charges.js`, `public/js/share-links.js`, `public/js/views/{invoice-detail,booking-detail,visa-detail,job-modals,customer-advance-modals,visa-deposit-card,refund-modal}.js`, `public/js/views/reports/daily-sales.js`, `public/js/app.js`, `public/css/styles.css`.
+
+Verification:
+
+- `npm run check`: 193 files OK.
+- `npm test`: 186 passed. New `test/card-settlements.test.js` (4 tests):
+  - 1030 is kept out of the bank total;
+  - a payout of two items settles 70,000 into the bank as 68,250 with a 1,750 fee, after refusing a too-high net and a too-early date; the first item still waits, the open items equal the 1030 balance, and ledger checks match; settling an item twice is refused;
+  - a settled payment cannot be voided; after the settlement is voided its items wait again, and once the payment is voided it is not offered;
+  - 1030 is a control account, and the payment link is saved, refused for http, and cleared.
+  - The share message test checks the "Pay online by card" line.
+- `npm run test:e2e`: 39 passed, axe clean, with `/card-settlements` added to the axe routes. New test: add a payment link and see it on the invoice; Payment link method → Deposit to 1030 with Bank charges hidden; after payment the link is gone; settle with 390 received of 400 → fee 10.00, and the open items equal the 1030 balance.
+- The forms were not checked visually: the in-app browser pane does not show open dialogs, so the E2E suite covers them.
+- Schema changes: two new tables, `invoices.payment_link`, a settings counter and account 1030 (added on start). Older "Credit card" payments already posted to 1010 are unchanged. The live file was not modified; restart needed.
+- Housekeeping: an empty `test/share-links.test.js` was created by mistake during this work and removed before the commit.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `ed5e74f` (bank charges, petty cash, portal-wallet deposits).
+1. Start from the latest `main`; the latest code commit is `99071f0` (card and payment link settlements).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
