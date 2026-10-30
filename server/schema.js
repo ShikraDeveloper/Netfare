@@ -575,6 +575,29 @@ CREATE TABLE IF NOT EXISTS post_dated_cheques (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS card_settlements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  settlement_date TEXT NOT NULL,
+  bank_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  gross_cents INTEGER NOT NULL,
+  fee_cents INTEGER NOT NULL DEFAULT 0,
+  net_cents INTEGER NOT NULL,
+  reference TEXT NOT NULL DEFAULT '',
+  notes TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS card_settlement_lines (
+  settlement_id INTEGER NOT NULL REFERENCES card_settlements(id) ON DELETE CASCADE,
+  journal_line_id INTEGER NOT NULL REFERENCES journal_lines(id) ON DELETE CASCADE,
+  amount_cents INTEGER NOT NULL,
+  PRIMARY KEY (settlement_id, journal_line_id)
+);
+
 CREATE TABLE IF NOT EXISTS petty_cash_counts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   count_date TEXT NOT NULL,

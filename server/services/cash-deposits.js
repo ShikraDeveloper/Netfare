@@ -16,8 +16,10 @@ const {
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
 
-// Petty cash is a cash float of its own, not a bank account.
+// Petty cash is a cash float of its own, not a bank account; card and
+// payment link money waits in clearing until the gateway settles it.
 const PETTY_CASH_CODE = '1020';
+const CLEARING_CODE = '1030';
 
 function accountBalanceAsOf(db, accountId, asOf) {
   const row = db.prepare(`
@@ -47,11 +49,13 @@ function cashBalances(db) {
   `).all();
   const cashRow = rows.find((row) => row.id === cash?.id) || null;
   const pettyRow = rows.find((row) => row.code === PETTY_CASH_CODE) || null;
-  const bankRows = rows.filter((row) => row.id !== cash?.id && row !== pettyRow);
+  const clearingRow = rows.find((row) => row.code === CLEARING_CODE) || null;
+  const bankRows = rows.filter((row) => row.id !== cash?.id && row !== pettyRow && row !== clearingRow);
   return {
     cash_account: cashRow,
     cash_balance_cents: cashRow ? cashRow.balance_cents : 0,
     petty_cash_balance_cents: pettyRow ? pettyRow.balance_cents : 0,
+    card_clearing_cents: clearingRow ? clearingRow.balance_cents : 0,
     bank_balance_cents: bankRows.reduce((sum, row) => sum + row.balance_cents, 0),
     bank_accounts: bankRows,
     accounts: rows,
@@ -208,6 +212,7 @@ function listCashAccounts(db) {
 
 module.exports = {
   PETTY_CASH_CODE,
+  CLEARING_CODE,
   accountBalanceAsOf,
   cashBalances,
   listCashAccounts,

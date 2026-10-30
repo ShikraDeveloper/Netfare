@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { depositCodeFor, MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js';
 import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
 import { cashAccounts, store } from '../store.js';
 import {
@@ -250,13 +251,7 @@ function paymentModalBody(invoice) {
       </div>
       <div class="field">
         <label for="payment-method">Method</label>
-        <select class="input" id="payment-method" name="method">
-          <option>Bank transfer</option>
-          <option>Cash</option>
-          <option>Credit card</option>
-          <option>Cheque</option>
-          <option>Other</option>
-        </select>
+        <select class="input" id="payment-method" name="method">${methodOptionsHtml(MONEY_IN_METHODS)}</select>
       </div>
       <div class="field">
         <label for="payment-reference">Reference</label>
@@ -338,6 +333,9 @@ export async function render(container, { params } = {}) {
     actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Send &amp; post</span></button>`);
   } else if (canRecordPayment) {
     actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
+  }
+  if (!isVoid) {
+    menu.push(`<button class="btn btn-ghost" data-action="payment-link">${icon('send', 15)}<span>${invoice.payment_link ? 'Change payment link' : 'Add payment link'}</span></button>`);
   }
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/invoice/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   if (canVoid) {
@@ -454,6 +452,7 @@ export async function render(container, { params } = {}) {
           <div>
             <div class="doc-label">Payment terms</div>
             <div class="doc-terms">${esc((hasJobDetails ? '' : invoice.terms) || `Payment due by ${fmtDate(invoice.due_date, { long: true })}.`)}</div>
+            ${invoice.payment_link && invoice.balance_cents > 0 ? `<div class="doc-pay-online" data-pay-online>Pay online by card: <a href="${esc(invoice.payment_link)}" target="_blank" rel="noopener noreferrer">${esc(invoice.payment_link)}</a></div>` : ''}
           </div>
         </div>
 
@@ -544,6 +543,24 @@ export async function render(container, { params } = {}) {
   });
 
   document.querySelector('[data-action="share"]')?.addEventListener('click', () => openShareModal(invoice, settings));
+  document.querySelector('[data-action="payment-link"]')?.addEventListener('click', () => {
+    openModal({
+      title: 'Payment link',
+      subtitle: `${invoice.number} · ${fmtMoney(invoice.balance_cents)} due`,
+      body: `<div class="form-grid">
+        <div class="field full"><label for="pay-link">Link from your card gateway</label>
+          <input class="input" id="pay-link" type="url" value="${esc(invoice.payment_link || '')}" placeholder="https://…" autocomplete="off">
+          <div class="hint">Create the link in your gateway (Network International, Telr, Stripe…) for ${esc(fmtMoney(invoice.balance_cents))} and paste it here. It is printed on the invoice and added to the WhatsApp and email message. Leave empty to remove it.</div></div>
+        <div class="field full"><div class="form-note">When the customer pays, record the payment with method <strong>Payment link</strong>. It waits in 1030 Card &amp; Payment Link Clearing until the gateway pays it into the bank (Card settlements).</div></div>
+      </div>`,
+      submitLabel: 'Save link',
+      async onSubmit(form) {
+        await api.put(`/invoices/${id}/payment-link`, { payment_link: form.querySelector('#pay-link').value.trim() });
+        toast('Payment link saved');
+        refresh();
+      },
+    });
+  });
 
   const editButton = document.querySelector('[data-action="edit"]');
   if (editButton) {
@@ -637,13 +654,13 @@ export async function render(container, { params } = {}) {
             }
           };
           method.addEventListener('change', () => {
-            const code = method.value === 'Cash' ? '1000' : '1010';
-            const target = cashAccounts().find((candidate) => candidate.code === code);
+            const target = cashAccounts().find((candidate) => candidate.code === depositCodeFor(method.value));
             if (target) account.value = String(target.id);
+            account.dispatchEvent(new Event('change'));
             syncCheque();
           });
           syncCheque();
-          bindBankCharges(overlay, method);
+          bindBankCharges(overlay, method, account);
         },
         async onSubmit(form) {
           const values = new FormData(form);

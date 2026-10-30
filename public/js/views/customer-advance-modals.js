@@ -5,7 +5,7 @@ import { depositAccounts } from './job-modals.js';
 // Customer advances handled from the customer side: record money received
 // before any booking or visa, then use it for an invoice or refund it.
 
-const METHODS = ['Bank transfer', 'Cash', 'Cheque', 'Credit card', 'Other'];
+const METHODS = ['Bank transfer', 'Cash', 'Cheque', 'Credit card', 'Payment link', 'Other'];
 
 function accountOptions(preferCode) {
   const { accounts, preferred } = depositAccounts();

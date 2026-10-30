@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { depositCodeFor } from '../payment-methods.js';
 import { store } from '../store.js';
 import {
   confirmDialog,
@@ -610,8 +611,7 @@ export async function render(container, { params } = {}) {
         if (!method || !account) return;
         method.addEventListener('change', () => {
           const { accounts } = depositAccounts();
-          const code = method.value === 'Cash' ? '1000' : '1010';
-          const target = accounts.find((candidate) => candidate.code === code);
+          const target = accounts.find((candidate) => candidate.code === depositCodeFor(method.value));
           if (target) account.value = String(target.id);
         });
       },

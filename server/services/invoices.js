@@ -399,6 +399,19 @@ function updateInvoice(db, id, payload) {
   })();
 }
 
+// A link from the card gateway (Network International, Telr, Stripe…) for
+// paying this invoice online. Not accounting data; it goes out with the
+// invoice and its share message.
+function setPaymentLink(db, id, payload = {}) {
+  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+  if (!invoice) throw notFound('Invoice not found');
+  if (invoice.status === 'void') throw bad('This invoice is void');
+  const link = optionalStr(payload.payment_link, 'Payment link', 500);
+  if (link && !/^https:\/\/[^\s]+$/i.test(link)) throw bad('The payment link must start with https:// and have no spaces');
+  db.prepare("UPDATE invoices SET payment_link = ?, updated_at = datetime('now') WHERE id = ?").run(link, id);
+  return getInvoice(db, id);
+}
+
 function finalizeInvoice(db, id) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
@@ -694,6 +707,7 @@ module.exports = {
   createInvoice,
   updateInvoice,
   finalizeInvoice,
+  setPaymentLink,
   voidInvoice,
   voidInvoiceForCancellation,
   deleteInvoice,

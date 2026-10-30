@@ -10,7 +10,7 @@ const FEE_CODES = new Set(['4300', '4310']);
 function modeOf(method) {
   const value = String(method || '').toLowerCase();
   if (value.includes('cash')) return 'cash';
-  if (value.includes('card')) return 'card';
+  if (value.includes('card') || value.includes('payment link')) return 'card';
   if (value.includes('bank') || value.includes('cheque') || value.includes('check') || value.includes('transfer')) return 'bank';
   return 'other';
 }
@@ -37,6 +37,7 @@ const FLOW_LABELS = {
   deposit_refund: 'Visa deposit refunds',
   opening_balance: 'Opening balances',
   petty_cash_count: 'Petty cash count differences',
+  card_settlement: 'Card & payment link settlements',
   void: 'Reversals (voids)',
 };
 

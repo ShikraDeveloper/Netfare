@@ -36,6 +36,7 @@ export function invoiceMessage(invoice, { company = '', companyPhone = '', title
     lines.push('This invoice is fully paid. Thank you.');
   } else if (invoice.balance_cents > 0) {
     lines.push(`Amount due: ${format(invoice.balance_cents)} by ${date(invoice.due_date)}.`);
+    if (invoice.payment_link) lines.push(`Pay online by card: ${invoice.payment_link}`);
   }
   lines.push('', 'Thank you,', company, companyPhone);
   return lines.filter((line, index, all) => line !== '' || all[index - 1] !== '').join('\n').trim();

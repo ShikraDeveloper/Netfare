@@ -24,6 +24,10 @@ router.delete('/:id', (req, res) => {
   res.json(service.deleteInvoice(db, Number(req.params.id)));
 });
 
+router.put('/:id/payment-link', (req, res) => {
+  res.json(service.setPaymentLink(db, Number(req.params.id), req.body || {}));
+});
+
 router.post('/:id/finalize', (req, res) => {
   res.json(service.finalizeInvoice(db, Number(req.params.id)));
 });

@@ -881,6 +881,8 @@ body.modal-open { overflow: hidden; }
 .doc-meta-grid dt { color: var(--muted); }
 .doc-meta-grid dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 
+.doc-pay-online { margin-top: 8px; font-size: 12px; color: var(--text-soft); word-break: break-all; }
+.doc-pay-online a { color: var(--primary); font-weight: 600; }
 .doc-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; padding: 20px 0 26px; border-top: 1px solid var(--border); }
 .doc-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted-2); font-weight: 750; margin-bottom: 7px; }
 .doc-party-name { font-size: 14px; font-weight: 650; }
@@ -1364,6 +1366,10 @@ about-list .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; 
 .field-inline { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .recon-workspace { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 16px; }
 .recon-placeholder { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 24px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.settle-form { display: grid; grid-template-columns: 1fr 1fr 1.2fr 1fr auto; gap: 10px; align-items: end; padding: 14px 16px; border-top: 1px solid var(--border); }
+.settle-form .hint { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 900px) { .settle-form { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .settle-form { grid-template-columns: 1fr; } }
 .recon-charge { margin-top: 12px; border: 1px dashed var(--border-strong); border-radius: 10px; padding: 0 12px; }
 .recon-charge > summary { display: flex; align-items: center; gap: 6px; padding: 10px 0; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); list-style: none; }
 .recon-charge > summary::-webkit-details-marker { display: none; }

@@ -87,7 +87,7 @@ export function advanceModalBody(job, kind = 'booking') {
       <div class="field">
         <label for="adv-method">Method</label>
         <select class="input" id="adv-method" name="method">
-          <option>Bank transfer</option><option>Cheque</option><option>Cash</option><option>Credit card</option><option>Other</option>
+          ${methodOptionsHtml(MONEY_IN_METHODS)}
         </select>
       </div>
       <div class="field">

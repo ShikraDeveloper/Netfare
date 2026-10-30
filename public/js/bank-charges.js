@@ -21,16 +21,21 @@ export function bankChargesFieldHtml(mode = 'paid') {
     </div>`;
 }
 
-// Cash has no bank charge: hide and clear the field for Cash.
-export function bindBankCharges(overlay, methodSelect) {
+// Cash has no bank charge, and money into 1030 Card & Payment Link Clearing
+// has its fee taken at the card settlement: hide and clear the field then.
+export function bindBankCharges(overlay, methodSelect, accountSelect = null) {
   const field = overlay.querySelector('[data-bank-charges-field]');
   if (!field || !methodSelect) return;
+  const clearingId = accountSelect
+    ? [...accountSelect.options].find((option) => /^1030\b/.test(option.textContent))?.value
+    : null;
   const sync = () => {
-    const cash = methodSelect.value === 'Cash';
-    field.hidden = cash;
-    if (cash) field.querySelector('input').value = '';
+    const hide = methodSelect.value === 'Cash' || (clearingId && accountSelect.value === clearingId);
+    field.hidden = Boolean(hide);
+    if (hide) field.querySelector('input').value = '';
   };
   methodSelect.addEventListener('change', sync);
+  accountSelect?.addEventListener('change', sync);
   sync();
 }
 

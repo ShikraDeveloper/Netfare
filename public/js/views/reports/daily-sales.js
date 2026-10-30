@@ -318,7 +318,7 @@ function summaryHtml(data) {
       <div class="dsr-sum-box">
         <h4>Collected by mode</h4>
         ${row('Cash', mode('cash'))}
-        ${row('Card', mode('card'))}
+        ${row('Card & payment link', mode('card'))}
         ${row('Bank / cheque', mode('bank'))}
         ${row('Total received', totalIn, 'total')}
         ${row('Advance / credit note used', mode('other'))}

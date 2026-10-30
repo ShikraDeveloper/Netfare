@@ -27,7 +27,7 @@ const STATUS_TEXT = {
   void: 'Void',
 };
 
-const METHODS = ['Cash', 'Bank transfer', 'Cheque', 'Credit card', 'Other'];
+const METHODS = ['Cash', 'Bank transfer', 'Cheque', 'Credit card', 'Payment link', 'Other'];
 
 function methodSelect(id, selected = 'Cash') {
   return `<select class="input" id="${id}" name="method">${METHODS.map((m) => `<option ${m === selected ? 'selected' : ''}>${m}</option>`).join('')}</select>`;

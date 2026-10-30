@@ -5,6 +5,7 @@ module.exports = [
   ['1000', 'Cash', 'asset', 'current_asset', 'debit', 1, 0],
   ['1010', 'Bank Account', 'asset', 'current_asset', 'debit', 1, 0],
   ['1020', 'Petty Cash', 'asset', 'current_asset', 'debit', 1, 0],
+  ['1030', 'Card & Payment Link Clearing', 'asset', 'current_asset', 'debit', 1, 0],
   ['1100', 'Trade Receivables', 'asset', 'receivable', 'debit', 0, 1],
   ['1200', 'Prepayments', 'asset', 'current_asset', 'debit', 0, 0],
   ['1400', 'Advances to Suppliers', 'asset', 'current_asset', 'debit', 0, 0],

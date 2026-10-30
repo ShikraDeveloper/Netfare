@@ -18,6 +18,7 @@ const SYSTEM_CODES = {
   VISA_DEPOSITS: '2600',
   FORFEITED_DEPOSITS: '4340',
   BANK_CHARGES: '6700',
+  CARD_CLEARING: '1030',
 };
 
 // Accounts that are maintained by a subledger. Manual journals may not post
@@ -32,6 +33,7 @@ const CONTROL_ACCOUNT_CODES = new Set([
   SYSTEM_CODES.REFUND_PAYABLE,
   SYSTEM_CODES.DEPOSITS_WITH_SUPPLIERS,
   SYSTEM_CODES.VISA_DEPOSITS,
+  SYSTEM_CODES.CARD_CLEARING,
 ]);
 
 function getSettings(db) {
@@ -124,6 +126,17 @@ function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void' } = 
   if (!entry) return null;
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entryId);
   if (!lines.length) return null;
+  // Card money already paid out by the gateway cannot simply be reversed:
+  // the settlement holds it.
+  const settled = db.prepare(`
+    SELECT s.number FROM card_settlement_lines sl
+    JOIN card_settlements s ON s.id = sl.settlement_id
+    JOIN journal_lines l ON l.id = sl.journal_line_id
+    WHERE l.entry_id = ? AND s.status = 'posted' LIMIT 1
+  `).get(entryId);
+  if (settled) {
+    throw bad(`This card or payment link money is in card settlement ${settled.number}. Void that settlement first, or record a refund instead.`);
+  }
   // A reversal never lands before the entry it reverses, so voiding a
   // future-dated document today cannot make earlier as-of balances negative.
   const requested = entry_date || todayISO();

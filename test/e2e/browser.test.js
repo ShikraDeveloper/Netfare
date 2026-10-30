@@ -1888,6 +1888,45 @@ test('bank charges on a payment, a charge added in bank reconciliation, and pett
   assertNoConsoleErrors();
 });
 
+test('payment link: method sends money to 1030, the link goes on the invoice, and a card settlement takes the fee', async () => {
+  const [customers, accounts] = await Promise.all([getJson(baseUrl, '/api/customers'), getJson(baseUrl, '/api/accounts')]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const invoice = await postJson(baseUrl, '/api/invoices', {
+    customer_id: customers[0].id, issue_date: new Date().toLocaleDateString('en-CA'), status: 'sent',
+    items: [{ description: 'E2E link service', quantity: 1, unit_price_cents: 40_000, account_id: code('4300') }],
+  });
+
+  await openRoute(`/invoices/${invoice.id}`);
+  await clickPageAction('[data-action="payment-link"]');
+  const linkDialog = page.locator('[role="dialog"]');
+  await linkDialog.locator('#pay-link').fill('https://pay.example.com/e2e');
+  await linkDialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('[data-pay-online]').waitFor();
+  assert.match(await page.locator('[data-pay-online]').innerText(), /https:\/\/pay\.example\.com\/e2e/);
+
+  await clickPageAction('[data-action="payment"]');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.locator('#payment-method').selectOption('Payment link');
+  assert.match(await dialog.locator('#payment-account option:checked').innerText(), /^1030/);
+  assert.equal(await dialog.locator('#bank-charges').isVisible(), false, 'the fee is taken at settlement');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  assert.equal(await page.locator('[data-pay-online]').count(), 0, 'no pay link once paid');
+
+  await openRoute('/card-settlements');
+  const row = page.locator('[data-settle-items] tbody tr').last();
+  await row.locator('[data-settle-item]').check();
+  await page.locator('#settle-net').fill('390');
+  assert.match(await page.locator('[data-settle-fee]').innerText(), /10\.00/);
+  await page.locator('[data-settle-form] button[type="submit"]').click();
+  await page.locator('[data-settlements]').waitFor();
+  const data = await getJson(baseUrl, '/api/card-settlements');
+  assert.equal(data.settlements[0].fee_cents, 1_000);
+  assert.equal(data.open_total_cents, data.in_transit_cents);
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
@@ -1930,6 +1969,7 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
     '/cheques',
     '/compliance',
     '/petty-cash',
+    '/card-settlements',
     '/accounts',
     '/banking',
     '/bank-reconciliation',

@@ -14,7 +14,7 @@ import {
   toCents,
 } from '../ui.js';
 
-const REFUND_METHODS = ['Bank transfer', 'Cheque', 'Cash', 'Credit card', 'Other'];
+const REFUND_METHODS = ['Bank transfer', 'Cheque', 'Cash', 'Credit card', 'Payment link', 'Other'];
 
 function sourceKey(source) {
   return String(source.payment_id || source.bill_payment_id || '');

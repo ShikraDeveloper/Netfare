@@ -42,6 +42,12 @@ function allocateNumber(db, kind, dateStr) {
       next: settings.next_visa_number,
       column: 'next_visa_number',
     },
+    card_settlement: {
+      table: 'card_settlements',
+      prefix: 'CS',
+      next: settings.next_card_settlement_number,
+      column: 'next_card_settlement_number',
+    },
     // Visa security deposits have their own series; DEP is the cash deposit series.
     visa_deposit: {
       table: 'visa_deposits',

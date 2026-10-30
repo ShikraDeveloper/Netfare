@@ -132,4 +132,10 @@ test('share links use the customer number in international form and the message 
   assert.match(message, /ticket invoice INV-1 for booking BK-1 \(Dubai–Doha\), dated 2026-09-01/);
   assert.match(message, /Amount due: AED 600\.00 by 2026-09-30/);
   assert.match(message, /Skyline$/);
+  assert.doesNotMatch(message, /Pay online/);
+  const linked = invoiceMessage({
+    customer_name: 'Aisha', number: 'INV-2', issue_date: '2026-09-01', due_date: '2026-09-30',
+    total_cents: 10_000, balance_cents: 10_000, status_display: 'sent', payment_link: 'https://pay.example.com/x',
+  }, { company: 'Skyline', format: (c) => `AED ${(c / 100).toFixed(2)}`, date: (d) => d });
+  assert.match(linked, /Pay online by card: https:\/\/pay\.example\.com\/x/);
 });
