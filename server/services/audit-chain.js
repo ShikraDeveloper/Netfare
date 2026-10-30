@@ -524,5 +524,4 @@ function getAuditChain(db, { type, id } = {}) {
 
 module.exports = {
   getAuditChain,
-  AUDIT_CHAIN_TYPES: Object.keys(TYPES),
 };

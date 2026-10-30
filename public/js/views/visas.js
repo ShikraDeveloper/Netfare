@@ -4,8 +4,6 @@ import { activeCustomers, store } from '../store.js';
 import {
   addDaysISO,
   bindDateRange,
-  centsToInput,
-  currencySymbol,
   dateRangeHtml,
   emptyState,
   esc,
@@ -20,7 +18,6 @@ import {
   statusBadge,
   todayISO,
   toast,
-  toCents,
 } from '../ui.js';
 import { costRow, mountBookingLines, saleRow } from './bookings.js';
 import { openVisaGroupModal } from './visa-group-form.js';

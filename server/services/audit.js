@@ -89,13 +89,4 @@ function list(db, {
   return { rows, total };
 }
 
-function forEntity(db, entityType, entityId, limit = 20) {
-  return db.prepare(`
-    SELECT * FROM audit_logs
-    WHERE entity_type = ? AND entity_id = ?
-    ORDER BY id DESC
-    LIMIT ?
-  `).all(String(entityType), Number(entityId), Math.min(Math.max(Number(limit) || 20, 1), 100));
-}
-
-module.exports = { record, list, forEntity, cleanRemarks, withRemarks };
+module.exports = { record, list, cleanRemarks, withRemarks };

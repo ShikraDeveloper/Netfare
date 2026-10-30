@@ -194,10 +194,6 @@ function voidReconciliation(db, id, payload = {}) {
   })();
 }
 
-function deleteReconciliation(db, id, payload = {}) {
-  return voidReconciliation(db, id, payload);
-}
-
 // A charge on the bank statement that is not in the books yet: saved as a
 // paid expense to 6700 Bank Charges, debited from the account being
 // reconciled, so it shows under Bills & expenses and can be voided there.
@@ -232,5 +228,4 @@ module.exports = {
   createReconciliation,
   getReconciliation,
   voidReconciliation,
-  deleteReconciliation,
 };

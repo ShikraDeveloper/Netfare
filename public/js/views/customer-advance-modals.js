@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { centsToInput, currencySymbol, esc, fmtMoney, openModal, optionsHtml, todayISO, toast, toCents } from '../ui.js';
 import { depositAccounts } from './job-modals.js';
+import { bindMethodAccount } from '../payment-methods.js';
 
 // Customer advances handled from the customer side: record money received
 // before any booking or visa, then use it for an invoice or refund it.
@@ -29,6 +30,9 @@ export function openRecordAdvance(customer, onDone) {
       <div class="field full"><div class="form-note">Held in <strong>2400 Contract Liabilities (Customer Advances)</strong> until it is used for an invoice or refunded. To tie it to a trip, record it on the booking or visa instead; it is then used for that invoice automatically.</div></div>
     </div>`,
     submitLabel: 'Record advance',
+    onMount(overlay) {
+      bindMethodAccount(overlay.querySelector('#ca-method'), overlay.querySelector('#ca-account'), depositAccounts().accounts);
+    },
     async onSubmit(form) {
       const advance = await api.post('/advances', {
         customer_id: customer.id,

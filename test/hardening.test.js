@@ -176,7 +176,7 @@ test('manual journal entries in a reconciliation cannot be deleted', () => {
   );
   assert.ok(db.prepare('SELECT id FROM journal_entries WHERE id = ?').get(entryId));
 
-  bankReconciliations.deleteReconciliation(db, reconciliation.id);
+  bankReconciliations.voidReconciliation(db, reconciliation.id);
   assert.deepEqual(journalService.deleteManualEntry(db, entryId), { deleted: true });
   assertBalanced();
 });

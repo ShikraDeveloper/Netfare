@@ -19,10 +19,6 @@ import {
   toCents,
 } from '../ui.js';
 
-export function portalSubtitle(portal) {
-  return `${portalTypeLabel(portal.portal_type)}${portal.vendor_name ? ` · ${portal.vendor_name}` : ''}`;
-}
-
 function portalRow(portal) {
   const wallet = portal.settlement === 'prepaid'
     ? `

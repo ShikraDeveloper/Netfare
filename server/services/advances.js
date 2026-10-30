@@ -4,7 +4,6 @@ const {
   bad,
   notFound,
   optionalStr,
-  num,
   cents,
   dateISO,
   todayISO,
@@ -331,35 +330,6 @@ function voidAdvance(db, id, payload = {}) {
   })();
 }
 
-function deleteAdvance(db, id, payload = {}) {
-  return db.transaction(() => {
-    const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(id);
-    if (!advance) throw notFound('Advance not found');
-    if (advance.voided_at) throw bad('This advance is already void');
-    if (advance.applied_cents > 0 || advance.refunded_cents > 0) {
-      throw bad('This advance has already been applied or refunded. Refund it instead of deleting.');
-    }
-    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
-    if (advance.journal_entry_id) {
-      reverseEntry(db, advance.journal_entry_id, {
-        entry_date: todayISO(),
-        memo: audit.withRemarks(`Reverse advance ${advance.number}`, remarks),
-        source_type: 'void',
-      });
-    }
-    audit.record(db, {
-      entity_type: 'customer_advance',
-      entity_id: advance.id,
-      entity_number: advance.number,
-      action: 'delete',
-      remarks: remarks || `Deleted advance ${advance.number}`,
-      amount_cents: advance.amount_cents,
-    });
-    db.prepare('DELETE FROM customer_advances WHERE id = ?').run(id);
-    return { deleted: true };
-  })();
-}
-
 module.exports = {
   listAdvances,
   getAdvance,
@@ -367,5 +337,4 @@ module.exports = {
   applyAdvance,
   refundAdvance,
   voidAdvance,
-  deleteAdvance,
 };

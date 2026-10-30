@@ -99,10 +99,6 @@ function voidTopup(db, id, payload = {}) {
 
 // Kept as an alias for older clients. A top-up is voided, never deleted, so
 // the audit trail and the original document number survive.
-function deleteTopup(db, id, payload = {}) {
-  return voidTopup(db, id, payload);
-}
-
 function voidPortalRefund(db, id, payload = {}) {
   return db.transaction(() => {
     const refund = db.prepare('SELECT * FROM portal_refunds WHERE id = ?').get(id);
@@ -393,7 +389,6 @@ function recordPortalCredit(db, payload = {}) {
 module.exports = {
   topUp,
   voidTopup,
-  deleteTopup,
   voidPortalRefund,
   voidPortalCredit,
   refundPortal,

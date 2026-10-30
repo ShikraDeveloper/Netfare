@@ -28,8 +28,4 @@ router.post('/:id/void', (req, res) => {
   res.json(service.voidAdvance(db, Number(req.params.id), req.body || {}));
 });
 
-router.delete('/:id', (req, res) => {
-  res.json(service.deleteAdvance(db, Number(req.params.id), req.body || {}));
-});
-
 module.exports = router;

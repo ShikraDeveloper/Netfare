@@ -562,7 +562,6 @@ CREATE TABLE IF NOT EXISTS post_dated_cheques (
   cheque_number TEXT NOT NULL,
   cheque_date TEXT NOT NULL,
   anchor_date TEXT,
-  batch_index INTEGER NOT NULL DEFAULT 0,
   amount_cents INTEGER NOT NULL,
   bank_name TEXT NOT NULL DEFAULT '',
   status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'issued', 'cleared', 'bounced', 'cancelled')),

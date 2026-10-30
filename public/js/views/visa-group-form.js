@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bindMethodAccount } from '../payment-methods.js';
 import { depositAccounts } from './job-modals.js';
 import { activeCustomers, activeVendors, portalForVendorId, purchaseAccounts, revenueAccounts, store } from '../store.js';
 import {
@@ -132,7 +133,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
           <div class="field">
             <label for="vg-deposit-method">Deposit received by</label>
             <select class="input" id="vg-deposit-method">
-              <option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>Credit card</option><option>Other</option>
+              <option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>Credit card</option><option>Payment link</option><option>Other</option>
             </select>
           </div>
           <div class="field">
@@ -220,6 +221,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
     body,
     submitLabel: 'Create application',
     onMount(overlay) {
+      bindMethodAccount(overlay.querySelector('#vg-deposit-method'), overlay.querySelector('#vg-deposit-account'), depositAccounts().accounts);
       overlayRef = overlay;
       const customerSelect = overlay.querySelector('#vg-customer');
       const wrap = overlay.querySelector('[data-va-rows]');

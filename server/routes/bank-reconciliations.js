@@ -28,8 +28,4 @@ router.post('/:id/void', (req, res) => {
   res.json(service.voidReconciliation(db, Number(req.params.id), req.body || {}));
 });
 
-router.delete('/:id', (req, res) => {
-  res.json(service.deleteReconciliation(db, Number(req.params.id), req.body || {}));
-});
-
 module.exports = router;

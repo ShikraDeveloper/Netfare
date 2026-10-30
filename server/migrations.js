@@ -205,7 +205,6 @@ ensureColumn('settings', 'next_card_settlement_number', 'INTEGER NOT NULL DEFAUL
 // A gateway's payment link for an invoice, shared with the invoice.
 ensureColumn('invoices', 'payment_link', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
-ensureColumn('post_dated_cheques', 'batch_index', 'INTEGER NOT NULL DEFAULT 0');
 
 // Void audit trail and void metadata. Rows are retained so the audit log can
 // always point back to the original document.
@@ -256,6 +255,8 @@ dropColumn('bills', 'tax_cents');
 dropColumn('bookings', 'tax_rate');
 dropColumn('visa_applications', 'tax_rate');
 dropColumn('compliance_items', 'tax_rate');
+// Never written or read; cheques are ordered by date.
+dropColumn('post_dated_cheques', 'batch_index');
 
 protectReconciledLines();
 allowVisaAgentPortals();

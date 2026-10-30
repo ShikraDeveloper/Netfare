@@ -74,14 +74,6 @@ function scheduledDate(anchorDate, frequency, index = 0) {
   return null;
 }
 
-function nextDate(dateStr, frequency) {
-  if (frequency === 'weekly') return addDays(dateStr, 7);
-  if (frequency === 'monthly') return addMonths(dateStr, 1);
-  if (frequency === 'quarterly') return addMonths(dateStr, 3);
-  if (frequency === 'yearly') return addMonths(dateStr, 12);
-  return null;
-}
-
 function dateDiffDays(from, to) {
   const [fy, fm, fd] = from.split('-').map(Number);
   const [ty, tm, td] = to.split('-').map(Number);
@@ -577,6 +569,5 @@ module.exports = {
   skipCompliance,
   runDueBills,
   complianceStats,
-  nextDate,
   scheduledDate,
 };

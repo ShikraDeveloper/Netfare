@@ -13,7 +13,6 @@ module.exports = {
   deletePortal: lifecycle.deletePortal,
   topUp: money.topUp,
   voidTopup: money.voidTopup,
-  deleteTopup: money.deleteTopup,
   voidPortalRefund: money.voidPortalRefund,
   voidPortalCredit: money.voidPortalCredit,
   refundPortal: money.refundPortal,

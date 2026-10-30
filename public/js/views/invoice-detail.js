@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { depositCodeFor, MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js';
+import { bindMethodAccount, MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js';
 import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
 import { cashAccounts, store } from '../store.js';
 import {
@@ -653,12 +653,8 @@ export async function render(container, { params } = {}) {
               chequeDate.value = paymentDate?.value || todayISO();
             }
           };
-          method.addEventListener('change', () => {
-            const target = cashAccounts().find((candidate) => candidate.code === depositCodeFor(method.value));
-            if (target) account.value = String(target.id);
-            account.dispatchEvent(new Event('change'));
-            syncCheque();
-          });
+          bindMethodAccount(method, account, cashAccounts());
+          method.addEventListener('change', syncCheque);
           syncCheque();
           bindBankCharges(overlay, method, account);
         },

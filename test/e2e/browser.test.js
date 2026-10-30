@@ -1924,6 +1924,16 @@ test('payment link: method sends money to 1030, the link goes on the invoice, an
   const data = await getJson(baseUrl, '/api/card-settlements');
   assert.equal(data.settlements[0].fee_cents, 1_000);
   assert.equal(data.open_total_cents, data.in_transit_cents);
+
+  // Advances follow the method too: a payment link advance waits in 1030.
+  await openRoute(`/customer-balances/${customers[0].id}`);
+  await page.locator('#page-actions [data-action="record-advance"]').click();
+  const advance = page.locator('[role="dialog"]');
+  await advance.locator('#ca-method').selectOption('Payment link');
+  assert.match(await advance.locator('#ca-account option:checked').innerText(), /^1030/);
+  await advance.locator('#ca-method').selectOption('Cash');
+  assert.match(await advance.locator('#ca-account option:checked').innerText(), /^1000/);
+  await advance.locator('[data-close]').first().click();
   assertNoConsoleErrors();
 });
 

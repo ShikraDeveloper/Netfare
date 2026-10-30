@@ -32,10 +32,6 @@ function accountBalanceAsOf(db, accountId, asOf) {
   return row.balance;
 }
 
-function accountBalance(db, accountId) {
-  return accountBalanceAsOf(db, accountId, '9999-12-31');
-}
-
 function cashBalances(db) {
   const cash = db.prepare("SELECT * FROM accounts WHERE code = '1000'").get();
   const rows = db.prepare(`

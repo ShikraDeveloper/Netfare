@@ -16,10 +16,6 @@ router.post('/applications/:applicationId/void', (req, res) => {
   res.json(service.deleteCreditApplication(db, Number(req.params.applicationId), req.body || {}));
 });
 
-router.delete('/applications/:applicationId', (req, res) => {
-  res.json(service.deleteCreditApplication(db, Number(req.params.applicationId), req.body || {}));
-});
-
 router.get('/:id', (req, res) => {
   res.json(service.getCredit(db, Number(req.params.id)));
 });

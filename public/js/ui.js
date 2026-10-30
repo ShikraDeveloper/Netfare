@@ -557,22 +557,6 @@ export function voidDialog({
   });
 }
 
-export function formValues(form) {
-  const values = {};
-  new FormData(form).forEach((value, key) => {
-    values[key] = value;
-  });
-  return values;
-}
-
-export function debounce(fn, wait = 250) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), wait);
-  };
-}
-
 export function printPage() {
   window.print();
 }

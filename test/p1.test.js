@@ -139,8 +139,8 @@ test('bank reconciliation clears lines, tracks differences and reopens the lates
   assert.equal(second.status, 'difference');
   assert.equal(second.difference_cents, -25_000);
 
-  assert.throws(() => bankReconciliations.deleteReconciliation(db, first.id), /later reconciliation/i);
-  bankReconciliations.deleteReconciliation(db, second.id);
+  assert.throws(() => bankReconciliations.voidReconciliation(db, first.id), /later reconciliation/i);
+  bankReconciliations.voidReconciliation(db, second.id);
   const reopened = bankReconciliations.getWorkspace(db, { account_id: bankId, statement_date: '2026-02-28' });
   assert.equal(reopened.lines.length, 1);
   assert.equal(reopened.lines[0].amount_cents, 25_000);

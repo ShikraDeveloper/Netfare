@@ -28,10 +28,6 @@ router.post('/applications/:id/void', (req, res) => {
   res.json(service.deleteSupplierCreditApplication(db, Number(req.params.id), req.body || {}));
 });
 
-router.delete('/applications/:id', (req, res) => {
-  res.json(service.deleteSupplierCreditApplication(db, Number(req.params.id), req.body || {}));
-});
-
 router.post('/:id/refund', (req, res) => {
   res.status(201).json(service.refundSupplierCredit(db, Number(req.params.id), req.body || {}));
 });

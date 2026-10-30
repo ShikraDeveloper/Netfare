@@ -53,10 +53,6 @@ export function purchaseAccounts() {
   ));
 }
 
-export function accountById(id) {
-  return store.accounts.find((account) => account.id === Number(id)) || null;
-}
-
 export function activeCustomers() {
   return store.customers.filter((customer) => customer.is_active);
 }

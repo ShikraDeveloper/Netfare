@@ -1,5 +1,5 @@
 import { store } from '../../store.js';
-import { emptyState, esc, fmtDate, fmtMoney, icon } from '../../ui.js';
+import { emptyState, esc, fmtDate, icon } from '../../ui.js';
 import { periodLabel, reportHeader } from './common.js';
 
 // Daily Sales Report laid out like a travel counter's report: A header,

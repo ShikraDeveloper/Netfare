@@ -15,6 +15,7 @@ import {
   voidDialog,
 } from '../ui.js';
 import { depositAccounts } from './job-modals.js';
+import { bindMethodAccount } from '../payment-methods.js';
 
 // Visa security deposits on the visa page: what was received, what the
 // supplier holds, what was refunded, used or forfeited, and what is still held.
@@ -151,6 +152,9 @@ export function bindDepositCard(container, visa, refresh) {
             <div class="field full"><div class="form-note">Not a sale: held in <strong>2600 Refundable Security Deposits Held</strong>.</div></div>
           </div>`,
           submitLabel: 'Record deposit',
+          onMount(overlay) {
+            bindMethodAccount(overlay.querySelector('#dep-method'), overlay.querySelector('#dep-account'), depositAccounts().accounts);
+          },
           onSubmit: (form) => run(api.post('/visa-deposits', {
             visa_id: visa.id,
             amount_cents: toCents(form.querySelector('#dep-amount').value),

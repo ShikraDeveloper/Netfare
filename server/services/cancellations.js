@@ -18,7 +18,6 @@ const { allocateNumber } = require('./numbering');
 const invoiceService = require('./invoices');
 const creditService = require('./credits');
 const supplierCreditService = require('./supplier-credits');
-const jobCosts = require('./job-costs');
 const jobs = require('./jobs');
 const audit = require('./audit');
 
@@ -443,35 +442,6 @@ function convertCancellationToCredit(db, id, payload = {}) {
   })();
 }
 
-function retainedCostCents(db, { bookingId = null, visaId = null } = {}) {
-  return bookingId
-    ? jobCosts.jobCostCents(db, 'booking', bookingId)
-    : jobCosts.jobCostCents(db, 'visa', visaId);
-}
-
-function cancellationAdjustment(db, sourceType, sourceId, saleTotalCents, costTotalCents) {
-  const cancellation = db.prepare(
-    'SELECT * FROM cancellations WHERE source_type = ? AND source_id = ? ORDER BY id DESC LIMIT 1',
-  ).get(sourceType, Number(sourceId));
-  if (!cancellation) return null;
-  const retained = retainedCostCents(db, sourceType === 'booking'
-    ? { bookingId: sourceId }
-    : { visaId: sourceId });
-  return {
-    cancellation_id: cancellation.id,
-    cancellation_number: cancellation.number,
-    cancellation_date: cancellation.cancellation_date,
-    original_sale_total_cents: saleTotalCents,
-    original_cost_total_cents: costTotalCents,
-    sale_total_cents: cancellation.customer_charges_cents,
-    cost_total_cents: retained,
-    customer_charges_cents: cancellation.customer_charges_cents,
-    retained_cost_cents: retained,
-    refund_due_cents: cancellation.refund_due_cents,
-    is_cancelled: true,
-  };
-}
-
 module.exports = {
   cancelSource,
   getCancellation,
@@ -479,6 +449,4 @@ module.exports = {
   listCancellations,
   refundCancellation,
   convertCancellationToCredit,
-  retainedCostCents,
-  cancellationAdjustment,
 };

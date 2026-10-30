@@ -2,7 +2,7 @@
 
 const router = require('express').Router();
 const db = require('../db');
-const { dateISO, todayISO, monthRange } = require('../util');
+const { todayISO, monthRange } = require('../util');
 const reports = require('../services/reports');
 const bookings = require('../services/bookings');
 const visas = require('../services/visas');

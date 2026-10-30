@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bindMethodAccount, depositCodeFor } from '../payment-methods.js';
 import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
 import { cashAccounts } from '../store.js';
 import {
@@ -274,13 +275,12 @@ export function openRefundModal({
       }
 
       if (method) {
-        method.addEventListener('change', () => {
-          if (!account) return;
-          const code = method.value === 'Cash' ? '1000' : '1010';
-          const target = accounts.find((candidate) => candidate.code === code);
-          if (target) account.value = String(target.id);
-        });
-        bindBankCharges(overlay, method);
+        // A card or payment link refund to a customer goes back through the
+        // gateway (1030); money from a supplier lands in cash or the bank.
+        bindMethodAccount(method, account, accounts, (value) => (currentType === 'customer'
+          ? depositCodeFor(value)
+          : value === 'Cash' ? '1000' : '1010'));
+        bindBankCharges(overlay, method, account);
       }
 
       if (sourceSelect) {

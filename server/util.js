@@ -9,7 +9,6 @@ class HttpError extends Error {
 
 const bad = (message) => new HttpError(400, message);
 const notFound = (message = 'Not found') => new HttpError(404, message);
-const conflict = (message) => new HttpError(409, message);
 
 function str(value, field, { required = true, max = 500, fallback = '' } = {}) {
   if (value == null || value === '') {
@@ -100,7 +99,6 @@ module.exports = {
   HttpError,
   bad,
   notFound,
-  conflict,
   str,
   optionalStr,
   num,
