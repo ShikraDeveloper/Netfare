@@ -1,4 +1,5 @@
 import { cashAccounts, portalForVendorId } from '../store.js';
+import { MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js';
 import {
   centsToInput,
   currencySymbol,

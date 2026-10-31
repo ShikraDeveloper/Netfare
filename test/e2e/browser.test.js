@@ -1937,6 +1937,23 @@ test('payment link: method sends money to 1030, the link goes on the invoice, an
   assertNoConsoleErrors();
 });
 
+test('the booking and visa pages open Record customer advance, with payment link sent to 1030', async () => {
+  const [bookings, visas] = await Promise.all([getJson(baseUrl, '/api/bookings'), getJson(baseUrl, '/api/visas')]);
+  const booking = bookings.find((row) => row.status !== 'cancelled');
+  const visa = visas.find((row) => !['cancelled', 'rejected'].includes(row.status));
+  for (const route of [`/bookings/${booking.id}`, `/visas/${visa.id}`]) {
+    await openRoute(route);
+    await page.locator('[data-action="record-advance"]').first().click();
+    const dialog = page.locator('[role="dialog"]');
+    await dialog.locator('#adv-method').waitFor();
+    await dialog.locator('#adv-method').selectOption('Payment link');
+    assert.match(await dialog.locator('#adv-account option:checked').innerText(), /^1030/, `${route} sends payment link to 1030`);
+    await dialog.locator('[data-close]').first().click();
+    await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  }
+  assertNoConsoleErrors();
+});
+
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {
   const [invoices, bookings, visas, bills, portals, customers, cancellations, credits] = await Promise.all([
     getJson(baseUrl, '/api/invoices'),
