@@ -1278,9 +1278,29 @@ Verification:
 - Key file: `public/css/styles.css` (`.brand-tagline`).
 - Verification: measured on a throwaway server (port 4391): the tagline runs from 24px to 151.8px against the lockup's 24.5px to 151.6px at desktop width, and it looks right in the phone sidebar. `npm run check` 193 files OK; `npm run test:e2e` 41 passed. CSS only; the live server serves it on refresh, so no restart is needed.
 
+### Fix: Books health — opening 1030 guard, reset leftovers, 1030 ledger check — code commit `48ff903`
+
+- **Opening balances and card money:**
+  - Changing or voiding opening balances reversed the old entry without the card-settlement guard that every other reversal has.
+  - The reversal was linked only by `source_id`, not `reversal_of_id`, so the old opening 1030 line stayed in the open card items next to the new one. It could be settled twice, double counting card money.
+  - The reversal now refuses money already in a posted card settlement ("Void that settlement first"). The check is a shared `settledCardNumber()` helper in accounting.js, also used by `reverseEntry`.
+  - The reversal now sets `reversal_of_id`. A migration links existing opening balance reversals the same way; the live copy had none unlinked.
+- **Clear all data:** now also deletes `card_settlement_lines`, `card_settlements` and `petty_cash_counts`, resets `next_card_settlement_number`, and resets their id sequences. The petty cash float setting is kept, like other settings.
+- **New ledger check (11 in all):** 1030 Card & Payment Link Clearing balance vs the unsettled card and payment link items, linking to Card settlements.
+
+Key files: `server/accounting.js`, `server/services/{opening-balances,demo,card-settlements,reconciliation}.js`, `server/migrations.js`, `test/card-settlements.test.js`, `test/phase3.test.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 193 files OK.
+- `npm test`: 189 passed. The three new tests fail against the old server code.
+- `npm run test:e2e`: 41 passed; the dashboard now shows "All 11 checks match".
+- On a copy of the latest live backup: 11/11 checks match, and the 1030 check is 0 = 0.
+- Includes a migration that only updates links. Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `e03dc09` (sidebar tagline alignment).
+1. Start from the latest `main`; the latest code commit is `48ff903` (books health fixes).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
