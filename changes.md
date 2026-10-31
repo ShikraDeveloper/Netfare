@@ -1229,9 +1229,21 @@ Verification:
 - Re-scans after the change: no unused exports among the removed names, no functions that are never called, no unused imports, no dead CSS classes, no duplicate selectors.
 - Schema change: one column dropped on start. The live file was not modified; restart needed.
 
+## 2026-10-31
+
+### Fix: Record customer advance on booking and visa pages — code commit `46d02f2`
+
+Found by the security audit's wave-3 hunter (as a non-security note). In `99071f0`, `public/js/views/job-modals.js` began using `methodOptionsHtml` and `MONEY_IN_METHODS`, but the import was never added. The edit script anchored on an `api.js` import line, and this file does not have one, so the edit silently did nothing. As a result, "Record customer advance" on booking and visa pages threw a ReferenceError and the form never opened. The live server has had this bug since `99071f0` was deployed. The customer-side advance form was not affected.
+
+- Added `import { MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js'`.
+- Scanned every file in public/js for names from `payment-methods.js` and `bank-charges.js` that are used without being imported: none remain.
+- New browser test: it opens Record customer advance on a booking and on a visa, chooses Payment link and checks that the account becomes 1030. The test fails without the fix and passes with it.
+
+Verification: `npm run check` 193 files OK; `npm test` 186 passed; `npm run test:e2e` 40 passed. Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `7c56032` (code cleanup after the full check).
+1. Start from the latest `main`; the latest code commit is `46d02f2` (Record customer advance fix).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
