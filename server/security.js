@@ -63,8 +63,24 @@ function hostGuard({ hosts = configuredHosts() } = {}) {
   };
 }
 
+// Browsers say where a request came from. Only the app's own pages
+// (same-origin) and the user typing or bookmarking a URL (none) may reach the
+// API, so another site or local port cannot pull downloads, backups or
+// attachments. Clients without the header (scripts, curl) are unaffected.
+const ALLOWED_FETCH_SITES = new Set(['same-origin', 'none']);
+
+function isAllowedFetchSite(req, origins = configuredOrigins()) {
+  const site = req.get('sec-fetch-site');
+  if (!site || ALLOWED_FETCH_SITES.has(site.toLowerCase())) return true;
+  const origin = String(req.get('origin') || '').toLowerCase();
+  return Boolean(origin) && origins.has(origin);
+}
+
 function apiGuard({ port = process.env.PORT || 4173, hosts = configuredHosts(), origins = configuredOrigins() } = {}) {
   return (req, res, next) => {
+    if (!isAllowedFetchSite(req, origins)) {
+      return res.status(403).json({ error: 'Cross-site request blocked' });
+    }
     if (SAFE_METHODS.has(req.method)) return next();
     if (!isAllowedOrigin(req.get('origin'), { port, hosts, origins })) {
       return res.status(403).json({ error: 'Cross-origin request blocked' });
@@ -85,6 +101,7 @@ module.exports = {
   hostnameFromHost,
   isAllowedHost,
   isAllowedOrigin,
+  isAllowedFetchSite,
   hostGuard,
   apiGuard,
 };

@@ -225,3 +225,20 @@ test('currency cannot be changed away from AED', async () => {
   const settings = await jsonRequest('/api/settings');
   assert.equal(settings.data.currency, 'AED');
 });
+
+test('other sites and local ports cannot read the API, and nothing is embeddable cross-origin', async () => {
+  for (const site of ['cross-site', 'same-site']) {
+    const backup = await rawRequest('/api/admin/backup', { headers: { 'Sec-Fetch-Site': site } });
+    assert.equal(backup.status, 403, `${site} backup download is blocked`);
+    const attachment = await rawRequest('/api/attachments/1/download', { headers: { 'Sec-Fetch-Site': site, 'Sec-Fetch-Dest': 'image' } });
+    assert.equal(attachment.status, 403, `${site} attachment probe is blocked`);
+  }
+  for (const site of ['same-origin', 'none']) {
+    const health = await rawRequest('/api/health', { headers: { 'Sec-Fetch-Site': site } });
+    assert.equal(health.status, 200, `${site} is allowed`);
+  }
+  const page = await rawRequest('/');
+  assert.equal(page.headers['cross-origin-resource-policy'], 'same-origin');
+  const api = await rawRequest('/api/health');
+  assert.equal(api.headers['cross-origin-resource-policy'], 'same-origin');
+});

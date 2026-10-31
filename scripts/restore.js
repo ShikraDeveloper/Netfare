@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
+const { restrictFile } = require('../server/file-safety');
 
 const root = path.join(__dirname, '..');
 
@@ -35,6 +36,12 @@ function verifyDatabase(file, requiredTables) {
     for (const table of requiredTables) {
       if (!tables.has(table)) throw new Error(`backup is missing required table "${table}"`);
     }
+    // Netfare never creates triggers or views. In a backup they would be
+    // logic that keeps changing every later posting, so refuse them.
+    const extra = check.prepare("SELECT type, name FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").get();
+    if (extra) throw new Error(`backup contains a ${extra.type} ("${extra.name}") that Netfare does not create`);
+    const broken = check.pragma('foreign_key_check');
+    if (broken.length) throw new Error(`backup has ${broken.length} broken link${broken.length === 1 ? '' : 's'} between records (first in "${broken[0].table}")`);
   } finally {
     check.close();
   }
@@ -111,6 +118,7 @@ async function restoreDatabase({ source, dataDir = resolveDataDir(), force = fal
       const current = new Database(dbPath);
       try {
         current.prepare('VACUUM INTO ?').run(safety);
+        restrictFile(safety);
       } finally {
         current.close();
       }
@@ -124,6 +132,7 @@ async function restoreDatabase({ source, dataDir = resolveDataDir(), force = fal
     writeConsistentCopy(sourcePath, tempPath);
     // Verify the exact bytes that will become the live database.
     verifyDatabase(tempPath, requiredTables);
+    restrictFile(tempPath);
     fsyncFile(tempPath);
     fs.renameSync(tempPath, dbPath);
     for (const suffix of ['-wal', '-shm']) {

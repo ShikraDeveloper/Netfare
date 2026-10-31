@@ -101,7 +101,7 @@ export async function render(container, { params, query } = {}) {
 
   const kpiCards = isCredit
     ? [
-      kpiCard('Opening payable', data.opening_cents, fmtDate(data.from), 'bill', 'amber'),
+      kpiCard('Opening payable', data.opening_cents, esc(fmtDate(data.from)), 'bill', 'amber'),
       kpiCard(
         hasCreditRefunds ? 'Billed / refunded' : 'Billed',
         data.total_credit_cents,

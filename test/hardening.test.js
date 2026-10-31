@@ -355,3 +355,55 @@ test('restore honours the data directory, checks the copy and writes atomically'
     fs.rmSync(targetDir, { recursive: true, force: true });
   }
 });
+
+test('restore refuses backups carrying triggers, views or broken links', async () => {
+  const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-restore-target-'));
+  const cases = [
+    ['trigger', "CREATE TRIGGER t AFTER INSERT ON journal_lines BEGIN UPDATE journal_lines SET description = 'x' WHERE id = NEW.id; END", /trigger \("t"\)/],
+    ['view', 'CREATE VIEW v AS SELECT 1', /view \("v"\)/],
+    ['links', 'PRAGMA foreign_keys = OFF; INSERT INTO journal_lines (entry_id, account_id, debit_cents, credit_cents) VALUES (999999, 1, 1, 0)', /broken link/],
+  ];
+  try {
+    for (const [label, sql, message] of cases) {
+      const source = backupService.createDatabaseBackup(db, `restore-${label}`);
+      const tampered = new Database(source.path);
+      tampered.exec(sql);
+      tampered.close();
+      await assert.rejects(
+        restoreDatabase({ source: source.path, dataDir: targetDir, checkServer: async () => false }),
+        message,
+      );
+      assert.equal(fs.existsSync(path.join(targetDir, 'accounting.db')), false, `${label}: nothing was restored`);
+    }
+  } finally {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+  }
+});
+
+test('the data folder, database and backups are readable by this OS user only', { skip: process.platform === 'win32' }, () => {
+  const mode = (file) => fs.statSync(file).mode & 0o777;
+  assert.equal(mode(tempDir), 0o700);
+  assert.equal(mode(path.join(tempDir, 'accounting.db')), 0o600);
+  const backup = backupService.createDatabaseBackup(db, 'permissions');
+  assert.equal(mode(backup.path), 0o600);
+  assert.equal(mode(path.dirname(backup.path)) & 0o077, 0);
+
+  const { restrictDataDir } = require('../server/file-safety');
+  const legacy = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-legacy-perms-'));
+  try {
+    fs.mkdirSync(path.join(legacy, 'backups'));
+    fs.writeFileSync(path.join(legacy, 'accounting.db'), '');
+    fs.writeFileSync(path.join(legacy, 'backups', 'old.db'), '');
+    fs.chmodSync(path.join(legacy, 'accounting.db'), 0o644);
+    fs.chmodSync(path.join(legacy, 'backups', 'old.db'), 0o644);
+    fs.chmodSync(path.join(legacy, 'backups'), 0o755);
+    fs.chmodSync(legacy, 0o755);
+    restrictDataDir(legacy);
+    assert.equal(mode(legacy), 0o700);
+    assert.equal(mode(path.join(legacy, 'backups')), 0o700);
+    assert.equal(mode(path.join(legacy, 'accounting.db')), 0o600);
+    assert.equal(mode(path.join(legacy, 'backups', 'old.db')), 0o600);
+  } finally {
+    fs.rmSync(legacy, { recursive: true, force: true });
+  }
+});

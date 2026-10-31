@@ -119,7 +119,7 @@ export function monthStart(iso = todayISO()) {
 export function fmtDate(iso, { short = false, long = false } = {}) {
   if (!iso) return '—';
   const date = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return iso;
+  if (Number.isNaN(date.getTime())) return '—';
   if (long) {
     return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
   }

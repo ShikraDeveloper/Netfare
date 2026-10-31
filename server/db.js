@@ -6,11 +6,13 @@ const path = require('path');
 const schema = require('./schema');
 const defaultAccounts = require('./default-accounts');
 const runMigrations = require('./migrations');
+const { restrictDataDir } = require('./file-safety');
 
 const dataDir = process.env.LEDGERLY_DATA_DIR
   ? path.resolve(process.env.LEDGERLY_DATA_DIR)
   : path.join(__dirname, '..', 'data');
 fs.mkdirSync(dataDir, { recursive: true });
+restrictDataDir(dataDir);
 
 const db = new Database(path.join(dataDir, 'accounting.db'));
 db.pragma('journal_mode = WAL');

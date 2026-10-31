@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { restrictFile } = require('../file-safety');
 
 const dataDir = process.env.LEDGERLY_DATA_DIR
   ? path.resolve(process.env.LEDGERLY_DATA_DIR)
@@ -47,6 +48,7 @@ function createDatabaseBackup(db, label = 'manual') {
   const name = `netfare-${stamp()}-${safeLabel(label)}.db`;
   const file = path.join(backupDir, name);
   db.prepare('VACUUM INTO ?').run(file);
+  restrictFile(file);
   const stat = fs.statSync(file);
   pruneBackups();
   return {
@@ -67,6 +69,7 @@ function createTemporaryBackup(db, label = 'download') {
   };
   try {
     db.prepare('VACUUM INTO ?').run(file);
+    restrictFile(file);
     const stat = fs.statSync(file);
     return {
       name,
