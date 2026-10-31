@@ -92,7 +92,8 @@ svg { display: block; }
 }
 
 .brand-logo { display: block; width: 138px; height: auto; }
-.brand-tagline { font-family: var(--font-mono, ui-monospace, monospace); font-size: 9.5px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; margin: 2px 0 0 52px; white-space: nowrap; }
+/* Sits under the logo lockup: starts at the ticket's left edge and ends with the wordmark. */
+.brand-tagline { font-family: var(--font-mono, ui-monospace, monospace); font-size: 8.5px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase; margin: -9px 0 0 6px; white-space: nowrap; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; padding-bottom: 12px; }
 
