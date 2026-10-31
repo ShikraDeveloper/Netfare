@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { store } from '../store.js';
 import {
+  companyMark,
   confirmDialog,
   emptyState,
   esc,
@@ -9,14 +10,14 @@ import {
   fmtMoney,
   fmtNumber,
   icon,
+  moreMenuHtml,
   openModal,
   setHeader,
   statusBadge,
+  summaryStripHtml,
   toast,
   toCents,
   voidDialog,
-  moreMenuHtml,
-  summaryStripHtml,
 } from '../ui.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -327,7 +328,7 @@ export async function render(container, { params } = {}) {
       <div class="doc">
         <div class="doc-head">
           <div class="doc-brand">
-            <span class="brand-mark">L</span>
+            ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
               <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>

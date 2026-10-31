@@ -3,6 +3,7 @@ import { attachmentSection, bindAttachmentSection, loadAttachments } from '../at
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
+  companyMark,
   emptyState,
   esc,
   fmtDate,
@@ -12,9 +13,9 @@ import {
   optionsHtml,
   setHeader,
   statusBadge,
-  todayISO,
   toast,
   toCents,
+  todayISO,
 } from '../ui.js';
 
 function sourceHref(cancellation) {
@@ -114,7 +115,7 @@ export async function render(container, { params, query } = {}) {
       <div class="doc">
         <div class="doc-head">
           <div class="doc-brand">
-            <span class="brand-mark">L</span>
+            ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
               <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>

@@ -44,7 +44,7 @@ function pruneBackups(keep = 30, { autoMaxAgeDays = AUTO_BACKUP_MAX_AGE_DAYS } =
 
 function createDatabaseBackup(db, label = 'manual') {
   fs.mkdirSync(backupDir, { recursive: true });
-  const name = `ledgerly-${stamp()}-${safeLabel(label)}.db`;
+  const name = `netfare-${stamp()}-${safeLabel(label)}.db`;
   const file = path.join(backupDir, name);
   db.prepare('VACUUM INTO ?').run(file);
   const stat = fs.statSync(file);
@@ -59,8 +59,8 @@ function createDatabaseBackup(db, label = 'manual') {
 
 // Downloads must not consume the permanent backup allowance.
 function createTemporaryBackup(db, label = 'download') {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-download-'));
-  const name = `ledgerly-${stamp()}-${safeLabel(label)}.db`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'netfare-download-'));
+  const name = `netfare-${stamp()}-${safeLabel(label)}.db`;
   const file = path.join(dir, name);
   const cleanup = () => {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* already removed */ }

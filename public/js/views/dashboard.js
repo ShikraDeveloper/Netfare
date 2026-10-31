@@ -35,15 +35,15 @@ function chartTheme() {
   return {
     text: cssVar('--chart-text', '#64707d'),
     grid: cssVar('--chart-grid', 'rgba(11, 27, 46, 0.08)'),
-    revenue: cssVar('--chart-revenue', '#f7b520'),
-    revenueFill: cssVar('--chart-revenue-fill', 'rgba(247, 181, 32, 0.12)'),
+    revenue: cssVar('--chart-revenue', '#2b8fcb'),
+    revenueFill: cssVar('--chart-revenue-fill', 'rgba(43, 143, 203, 0.12)'),
     expense: cssVar('--chart-expense', '#4b6b8a'),
     expenseFill: cssVar('--chart-expense-fill', 'rgba(75, 107, 138, 0.08)'),
     tooltip: cssVar('--chart-tooltip', '#0b1b2e'),
-    tooltipText: cssVar('--chart-tooltip-text', '#f7f1e5'),
-    surface: cssVar('--surface', '#fffdf8'),
+    tooltipText: cssVar('--chart-tooltip-text', '#ffffff'),
+    surface: cssVar('--surface', '#ffffff'),
     palette: [
-      cssVar('--accent', '#f7b520'),
+      cssVar('--accent', '#4fb3e8'),
       cssVar('--chart-blue', '#25638f'),
       cssVar('--green', '#1c7a5a'),
       cssVar('--chart-coral', '#d97757'),
@@ -434,7 +434,7 @@ export async function render(container, { query } = {}) {
     <div class="callout">
       <div class="callout-icon">${icon('trendUp', 20)}</div>
       <div class="callout-text">
-        <h3>Welcome to Ledgerly</h3>
+        <h3>Welcome to Netfare</h3>
         <p>Your books are ready. Load a sample business to explore invoices, bills and reports — or start with a blank ledger.</p>
       </div>
       <div class="callout-actions">

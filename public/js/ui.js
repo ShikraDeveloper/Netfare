@@ -285,7 +285,7 @@ export function setHeader({ title, subtitle = '', actions = '' }) {
   if (titleEl) titleEl.textContent = title;
   if (subtitleEl) subtitleEl.textContent = subtitle;
   if (actionsEl) actionsEl.innerHTML = actions;
-  document.title = title ? `${title} · Ledgerly` : 'Ledgerly — Invoicing & Accounting';
+  document.title = title ? `${title} · Netfare` : 'Netfare — Invoicing & Books';
 }
 
 export function emptyState({ iconName = 'file', title, message = '', action = '' }) {
@@ -555,6 +555,12 @@ export function voidDialog({
       onClose: () => resolve(result),
     });
   });
+}
+
+// The agency's initial on its own documents (invoices, receipts, statements).
+export function companyMark(company) {
+  const initial = String(company || '').trim().charAt(0).toUpperCase() || '·';
+  return `<span class="brand-mark" aria-hidden="true">${esc(initial)}</span>`;
 }
 
 export function printPage() {

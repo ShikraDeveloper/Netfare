@@ -17,7 +17,7 @@ router.put('/', (req, res) => {
     : current.company_name;
   const currency = 'AED';
   if (body.currency != null && String(body.currency).trim().toUpperCase() !== currency) {
-    throw bad('Ledgerly records all amounts in AED');
+    throw bad('Netfare records all amounts in AED');
   }
 
   const terms = body.payment_terms_days != null

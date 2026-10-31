@@ -45,7 +45,7 @@ export async function render(container) {
       <div class="settings-stack">
         <div class="card appearance-card">
           <div class="card-head">
-            <div class="card-title"><h2>Appearance</h2><p>Choose how Ledgerly looks on this device</p></div>
+            <div class="card-title"><h2>Appearance</h2><p>Choose how Netfare looks on this device</p></div>
           </div>
           <div class="card-body">
             <div class="theme-picker" role="group" aria-label="Theme">
@@ -126,7 +126,7 @@ export async function render(container) {
                   <label>Currency</label>
                   <div class="readonly-box">
                     <strong>AED</strong>
-                    <span>United Arab Emirates dirham. Ledgerly records every amount in AED.</span>
+                    <span>United Arab Emirates dirham. Netfare records every amount in AED.</span>
                   </div>
                 </div>
                 <div class="field">
@@ -187,7 +187,7 @@ export async function render(container) {
             <div class="danger-row" style="border-color:var(--border)">
               <div>
                 <h4>Restore a backup</h4>
-                <p>Stop Ledgerly first, then run the restore command. A safety backup of the current database is created automatically.</p>
+                <p>Stop Netfare first, then run the restore command. A safety backup of the current database is created automatically.</p>
                 <p class="hint" style="margin-top:4px"><code>npm run restore -- data/backups/&lt;file&gt;.db</code></p>
               </div>
             </div>
@@ -226,9 +226,11 @@ export async function render(container) {
 
         <div class="card">
           <div class="card-head">
-            <div class="card-title"><h2>About Ledgerly</h2><p>Local-first double-entry accounting</p></div>
+            <div class="card-title"><h2>About Netfare</h2><p>Invoicing &amp; books for non-IATA travel agencies · a ShikraGroup brand</p></div>
           </div>
           <div class="card-body">
+            <img class="about-logo about-logo-light" src="/brand/netfare-logo.svg" alt="Netfare — Invoicing &amp; Books" width="276" height="96">
+            <img class="about-logo about-logo-dark" src="/brand/netfare-logo-white.svg" alt="" width="276" height="96">
             <div class="about-list">
               <div><span>Version</span><strong>1.0.0</strong></div>
               <div><span>Storage</span><strong>Local SQLite</strong></div>

@@ -247,7 +247,12 @@ after(async () => {
 
 test('app shell, skip link, keyboard row and console health', async () => {
   await openRoute('/dashboard');
-  assert.match(await page.title(), /Ledgerly/);
+  assert.match(await page.title(), /Netfare/);
+  // Netfare brand: sidebar logo loads, favicon points at the logo kit.
+  const logo = page.locator('.sidebar .brand-logo');
+  assert.equal(await logo.getAttribute('alt'), 'Netfare');
+  assert.ok(await logo.evaluate((img) => img.complete && img.naturalWidth > 0), 'Sidebar logo loads');
+  assert.equal(await page.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute('href'), '/brand/netfare-icon.svg');
   assert.equal(await page.locator('#skip-link').getAttribute('href'), '#view');
   assert.ok(await page.locator('#main-nav [href]').count() >= 10, 'Grouped navigation should be present');
   assertNoConsoleErrors();
@@ -1951,6 +1956,17 @@ test('the booking and visa pages open Record customer advance, with payment link
     await dialog.locator('[data-close]').first().click();
     await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   }
+  assertNoConsoleErrors();
+});
+
+test('documents show the agency initial, not a Netfare or old Ledgerly mark', async () => {
+  const [invoices, settings] = await Promise.all([getJson(baseUrl, '/api/invoices'), getJson(baseUrl, '/api/settings')]);
+  await openRoute(`/invoices/${invoices[0].id}`);
+  const mark = page.locator('.doc-brand .brand-mark');
+  await mark.waitFor();
+  assert.equal((await mark.innerText()).trim(), settings.company_name.trim().charAt(0).toUpperCase());
+  await openRoute('/settings');
+  assert.ok(await page.locator('.about-logo-light').evaluate((img) => img.complete && img.naturalWidth > 0), 'About logo loads');
   assertNoConsoleErrors();
 });
 

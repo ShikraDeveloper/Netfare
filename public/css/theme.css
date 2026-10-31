@@ -1,29 +1,29 @@
 /* ------------------------------------------------------------------
-   Ledgerly theme layer
-   Light + dark palettes inspired by Shikra Travels:
-   warm cream, deep navy and a bright travel-gold accent.
+   Netfare theme layer (a ShikraGroup brand)
+   Light + dark palettes from the Netfare logo kit:
+   navy #0B1B2E, sky blue #4FB3E8, blue #2B8FCB, slate #55657A.
 ------------------------------------------------------------------- */
 
 :root {
-  --bg: #f7f1e5;
-  --bg-dots: rgba(11, 27, 46, 0.055);
-  --glow: rgba(247, 181, 32, 0.10);
-  --surface: #fffdf8;
-  --surface-2: #fbf5ea;
-  --surface-3: #f4ead9;
-  --border: #e6d9c3;
-  --border-strong: #d6c3a1;
+  --bg: #f3f6fa;
+  --bg-dots: rgba(11, 27, 46, 0.05);
+  --glow: rgba(79, 179, 232, 0.12);
+  --surface: #ffffff;
+  --surface-2: #f5f8fb;
+  --surface-3: #e9eff5;
+  --border: #dce4ec;
+  --border-strong: #c3cfdb;
   --text: #0b1b2e;
-  --text-soft: #2b3e52;
-  --muted: #5f6b78;
-  --muted-2: #6f6557;
+  --text-soft: #24384d;
+  --muted: #55657a;
+  --muted-2: #5f7086;
   --primary: #0b1b2e;
   --primary-dark: #061422;
-  --primary-soft: #fbe9b9;
-  --primary-contrast: #fffdf8;
-  --accent: #f7b520;
-  --accent-dark: #d99a08;
-  --accent-soft: #fff1cf;
+  --primary-soft: #dceefa;
+  --primary-contrast: #ffffff;
+  --accent: #4fb3e8;
+  --accent-dark: #2b8fcb;
+  --accent-soft: #e3f3fc;
   --accent-ink: #0b1b2e;
   --green: #1c7a5a;
   --green-soft: #e7f6ee;
@@ -41,26 +41,26 @@
   --sidebar-bg: #0b1b2e;
   --sidebar-bg-2: #10263f;
   --sidebar-text: #aebdcc;
-  --sidebar-text-strong: #f7f1e5;
-  --sidebar-muted: #7f91a5;
-  --topbar-bg: rgba(247, 241, 229, 0.88);
-  --input-bg: #fffdf8;
-  --input-border: #d9c9ab;
-  --input-placeholder: #a39a8a;
-  --input-disabled: #f4ead9;
-  --focus-ring: rgba(247, 181, 32, 0.32);
+  --sidebar-text-strong: #ffffff;
+  --sidebar-muted: #9fb0c3;
+  --topbar-bg: rgba(243, 246, 250, 0.88);
+  --input-bg: #ffffff;
+  --input-border: #cbd6e1;
+  --input-placeholder: #8494a6;
+  --input-disabled: #e9eff5;
+  --focus-ring: rgba(79, 179, 232, 0.35);
   --button-shadow: rgba(11, 27, 46, 0.18);
   --toast-bg: #0b1b2e;
-  --toast-text: #f7f1e5;
+  --toast-text: #ffffff;
   --chart-grid: rgba(11, 27, 46, 0.08);
   --chart-text: #64707d;
-  --chart-revenue: #f7b520;
-  --chart-revenue-fill: rgba(247, 181, 32, 0.12);
+  --chart-revenue: #2b8fcb;
+  --chart-revenue-fill: rgba(43, 143, 203, 0.12);
   --chart-expense: #4b6b8a;
   --chart-expense-fill: rgba(75, 107, 138, 0.08);
   --chart-tooltip: #0b1b2e;
-  --chart-tooltip-text: #f7f1e5;
-  --chart-donut-border: #fffdf8;
+  --chart-tooltip-text: #ffffff;
+  --chart-donut-border: #ffffff;
   --chart-blue: #25638f;
   --chart-coral: #d97757;
   --chart-purple: #7c3aed;
@@ -78,24 +78,24 @@
 
 html[data-theme="dark"] {
   --bg: #07111d;
-  --bg-dots: rgba(247, 181, 32, 0.045);
-  --glow: rgba(247, 181, 32, 0.055);
+  --bg-dots: rgba(79, 179, 232, 0.045);
+  --glow: rgba(79, 179, 232, 0.06);
   --surface: #0d1d30;
   --surface-2: #11263c;
   --surface-3: #17314a;
   --border: #21384f;
   --border-strong: #2e4a66;
-  --text: #fbf5e9;
+  --text: #f3f7fb;
   --text-soft: #d9e2ea;
   --muted: #9aabba;
   --muted-2: #8094a8;
-  --primary: #f7b520;
-  --primary-dark: #ffd166;
-  --primary-soft: rgba(247, 181, 32, 0.14);
+  --primary: #4fb3e8;
+  --primary-dark: #8fd0f5;
+  --primary-soft: rgba(79, 179, 232, 0.14);
   --primary-contrast: #0b1b2e;
-  --accent: #f7b520;
-  --accent-dark: #ffd166;
-  --accent-soft: rgba(247, 181, 32, 0.14);
+  --accent: #4fb3e8;
+  --accent-dark: #8fd0f5;
+  --accent-soft: rgba(79, 179, 232, 0.14);
   --accent-ink: #0b1b2e;
   --green: #5dd6a2;
   --green-soft: rgba(52, 211, 153, 0.12);
@@ -113,24 +113,24 @@ html[data-theme="dark"] {
   --sidebar-bg: #040b14;
   --sidebar-bg-2: #081727;
   --sidebar-text: #9fb0c2;
-  --sidebar-text-strong: #f7f1e5;
-  --sidebar-muted: #64798f;
+  --sidebar-text-strong: #ffffff;
+  --sidebar-muted: #9fb0c3;
   --topbar-bg: rgba(7, 17, 29, 0.88);
   --input-bg: #0b1929;
   --input-border: #2a4560;
   --input-placeholder: #6f8499;
   --input-disabled: #0a1625;
-  --focus-ring: rgba(247, 181, 32, 0.24);
-  --button-shadow: rgba(247, 181, 32, 0.20);
-  --toast-bg: #f7f1e5;
+  --focus-ring: rgba(79, 179, 232, 0.28);
+  --button-shadow: rgba(79, 179, 232, 0.20);
+  --toast-bg: #f3f7fb;
   --toast-text: #0b1b2e;
-  --chart-grid: rgba(247, 241, 229, 0.09);
+  --chart-grid: rgba(243, 247, 251, 0.09);
   --chart-text: #9aabba;
-  --chart-revenue: #f7b520;
-  --chart-revenue-fill: rgba(247, 181, 32, 0.14);
+  --chart-revenue: #4fb3e8;
+  --chart-revenue-fill: rgba(79, 179, 232, 0.14);
   --chart-expense: #8fb3d9;
   --chart-expense-fill: rgba(143, 179, 217, 0.10);
-  --chart-tooltip: #f7f1e5;
+  --chart-tooltip: #f3f7fb;
   --chart-tooltip-text: #0b1b2e;
   --chart-donut-border: #0d1d30;
   --chart-blue: #7cc4f0;
@@ -162,7 +162,6 @@ body {
 
 /* ---------- Type ---------- */
 .page-heading h1,
-.brand-text strong,
 .card-title h2,
 .card-title h3,
 .modal-head h2,
@@ -192,10 +191,13 @@ body {
 .brand-mark {
   background: var(--accent);
   color: var(--accent-ink);
-  box-shadow: 0 6px 18px rgba(247, 181, 32, 0.28);
+  box-shadow: 0 6px 18px rgba(79, 179, 232, 0.28);
 }
-.brand-text strong { font-weight: 750; letter-spacing: -0.025em; }
-.brand-text span { color: var(--sidebar-muted); }
+.brand-tagline { color: var(--sidebar-muted); }
+.about-logo { display: block; width: 220px; height: auto; margin: 0 0 14px -6px; }
+.about-logo-dark { display: none; }
+html[data-theme="dark"] .about-logo-light { display: none; }
+html[data-theme="dark"] .about-logo-dark { display: block; }
 
 .nav-group-label { color: var(--sidebar-muted); }
 .nav-item {
@@ -203,11 +205,11 @@ body {
   border-radius: 9px;
 }
 .nav-item:hover {
-  background: rgba(247, 181, 32, 0.08);
+  background: rgba(79, 179, 232, 0.10);
   color: var(--sidebar-text-strong);
 }
 .nav-item.active {
-  background: rgba(247, 181, 32, 0.15);
+  background: rgba(79, 179, 232, 0.16);
   color: var(--accent);
   font-weight: 650;
 }
@@ -327,7 +329,7 @@ select.input {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238f8679' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 html[data-theme="dark"] select.input {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23f7b520' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232b8fcb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 .field label { color: var(--text-soft); }
 .form-note { background: var(--surface-2); border-color: var(--border); }
@@ -485,7 +487,7 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
   flex: none;
   border: 1px solid rgba(11, 27, 46, 0.14);
 }
-.theme-swatch-light { background: #f7f1e5; }
+.theme-swatch-light { background: #f3f6fa; }
 .theme-swatch-dark { background: #08121f; border-color: #2a4560; }
 .sw-side { background: #0b1b2e; }
 .theme-swatch-dark .sw-side { background: #040b14; }
@@ -496,11 +498,11 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
   padding: 8px 7px;
   min-width: 0;
 }
-.sw-line { height: 5px; border-radius: 3px; background: #d9c9ab; width: 72%; }
-.sw-line.gold { background: #f7b520; width: 42%; }
-.sw-card { height: 18px; border-radius: 4px; background: #fffdf8; border: 1px solid #e6d9c3; }
+.sw-line { height: 5px; border-radius: 3px; background: #c3cfdb; width: 72%; }
+.sw-line.gold { background: #4fb3e8; width: 42%; }
+.sw-card { height: 18px; border-radius: 4px; background: #ffffff; border: 1px solid #dce4ec; }
 .theme-swatch-dark .sw-line { background: #2a4560; }
-.theme-swatch-dark .sw-line.gold { background: #f7b520; }
+.theme-swatch-dark .sw-line.gold { background: #4fb3e8; }
 .theme-swatch-dark .sw-card { background: #11263c; border-color: #2a4560; }
 
 .theme-option-copy { grid-column: 1; grid-row: 2; min-width: 0; }
@@ -586,8 +588,8 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
     --primary-dark: #061422;
     --primary-soft: #f3f4f7;
     --primary-contrast: #ffffff;
-    --accent: #f7b520;
-    --accent-soft: #fff7e3;
+    --accent: #4fb3e8;
+    --accent-soft: #e3f3fc;
     --accent-ink: #0b1b2e;
     --green: #059669;
     --green-soft: #ecfdf5;

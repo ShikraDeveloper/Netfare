@@ -4,24 +4,25 @@ import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
+  companyMark,
   confirmDialog,
+  currencySymbol,
   emptyState,
   esc,
   fmtDate,
   fmtMoney,
   fmtNumber,
   icon,
+  moreMenuHtml,
   openModal,
   optionsHtml,
   setHeader,
   statusBadge,
-  todayISO,
+  summaryStripHtml,
   toast,
   toCents,
-  currencySymbol,
+  todayISO,
   voidDialog,
-  moreMenuHtml,
-  summaryStripHtml,
 } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share-links.js';
@@ -141,7 +142,7 @@ function beneficiaryHtml(invoice) {
 }
 
 // Send the invoice from the user's own email or WhatsApp. Nothing is sent by
-// Ledgerly itself; the PDF is attached by printing to PDF first.
+// Netfare itself; the PDF is attached by printing to PDF first.
 function openShareModal(invoice, settings) {
   const title = DOCUMENT_TITLES[invoice.document_kind] || 'Invoice';
   const message = invoiceMessage(invoice, {
@@ -424,7 +425,7 @@ export async function render(container, { params } = {}) {
       <div class="doc">
         <div class="doc-head">
           <div class="doc-brand">
-            <span class="brand-mark">L</span>
+            ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
               <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>

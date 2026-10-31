@@ -336,7 +336,7 @@ test('restore honours the data directory, checks the copy and writes atomically'
     fs.copyFileSync(source.path, targetDb);
     await assert.rejects(
       restoreDatabase({ source: source.path, dataDir: targetDir, checkServer: async () => true }),
-      /Ledgerly is running/i,
+      /Netfare is running/i,
     );
 
     const result = await restoreDatabase({ source: source.path, dataDir: targetDir, checkServer: async () => false });

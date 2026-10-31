@@ -349,8 +349,8 @@ function ensureRequiredAccount(code, name) {
   }
   if (!account.is_system && account.name !== name) {
     throw new Error(
-      `Account code ${code} is already used by "${account.name}". Ledgerly requires ${code} to be "${name}". `
-      + 'Rename the existing account code before starting; Ledgerly will never rename your accounts.',
+      `Account code ${code} is already used by "${account.name}". Netfare requires ${code} to be "${name}". `
+      + 'Rename the existing account code before starting; Netfare will never rename your accounts.',
     );
   }
   if (!account.is_system) db.prepare('UPDATE accounts SET is_system = 1 WHERE id = ?').run(account.id);

@@ -66,7 +66,7 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(`\n  Ledgerly is running at http://${HOST}:${PORT}\n`);
+  console.log(`\n  Netfare is running at http://${HOST}:${PORT}\n`);
   startAutoBackup(db);
 });
 

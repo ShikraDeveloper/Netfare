@@ -476,7 +476,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card recon-section">
         <div class="card-head">
-          <div class="card-title"><h2>On the statement, missing in Ledgerly</h2><p>Record these so your books catch up</p></div>
+          <div class="card-title"><h2>On the statement, missing in Netfare</h2><p>Record these so your books catch up</p></div>
           <span class="badge ${summary.missing_in_books ? 'badge-overdue' : 'badge-paid'}">${summary.missing_in_books}</span>
         </div>
         <div class="table-wrap">
@@ -518,7 +518,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card recon-section">
         <div class="card-head">
-          <div class="card-title"><h2>In Ledgerly, not on the statement</h2><p>Check whether these were recorded on the portal</p></div>
+          <div class="card-title"><h2>In Netfare, not on the statement</h2><p>Check whether these were recorded on the portal</p></div>
           <span class="badge ${summary.missing_on_statement ? 'badge-overdue' : 'badge-paid'}">${summary.missing_on_statement}</span>
         </div>
         <div class="table-wrap">
@@ -559,7 +559,7 @@ export async function render(container, { params, query } = {}) {
       </div>
 
       <div class="recon-foot print-only">
-        ${esc(company)} · prepared with Ledgerly · portal balance ${fmtMoney(result.portal.balance_cents)}
+        ${esc(company)} · prepared with Netfare · portal balance ${fmtMoney(result.portal.balance_cents)}
       </div>
     `;
   }

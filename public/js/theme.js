@@ -1,5 +1,5 @@
 const THEME_KEY = 'ledgerly.theme';
-const THEME_COLORS = { light: '#f7f1e5', dark: '#08121f' };
+const THEME_COLORS = { light: '#f3f6fa', dark: '#08121f' };
 
 export function getTheme() {
   return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';

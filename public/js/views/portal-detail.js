@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
 import {
+  companyMark,
   emptyState,
   esc,
   fmtDate,
@@ -402,7 +403,7 @@ export async function render(container, { params, query } = {}) {
       <div class="doc">
         <div class="doc-head">
           <div class="doc-brand">
-            <span class="brand-mark">L</span>
+            ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
               <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>
@@ -478,7 +479,7 @@ export async function render(container, { params, query } = {}) {
         </div>
 
         <div class="doc-foot">
-          <div class="doc-foot-meta">${esc(company)} · Ledgerly</div>
+          <div class="doc-foot-meta">${esc(company)} · Netfare</div>
           <div class="doc-foot-meta">Generated ${esc(fmtDate(todayISO(), { long: true }))}</div>
         </div>
       </div>

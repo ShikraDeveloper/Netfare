@@ -57,7 +57,7 @@ export async function render(container) {
     title: 'Opening balances',
     subtitle: data.entry_id
       ? `Saved on ${esc(data.entry_date)} · journal entry #${data.entry_id}`
-      : 'Enter the balances you want to carry into Ledgerly',
+      : 'Enter the balances you want to carry into Netfare',
     actions: `
       ${data.entry_id ? `<button class="btn btn-ghost" data-action="clear-opening">${icon('trash', 15)}<span>Clear</span></button>` : ''}
       <button class="btn btn-primary" data-action="save-opening">${icon('check', 15)}<span>Save opening balances</span></button>
@@ -74,7 +74,7 @@ export async function render(container) {
           <div class="field">
             <label for="opening-date">Opening date</label>
             <input class="input" id="opening-date" type="date" value="${esc(openingDate)}" required>
-            <div class="hint">Use the day before you started using Ledgerly for live transactions.</div>
+            <div class="hint">Use the day before you started using Netfare for live transactions.</div>
           </div>
           <div class="field">
             <label>Balancing account</label>

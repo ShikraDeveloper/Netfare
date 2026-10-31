@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { esc, fmtDate, fmtMoney, icon, setHeader, statusBadge } from '../ui.js';
+import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 
 // Printable receipt voucher for one customer payment.
@@ -43,7 +43,7 @@ export async function render(container, { params } = {}) {
       <div class="doc doc-receipt" data-receipt>
         <div class="doc-head">
           <div class="doc-brand">
-            <span class="brand-mark">L</span>
+            ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
               <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>

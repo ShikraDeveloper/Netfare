@@ -68,9 +68,10 @@ svg { display: block; }
 
 .brand {
   display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 4px 8px 22px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 0 4px 18px;
   text-decoration: none;
   color: #fff;
 }
@@ -90,9 +91,8 @@ svg { display: block; }
   flex: none;
 }
 
-.brand-text { display: flex; flex-direction: column; line-height: 1.2; }
-.brand-text strong { font-size: 16px; letter-spacing: -0.02em; }
-.brand-text span { font-size: 10.5px; color: #7d8aa3; margin-top: 3px; letter-spacing: 0.02em; }
+.brand-logo { display: block; width: 138px; height: auto; }
+.brand-tagline { font-family: var(--font-mono, ui-monospace, monospace); font-size: 9.5px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; margin: 2px 0 0 52px; white-space: nowrap; }
 
 .nav { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; flex: 1; padding-bottom: 12px; }
 

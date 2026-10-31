@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { store } from '../store.js';
 import {
+  companyMark,
   esc,
   fmtDate,
   fmtMoney,
@@ -160,7 +161,7 @@ export async function render(container, { params } = {}) {
       <div class="doc">
         <div class="doc-head">
           <div class="doc-brand">
-            <span class="brand-mark">L</span>
+            ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
               <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>

@@ -83,10 +83,10 @@ async function restoreDatabase({ source, dataDir = resolveDataDir(), force = fal
   if (!fs.existsSync(sourcePath)) throw new Error(`backup not found at ${sourcePath}`);
   if (sourcePath === dbPath) throw new Error('the selected file is the live database');
   if (await checkServer()) {
-    throw new Error('Ledgerly is running. Stop the app first, then run the restore again.');
+    throw new Error('Netfare is running. Stop the app first, then run the restore again.');
   }
   if (!force && (fs.existsSync(`${dbPath}-wal`) || fs.existsSync(`${dbPath}-shm`))) {
-    throw new Error('SQLite WAL files are still present. Stop Ledgerly cleanly before restoring, or use --force only when you are sure.');
+    throw new Error('SQLite WAL files are still present. Stop Netfare cleanly before restoring, or use --force only when you are sure.');
   }
 
   const header = Buffer.alloc(16);
@@ -106,7 +106,7 @@ async function restoreDatabase({ source, dataDir = resolveDataDir(), force = fal
 
   let safety = null;
   if (fs.existsSync(dbPath)) {
-    safety = path.join(backupDir, `ledgerly-${timestamp()}-pre-restore.db`);
+    safety = path.join(backupDir, `netfare-${timestamp()}-pre-restore.db`);
     try {
       const current = new Database(dbPath);
       try {
@@ -143,7 +143,7 @@ async function main() {
   const force = args.includes('--force');
   const sourceArg = args.find((arg) => !arg.startsWith('--'));
   if (!sourceArg) {
-    console.log('\n  Usage: npm run restore -- path/to/ledgerly-backup.db [--force]\n');
+    console.log('\n  Usage: npm run restore -- path/to/netfare-backup.db [--force]\n');
     process.exitCode = 1;
     return;
   }
@@ -156,7 +156,7 @@ async function main() {
     });
     console.log('\n  Restore complete.');
     if (result.safety) console.log(`  Safety backup: ${result.safety}`);
-    console.log('  Start Ledgerly again with: npm start');
+    console.log('  Start Netfare again with: npm start');
     console.log('  Run a trial balance check after opening the app.\n');
   } catch (error) {
     console.error(`\n  Restore cancelled: ${error.message}\n`);

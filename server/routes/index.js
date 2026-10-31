@@ -12,7 +12,7 @@ router.get('/health', (req, res) => {
   }
   res.status(database === 'ok' ? 200 : 503).json({
     ok: database === 'ok',
-    app: 'Ledgerly',
+    app: 'Netfare',
     version: '1.0.0',
     database,
     uptime_seconds: Math.round(process.uptime()),

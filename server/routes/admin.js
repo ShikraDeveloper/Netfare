@@ -33,7 +33,7 @@ router.get('/backup', (req, res) => {
     'journal_entries', 'journal_lines', 'audit_logs',
   ];
   const data = {
-    app: 'Ledgerly',
+    app: 'Netfare',
     version: '1.0.0',
     exported_at: new Date().toISOString(),
     tables: {},
@@ -44,7 +44,7 @@ router.get('/backup', (req, res) => {
       : '*';
     data.tables[table] = db.prepare(`SELECT ${select} FROM ${table}`).all();
   }
-  res.setHeader('Content-Disposition', `attachment; filename="ledgerly-backup-${todayISO()}.json"`);
+  res.setHeader('Content-Disposition', `attachment; filename="netfare-backup-${todayISO()}.json"`);
   res.setHeader('Content-Type', 'application/json');
   res.send(JSON.stringify(data, null, 2));
 });
