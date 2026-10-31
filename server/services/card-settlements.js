@@ -147,6 +147,7 @@ function voidSettlement(db, id, payload = {}) {
 }
 
 module.exports = {
+  openItems,
   getCardSettlements,
   createSettlement,
   voidSettlement,

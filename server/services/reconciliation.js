@@ -165,7 +165,23 @@ function controlChecks(db, summary) {
       href: '#/portals',
     }),
     ...depositChecks(db),
+    cardClearingCheck(db),
   ];
+}
+
+// Card and payment link money waiting for the gateway to pay it out.
+function cardClearingCheck(db) {
+  const account = db.prepare('SELECT id FROM accounts WHERE code = ?').get('1030');
+  const items = account ? require('./card-settlements').openItems(db, account.id) : [];
+  return controlCheck({
+    key: 'card_clearing',
+    code: '1030',
+    name: 'Card & Payment Link Clearing',
+    ledger: accountBalanceCents(db, '1030'),
+    documents: items.reduce((sum, item) => sum + item.amount_cents, 0),
+    label: 'Unsettled card and payment link items',
+    href: '#/card-settlements',
+  });
 }
 
 function depositChecks(db) {

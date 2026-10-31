@@ -121,21 +121,25 @@ function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'm
   return Number(info.lastInsertRowid);
 }
 
+// Card money already paid out by the gateway cannot simply be reversed: the
+// settlement holds it. Returns that settlement's number, or null.
+function settledCardNumber(db, entryId) {
+  return db.prepare(`
+    SELECT s.number FROM card_settlement_lines sl
+    JOIN card_settlements s ON s.id = sl.settlement_id
+    JOIN journal_lines l ON l.id = sl.journal_line_id
+    WHERE l.entry_id = ? AND s.status = 'posted' LIMIT 1
+  `).get(entryId)?.number || null;
+}
+
 function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void' } = {}) {
   const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(entryId);
   if (!entry) return null;
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entryId);
   if (!lines.length) return null;
-  // Card money already paid out by the gateway cannot simply be reversed:
-  // the settlement holds it.
-  const settled = db.prepare(`
-    SELECT s.number FROM card_settlement_lines sl
-    JOIN card_settlements s ON s.id = sl.settlement_id
-    JOIN journal_lines l ON l.id = sl.journal_line_id
-    WHERE l.entry_id = ? AND s.status = 'posted' LIMIT 1
-  `).get(entryId);
+  const settled = settledCardNumber(db, entryId);
   if (settled) {
-    throw bad(`This card or payment link money is in card settlement ${settled.number}. Void that settlement first, or record a refund instead.`);
+    throw bad(`This card or payment link money is in card settlement ${settled}. Void that settlement first, or record a refund instead.`);
   }
   // A reversal never lands before the entry it reverses, so voiding a
   // future-dated document today cannot make earlier as-of balances negative.
@@ -241,6 +245,7 @@ module.exports = {
   isPurchaseAccount,
   systemAccount,
   postEntry,
+  settledCardNumber,
   reverseEntry,
   getEntryWithLines,
   invoiceBalanceCents,

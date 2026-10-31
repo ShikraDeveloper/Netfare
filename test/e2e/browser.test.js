@@ -933,17 +933,17 @@ test('an unapplied customer credit can be refunded in cash from the credit note'
 
 test('dashboard ledger checks, settlement attachments and the audit chain page', async () => {
   const reconciliation = await getJson(baseUrl, '/api/reports/reconciliation');
-  assert.equal(reconciliation.checks.length, 10);
+  assert.equal(reconciliation.checks.length, 11);
 
   await openRoute('/dashboard');
   const card = page.locator('[data-ledger-checks]');
   await card.waitFor();
   assert.equal(await card.getAttribute('open'), reconciliation.all_matched ? null : '', 'folded when everything matches');
   if (reconciliation.all_matched) await card.locator('summary').click();
-  assert.equal(await card.locator('tbody tr').count(), 10);
+  assert.equal(await card.locator('tbody tr').count(), 11);
   assert.match(await card.locator('caption').innerText(), /Ledger checks/);
   const summary = await card.locator('.card-title p').innerText();
-  assert.match(summary, reconciliation.all_matched ? /All 10 checks match/ : /need/);
+  assert.match(summary, reconciliation.all_matched ? /All 11 checks match/ : /need/);
 
   const cancellations = await getJson(baseUrl, '/api/cancellations');
   assert.ok(cancellations[0], 'Earlier tests and demo data include a cancellation');

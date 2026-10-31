@@ -75,7 +75,7 @@ test('ledger checks compare every control account with its documents', () => {
   const summary = reconciliation.reconciliationSummary(db);
   assert.deepEqual(
     summary.checks.map((item) => item.key),
-    ['trial_balance', 'receivables', 'payables', 'customer_advances', 'refund_payable', 'customer_credits', 'supplier_credits', 'supplier_advances', 'visa_deposits', 'deposits_with_suppliers'],
+    ['trial_balance', 'receivables', 'payables', 'customer_advances', 'refund_payable', 'customer_credits', 'supplier_credits', 'supplier_advances', 'visa_deposits', 'deposits_with_suppliers', 'card_clearing'],
   );
   assert.equal(summary.all_matched, true);
   assert.equal(summary.difference_count, 0);

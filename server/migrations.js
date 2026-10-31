@@ -209,6 +209,12 @@ ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 // Void audit trail and void metadata. Rows are retained so the audit log can
 // always point back to the original document.
 ensureColumn('journal_entries', 'reversal_of_id', 'INTEGER');
+// Opening balance reversals used to be linked only by source_id. Linking them
+// as reversals too keeps an old opening 1030 line out of the open card items.
+db.exec(`
+  UPDATE journal_entries SET reversal_of_id = source_id
+  WHERE source_type = 'opening_balance_reversal' AND reversal_of_id IS NULL AND source_id IS NOT NULL
+`);
 ensureColumn('journal_entries', 'voided_at', 'TEXT');
 ensureColumn('journal_entries', 'void_entry_id', 'INTEGER');
 ensureColumn('customer_advances', 'void_entry_id', 'INTEGER');

@@ -1,7 +1,7 @@
 'use strict';
 
 const { bad, dateISO, cents, todayISO, optionalStr } = require('../util');
-const { postEntry, SYSTEM_CODES } = require('../accounting');
+const { postEntry, settledCardNumber, SYSTEM_CODES } = require('../accounting');
 const audit = require('./audit');
 
 const EQUITY_CODE = SYSTEM_CODES.OPENING_BALANCE_EQUITY;
@@ -21,6 +21,10 @@ function activeOpeningEntry(db) {
 function reverseOpeningEntry(db, entry, entryDate, remarks = '') {
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entry.id);
   if (!lines.length) return null;
+  const settled = settledCardNumber(db, entry.id);
+  if (settled) {
+    throw bad(`The opening card and payment link balance (1030) is in card settlement ${settled}. Void that settlement first, then change the opening balances.`);
+  }
   const date = entryDate > entry.entry_date ? entryDate : entry.entry_date;
   return postEntry(db, {
     entry_date: date,
@@ -28,6 +32,9 @@ function reverseOpeningEntry(db, entry, entryDate, remarks = '') {
     reference: entry.reference || 'OPENING',
     source_type: 'opening_balance_reversal',
     source_id: entry.id,
+    // Marks the old opening entry as reversed, so its 1030 line leaves the
+    // open card items.
+    reversal_of_id: entry.id,
     lines: lines.map((line) => ({
       account_id: line.account_id,
       debit_cents: line.credit_cents,

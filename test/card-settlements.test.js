@@ -118,3 +118,45 @@ test('1030 is a control account and an invoice can carry a payment link', () => 
   );
   assert.equal(invoiceService.setPaymentLink(db, invoice.id, { payment_link: '' }).payment_link, '');
 });
+
+test('the 1030 ledger check matches the open card items', () => {
+  const check = reconciliation.reconciliationSummary(db).checks.find((c) => c.key === 'card_clearing');
+  assert.equal(check.account_code, '1030');
+  assert.equal(check.ledger_cents, balance('1030'));
+  assert.equal(check.documents_cents, cards.getCardSettlements(db).open_total_cents);
+  assert.equal(check.matched, true);
+});
+
+test('an opening 1030 balance leaves the open items when re-saved, and is guarded once settled', () => {
+  const openingService = require('../server/services/opening-balances');
+  const opening = (amount) => openingService.saveOpeningBalances(db, {
+    entry_date: '2026-09-30', balances: [{ account_id: account('1030').id, debit_cents: amount }],
+  });
+  const openingItems = () => cards.getCardSettlements(db).items.filter((item) => item.source_type === 'opening_balance');
+
+  opening(4_000);
+  opening(5_000);
+  assert.deepEqual(openingItems().map((item) => item.amount_cents), [5_000], 'the replaced opening line is not offered');
+  assert.equal(reconciliation.reconciliationSummary(db).all_matched, true);
+
+  const settlement = cards.createSettlement(db, {
+    line_ids: openingItems().map((item) => item.id), net_cents: 5_000, bank_account_id: account('1010').id, settlement_date: '2026-10-25',
+  });
+  assert.throws(() => opening(6_000), (error) => error.status === 400 && /card settlement CS-/.test(error.message));
+  assert.throws(() => openingService.voidOpeningBalances(db, {}), /card settlement CS-/);
+  assert.equal(reconciliation.reconciliationSummary(db).all_matched, true, 'nothing was double counted');
+
+  cards.voidSettlement(db, settlement.id, { remarks: 'Wrong payout' });
+  opening(6_000);
+  assert.deepEqual(openingItems().map((item) => item.amount_cents), [6_000]);
+  assert.equal(reconciliation.reconciliationSummary(db).all_matched, true);
+});
+
+test('clear all data removes card settlements and petty cash counts', () => {
+  require('../server/services/petty-cash').recordCount(db, { count_date: '2026-10-26', counted_cents: 0 });
+  require('../server/services/demo').resetAll(db);
+  for (const table of ['card_settlements', 'card_settlement_lines', 'petty_cash_counts']) {
+    assert.equal(db.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get().count, 0, `${table} cleared`);
+  }
+  assert.equal(db.prepare('SELECT next_card_settlement_number AS n FROM settings WHERE id = 1').get().n, 1);
+});

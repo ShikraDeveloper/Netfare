@@ -494,6 +494,9 @@ function resetAll(db) {
     db.prepare('DELETE FROM bookings').run();
     db.prepare('DELETE FROM visa_applications').run();
     db.prepare('DELETE FROM visa_groups').run();
+    db.prepare('DELETE FROM card_settlement_lines').run();
+    db.prepare('DELETE FROM card_settlements').run();
+    db.prepare('DELETE FROM petty_cash_counts').run();
     db.prepare('DELETE FROM journal_lines').run();
     db.prepare('DELETE FROM journal_entries').run();
     db.prepare('DELETE FROM audit_logs').run();
@@ -504,12 +507,13 @@ function resetAll(db) {
         next_booking_number = 1, next_visa_number = 1, next_visa_group_number = 1, next_visa_deposit_number = 1, next_advance_number = 1, next_topup_number = 1,
         next_refund_number = 1, next_deposit_number = 1, next_credit_number = 1,
         next_supplier_credit_number = 1, next_cancellation_number = 1, next_portal_credit_number = 1,
+        next_card_settlement_number = 1,
         updated_at = datetime('now') WHERE id = 1
     `).run();
     db.prepare(`DELETE FROM sqlite_sequence WHERE name IN
       ('bank_reconciliations', 'bank_reconciliation_lines', 'attachments', 'job_status_history', 'credit_notes', 'credit_applications',
        'supplier_credit_notes', 'supplier_credit_items', 'supplier_credit_applications', 'portal_credits',
-       'cancellations',
+       'cancellations', 'card_settlements', 'petty_cash_counts',
        'cash_deposits', 'post_dated_cheques', 'compliance_items', 'compliance_logs', 'refunds', 'payments', 'bill_payments', 'invoice_items', 'bill_items', 'invoices', 'bills',
        'bookings', 'booking_items', 'visa_applications', 'visa_items', 'visa_groups', 'visa_deposits', 'visa_deposit_events', 'customer_advances',
        'supplier_portals', 'portal_topups', 'portal_refunds', 'journal_lines', 'journal_entries', 'audit_logs',
