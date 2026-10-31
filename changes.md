@@ -1298,9 +1298,38 @@ Verification:
 - On a copy of the latest live backup: 11/11 checks match, and the 1030 check is 0 = 0.
 - Includes a migration that only updates links. Restart needed.
 
+### Security batch (step 1 of the multi-user plan) — code commit `5153a86`
+
+These close the security audit (run-1) leads that need no login.
+
+- **Cross-site reads (audit leads 2 and 3):** `apiGuard` in `server/security.js` now refuses any `/api` request that the browser marks `Sec-Fetch-Site: cross-site` or `same-site`.
+  - Other websites and other local ports (`localhost:3000` counts as same-site) can no longer start backup downloads, pull exports or probe attachment images.
+  - The app's own pages (same-origin) and typed or bookmarked URLs (none) still work, and so do scripts and curl, which send no header. An origin listed in `LEDGERLY_ALLOWED_ORIGINS` is still allowed.
+  - Every response now also sends `Cross-Origin-Resource-Policy: same-origin`.
+- **File permissions (lead 5):** new `server/file-safety.js`.
+  - At startup the process sets umask 077. The data folder, `backups/` and `attachments/` become 700, and files in them become 600, including files left by older versions.
+  - New backups, download copies, restore temp files and safety backups are made 600.
+  - This does nothing on volumes that ignore ownership. The current "Mac SSD" volume reports "Owners: Disabled", so on it other Mac users can still read the files. The fix takes effect on a normal disk, for example the app-data folder of the desktop app in step 4.
+- **Restore (lead 7):** `scripts/restore.js` refuses a backup that contains any trigger or view (Netfare creates none) or that fails `PRAGMA foreign_key_check`. The latest live backup and the three oldest backups all pass. Changed table definitions are still not compared, because older backups have older shapes.
+- **Portal ledger (lead 8):** the credit portal's "Opening payable" date is escaped. `fmtDate` returns "—" for a value that is not a date instead of returning it unchanged.
+- **Cleanup:** removed the unused `chart.js` npm package (and `@kurkle/color`). The bundled `public/vendor/chart.umd.js` is unchanged and still used.
+- **Still open:**
+  - Lead 1 (no login): solved by step 2 (login and roles). A separate API key would be readable from the page by any local program.
+  - Lead 4 (LAN mode gate): part of step 3.
+  - Lead 6 (opening balances bypassing the card guard): fixed in `48ff903`.
+
+Key files: `server/security.js`, `server/index.js`, `server/file-safety.js` (new), `server/db.js`, `server/services/backup.js`, `scripts/restore.js`, `public/js/ui.js`, `public/js/views/portal-ledger.js`, `package.json`, `package-lock.json`, `test/http-security.test.js`, `test/hardening.test.js`.
+
+Verification:
+
+- `npm run check`: 194 files OK.
+- `npm test`: 192 passed. New tests cover: cross-site and same-site backup and attachment requests get 403; same-origin and none get 200; the CORP header is sent; restore refuses a trigger, a view and a broken link; and the data folder, database and backups are owner-only, including tightening a legacy folder.
+- `npm run test:e2e`: 41 passed. In-app downloads, attachments and the dashboard chart still work.
+- No schema change. Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `48ff903` (books health fixes).
+1. Start from the latest `main`; the latest code commit is `5153a86` (security batch). Next in the plan: step 2, login and roles.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
