@@ -1241,9 +1241,40 @@ Found by the security audit's wave-3 hunter (as a non-security note). In `99071f
 
 Verification: `npm run check` 193 files OK; `npm test` 186 passed; `npm run test:e2e` 40 passed. Restart needed.
 
+### Rebrand: Ledgerly is now Netfare — code commit `58cc5ff`
+
+The user named the app **Netfare** and supplied a logo kit at `Netfare/logo/` with its README and concepts. The final concept is Option 2 "Ticket Ledger" (a flight ticket with ledger lines), tagline "Invoicing & Books", described as "a ShikraGroup brand". The kit colours are navy `#0B1B2E`, sky `#4FB3E8`, blue `#2B8FCB` (with light blue `#8FD0F5` on dark backgrounds) and slate `#55657A` / `#9FB0C3`. The logos are outlined SVGs, so no fonts are needed.
+
+- **Assets in `public/brand/`:** the logo kit SVGs (with and without tagline, light and white versions, icon, mark) and PNGs (16/32/180/192/512 icons, OG image). The SVGs were checked: they contain no scripts.
+- **App shell:**
+  - The page title is "Netfare — Invoicing & Books", and every page title reads "… · Netfare".
+  - The meta description mentions non-IATA agencies and ShikraGroup.
+  - The favicon is the SVG icon with PNG fallbacks, plus an Apple touch icon.
+  - The sidebar shows the white no-tagline logo with a monospace INVOICING & BOOKS tagline.
+- **About card (Settings):** shows the full logo (a light and a white version that switch with the theme) and the line "Invoicing & books for non-IATA travel agencies · a ShikraGroup brand".
+- **Theme (`public/css/theme.css`):**
+  - Light mode moves from warm cream with gold to cool neutrals: page `#f3f6fa`, white surfaces, blue-grey borders, slate muted text `#55657a`. Navy primary buttons stay, the sky `#4fb3e8` accent has navy ink, and the revenue chart is blue `#2b8fcb`.
+  - Dark mode keeps its backgrounds and switches primary and accent to sky, with light blue for the dark variant.
+  - Hard-coded gold and cream (nav hover and active, select arrow, theme swatches, print accent) and the browser theme-color are updated.
+  - Amber status colours are unchanged.
+- **Text:** every visible "Ledgerly" now says Netfare: dashboard welcome, settings, opening balances, portal reconcile and ledger footers, health and export app name, the server start line, migration errors, and restore script messages. README is renamed too, with the logo and the new colour description.
+- **Files:** new backups and downloads are named `netfare-…`. Retention matches only the suffix (`-auto`, `-pre-reset`, `-pre-restore`), so existing `ledgerly-…` backups are kept and pruned as before.
+- **Customer documents:** the ten document headers (invoice, receipt, bill, booking, visa, refund, cancellation, supplier credit, portal and portal ledger) showed a fixed "L", Ledgerly's letter. They now show the agency's own initial through a new `companyMark(company)` helper in ui.js.
+- **Deliberately unchanged:** the `LEDGERLY_*` environment variables, so the operator's setup and scripts keep working, and the browser storage keys `ledgerly.*`, so saved theme and sidebar state are kept. The package name is now `netfare`.
+
+Key files: `public/index.html`, `public/css/theme.css`, `public/css/styles.css`, `public/js/ui.js`, `public/js/theme.js`, `public/js/theme-boot.js`, ten document views, `public/js/views/{settings,dashboard,opening-balances,portal-reconcile}.js`, `server/{index,migrations}.js`, `server/routes/{index,admin,settings}.js`, `server/services/backup.js`, `scripts/restore.js`, `README.md`, `package.json`, `package-lock.json`, `public/brand/` (new), tests.
+
+Verification:
+
+- `npm run check`: 193 files OK.
+- `npm test`: 186 passed.
+- `npm run test:e2e`: 41 passed, including the axe audit on every route in light and dark mode, so the new colours pass contrast. New checks: the sidebar logo loads with alt "Netfare", the favicon points at the kit, and an invoice shows the company initial while the About logo loads. The first axe run flagged the brand link's aria-label ("Netfare home") for not matching its visible text; the label was removed.
+- Visual check on a throwaway server (port 4391, demo data): the dashboard in light and dark, an invoice (shows "S" for Skyline Travels), and the Settings About card.
+- No schema change. Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `46d02f2` (Record customer advance fix).
+1. Start from the latest `main`; the latest code commit is `58cc5ff` (Netfare rebrand).
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
