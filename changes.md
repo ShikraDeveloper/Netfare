@@ -1403,9 +1403,38 @@ Verification:
   - The admin Rights modal is shown.
 - Schema change: `users.permissions` (additive). Restart needed.
 
+### Office network mode and edit conflicts (step 3) — code commit `23b6b58`
+
+- **Office network mode** (new `server/network.js`, admin card in Settings, `GET/PUT /api/admin/network`):
+  - **Setting:** "Allow other computers" saves `settings.lan_enabled`, and "Extra names" (for example a Tailscale name) saves `settings.lan_hosts`. Both columns are added by migration. Changes are audited.
+  - **Binding:** at startup, `server/index.js` listens on `0.0.0.0` when the setting is on and `127.0.0.1` otherwise. `HOST` still overrides both. So turning the setting on or off needs a restart, and the card says so.
+  - **Links:** once running on the network, the card and the start-up log list the links to open on other computers: office IPv4 addresses, the computer's `.local` name, Tailscale addresses and added names.
+  - The card also notes the firewall prompt, that office Wi-Fi traffic is not encrypted (Tailscale is), and that the main computer must stay awake.
+- **Who may connect** (security audit lead 4):
+  - **Client address:** a new first middleware refuses any address other than loopback. In office mode it also allows private LAN (10/8, 172.16/12, 192.168/16), Tailscale (100.64/10, fd7a:115c:a1e0::) and link-local. Internet addresses get 403, even if a router port is forwarded.
+  - **Host names:** `hostGuard` and `apiGuard` take an `extra` check. In office mode, Host and Origin may also be an office IP, this computer's name or an added name. Any other name is still refused (DNS rebinding protection), and the Origin port must match.
+- **Edit conflicts:**
+  - `public/js/api.js` remembers the `updated_at` of every record it loads (lists and single records) for accounts, bills, bookings, cheques, compliance, customers, invoices, portals, suppliers and visas, and sends it as `X-Record-Version` on `PUT`.
+  - A new check in `server/routes/index.js` answers 409 `record_changed` ("Someone else changed this record while you were editing…") when the record changed since then, so the edit form shows the message instead of overwriting.
+  - Requests without the header (scripts) are not checked.
+  - Customers, suppliers and accounts gain `updated_at`, which their edits now set; the others already had it.
+
+Key files: `server/network.js` (new), `server/index.js`, `server/security.js`, `server/routes/{index,admin,customers,vendors,accounts}.js`, `server/migrations.js`, `public/js/api.js`, `public/js/views/{network,settings,audit-logs}.js` (`network.js` new), `public/css/styles.css`, `README.md`, `test/network.test.js` (new), `test/http-security.test.js`.
+
+Verification:
+
+- `npm run check`: 207 files OK.
+- `npm test`: 213 passed.
+  - **Unit (new):** which addresses count as office or Tailscale; added names are cleaned. While listening on this computer only, office names are refused. In office mode, office IPs, this computer's name and added names pass; evil names, public IPs and suffix tricks fail; an Origin from another port fails.
+  - **HTTP (new):** a second save from an old copy of a booking gets 409 and the first save stays; a fresh copy and a request without a version both save; customers record their edit time and conflict too. The network setting is admin-only (a staff user with Company settings Edit gets 403), and office names are still refused until a restart.
+- `npm run test:e2e`: 42 passed (Settings with the new card is axe-clean).
+- **Visual check on a throwaway server:** the Office network card shows. A customer edit form saved after "another user" changed the customer shows the conflict message.
+- **Not tested from a second computer:** that needs the user's own office network. The live server stays on this computer only until the admin turns the setting on and restarts.
+- Schema change: `settings.lan_enabled`, `settings.lan_hosts`, `customers/vendors/accounts.updated_at` (all additive). Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `1c417d3` (rights per user). Next in the plan: step 3, the multi-computer (LAN/Tailscale) mode. "Created by" on documents and the DSR staff column are still open.
+1. Start from the latest `main`; the latest code commit is `23b6b58` (office network mode). Next in the plan: step 4, the Electron desktop app. "Created by" on documents and the DSR staff column are still open.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
