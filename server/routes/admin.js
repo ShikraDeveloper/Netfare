@@ -4,7 +4,8 @@ const router = require('express').Router();
 const db = require('../db');
 const { bad, todayISO } = require('../util');
 const { assertLedgerEmpty, loadDemo, resetAll } = require('../services/demo');
-const { createDatabaseBackup, createTemporaryBackup, listBackups } = require('../services/backup');
+const { createDatabaseBackup, createTemporaryBackup, listBackups, dataDir } = require('../services/backup');
+const backupMirror = require('../services/backup-mirror');
 const network = require('../network');
 const updates = require('../services/updates');
 const audit = require('../services/audit');
@@ -16,6 +17,31 @@ function networkStatus() {
     addresses: network.listensOnNetwork() ? network.connectAddresses(db) : [],
   };
 }
+
+// The second copy of backups: where it goes, and a Copy now button.
+router.get('/backup-mirror', (req, res) => {
+  res.json(backupMirror.status(db, dataDir));
+});
+
+router.put('/backup-mirror', (req, res) => {
+  const before = backupMirror.status(db, dataDir).dir;
+  const dir = backupMirror.setFolder(db, dataDir, (req.body || {}).dir);
+  if (dir !== before) {
+    audit.record(db, {
+      entity_type: 'settings', entity_number: 'Backup copy', action: dir ? 'enable' : 'disable',
+      remarks: dir ? `Backups are also copied to ${dir}` : 'Backups stay on this computer only',
+    });
+  }
+  // Put the first copy there straight away.
+  if (dir) createDatabaseBackup(db, 'manual');
+  res.json(backupMirror.status(db, dataDir));
+});
+
+router.post('/backup-mirror/copy', (req, res) => {
+  const backup = createDatabaseBackup(db, 'manual');
+  if (backup.mirror && !backup.mirror.ok) throw bad(backup.mirror.error);
+  res.json(backupMirror.status(db, dataDir));
+});
 
 // New versions: the admin's banner and the Updates card in Settings.
 router.get('/updates', (req, res, next) => {

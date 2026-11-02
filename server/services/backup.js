@@ -4,6 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { restrictFile } = require('../file-safety');
+const mirror = require('./backup-mirror');
 
 const dataDir = process.env.LEDGERLY_DATA_DIR
   ? path.resolve(process.env.LEDGERLY_DATA_DIR)
@@ -51,12 +52,15 @@ function createDatabaseBackup(db, label = 'manual') {
   restrictFile(file);
   const stat = fs.statSync(file);
   pruneBackups();
-  return {
+  const backup = {
     name,
     path: file,
     size: stat.size,
     created_at: new Date(stat.mtimeMs).toISOString(),
   };
+  // The second copy elsewhere, if the admin chose a place; never blocks.
+  backup.mirror = mirror.copyBackup(db, backup);
+  return backup;
 }
 
 // Downloads must not consume the permanent backup allowance.
@@ -116,6 +120,7 @@ function startAutoBackup(db, options = {}) {
     try {
       const backup = runAutoBackup(db, { hours });
       if (backup) console.log(`  Automatic backup saved: ${backup.name}`);
+      else mirror.catchUp(db, listBackups()[0]);
     } catch (error) {
       console.error(`  Automatic backup failed: ${error.message}`);
     }
@@ -127,6 +132,7 @@ function startAutoBackup(db, options = {}) {
 }
 
 module.exports = {
+  dataDir,
   backupDir,
   createDatabaseBackup,
   createTemporaryBackup,

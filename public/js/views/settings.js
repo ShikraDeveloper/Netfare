@@ -12,6 +12,7 @@ import {
 import { bindUsersCard, usersCardHtml } from './account.js';
 import { bindNetworkCard, networkCardHtml } from './network.js';
 import { bindUpdatesCard, updatesCardHtml } from './updates-card.js';
+import { backupMirrorCardHtml, bindBackupMirrorCard } from './backup-mirror-card.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -213,6 +214,8 @@ export async function render(container) {
           </div>
         </div>
 
+        ${store.user?.is_admin ? backupMirrorCardHtml() : ''}
+
         <div class="card danger-card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Danger zone</h2><p>These actions cannot be undone</p></div>
@@ -304,6 +307,7 @@ export async function render(container) {
     bindUsersCard(container);
     bindNetworkCard(container);
     bindUpdatesCard(container);
+    bindBackupMirrorCard(container);
   }
   // Without Edit rights for company settings the forms are read-only.
   if (!can('settings', 'edit')) {

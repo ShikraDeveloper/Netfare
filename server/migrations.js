@@ -213,6 +213,10 @@ ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 ensureColumn('customers', 'updated_at', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('vendors', 'updated_at', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('accounts', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+// A second copy of every backup in another place (services/backup-mirror.js).
+ensureColumn('settings', 'backup_mirror_dir', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'backup_mirror_at', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'backup_mirror_error', "TEXT NOT NULL DEFAULT ''");
 // Where Netfare looks for news of a new version (services/updates.js).
 ensureColumn('settings', 'update_feed', "TEXT NOT NULL DEFAULT ''");
 // Office network mode (server/network.js): listen beyond this computer, and

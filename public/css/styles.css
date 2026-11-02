@@ -1634,3 +1634,11 @@ html:not(.is-admin) .admin-only { display: none; }
 .dsr-staff-pick .input { height: 32px; min-width: 160px; padding: 0 28px 0 10px; font-size: 13px; }
 .dsr-staff-table { margin-top: 18px; max-width: 560px; }
 .dsr-staff-table tr.is-selected td { font-weight: 700; }
+
+/* Second copy of backups */
+.mirror-state { display: flex; align-items: flex-start; gap: 7px; margin: 0; font-size: 13px; line-height: 1.45; }
+.mirror-state .icon { flex: none; margin-top: 2px; }
+.mirror-state.ok { color: var(--text-soft); }
+.mirror-state.ok .icon { color: var(--green); }
+.mirror-state.warn { color: var(--amber, #b45309); }
+.mirror-state strong { word-break: break-all; }

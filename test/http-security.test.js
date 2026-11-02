@@ -593,3 +593,30 @@ test('created by: each new document carries the signed-in name, and the DSR grou
   assert.equal(onlySara.totals.sale_cents, 20_000);
   assert.deepEqual(onlySara.staff_totals, dsr.staff_totals, 'the staff summary always covers everyone');
 });
+
+test('second copy of backups: admin only, copies at once, Copy now works', async () => {
+  const place = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-http-mirror-'));
+  try {
+    const staff = await signIn('sara', 'sara-pass-1');
+    assert.equal((await jsonRequest('/api/admin/backup-mirror', { headers: { Cookie: staff.cookie } })).status, 403);
+    const bad = await jsonRequest('/api/admin/backup-mirror', {
+      method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: 'not/absolute' }),
+    });
+    assert.equal(bad.status, 400);
+    const saved = await jsonRequest('/api/admin/backup-mirror', {
+      method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: place }),
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.dir, place);
+    assert.equal(saved.data.copies, 1, 'the first copy is made straight away');
+    const copied = await jsonRequest('/api/admin/backup-mirror/copy', { method: 'POST', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(copied.status, 200);
+    assert.equal(copied.data.copies, 2);
+    const off = await jsonRequest('/api/admin/backup-mirror', {
+      method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: '' }),
+    });
+    assert.equal(off.data.dir, '');
+  } finally {
+    fs.rmSync(place, { recursive: true, force: true });
+  }
+});
