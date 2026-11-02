@@ -506,3 +506,43 @@ test('office network settings are admin-only and apply after a restart', async (
     method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ lan_enabled: false }),
   });
 });
+
+test('new-version notice: admin only, read from the update address', async () => {
+  const feedServer = http.createServer((req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ version: '99.1.0', released: '2026-12-01', notes: ['A newer Netfare'], page: 'https://example.com/download' }));
+  });
+  await new Promise((resolve) => feedServer.listen(0, '127.0.0.1', resolve));
+  try {
+    const off = await jsonRequest('/api/admin/updates');
+    assert.equal(off.status, 200);
+    assert.equal(off.data.enabled, false);
+    assert.equal(off.data.current_version, require('../package.json').version);
+
+    const refused = await jsonRequest('/api/admin/updates', {
+      method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feed_url: 'http://example.com/latest.json' }),
+    });
+    assert.equal(refused.status, 400, 'plain http is refused except on this computer');
+
+    const saved = await jsonRequest('/api/admin/updates', {
+      method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feed_url: `http://127.0.0.1:${feedServer.address().port}/latest.json` }),
+    });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.available, true);
+    assert.equal(saved.data.latest.version, '99.1.0');
+    assert.equal(saved.data.latest.download_url, 'https://example.com/download', 'falls back to the download page');
+
+    const staff = await postAs(cookie, '/api/users', { full_name: 'Update Staff', username: 'updatestaff', password: 'update-pass-1', permissions: { settings: 'edit', dashboard: 'view' } });
+    assert.equal(staff.status, 201);
+    const signedIn = await signIn('updatestaff', 'update-pass-1');
+    assert.equal((await jsonRequest('/api/admin/updates', { headers: { Cookie: signedIn.cookie } })).status, 403);
+    assert.equal((await jsonRequest('/api/health', { headers: { Cookie: '' } })).data.version, require('../package.json').version);
+  } finally {
+    await jsonRequest('/api/admin/updates', {
+      method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ feed_url: '' }),
+    });
+    feedServer.close();
+  }
+});

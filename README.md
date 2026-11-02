@@ -102,7 +102,7 @@ npm run dev
 
 ## Desktop app
 
-The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with electron-builder 26.17.0). `npm run desktop:dist` makes `desktop/dist/Netfare-1.0.0-arm64.dmg`. The app is not signed yet, so macOS warns when it is first opened; signing and auto-update come next.
+The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with electron-builder 26.17.0). `npm run desktop:dist` makes `desktop/dist/Netfare-1.0.0-arm64.dmg`. The app is not code-signed (there is no Apple Developer account), so the first time it is opened macOS asks for **System Settings → Privacy & Security → Open Anyway**.
 
 - **First run** asks how this computer uses Netfare:
   - **This computer keeps the books:** starts new books, or starts from a `.db` backup. The server runs inside the app, and the books live in the app's folder (`~/Library/Application Support/Netfare/data` on a Mac).
@@ -113,6 +113,14 @@ The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with
   2. `npm run desktop` opens the app from source.
   3. `npm run desktop:dist` makes `desktop/dist/Netfare-*.dmg`.
 - The build copies the server into `desktop/build/app-server` with its own production `node_modules`. better-sqlite3 13 ships Node-API prebuilds, which load in Electron without rebuilding.
+- **Updates:** an unsigned app cannot replace itself, so Netfare tells the admin about new versions and they install them.
+  - In **Settings → Updates**, the admin sets the update address: the `latest.json` published with each release. Netfare checks it once a day. When a newer version exists, the admin sees a banner with What's new, Download and Later.
+  - Updating means downloading the new `.dmg` and dragging Netfare into Applications. The books are not inside the app, and Netfare backs them up before updating them.
+- **Publishing a release:**
+  1. Raise `version` in `package.json`.
+  2. Run `npm run desktop:dist`.
+  3. Run `npm run release:feed -- --download-base https://<host>/<folder>/ --note "What changed" …`. This writes `desktop/dist/latest.json`.
+  4. Upload the `.dmg` and `latest.json` to that folder.
 - For testing, `NETFARE_USER_DATA=<folder>` keeps a run's books and choice out of the real app folder, and `PORT` picks another port.
 
 ## Theme & appearance

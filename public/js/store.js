@@ -2,6 +2,7 @@ import { api } from './api.js';
 
 export const store = {
   user: null,
+  version: '',
   settings: null,
   accounts: [],
   customers: [],
@@ -11,13 +12,15 @@ export const store = {
 };
 
 export async function refreshMeta() {
-  const [settings, accounts, customers, vendors, portals] = await Promise.all([
+  const [health, settings, accounts, customers, vendors, portals] = await Promise.all([
+    api.get('/health'),
     api.get('/settings'),
     api.get('/accounts'),
     api.get('/customers'),
     api.get('/vendors'),
     api.get('/portals'),
   ]);
+  store.version = health.version;
   store.settings = settings;
   store.accounts = accounts;
   store.customers = customers;

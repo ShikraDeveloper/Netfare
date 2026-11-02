@@ -17,7 +17,7 @@ router.get('/health', (req, res) => {
   res.status(database === 'ok' ? 200 : 503).json({
     ok: database === 'ok',
     app: 'Netfare',
-    version: '1.0.0',
+    version: require('../../package.json').version,
     database,
     uptime_seconds: Math.round(process.uptime()),
   });

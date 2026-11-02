@@ -213,6 +213,8 @@ ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 ensureColumn('customers', 'updated_at', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('vendors', 'updated_at', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('accounts', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+// Where Netfare looks for news of a new version (services/updates.js).
+ensureColumn('settings', 'update_feed', "TEXT NOT NULL DEFAULT ''");
 // Office network mode (server/network.js): listen beyond this computer, and
 // extra names such as a Tailscale name that browsers may use.
 ensureColumn('settings', 'lan_enabled', 'INTEGER NOT NULL DEFAULT 0');

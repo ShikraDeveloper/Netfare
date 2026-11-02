@@ -11,6 +11,7 @@ import {
 } from '../ui.js';
 import { bindUsersCard, usersCardHtml } from './account.js';
 import { bindNetworkCard, networkCardHtml } from './network.js';
+import { bindUpdatesCard, updatesCardHtml } from './updates-card.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -171,7 +172,7 @@ export async function render(container) {
       </div>
 
       <div class="settings-stack">
-        ${store.user?.is_admin ? usersCardHtml() + networkCardHtml() : ''}
+        ${store.user?.is_admin ? usersCardHtml() + networkCardHtml() + updatesCardHtml() : ''}
         <div class="card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Data &amp; backup</h2><p>Your books live on this computer</p></div>
@@ -235,7 +236,7 @@ export async function render(container) {
             <img class="about-logo about-logo-light" src="/brand/netfare-logo.svg" alt="Netfare — Invoicing &amp; Books" width="276" height="96">
             <img class="about-logo about-logo-dark" src="/brand/netfare-logo-white.svg" alt="" width="276" height="96">
             <div class="about-list">
-              <div><span>Version</span><strong>1.0.0</strong></div>
+              <div><span>Version</span><strong>${esc(store.version || '')}</strong></div>
               <div><span>Storage</span><strong>Local SQLite</strong></div>
               <div><span>Accounting</span><strong>Double-entry</strong></div>
               <div><span>Currency</span><strong>AED</strong></div>
@@ -302,6 +303,7 @@ export async function render(container) {
   if (store.user?.is_admin) {
     bindUsersCard(container);
     bindNetworkCard(container);
+    bindUpdatesCard(container);
   }
   // Without Edit rights for company settings the forms are read-only.
   if (!can('settings', 'edit')) {

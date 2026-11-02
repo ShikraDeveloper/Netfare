@@ -12,6 +12,7 @@
     "reset-admin": "node scripts/reset-admin.js",
     "desktop": "node scripts/build-desktop.js run",
     "desktop:dist": "node scripts/build-desktop.js dist",
+    "release:feed": "node scripts/release-feed.js",
     "check": "node scripts/check.js",
     "test": "node --test test/*.test.js",
     "test:e2e": "node --test test/e2e/*.test.js",

@@ -6,6 +6,7 @@ const { bad, todayISO } = require('../util');
 const { assertLedgerEmpty, loadDemo, resetAll } = require('../services/demo');
 const { createDatabaseBackup, createTemporaryBackup, listBackups } = require('../services/backup');
 const network = require('../network');
+const updates = require('../services/updates');
 const audit = require('../services/audit');
 
 function networkStatus() {
@@ -15,6 +16,16 @@ function networkStatus() {
     addresses: network.listensOnNetwork() ? network.connectAddresses(db) : [],
   };
 }
+
+// New versions: the admin's banner and the Updates card in Settings.
+router.get('/updates', (req, res, next) => {
+  updates.status(db, { force: req.query.force === '1' }).then((status) => res.json(status), next);
+});
+
+router.put('/updates', (req, res, next) => {
+  updates.setFeedUrl(db, (req.body || {}).feed_url);
+  updates.status(db, { force: true }).then((status) => res.json(status), next);
+});
 
 // Office network mode. Turning it on or off takes effect after a restart.
 router.get('/network', (req, res) => {
@@ -66,7 +77,7 @@ router.get('/backup', (req, res) => {
   ];
   const data = {
     app: 'Netfare',
-    version: '1.0.0',
+    version: updates.CURRENT_VERSION,
     exported_at: new Date().toISOString(),
     tables: {},
   };

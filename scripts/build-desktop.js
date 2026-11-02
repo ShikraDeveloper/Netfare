@@ -29,8 +29,21 @@ function requireDesktopTools() {
   }
 }
 
+// The desktop app carries the same version as Netfare (package.json), which
+// is also what the update check compares.
+function syncVersion() {
+  const { version } = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const file = path.join(desktop, 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+  if (pkg.version !== version) {
+    pkg.version = version;
+    fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+  }
+}
+
 function stage() {
   requireDesktopTools();
+  syncVersion();
   fs.rmSync(stageDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(stageDir, 'scripts'), { recursive: true });
   for (const item of SERVER_FILES) fs.cpSync(path.join(root, item), path.join(stageDir, item), { recursive: true });
