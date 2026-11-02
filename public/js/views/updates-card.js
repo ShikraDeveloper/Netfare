@@ -6,9 +6,7 @@ import { esc, fmtDate, toast } from '../ui.js';
 import { installSteps, showWhatsNew } from '../updates.js';
 
 function statusHtml(status) {
-  if (!status.enabled) {
-    return '<p class="muted">Checking is off. Add the update address to be told about new versions.</p>';
-  }
+  if (!status.enabled) return '<p class="muted">Checking for new versions is off.</p>';
   if (status.error) return `<p class="update-error">Last check failed: ${esc(status.error)}</p>`;
   const checked = status.checked_at ? ` · checked ${esc(fmtDate(status.checked_at.slice(0, 10)))}` : '';
   if (status.available) {
@@ -30,11 +28,15 @@ export function updatesCardHtml() {
             <div><span>Installed version</span><strong id="update-current">—</strong></div>
           </div>
           <div id="update-status"><p class="muted">Loading…</p></div>
+          <label class="checkbox-row" style="margin-top:12px">
+            <input type="checkbox" name="enabled" id="update-enabled">
+            <span><strong>Check for new versions</strong> once a day. Only the admin sees the notice.</span>
+          </label>
           <div class="field" style="margin-top:12px">
-            <label for="update-feed">Update address</label>
+            <label for="update-feed">Update address (optional)</label>
             <input class="input" id="update-feed" name="feed_url" type="url" autocomplete="off" spellcheck="false"
-              placeholder="https://netfare.example.com/latest.json" aria-describedby="update-feed-hint">
-            <div class="hint" id="update-feed-hint">The latest.json published with each Netfare release. Netfare checks it once a day; only the admin sees the notice.</div>
+              placeholder="Blank: Netfare releases on GitHub" aria-describedby="update-feed-hint">
+            <div class="hint" id="update-feed-hint">Leave blank to use Netfare's own releases on GitHub. Only change it if your agency publishes Netfare somewhere else.</div>
           </div>
           <details class="update-howto" style="margin-top:12px">
             <summary>How updating works</summary>
@@ -43,7 +45,7 @@ export function updatesCardHtml() {
         </div>
         <div class="settings-actions">
           <button class="btn btn-ghost" type="button" id="update-check">Check now</button>
-          <button class="btn btn-primary" type="submit">Save address</button>
+          <button class="btn btn-primary" type="submit">Save</button>
         </div>
       </form>
     </div>`;
@@ -55,6 +57,7 @@ export function bindUpdatesCard(container) {
 
   function show(status) {
     container.querySelector('#update-current').textContent = status.current_version;
+    form.elements.enabled.checked = status.enabled;
     form.elements.feed_url.value = status.feed_url || '';
     statusEl.innerHTML = statusHtml(status);
     statusEl.querySelector('[data-update-card="notes"]')?.addEventListener('click', () => showWhatsNew(status));
@@ -74,8 +77,11 @@ export function bindUpdatesCard(container) {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     busy(async () => {
-      const status = await api.put('/admin/updates', { feed_url: form.elements.feed_url.value });
-      toast(status.feed_url ? 'Update address saved' : 'Update checking is off');
+      const status = await api.put('/admin/updates', {
+        enabled: form.elements.enabled.checked,
+        feed_url: form.elements.feed_url.value,
+      });
+      toast(status.enabled ? 'Update settings saved' : 'Checking for new versions is off');
       return status;
     });
   });

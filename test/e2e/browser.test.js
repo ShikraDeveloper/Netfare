@@ -213,6 +213,7 @@ before(async () => {
       PORT: String(port),
       LEDGERLY_DATA_DIR: dataDir,
       LEDGERLY_AUTO_BACKUP_HOURS: '0',
+      NETFARE_UPDATE_FEED: 'off',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

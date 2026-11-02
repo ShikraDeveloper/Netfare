@@ -23,7 +23,8 @@ router.get('/updates', (req, res, next) => {
 });
 
 router.put('/updates', (req, res, next) => {
-  updates.setFeedUrl(db, (req.body || {}).feed_url);
+  const body = req.body || {};
+  updates.setFeed(db, { enabled: body.enabled !== false, feed_url: body.feed_url });
   updates.status(db, { force: true }).then((status) => res.json(status), next);
 });
 

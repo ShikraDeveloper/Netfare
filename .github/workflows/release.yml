@@ -1,0 +1,104 @@
+# Builds the Netfare desktop installers and publishes a GitHub release.
+#
+#   Push a version tag:   git tag -a v1.1.0 -m "What changed" -m "Another change"
+#                         git push origin v1.1.0
+#   → builds Mac (Apple Silicon + Intel) and Windows, opens each packaged app
+#     once (smoke test), then creates the release with the installers and
+#     latest.json (the tag's message lines become the release notes).
+#
+#   Run it by hand (Actions → Release → Run workflow) to build and test
+#   without releasing.
+#
+# The apps are not code-signed (no Apple Developer account); see README.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: mac
+          - os: windows-latest
+            target: win
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: Install
+        run: |
+          npm ci --no-audit --no-fund
+          npm ci --prefix desktop --no-audit --no-fund
+      - name: Unit tests
+        if: matrix.target == 'mac'
+        run: npm test
+      - name: Build installers
+        run: node scripts/build-desktop.js dist ${{ matrix.target }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Smoke test the packaged app
+        run: node scripts/smoke-desktop.js
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: netfare-${{ matrix.target }}
+          path: |
+            desktop/dist/Netfare-mac-*.dmg
+            desktop/dist/Netfare-windows-*.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Tag must match package.json
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node -e "const v='v'+require('./package.json').version; if (v !== process.env.TAG) { console.error('Tag ' + process.env.TAG + ' does not match package.json ' + v); process.exit(1); }"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: desktop/dist
+          merge-multiple: true
+      - name: Write latest.json from the tag message
+        run: |
+          git fetch --force origin "refs/tags/${{ github.ref_name }}:refs/tags/${{ github.ref_name }}"
+          node scripts/release-feed.js --notes-from-tag "${{ github.ref_name }}"
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          node -e "const f=require('./desktop/dist/latest.json'); console.log(f.notes.map((n) => '- ' + n).join('\n'))" > notes.md
+          printf '\n**Install:** Mac — open the .dmg, drag Netfare to Applications, then System Settings → Privacy & Security → Open Anyway the first time. Windows — run the .exe; if SmartScreen appears, choose More info → Run anyway.\n' >> notes.md
+          gh release create "$TAG" --title "Netfare ${TAG#v}" --notes-file notes.md \
+            desktop/dist/Netfare-mac-arm64.dmg \
+            desktop/dist/Netfare-mac-x64.dmg \
+            desktop/dist/Netfare-windows-x64.exe \
+            desktop/dist/latest.json

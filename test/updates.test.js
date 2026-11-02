@@ -11,6 +11,7 @@ const { test, after } = require('node:test');
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-updates-test-'));
 process.env.LEDGERLY_DATA_DIR = tempDir;
+delete process.env.NETFARE_UPDATE_FEED;
 
 const db = require('../server/db');
 const updates = require('../server/services/updates');
@@ -47,19 +48,24 @@ test('latest.json is checked; bad links and odd fields are dropped', () => {
 });
 
 test('the update address must be https (or this computer for testing)', () => {
-  assert.throws(() => updates.setFeedUrl(db, 'http://example.com/latest.json'), /https:\/\//);
-  assert.throws(() => updates.setFeedUrl(db, 'https://user:pw@example.com/latest.json'), /user name or password/);
-  assert.throws(() => updates.setFeedUrl(db, 'not a url'), /not a web address/);
-  assert.equal(updates.setFeedUrl(db, 'http://127.0.0.1:9/latest.json'), 'http://127.0.0.1:9/latest.json');
-  assert.equal(updates.setFeedUrl(db, ''), '');
+  assert.throws(() => updates.setFeed(db, { feed_url: 'http://example.com/latest.json' }), /https:\/\//);
+  assert.throws(() => updates.setFeed(db, { feed_url: 'https://user:pw@example.com/latest.json' }), /user name or password/);
+  assert.throws(() => updates.setFeed(db, { feed_url: 'not a url' }), /not a web address/);
+  assert.equal(updates.setFeed(db, { feed_url: 'http://127.0.0.1:9/latest.json' }), 'http://127.0.0.1:9/latest.json');
+  assert.equal(updates.setFeed(db, { feed_url: '' }), '', 'blank means Netfare on GitHub');
+  assert.equal(updates.feedUrl(db), updates.DEFAULT_FEED);
+  assert.match(updates.DEFAULT_FEED, /^https:\/\/github\.com\/ShikraDeveloper\/Netfare\/releases\/latest\/download\/latest\.json$/);
+  assert.equal(updates.setFeed(db, { enabled: false }), 'off');
+  assert.equal(updates.feedUrl(db), '', 'off means no checks');
 });
 
-test('status: off without an address, then available, up to date or a clear error', async () => {
+test('status: off, then available, up to date or a clear error', async () => {
+  updates.setFeed(db, { enabled: false });
   assert.deepEqual(
     { enabled: (await updates.status(db)).enabled, available: (await updates.status(db)).available },
     { enabled: false, available: false },
   );
-  updates.setFeedUrl(db, 'https://updates.example.com/latest.json');
+  updates.setFeed(db, { feed_url: 'https://updates.example.com/latest.json' });
   const newer = await updates.status(db, { force: true, fetchImpl: feedResponse({ version: '99.0.0', notes: ['Big release'] }) });
   assert.equal(newer.available, true);
   assert.equal(newer.latest.version, '99.0.0');
@@ -76,15 +82,40 @@ test('status: off without an address, then available, up to date or a clear erro
 });
 
 test('the release script writes a feed the app accepts', () => {
-  const feed = buildFeed({ base: 'https://downloads.example.com/netfare', notes: ['Rights per user'], page: 'https://example.com/download' }, '2026-11-02');
+  const { version } = require('../package.json');
+  const feed = buildFeed({ notes: ['Rights per user'] }, '2026-11-02');
   assert.deepEqual(feed, {
-    version: require('../package.json').version,
+    version,
     released: '2026-11-02',
     notes: ['Rights per user'],
-    downloads: { 'mac-arm64': `https://downloads.example.com/netfare/Netfare-${require('../package.json').version}-arm64.dmg` },
-    page: 'https://example.com/download',
+    downloads: {
+      'mac-arm64': `https://github.com/ShikraDeveloper/Netfare/releases/download/v${version}/Netfare-mac-arm64.dmg`,
+      'mac-x64': `https://github.com/ShikraDeveloper/Netfare/releases/download/v${version}/Netfare-mac-x64.dmg`,
+      'windows-x64': `https://github.com/ShikraDeveloper/Netfare/releases/download/v${version}/Netfare-windows-x64.exe`,
+    },
+    page: `https://github.com/ShikraDeveloper/Netfare/releases/tag/v${version}`,
   });
-  assert.equal(updates.parseFeed(feed).version, feed.version);
+  assert.equal(updates.parseFeed(feed).version, version);
+  const elsewhere = buildFeed({ base: 'https://downloads.example.com/netfare', notes: ['x'] });
+  assert.equal(elsewhere.downloads['windows-x64'], 'https://downloads.example.com/netfare/Netfare-windows-x64.exe');
   assert.throws(() => buildFeed({ base: 'http://insecure.example', notes: ['x'] }), /https/);
-  assert.throws(() => buildFeed({ base: 'https://ok.example', notes: [] }), /--note/);
+  assert.throws(() => buildFeed({ notes: [] }), /--note/);
+});
+
+test('GitHub redirects are followed only on https, and an unpublished release is explained', async () => {
+  updates.setFeed(db, { feed_url: '' });
+  const calls = [];
+  const github = async (url) => {
+    calls.push(url);
+    if (url === updates.DEFAULT_FEED) return { status: 302, ok: false, headers: new Headers({ location: 'https://objects.githubusercontent.com/feed' }) };
+    return { status: 200, ok: true, headers: new Headers(), text: async () => JSON.stringify({ version: '99.2.0', notes: ['x'] }) };
+  };
+  const followed = await updates.status(db, { force: true, fetchImpl: github });
+  assert.equal(followed.latest.version, '99.2.0');
+  assert.deepEqual(calls, [updates.DEFAULT_FEED, 'https://objects.githubusercontent.com/feed']);
+
+  const downgrade = async () => ({ status: 302, ok: false, headers: new Headers({ location: 'http://evil.example/feed' }) });
+  assert.match((await updates.status(db, { force: true, fetchImpl: downgrade })).error, /away from https/);
+  const unpublished = async () => ({ status: 404, ok: false, headers: new Headers(), text: async () => '' });
+  assert.match((await updates.status(db, { force: true, fetchImpl: unpublished })).error, /No Netfare release has been published yet/);
 });

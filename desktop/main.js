@@ -169,6 +169,10 @@ async function changeSetup() {
 }
 
 function buildMenu() {
+  // Hide, Hide Others and Show All exist only on a Mac.
+  const macOnly = process.platform === 'darwin'
+    ? [{ role: 'hide' }, { role: 'hideOthers' }, { role: 'unhide' }, { type: 'separator' }]
+    : [];
   const template = [
     {
       label: 'Netfare',
@@ -178,10 +182,7 @@ function buildMenu() {
         { label: 'Change setup…', click: changeSetup },
         { label: 'Show books folder', click: () => shell.openPath(config.dataDir(userData())) },
         { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
+        ...macOnly,
         { role: 'quit' },
       ],
     },

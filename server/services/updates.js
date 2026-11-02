@@ -1,7 +1,8 @@
 'use strict';
 
 // "A new version is available" for the admin. Netfare reads a small
-// latest.json from the update address the admin set in Settings:
+// latest.json, by default from its GitHub releases (DEFAULT_FEED), or from
+// another address the admin sets in Settings; the admin can also turn it off:
 //   { "version": "1.1.0", "released": "2026-12-01",
 //     "notes": ["What changed", "…"],
 //     "downloads": { "mac-arm64": "https://…/Netfare-1.1.0-arm64.dmg" },
@@ -13,6 +14,12 @@ const os = require('os');
 const { bad } = require('../util');
 const { version: CURRENT_VERSION } = require('../../package.json');
 
+const OFF = 'off';
+// NETFARE_UPDATE_FEED replaces the default; tests set it to "off" so they
+// never reach the internet.
+const DEFAULT_FEED = process.env.NETFARE_UPDATE_FEED
+  || 'https://github.com/ShikraDeveloper/Netfare/releases/latest/download/latest.json';
+const MAX_REDIRECTS = 5;
 const CHECK_EVERY_MS = 24 * 60 * 60 * 1000;
 const MAX_FEED_BYTES = 64 * 1024;
 let cached = null;
@@ -51,16 +58,24 @@ function cleanUrl(value, label) {
   return url.href;
 }
 
-function feedUrl(db) {
+// settings.update_feed: '' = Netfare's GitHub releases, 'off' = no checks,
+// anything else = the admin's own address.
+function storedFeed(db) {
   return db.prepare('SELECT update_feed FROM settings WHERE id = 1').get()?.update_feed || '';
 }
 
-function setFeedUrl(db, value) {
-  const text = String(value || '').trim();
-  const url = text ? cleanUrl(text, 'The update address') : '';
-  db.prepare("UPDATE settings SET update_feed = ?, updated_at = datetime('now') WHERE id = 1").run(url);
+function feedUrl(db) {
+  const stored = storedFeed(db);
+  if (stored === OFF) return '';
+  return stored || (DEFAULT_FEED === OFF ? '' : DEFAULT_FEED);
+}
+
+function setFeed(db, { enabled = true, feed_url: address = '' } = {}) {
+  const text = String(address || '').trim();
+  const value = !enabled ? OFF : (text ? cleanUrl(text, 'The update address') : '');
+  db.prepare("UPDATE settings SET update_feed = ?, updated_at = datetime('now') WHERE id = 1").run(value);
   cached = null;
-  return url;
+  return value;
 }
 
 function platformKey() {
@@ -94,8 +109,20 @@ function parseFeed(data) {
   };
 }
 
+// GitHub's "latest" link redirects to its file servers; every hop must
+// stay on https.
 async function fetchFeed(url, fetchImpl = fetch) {
-  const response = await fetchImpl(url, { signal: AbortSignal.timeout(8000), redirect: 'error', headers: { Accept: 'application/json' } });
+  let target = url;
+  let response;
+  for (let hop = 0; ; hop += 1) {
+    response = await fetchImpl(target, { signal: AbortSignal.timeout(8000), redirect: 'manual', headers: { Accept: 'application/json' } });
+    const location = response.status >= 300 && response.status < 400 ? response.headers?.get('location') : null;
+    if (!location) break;
+    if (hop >= MAX_REDIRECTS) throw new Error('The update address redirects too many times');
+    target = new URL(location, target).href;
+    if (!target.startsWith('https://')) throw new Error('The update address redirected away from https');
+  }
+  if (response.status === 404 && url === DEFAULT_FEED) throw new Error('No Netfare release has been published yet');
   if (!response.ok) throw new Error(`The update address answered ${response.status}`);
   const text = await response.text();
   if (text.length > MAX_FEED_BYTES) throw new Error('The update file is too large');
@@ -109,7 +136,13 @@ async function fetchFeed(url, fetchImpl = fetch) {
 // The admin's update status, checked at most once a day unless `force`.
 async function status(db, { force = false, fetchImpl } = {}) {
   const url = feedUrl(db);
-  const base = { current_version: CURRENT_VERSION, feed_url: url, platform: platformKey() };
+  const stored = storedFeed(db);
+  const base = {
+    current_version: CURRENT_VERSION,
+    feed_url: stored === OFF ? '' : stored,
+    default_feed: DEFAULT_FEED,
+    platform: platformKey(),
+  };
   if (!url) return { ...base, enabled: false, available: false };
   const fresh = cached && cached.url === url && Date.now() - cached.at < CHECK_EVERY_MS;
   if (!fresh || force) {
@@ -133,9 +166,10 @@ async function status(db, { force = false, fetchImpl } = {}) {
 
 module.exports = {
   CURRENT_VERSION,
+  DEFAULT_FEED,
   isNewer,
   parseFeed,
   feedUrl,
-  setFeedUrl,
+  setFeed,
   status,
 };

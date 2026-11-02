@@ -5,7 +5,10 @@
 //   node scripts/build-desktop.js stage   copy the server and its packages into
 //                                         desktop/build/app-server
 //   node scripts/build-desktop.js run     stage, then open the app from source
-//   node scripts/build-desktop.js dist    stage, then make desktop/dist/Netfare-*.dmg
+//   node scripts/build-desktop.js dist [mac|win]
+//                                         stage, then make the installers in desktop/dist:
+//                                         Netfare-mac-arm64.dmg, Netfare-mac-x64.dmg,
+//                                         Netfare-windows-x64.exe (default: this computer's)
 //
 // The server gets its own production copy of node_modules. better-sqlite3
 // (13+) ships Node-API prebuilds, which load in Electron without a rebuild.
@@ -49,7 +52,9 @@ function stage() {
   for (const item of SERVER_FILES) fs.cpSync(path.join(root, item), path.join(stageDir, item), { recursive: true });
   for (const file of SCRIPT_FILES) fs.copyFileSync(path.join(root, 'scripts', file), path.join(stageDir, 'scripts', file));
   console.log('  Installing the server packages…');
-  execFileSync('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: stageDir, stdio: 'inherit' });
+  // On Windows npm is npm.cmd, which needs a shell.
+  const windows = process.platform === 'win32';
+  execFileSync(windows ? 'npm.cmd' : 'npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: stageDir, stdio: 'inherit', shell: windows });
   console.log(`  Staged in ${path.relative(root, stageDir)}`);
 }
 
@@ -60,14 +65,18 @@ async function main() {
     process.exit(1);
   }
   stage();
+  // The tools run through node, so the same calls work on a Mac and Windows.
+  const tool = (name) => path.join(desktop, 'node_modules', name, 'cli.js');
   if (command === 'run') {
-    execFileSync(path.join(desktop, 'node_modules', '.bin', 'electron'), ['.'], {
+    execFileSync(process.execPath, [tool('electron'), '.'], {
       cwd: desktop,
       stdio: 'inherit',
       env: { ...process.env, NETFARE_APP_DIR: stageDir },
     });
   } else if (command === 'dist') {
-    execFileSync(path.join(desktop, 'node_modules', '.bin', 'electron-builder'), ['--mac', 'dmg'], { cwd: desktop, stdio: 'inherit' });
+    const target = process.argv[3] || (process.platform === 'win32' ? 'win' : 'mac');
+    if (!['mac', 'win'].includes(target)) throw new Error('Choose mac or win');
+    execFileSync(process.execPath, [tool('electron-builder'), `--${target}`, '--publish', 'never'], { cwd: desktop, stdio: 'inherit' });
     console.log(`\n  Built: ${path.relative(root, path.join(desktop, 'dist'))}\n`);
   }
 }

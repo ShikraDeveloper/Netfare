@@ -114,13 +114,17 @@ The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with
   3. `npm run desktop:dist` makes `desktop/dist/Netfare-*.dmg`.
 - The build copies the server into `desktop/build/app-server` with its own production `node_modules`. better-sqlite3 13 ships Node-API prebuilds, which load in Electron without rebuilding.
 - **Updates:** an unsigned app cannot replace itself, so Netfare tells the admin about new versions and they install them.
-  - In **Settings → Updates**, the admin sets the update address: the `latest.json` published with each release. Netfare checks it once a day. When a newer version exists, the admin sees a banner with What's new, Download and Later.
+  - Netfare checks the `latest.json` of the newest [GitHub release](https://github.com/ShikraDeveloper/Netfare/releases) once a day. When a newer version exists, the admin sees a banner with What's new, Download and Later.
+  - In **Settings → Updates**, the admin can turn checking off, or point it at another address.
   - Updating means downloading the new `.dmg` and dragging Netfare into Applications. The books are not inside the app, and Netfare backs them up before updating them.
-- **Publishing a release:**
-  1. Raise `version` in `package.json`.
-  2. Run `npm run desktop:dist`.
-  3. Run `npm run release:feed -- --download-base https://<host>/<folder>/ --note "What changed" …`. This writes `desktop/dist/latest.json`.
-  4. Upload the `.dmg` and `latest.json` to that folder.
+- **Publishing a release:** the GitHub Actions workflow `.github/workflows/release.yml` does it.
+  1. Raise `version` in `package.json` and commit.
+  2. Tag with the release notes as the message lines: `git tag -a v1.1.0 -m "What changed" -m "Another change"`.
+  3. Push the commit and the tag.
+  4. GitHub builds `Netfare-mac-arm64.dmg`, `Netfare-mac-x64.dmg` and `Netfare-windows-x64.exe`, opens each packaged app once (smoke test), and publishes the release with `latest.json`.
+  - The download links stay the same for every version: `https://github.com/ShikraDeveloper/Netfare/releases/latest/download/<file>`.
+  - Running the workflow by hand (Actions → Release → Run workflow) only builds and tests.
+  - Locally, `npm run desktop:dist` builds this computer's installers, and `node scripts/smoke-desktop.js` opens the built app once.
 - For testing, `NETFARE_USER_DATA=<folder>` keeps a run's books and choice out of the real app folder, and `PORT` picks another port.
 
 ## Theme & appearance
