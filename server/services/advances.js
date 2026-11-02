@@ -9,6 +9,7 @@ const {
   todayISO,
 } = require('../util');
 const { systemAccount, isCashAccount, postEntry, reverseEntry } = require('../accounting');
+const { markCreated } = require('../created-by');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
 
@@ -128,6 +129,7 @@ function createAdvance(db, payload) {
       account.id,
     );
     const advanceId = Number(info.lastInsertRowid);
+    markCreated(db, 'customer_advances', advanceId);
     const entryId = postEntry(db, {
       entry_date: advanceDate,
       memo: `Customer advance ${number} — ${customer.name}`,
@@ -181,6 +183,7 @@ function applyAdvance(db, id, payload = {}) {
       advance.id,
     );
     const paymentId = Number(info.lastInsertRowid);
+    markCreated(db, 'payments', paymentId);
     const entryId = postEntry(db, {
       entry_date: paymentDate,
       memo: `Advance ${advance.number} applied to invoice ${invoice.number}`,
@@ -261,6 +264,7 @@ function refundAdvance(db, id, payload = {}) {
       account.id,
       entryId,
     );
+    markCreated(db, 'refunds', refundInfo.lastInsertRowid);
     return {
       advance: getAdvance(db, id),
       refund_id: Number(refundInfo.lastInsertRowid),

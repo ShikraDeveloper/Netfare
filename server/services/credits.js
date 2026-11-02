@@ -16,6 +16,7 @@ const {
   invoiceBalanceCents,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const audit = require('./audit');
 
 const creditSelect = `
@@ -119,6 +120,7 @@ function createCredit(db, payload = {}) {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(number, customer.id, creditDate, amount, revenueAccount.id, notes);
     const creditId = Number(info.lastInsertRowid);
+    markCreated(db, 'credit_notes', creditId);
     const credits = systemAccount(db, '2450', 'Customer Credits');
     const entryId = postEntry(db, {
       entry_date: creditDate,
@@ -177,6 +179,7 @@ function createCreditFromCancellation(db, payload = {}) {
       optionalStr(payload.notes, 'Notes', 2000) || `Refund converted to credit for ${cancellation.number}`,
     );
     const creditId = Number(info.lastInsertRowid);
+    markCreated(db, 'credit_notes', creditId);
     const credits = systemAccount(db, '2450', 'Customer Credits');
     const refundPayable = systemAccount(db, '2500', 'Refund Liabilities');
     const entryId = postEntry(db, {
@@ -315,6 +318,7 @@ function refundCredit(db, creditId, payload = {}) {
       account.id,
     );
     const refundId = Number(info.lastInsertRowid);
+    markCreated(db, 'refunds', refundId);
     const entryId = postEntry(db, {
       entry_date: refundDate,
       memo: `Customer credit refund ${number} — ${customer?.name || 'Customer'} (${credit.number})`,

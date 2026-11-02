@@ -14,6 +14,7 @@ const {
   getEntryWithLines,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const audit = require('./audit');
 
 // Petty cash is a cash float of its own, not a bank account; card and
@@ -155,6 +156,7 @@ function createDeposit(db, payload = {}) {
       optionalStr(payload.notes, 'Notes', 1000),
     );
     const id = Number(info.lastInsertRowid);
+    markCreated(db, 'cash_deposits', id);
     const label = to.code === PETTY_CASH_CODE ? 'Petty cash top-up' : 'Cash deposit';
     const entryId = postEntry(db, {
       entry_date: depositDate,

@@ -11,6 +11,7 @@ const {
   todayISO,
 } = require('../util');
 const audit = require('./audit');
+const { markCreated } = require('../created-by');
 
 const STATUSES = ['planned', 'issued', 'cleared', 'bounced', 'cancelled'];
 const BATCH_FREQUENCIES = ['monthly', 'quarterly', 'yearly'];
@@ -206,6 +207,7 @@ function createBatch(db, payload = {}) {
         item.id, item.vendor_id, chequeNumber, date, amount,
         bankName, status, reference, notes, startDate,
       );
+      markCreated(db, 'post_dated_cheques', info.lastInsertRowid);
       created.push(getCheque(db, Number(info.lastInsertRowid)));
     }
     return { cheques: created, count: created.length };

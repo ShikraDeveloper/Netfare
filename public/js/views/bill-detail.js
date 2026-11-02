@@ -20,6 +20,7 @@ import {
   toCents,
   todayISO,
   voidDialog,
+  createdByText
 } from '../ui.js';
 import { openBillModal } from './bills.js';
 import { openRefundModal } from './refund-modal.js';
@@ -162,7 +163,7 @@ export async function render(container, { params } = {}) {
   actions.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   setHeader({
     title: bill.number,
-    subtitle: `${bill.vendor_name} · ${fmtDate(bill.bill_date)}`,
+    subtitle: `${bill.vendor_name} · ${fmtDate(bill.bill_date)}${createdByText(bill)}`,
     actions: actions.join(''),
   });
 

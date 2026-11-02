@@ -23,6 +23,7 @@ import {
   toCents,
   todayISO,
   voidDialog,
+  createdByText
 } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share-links.js';
@@ -348,7 +349,7 @@ export async function render(container, { params } = {}) {
 
   setHeader({
     title: invoice.number,
-    subtitle: `${invoice.customer_name} · Issued ${fmtDate(invoice.issue_date)}`,
+    subtitle: `${invoice.customer_name} · Issued ${fmtDate(invoice.issue_date)}${createdByText(invoice)}`,
     actions: actions.join('') + moreMenuHtml(menu),
   });
 

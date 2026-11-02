@@ -1,6 +1,7 @@
 'use strict';
 
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../../util');
+const { markCreated } = require('../../created-by');
 const { systemAccount, postEntry, reverseEntry, billBalanceCents } = require('../../accounting');
 const { allocateNumber } = require('../numbering');
 const audit = require('../audit');
@@ -43,6 +44,7 @@ function topUp(db, payload) {
       account.id,
     );
     const topupId = Number(info.lastInsertRowid);
+    markCreated(db, 'portal_topups', topupId);
 
     const entryId = postEntry(db, {
       entry_date: date,
@@ -207,6 +209,7 @@ function refundPortal(db, id, payload = {}) {
       account.id,
     );
     const refundId = Number(info.lastInsertRowid);
+    markCreated(db, 'portal_refunds', refundId);
 
     const entryId = postEntry(db, {
       entry_date: date,
@@ -275,6 +278,7 @@ function settleBillFromPortal(db, payload) {
       portal.id,
     );
     const paymentId = Number(info.lastInsertRowid);
+    markCreated(db, 'bill_payments', paymentId);
 
     const entryId = postEntry(db, {
       entry_date: date,
@@ -367,6 +371,7 @@ function recordPortalCredit(db, payload = {}) {
     optionalStr(payload.notes, 'Notes', 2000),
   );
   const creditId = Number(info.lastInsertRowid);
+  markCreated(db, 'portal_credits', creditId);
   const entryId = postEntry(db, {
     entry_date: date,
     memo: `Portal credit ${number} — ${portal.name}`,

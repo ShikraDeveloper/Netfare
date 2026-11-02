@@ -561,6 +561,11 @@ export function voidDialog({
 }
 
 // The agency's initial on its own documents (invoices, receipts, statements).
+// " · by Omar Siddiqui" for a page subtitle, when the record knows who made it.
+export function createdByText(record) {
+  return record?.created_by ? ` · by ${record.created_by}` : '';
+}
+
 export function companyMark(company) {
   const initial = String(company || '').trim().charAt(0).toUpperCase() || '·';
   return `<span class="brand-mark" aria-hidden="true">${esc(initial)}</span>`;

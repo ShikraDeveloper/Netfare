@@ -156,6 +156,7 @@ function dsrSections(db, start, end, items) {
       split,
       cancelled_by: item.cancelled_by || null,
       remarks: invoice.notes || '',
+      staff: item.staff,
     };
     if (invoice.booking_id) {
       tickets.push({

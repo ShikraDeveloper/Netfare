@@ -219,6 +219,10 @@ ensureColumn('settings', 'update_feed', "TEXT NOT NULL DEFAULT ''");
 // extra names such as a Tailscale name that browsers may use.
 ensureColumn('settings', 'lan_enabled', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('settings', 'lan_hosts', "TEXT NOT NULL DEFAULT ''");
+// Who created each document (server/created-by.js).
+for (const table of require('./created-by').CREATED_BY_TABLES) {
+  ensureColumn(table, 'created_by', "TEXT NOT NULL DEFAULT ''");
+}
 // Each staff user's rights, set by the admin (see server/permissions.js).
 ensureColumn('users', 'permissions', "TEXT NOT NULL DEFAULT '{}'");
 // Who did it: the logged-in user's name on each audit entry.

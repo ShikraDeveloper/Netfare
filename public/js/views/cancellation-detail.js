@@ -16,6 +16,7 @@ import {
   toast,
   toCents,
   todayISO,
+  createdByText
 } from '../ui.js';
 
 function sourceHref(cancellation) {
@@ -45,7 +46,7 @@ export async function render(container, { params, query } = {}) {
 
   setHeader({
     title: cancellation.number,
-    subtitle: `${cancellation.customer_name} · ${sourceLabel} ${cancellation.source_number || '—'} · ${fmtDate(cancellation.cancellation_date)}`,
+    subtitle: `${cancellation.customer_name} · ${sourceLabel} ${cancellation.source_number || '—'} · ${fmtDate(cancellation.cancellation_date)}${createdByText(cancellation)}`,
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/cancellation/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="${href}"><span>${sourceLabel}</span></a>

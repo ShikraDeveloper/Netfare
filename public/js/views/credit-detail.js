@@ -16,6 +16,7 @@ import {
   todayISO,
   toCents,
   voidDialog,
+  createdByText
 } from '../ui.js';
 
 export async function render(container, { params = [] } = {}) {
@@ -30,7 +31,7 @@ export async function render(container, { params = [] } = {}) {
 
   setHeader({
     title: credit.number,
-    subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}`,
+    subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}${createdByText(credit)}`,
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="#/credits"><span>All credit notes</span></a>

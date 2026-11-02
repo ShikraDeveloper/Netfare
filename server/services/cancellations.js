@@ -15,6 +15,7 @@ const {
   reverseEntry,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const invoiceService = require('./invoices');
 const creditService = require('./credits');
 const supplierCreditService = require('./supplier-credits');
@@ -245,6 +246,7 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
       optionalStr(payload.notes, 'Notes', 2000),
     );
     const cancellationId = Number(info.lastInsertRowid);
+    markCreated(db, 'cancellations', cancellationId);
 
     let received = 0;
     if (invoice) {
@@ -411,6 +413,7 @@ function refundCancellation(db, id, payload = {}) {
       account.id,
     );
     const refundId = Number(info.lastInsertRowid);
+    markCreated(db, 'refunds', refundId);
     const entryId = postEntry(db, {
       entry_date: refundDate,
       memo: `Cancellation refund ${number} — ${cancellation.customer_name}`,

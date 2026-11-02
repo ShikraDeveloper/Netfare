@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge } from '../ui.js';
+import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge, createdByText } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 
 // Printable receipt voucher for one customer payment.
@@ -16,7 +16,7 @@ export async function render(container, { params } = {}) {
 
   setHeader({
     title: `Receipt ${receipt.number}`,
-    subtitle: `${receipt.customer_name} · ${fmtDate(receipt.payment_date)}`,
+    subtitle: `${receipt.customer_name} · ${fmtDate(receipt.payment_date)}${createdByText(receipt)}`,
     actions: `
       <a class="btn btn-secondary" href="#/invoices/${receipt.invoice_id}">${icon('invoice', 15)}<span>Invoice ${esc(receipt.invoice_number)}</span></a>
       <button class="btn btn-primary" data-action="print">${icon('print', 15)}<span>Print</span></button>

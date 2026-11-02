@@ -18,6 +18,7 @@ import {
   toast,
   toCents,
   voidDialog,
+  createdByText
 } from '../ui.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -179,7 +180,7 @@ export async function render(container, { params } = {}) {
   }
   setHeader({
     title: visa.number,
-    subtitle: subtitleParts.join(' · '),
+    subtitle: `${subtitleParts.join(' · ')}${createdByText(visa)}`,
     actions: actions.join('') + moreMenuHtml(menu),
   });
 

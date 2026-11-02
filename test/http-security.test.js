@@ -547,3 +547,49 @@ test('new-version notice: admin only, read from the update address', async () =>
     feedServer.close();
   }
 });
+
+test('created by: each new document carries the signed-in name, and the DSR groups sales by staff', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const made = await postAs(cookie, '/api/users', {
+    full_name: 'Sara Counter', username: 'sara', password: 'sara-pass-1',
+    permissions: { bookings: 'edit', sales: 'edit', customers: 'view', reports: 'view', books: 'view' },
+  });
+  assert.equal(made.status, 201);
+  const sara = await signIn('sara', 'sara-pass-1');
+  const customer = (await jsonRequest('/api/customers')).data[0];
+  const accounts = (await jsonRequest('/api/accounts')).data;
+  const vendor = (await jsonRequest('/api/vendors')).data[0]
+    || (await postAs(cookie, '/api/vendors', { name: 'Staff Test Airline' })).data;
+  const booking = await postAs(sara.cookie, '/api/bookings', {
+    customer_id: customer.id, booking_date: today, due_date: today, destination: 'Staff test',
+    sale_items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 20_000, account_id: accounts.find((a) => a.code === '4000').id }],
+    cost_items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 15_000, account_id: accounts.find((a) => a.code === '5000').id, vendor_id: vendor.id }],
+  });
+  assert.equal(booking.status, 201);
+  assert.equal(booking.data.created_by, 'Sara Counter');
+  const confirmed = await postAs(sara.cookie, `/api/bookings/${booking.data.id}/confirm`, {});
+  assert.equal(confirmed.status, 200);
+
+  const invoice = (await jsonRequest(`/api/invoices/${confirmed.data.invoice_id}`, { headers: { Cookie: sara.cookie } })).data;
+  assert.equal(invoice.created_by, 'Sara Counter');
+  const entry = (await jsonRequest(`/api/journal-entries/${invoice.journal_entry_id}`, { headers: { Cookie: sara.cookie } })).data;
+  assert.equal(entry.created_by, 'Sara Counter', 'postings carry the name too');
+  const adminBooking = await postAs(cookie, '/api/bookings', {
+    customer_id: customer.id, booking_date: today, due_date: today, destination: 'Admin test',
+    sale_items: [{ description: 'Hotel', quantity: 1, unit_price_cents: 5_000, account_id: accounts.find((a) => a.code === '4000').id }],
+  });
+  assert.equal(adminBooking.data.created_by, ADMIN.full_name);
+
+  const dsr = (await jsonRequest(`/api/reports/daily-sales?from=${today}&to=${today}`)).data;
+  const saraRow = dsr.staff_totals.find((row) => row.staff === 'Sara Counter');
+  assert.ok(saraRow, 'Sara has her own line in Sales by staff');
+  assert.equal(saraRow.sales, 1);
+  assert.equal(saraRow.sale_cents, 20_000);
+  assert.ok(dsr.sections.tickets.some((row) => row.id === invoice.id && row.staff === 'Sara Counter'));
+
+  const onlySara = (await jsonRequest(`/api/reports/daily-sales?from=${today}&to=${today}&staff=${encodeURIComponent('Sara Counter')}`)).data;
+  assert.equal(onlySara.staff, 'Sara Counter');
+  assert.ok(onlySara.sections.tickets.every((row) => row.staff === 'Sara Counter'));
+  assert.equal(onlySara.totals.sale_cents, 20_000);
+  assert.deepEqual(onlySara.staff_totals, dsr.staff_totals, 'the staff summary always covers everyone');
+});

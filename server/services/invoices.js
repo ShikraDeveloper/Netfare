@@ -23,6 +23,7 @@ const {
   invoiceDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const audit = require('./audit');
 
 const invoiceSelect = `
@@ -346,6 +347,7 @@ function createInvoice(db, payload, options = {}) {
       beneficiary.passport,
     );
     const invoiceId = Number(info.lastInsertRowid);
+    markCreated(db, 'invoices', invoiceId);
     insertItems(db, invoiceId, items);
 
     if (status === 'sent') {
@@ -592,6 +594,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
       charges,
     );
     const paymentId = Number(info.lastInsertRowid);
+    markCreated(db, 'payments', paymentId);
     const entryId = postEntry(db, {
       entry_date: paymentDate,
       memo: `Payment ${number} — ${customer.name} (invoice ${invoice.number})${chequeNumber ? ` · cheque ${chequeNumber}` : ''}`,

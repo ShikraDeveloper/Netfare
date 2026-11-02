@@ -17,6 +17,7 @@ const {
   getEntryWithLines,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const supplierCreditService = require('./supplier-credits');
 const audit = require('./audit');
 
@@ -324,6 +325,7 @@ function createRefund(db, payload = {}) {
         refundDate, amount, method, reference, notes, account.id, charges,
       );
       const refundId = Number(info.lastInsertRowid);
+      markCreated(db, 'refunds', refundId);
       const entryId = postEntry(db, {
         entry_date: refundDate,
         memo: `Customer refund ${number} — ${customer?.name || 'Customer'} (invoice ${invoice.number})`,
@@ -398,6 +400,7 @@ function createRefund(db, payload = {}) {
       refundDate, amount, method, reference, notes, account.id, charges,
     );
     const refundId = Number(info.lastInsertRowid);
+    markCreated(db, 'refunds', refundId);
     const entryId = postEntry(db, {
       entry_date: refundDate,
       memo: `Supplier credit refund ${number} — ${vendor?.name || 'Vendor'} (bill ${bill.number})`,

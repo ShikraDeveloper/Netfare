@@ -19,6 +19,7 @@ import {
   toCents,
   todayISO,
   voidDialog,
+  createdByText
 } from '../ui.js';
 import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -93,7 +94,7 @@ export async function render(container, { params } = {}) {
   }
   setHeader({
     title: booking.number,
-    subtitle: `${booking.customer_name} · ${booking.destination || 'No destination'} · ${booking.status.charAt(0).toUpperCase()}${booking.status.slice(1)}`,
+    subtitle: `${booking.customer_name} · ${booking.destination || 'No destination'} · ${booking.status.charAt(0).toUpperCase()}${booking.status.slice(1)}${createdByText(booking)}`,
     actions: actions.join('') + moreMenuHtml(menu),
   });
 

@@ -11,6 +11,7 @@ import {
   statusBadge,
   toast,
   voidDialog,
+  createdByText
 } from '../ui.js';
 
 function sourceInfo(refund, isCustomer) {
@@ -130,7 +131,7 @@ export async function render(container, { params } = {}) {
   actions.push(`<a class="btn btn-ghost" href="#/audit-chain/refund/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   setHeader({
     title: refund.number,
-    subtitle: `${refund.party_name} · ${fmtDate(refund.refund_date)}`,
+    subtitle: `${refund.party_name} · ${fmtDate(refund.refund_date)}${createdByText(refund)}`,
     actions: actions.join(''),
   });
 

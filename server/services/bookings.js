@@ -8,6 +8,7 @@ const {
   todayISO,
 } = require('../util');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
 const jobCosts = require('./job-costs');
@@ -198,6 +199,7 @@ function createBooking(db, payload) {
       costItems.length ? itemTotals(costItems) : 0,
     );
     const bookingId = Number(info.lastInsertRowid);
+    markCreated(db, 'bookings', bookingId);
     jobs.insertJobItems(db, 'booking', bookingId, saleItems, costItems);
     jobs.recordStatus(db, 'booking', bookingId, { to: 'draft', remarks: 'Booking created' });
     return getBooking(db, bookingId);

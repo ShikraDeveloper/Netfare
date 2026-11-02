@@ -1,6 +1,7 @@
 'use strict';
 
 const { bad, dateISO, cents, todayISO } = require('./util');
+const { creatorName } = require('./created-by');
 
 const SYSTEM_CODES = {
   AR: '1100',
@@ -99,8 +100,8 @@ function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'm
   if (totalDebit === 0) throw bad('Entry total must be greater than zero');
 
   const insertEntry = db.prepare(`
-    INSERT INTO journal_entries (entry_date, memo, reference, source_type, source_id, reversal_of_id)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO journal_entries (entry_date, memo, reference, source_type, source_id, reversal_of_id, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   const insertLine = db.prepare(`
     INSERT INTO journal_lines (entry_id, account_id, debit_cents, credit_cents, description, sort_order)
@@ -114,6 +115,7 @@ function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'm
     source_type,
     source_id,
     reversal_of_id,
+    creatorName(),
   );
   for (const line of normalized) {
     insertLine.run(info.lastInsertRowid, line.account_id, line.debit_cents, line.credit_cents, line.description, line.sort_order);

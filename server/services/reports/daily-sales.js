@@ -6,7 +6,11 @@ const { cashBalances } = require('./aging');
 const jobCosts = require('../job-costs');
 const { dsrSections } = require('./dsr-sections');
 
-function dailySales(db, from, to) {
+// The staff member behind a sale: whoever made the booking or visa, or the
+// invoice itself. Records from before logins have no name.
+const NO_STAFF = 'Not recorded';
+
+function dailySales(db, from, to, { staff = '' } = {}) {
   const start = dateISO(from, 'From date');
   const end = dateISO(to, 'To date');
   const today = todayISO();
@@ -25,7 +29,8 @@ function dailySales(db, from, to) {
            (SELECT ii.description FROM invoice_items ii
             WHERE ii.invoice_id = i.id
             ORDER BY ii.sort_order, ii.id LIMIT 1) AS particulars,
-           x.id AS cancelled_by_id, x.number AS cancelled_by_number, x.cancellation_date AS cancelled_on
+           x.id AS cancelled_by_id, x.number AS cancelled_by_number, x.cancellation_date AS cancelled_on,
+           COALESCE(NULLIF(b.created_by, ''), NULLIF(v.created_by, ''), i.created_by) AS staff
     FROM invoices i
     JOIN customers c ON c.id = i.customer_id
     LEFT JOIN bookings b ON b.id = i.booking_id
@@ -73,7 +78,7 @@ function dailySales(db, from, to) {
     if (row.visa_id) cancellationCredits.set(`visa:${row.visa_id}`, row.total);
   }
 
-  const items = [];
+  const allItems = [];
   for (const row of invoices) {
     const kind = row.booking_id ? 'booking' : row.visa_id ? 'visa' : 'direct';
     const jobCost = kind === 'booking'
@@ -98,7 +103,7 @@ function dailySales(db, from, to) {
       particulars = [row.destination_country, type ? `${type} visa` : ''].filter(Boolean).join(' · ');
     }
 
-    items.push({
+    allItems.push({
       id: row.id,
       number: row.number,
       issue_date: row.issue_date,
@@ -117,6 +122,7 @@ function dailySales(db, from, to) {
       cancelled_by: cancelled
         ? { id: row.cancelled_by_id, number: row.cancelled_by_number, date: row.cancelled_on }
         : null,
+      staff: row.staff || NO_STAFF,
     });
   }
 
@@ -138,7 +144,7 @@ function dailySales(db, from, to) {
       row.reason || '',
     ].filter(Boolean).join(' · ');
 
-    items.push({
+    allItems.push({
       id: row.id,
       number: row.number,
       charges_invoice_id: row.cancellation_invoice_id || null,
@@ -169,8 +175,24 @@ function dailySales(db, from, to) {
       refund_due_cents: row.refund_due_cents || 0,
       supplier_credit_total_cents: row.supplier_credit_total_cents || 0,
       retained_cost_cents: retainedCost,
+      staff: row.created_by || NO_STAFF,
     });
   }
+
+  // Sales by staff for the whole period; the staff filter then narrows the
+  // sales and cancellations below (money collected, refunds and money paid
+  // out stay for everyone).
+  const byStaff = new Map();
+  for (const item of allItems) {
+    const entry = byStaff.get(item.staff) || { staff: item.staff, sales: 0, sale_cents: 0, margin_cents: 0 };
+    if (!item.is_cancellation) entry.sales += 1;
+    entry.sale_cents += item.sale_cents;
+    entry.margin_cents += item.margin_cents;
+    byStaff.set(item.staff, entry);
+  }
+  const staffTotals = [...byStaff.values()].sort((a, b) => b.sale_cents - a.sale_cents || a.staff.localeCompare(b.staff));
+  const staffFilter = String(staff || '').trim();
+  const items = staffFilter ? allItems.filter((item) => item.staff === staffFilter) : allItems;
 
   items.sort((a, b) => {
     if (a.issue_date !== b.issue_date) return a.issue_date < b.issue_date ? -1 : 1;
@@ -237,6 +259,8 @@ function dailySales(db, from, to) {
   return {
     from: start,
     to: end,
+    staff: staffFilter,
+    staff_totals: staffTotals,
     days,
     totals,
     sections,

@@ -56,6 +56,11 @@ function splitTotals(rows) {
   return SPLIT_KEYS.map((key) => `<td class="num">${amt(sumOf(rows, (row) => row.split[key]), { blank: false })}</td>`).join('');
 }
 
+// Who made the sale: the staff member who created the booking, visa or invoice.
+function staffLine(row) {
+  return row.staff ? `<div class="cell-sub dsr-staff">by ${esc(row.staff)}</div>` : '';
+}
+
 function cancelledNote(row) {
   if (!row.cancelled_by) return '';
   return `<div class="cell-sub"><span class="badge badge-cancelled">Cancelled</span> ${esc(fmtDate(row.cancelled_by.date))} · <a href="#/cancellations/${row.cancelled_by.id}">${esc(row.cancelled_by.number)}</a></div>`;
@@ -82,7 +87,7 @@ function ticketTable(rows) {
     return `
       <tr>
         <td class="dsr-doc"><a href="#/invoices/${row.id}">${esc(row.number)}</a>${dateLine(row.date, row.created_at)}
-          <div class="cell-sub"><a href="#/bookings/${row.reference_id}">${esc(row.reference || '')}</a></div>${cancelledNote(row)}</td>
+          <div class="cell-sub"><a href="#/bookings/${row.reference_id}">${esc(row.reference || '')}</a></div>${staffLine(row)}${cancelledNote(row)}</td>
         <td><div class="cell-main">${esc(row.customer_name)}</div><div class="dsr-people">${people}</div>${row.remarks ? `<div class="cell-sub">${esc(row.remarks)}</div>` : ''}</td>
         <td><span class="dsr-pnr">${esc(row.pnr || '—')}</span><div class="cell-sub">${esc(row.route)}</div></td>
         <td class="num">${amt(row.fare_cents)}</td>
@@ -117,7 +122,7 @@ function visaTable(rows) {
   const body = rows.length ? rows.map((row) => `
       <tr>
         <td class="dsr-doc"><a href="#/invoices/${row.id}">${esc(row.number)}</a>${dateLine(row.date, row.created_at)}
-          <div class="cell-sub"><a href="#/visas/${row.reference_id}">${esc(row.reference || '')}</a></div>${cancelledNote(row)}</td>
+          <div class="cell-sub"><a href="#/visas/${row.reference_id}">${esc(row.reference || '')}</a></div>${staffLine(row)}${cancelledNote(row)}</td>
         <td><div class="cell-main">${esc(row.applicant_name)}</div>${row.applicant_name !== row.customer_name ? `<div class="cell-sub">Paid by ${esc(row.customer_name)}</div>` : ''}${row.remarks ? `<div class="cell-sub">${esc(row.remarks)}</div>` : ''}</td>
         <td>${esc([row.country, typeLabel(row.visa_type)].filter(Boolean).join(' · ') || '—')}</td>
         <td class="num">${amt(row.fare_cents)}</td>
@@ -151,7 +156,7 @@ function visaTable(rows) {
 function serviceTable(rows) {
   const body = rows.length ? rows.map((row) => `
       <tr>
-        <td class="dsr-doc"><a href="#/invoices/${row.id}">${esc(row.number)}</a>${dateLine(row.date, row.created_at)}</td>
+        <td class="dsr-doc"><a href="#/invoices/${row.id}">${esc(row.number)}</a>${dateLine(row.date, row.created_at)}${staffLine(row)}</td>
         <td><div class="cell-main">${esc(row.customer_name)}</div>${row.remarks ? `<div class="cell-sub">${esc(row.remarks)}</div>` : ''}</td>
         <td>${esc(row.description || '—')}</td>
         <td class="num"><strong>${amt(row.total_cents, { blank: false })}</strong></td>
@@ -198,7 +203,7 @@ function cancellationTables(cancellations, refunds) {
       <tr class="dsr-cancellation-row">
         <td class="nowrap">${esc(fmtDate(row.issue_date))}</td>
         <td class="nowrap"><a href="#/cancellations/${row.cancellation_id}">${esc(row.number)}</a>
-          <div class="cell-sub"><a href="#/${row.kind === 'booking' ? 'bookings' : 'visas'}/${row.reference_id}">${esc(row.reference || '')}</a>${row.charges_invoice_number ? ` · <a href="#/invoices/${row.charges_invoice_id}">${esc(row.charges_invoice_number)}</a>` : ''}</div></td>
+          <div class="cell-sub"><a href="#/${row.kind === 'booking' ? 'bookings' : 'visas'}/${row.reference_id}">${esc(row.reference || '')}</a>${row.charges_invoice_number ? ` · <a href="#/invoices/${row.charges_invoice_id}">${esc(row.charges_invoice_number)}</a>` : ''}</div>${staffLine(row)}</td>
         <td>${esc(row.customer_name)}</td>
         <td class="num">${amt(-row.reversed_sale_cents)}</td>
         <td class="num">${amt(row.charges_cents)}</td>
@@ -335,7 +340,40 @@ function summaryHtml(data) {
       </div>` : ''}
       ${box('cash')}
       ${box('bank')}
-    </div>`;
+    </div>
+    ${staffTable(data)}`;
+}
+
+// Sales by staff for the whole period, whatever the staff filter shows.
+function staffTable(data) {
+  const rows = data.staff_totals || [];
+  if (!rows.length) return '';
+  return `
+    <table class="report-table dsr-table dsr-narrow dsr-staff-table" data-dsr-table="staff"><caption class="dsr-caption">Sales by staff</caption>
+      <thead><tr><th scope="col">Staff</th><th scope="col" class="num">Sales</th><th scope="col" class="num">Amount</th><th scope="col" class="num dsr-profit">Gross profit</th></tr></thead>
+      <tbody>${rows.map((row) => `
+        <tr${row.staff === data.staff ? ' class="is-selected"' : ''}>
+          <td>${esc(row.staff)}</td>
+          <td class="num">${row.sales}</td>
+          <td class="num">${amt(row.sale_cents, { blank: false })}</td>
+          <td class="num dsr-profit">${amt(row.margin_cents, { blank: false })}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// Narrows the sales and cancellations to one staff member.
+function staffPicker(data) {
+  const names = (data.staff_totals || []).map((row) => row.staff);
+  if (names.length < 2 && !data.staff) return '';
+  return `
+    <label class="dsr-staff-pick no-print">
+      <span>Staff</span>
+      <select class="input" data-dsr-staff>
+        <option value="">All staff</option>
+        ${names.map((name) => `<option value="${esc(name)}" ${name === data.staff ? 'selected' : ''}>${esc(name)}</option>`).join('')}
+      </select>
+    </label>`;
 }
 
 export function dailySales(data) {
@@ -360,9 +398,10 @@ export function dailySales(data) {
   const printed = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   return `
     <div class="report-card dsr-report ${profitShown() ? 'show-profit' : ''}" data-dsr>
-      ${reportHeader('Daily Sales Report', periodLabel(data.from, data.to), company)}
+      ${reportHeader('Daily Sales Report', `${periodLabel(data.from, data.to)}${data.staff ? ` · ${data.staff}` : ''}`, company)}
       <div class="dsr-meta">
-        <span>Amounts in AED · printed ${esc(printed)}</span>
+        <span>Amounts in AED · printed ${esc(printed)}${data.staff ? ` · sales and cancellations by ${esc(data.staff)} only` : ''}</span>
+        ${staffPicker(data)}
         <label class="checkbox-row dsr-profit-toggle no-print"><input type="checkbox" data-dsr-profit ${profitShown() ? 'checked' : ''}> <span>Show cost &amp; gross profit</span></label>
       </div>
       ${section('B', 'Ticket & booking sales', ticketTable(s.tickets), { id: 'tickets' })}

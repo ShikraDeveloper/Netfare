@@ -6,6 +6,7 @@
 // Dr bank (net) · Dr 6700 Bank Charges (fee) · Cr 1030 (gross).
 
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../util');
+const { markCreated } = require('../created-by');
 const { postEntry, reverseEntry, accountByCode, isCashAccount, SYSTEM_CODES } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
@@ -95,6 +96,7 @@ function createSettlement(db, payload = {}) {
       optionalStr(payload.reference, 'Reference', 200), optionalStr(payload.notes, 'Notes', 1000),
     );
     const id = Number(info.lastInsertRowid);
+    markCreated(db, 'card_settlements', id);
     const insertLine = db.prepare('INSERT INTO card_settlement_lines (settlement_id, journal_line_id, amount_cents) VALUES (?, ?, ?)');
     for (const item of chosen) insertLine.run(id, item.id, item.amount_cents);
     const entryId = postEntry(db, {

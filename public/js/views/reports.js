@@ -81,7 +81,7 @@ async function fetchReport(key, filters) {
     return api.get('/reports/visas', { from: filters.from, to: filters.to });
   }
   if (key === 'daily-sales') {
-    return api.get('/reports/daily-sales', { from: filters.from, to: filters.to });
+    return api.get('/reports/daily-sales', { from: filters.from, to: filters.to, staff: filters.staff });
   }
   if (key === 'portal-wallets') return api.get('/reports/portals');
   if (key === 'visa-deposits') return api.get('/reports/visa-deposits', { status: filters.depositStatus });
@@ -157,6 +157,7 @@ export async function render(container, { params } = {}) {
     to: today,
     asOf: today,
     depositStatus: 'open',
+    staff: '',
   };
 
   setHeader({
@@ -182,6 +183,13 @@ export async function render(container, { params } = {}) {
     if (!event.target.matches('[data-dsr-profit]')) return;
     event.target.closest('[data-dsr]')?.classList.toggle('show-profit', event.target.checked);
     rememberProfit(event.target.checked);
+  });
+
+  // DSR staff picker: one staff member's sales, or everyone's.
+  body.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-dsr-staff]')) return;
+    filters.staff = event.target.value;
+    reload();
   });
 
   async function reload() {

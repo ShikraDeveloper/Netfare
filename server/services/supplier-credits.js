@@ -18,6 +18,7 @@ const {
   billBalanceCents,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const portalService = require('./portals');
 const audit = require('./audit');
 
@@ -289,6 +290,7 @@ function insertSupplierCredit(db, payload, { applyToBill = false } = {}) {
     optionalStr(payload.notes, 'Notes', 2000),
   );
   const creditId = Number(info.lastInsertRowid);
+  markCreated(db, 'supplier_credit_notes', creditId);
   const insertItem = db.prepare(`
     INSERT INTO supplier_credit_items (credit_note_id, description, amount_cents, account_id, sort_order)
     VALUES (?, ?, ?, ?, ?)
@@ -469,6 +471,7 @@ function refundSupplierCredit(db, creditId, payload = {}) {
       account.id,
     );
     const refundId = Number(info.lastInsertRowid);
+    markCreated(db, 'refunds', refundId);
     const entryId = postEntry(db, {
       entry_date: refundDate,
       memo: `Supplier credit refund ${number} — ${credit.number}`,

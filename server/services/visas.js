@@ -9,6 +9,7 @@ const {
   isTruthy,
 } = require('../util');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
 const jobCosts = require('./job-costs');
@@ -287,6 +288,7 @@ function createVisa(db, payload, options = {}) {
       options.groupId || null,
     );
     const visaId = Number(info.lastInsertRowid);
+    markCreated(db, 'visa_applications', visaId);
     jobs.insertJobItems(db, 'visa', visaId, saleItems, costItems);
     jobs.recordStatus(db, 'visa', visaId, { to: 'draft', remarks: 'Application created' });
     return getVisa(db, visaId);
@@ -561,6 +563,7 @@ function createVisaGroup(db, payload = {}) {
     const number = allocateNumber(db, 'visa_group', applicationDate);
     const groupId = Number(db.prepare('INSERT INTO visa_groups (number, customer_id) VALUES (?, ?)')
       .run(number, customer.id).lastInsertRowid);
+    markCreated(db, 'visa_groups', groupId);
     const created = applicants.map((applicant, index) => {
       try {
         return createVisa(db, build(applicant, index), { groupId });

@@ -6,6 +6,7 @@
 // 6900 Other Expenses.
 
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../util');
+const { markCreated } = require('../created-by');
 const { postEntry, reverseEntry, accountByCode } = require('../accounting');
 const cashDeposits = require('./cash-deposits');
 const audit = require('./audit');
@@ -97,6 +98,7 @@ function recordCount(db, payload = {}) {
       VALUES (?, ?, ?, ?, ?)
     `).run(date, counted, book, difference, notes);
     const id = Number(info.lastInsertRowid);
+    markCreated(db, 'petty_cash_counts', id);
     if (difference !== 0) {
       const overShort = accountByCode(db, OVER_SHORT_CODE);
       if (!overShort || !overShort.is_active) throw bad('Add the 6900 Other Expenses account first');

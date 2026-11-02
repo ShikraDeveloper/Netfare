@@ -4,6 +4,7 @@ const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../uti
 const { systemAccount, isCashAccount, postEntry, reverseEntry, SYSTEM_CODES } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
+const { markCreated } = require('../created-by');
 
 // Visa security deposits. A deposit is the customer's money, not a sale:
 //   collect          Dr cash/bank            Cr 2600 deposits held
@@ -183,6 +184,7 @@ function collectDeposit(db, payload = {}) {
       INSERT INTO visa_deposits (number, customer_id, visa_id, deposit_date, amount_cents, notes)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(number, visa.customer_id, visa.id, date, amount, optionalStr(payload.notes, 'Notes', 1000)).lastInsertRowid);
+    markCreated(db, 'visa_deposits', depositId);
     const entryId = postEntry(db, {
       entry_date: date,
       memo: `Visa security deposit ${number} — ${visa.number}${visa.applicant_name ? ` (${visa.applicant_name})` : ''}`,
@@ -351,6 +353,7 @@ function refundDeposit(db, id, payload = {}) {
       number, deposit.customer_id, deposit.id, date, amount, method, deposit.number,
       optionalStr(payload.notes, 'Notes', 1000) || `Refund of visa deposit ${deposit.number}`, account.id, entryId,
     ).lastInsertRowid);
+    markCreated(db, 'refunds', refundId);
     insertEvent(db, deposit.id, {
       event_type: 'refund', event_date: date, amount_cents: amount, account_id: account.id, method,
       reference: optionalStr(payload.reference, 'Reference', 200), refund_id: refundId, journal_entry_id: entryId,
@@ -381,6 +384,7 @@ function applyToInvoice(db, id, payload = {}) {
         reference, deposit_account_id, deposit_id)
       VALUES (?, ?, ?, ?, ?, 'Deposit applied', ?, ?, ?)
     `).run(number, deposit.customer_id, invoice.id, date, requested, deposit.number, held.id, deposit.id).lastInsertRowid);
+    markCreated(db, 'payments', paymentId);
     const entryId = postEntry(db, {
       entry_date: date,
       memo: `Visa deposit ${deposit.number} applied to invoice ${invoice.number}`,

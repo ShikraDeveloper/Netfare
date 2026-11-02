@@ -22,6 +22,7 @@ const {
   billDisplayStatus,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
+const { markCreated } = require('../created-by');
 const chequeService = require('./cheques');
 const audit = require('./audit');
 
@@ -221,6 +222,7 @@ function createBill(db, payload) {
       totals.total,
     );
     const billId = Number(info.lastInsertRowid);
+    markCreated(db, 'bills', billId);
     insertItems(db, billId, items);
 
     if (status === 'received') {
@@ -415,6 +417,7 @@ function recordBillPayment(db, billId, payload) {
       charges,
     );
     const paymentId = Number(info.lastInsertRowid);
+    markCreated(db, 'bill_payments', paymentId);
     const entryId = postEntry(db, {
       entry_date: paymentDate,
       memo: `Bill payment ${number} — ${vendor.name} (bill ${bill.number})${chequeNumber ? ` · cheque ${chequeNumber}` : ''}`,

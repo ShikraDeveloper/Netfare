@@ -29,7 +29,7 @@ router.get('/visas', (req, res) => {
 
 router.get('/daily-sales', (req, res) => {
   const { start, end } = monthRange(todayISO());
-  res.json(reports.dailySales(db, req.query.from || start, req.query.to || end));
+  res.json(reports.dailySales(db, req.query.from || start, req.query.to || end, { staff: req.query.staff }));
 });
 
 // Deposit register: every visa security deposit, what is still held and
