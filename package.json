@@ -2,6 +2,7 @@
   "name": "netfare",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Local-first invoicing and double-entry accounting",
   "main": "server/index.js",
   "scripts": {

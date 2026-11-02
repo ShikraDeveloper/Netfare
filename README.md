@@ -564,4 +564,4 @@ All endpoints are under `/api`:
 
 ## License
 
-Private, local use.
+MIT, © 2026 ShikraGroup. See [LICENSE](LICENSE). Netfare is free and open source.

@@ -3,6 +3,7 @@
   "productName": "Netfare",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Netfare desktop app: invoicing and books for non-IATA travel agencies",
   "author": "ShikraGroup",
   "main": "main.js",
