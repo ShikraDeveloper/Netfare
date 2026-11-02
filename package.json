@@ -14,6 +14,7 @@
     "desktop": "node scripts/build-desktop.js run",
     "desktop:dist": "node scripts/build-desktop.js dist",
     "release:feed": "node scripts/release-feed.js",
+    "website:zip": "rm -f netfare-website.zip && cd website && zip -qr ../netfare-website.zip . -x '.*'",
     "check": "node scripts/check.js",
     "test": "node --test test/*.test.js",
     "test:e2e": "node --test test/e2e/*.test.js",

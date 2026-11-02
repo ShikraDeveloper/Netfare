@@ -128,7 +128,13 @@ The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with
 - **Website:** `website/` is the landing page.
   - It is plain HTML, CSS and a little JS, with no build step.
   - Its Download button picks this computer's installer, and it reads the latest version and notes from GitHub.
-  - `.github/workflows/pages.yml` publishes it on GitHub Pages when `website/` changes on `main`.
+  - It is hosted on the ShikraGroup website, not on GitHub Pages. `npm run website:zip` makes `netfare-website.zip` (git-ignored) for upload.
+  - **Hosting checklist:**
+    1. Upload the zip's contents (`index.html` and `assets/`) as they are to any folder (`…/netfare/`) or subdomain (`netfare.…`). All paths are relative; keep the names and folders.
+    2. Serve it over https.
+    3. If the host adds its own Content-Security-Policy header, allow `connect-src https://api.github.com`. Without it the page still works, but shows built-in text instead of the live version and notes.
+    4. Once the address is known, set `og:image` in `index.html` to the full https address of `assets/brand/netfare-og-1200x630.png` for link previews.
+    5. Downloads point at GitHub Releases, so a new Netfare release needs no website change. Re-upload only when the page itself changes.
   - To preview it, run `python3 -m http.server --directory website` and open the address it prints.
 - For testing, `NETFARE_USER_DATA=<folder>` keeps a run's books and choice out of the real app folder, and `PORT` picks another port.
 

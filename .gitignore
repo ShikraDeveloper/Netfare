@@ -10,3 +10,6 @@ OpenCode*.pdf
 # Desktop app build output (scripts/build-desktop.js)
 desktop/build/
 desktop/dist/
+
+# Upload package of the landing page (npm run website:zip)
+netfare-website.zip
