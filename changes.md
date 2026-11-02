@@ -1541,9 +1541,27 @@ Verification:
 - **Visual check on a throwaway server with a local feed (1.1.0):** the admin banner, What's new with the steps, Later hiding it across a reload, and the Updates card.
 - Schema change: `settings.update_feed` (additive). Restart needed.
 
+### Preparing to publish on GitHub — code commit `2b0f99d`
+
+The user created a public, empty repository: https://github.com/ShikraDeveloper/Netfare (account id 254118030).
+
+- **History check before publishing** (all 111 commits, read-only):
+  - no `.db`, backup, `.env`, key, PDF or spreadsheet files were ever committed (`data/` was always git-ignored);
+  - no API keys, tokens or private keys;
+  - passwords appear only as test values; phone numbers are demo `555` numbers; demo emails use `@example`;
+  - no personal paths and no "Shikra Travel FZE" in the docs.
+  - **Will be public:** the commit author `Shikra-Travel <shikratravel@gmail.com>` on the 111 existing commits.
+- **User's decisions:**
+  - keep the history as it is, since rewriting it would break the commit hashes in this file;
+  - future commits use the GitHub noreply email: `git config user.email 254118030+ShikraDeveloper@users.noreply.github.com`, set in this repository only;
+  - MIT license.
+- **LICENSE:** added (MIT, © 2026 ShikraGroup). README's License section and `"license": "MIT"` in both `package.json` files point to it.
+- **GitHub CLI:** Homebrew has no bottle for macOS 27, so gh **2.102.0** (released 2026-09-30) was downloaded from github.com/cli/cli releases. Its SHA-256 matched the official checksums file, and the binary is signed (Team VEKTX9H2N7). It is installed at `~/.local/bin/gh`, which is on PATH.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `78a3c2d` (update notice).
+1. Start from the latest `main`; the latest code commit is `2b0f99d` (MIT license).
+2. After `gh auth login` and the user's OK: add the `origin` remote and push `main`.
 2. Step 6 is a download page. It needs a place to host the `.dmg` and `latest.json`: the Netfare website or GitHub Releases, chosen by the user.
 3. Still open:
    - the flaky sign-in browser test;
