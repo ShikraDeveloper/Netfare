@@ -1473,14 +1473,49 @@ Verification:
 - The setup screen was looked at in the browser pane (design only; the buttons need Electron).
 - No schema change. No restart needed: the server behaves the same when started with `npm start`.
 
+### Desktop app built and tested (step 4) — code commit `7fb4ec9`
+
+The user approved downloading Electron and electron-builder, then approved upgrading better-sqlite3.
+
+- **Versions:** Electron **44.9.0** (released 2026-10-17) and electron-builder **26.17.0** (2026-09-26) are pinned exactly in `desktop/package.json`; `desktop/package-lock.json` is added. Newer releases existed but were less than two weeks old.
+- **npm cache:** `~/.npm` holds root-owned files, so `npm install` failed with EACCES. The fix (`sudo chown`) needs the user's password. The installs used a separate cache instead (`npm_config_cache=<scratchpad>/npm-cache`), and README notes this.
+- **better-sqlite3 11.10.0 → 13.0.3 (whole project):**
+  - **Why:** 11.10.0 failed to compile for Electron 44 (V8 API errors). A scratch test showed 13.0.3 compiles for Electron 42, 43 and 44.
+  - **Why no rebuild:** 13.x ships Node-API prebuilds (`prebuilds/darwin-arm64.node`), which load in Electron without rebuilding. So `scripts/build-desktop.js` no longer rebuilds native modules; it copies the server and runs `npm ci --omit=dev` in `desktop/build/app-server`.
+  - **Checks:** SQLite is now 3.53.4. All suites pass on it. The live server picks it up at its next restart.
+- **Packaging fix:** electron-builder silently drops `node_modules` from an `extraResources` folder, even with a filter. The first packaged app failed with "Cannot find module 'express'". The staged `node_modules` now ship as a second `extraResources` entry (`build/app-server/node_modules` → `app-server/node_modules`).
+- **Testing hook:** `NETFARE_USER_DATA` in `desktop/main.js` points the app folder elsewhere, so test runs never write to the real `~/Library/Application Support/Netfare`.
+- **Built:** `desktop/dist/Netfare-1.0.0-arm64.dmg` (143 MB; the `.app` is 311 MB). It is unsigned (`CSC_IDENTITY_AUTO_DISCOVERY=false`, to avoid keychain prompts), so macOS warns on first open. Signing is step 5. electron-builder also downloaded its icons and dmgbuild bundles. `desktop/dist` and `desktop/build` are git-ignored.
+
+Verification (Playwright `_electron`, with test app folders and spare ports, never the live data):
+
+- **From source** (`desktop/`, port 4393):
+  - The setup screen opens, and "Start new books here" starts the server in the app.
+  - The Netfare "Create the admin account" screen loads at `127.0.0.1:4393`.
+  - `data/accounting.db` and `desktop.json {"mode":"main"}` are created in the test app folder.
+  - Navigating to `https://example.com` leaves the window on Netfare.
+  - Calling the setup bridge from a Netfare page returns "Not allowed".
+  - A second start goes straight to the books.
+- **Connect path** (a temporary server on port 4391 as the office computer):
+  - `ftp://office` gives "Use an http:// address".
+  - An address with nobody listening gives "No Netfare answered at http://127.0.0.1:4399…".
+  - `127.0.0.1:4391` opens the office Netfare and saves `{"mode":"connect","office_url":"http://127.0.0.1:4391"}`.
+- **Packaged `Netfare.app`** (port 4395): "Start new books here" runs the bundled server and creates the books.
+- **Suites:** `npm run check` 213 files OK, `npm test` 217 passed, `npm run test:e2e` 42 passed.
+  - **Flaky test:** the new sign-in browser test failed once out of four runs (`not ok 41`). The rerun output did not capture the failing step, so it is still to be hardened.
+- **Not tested:** "Start from a backup (.db)" (it needs the native file dialog), and running on a second physical computer.
+
+Key files: `desktop/package.json`, `desktop/package-lock.json` (new), `desktop/main.js`, `scripts/build-desktop.js`, `package.json`, `package-lock.json`, `README.md`.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `fc50020` (desktop app code).
-2. To continue step 4, the user must approve downloading Electron and electron-builder (about 160 MB). Then:
-   1. Pin exact versions at least two weeks old in `desktop/package.json`.
-   2. Run `cd desktop && npm install`, then `npm run desktop`, and test both setup paths.
-   3. Run `npm run desktop:dist`.
-3. Step 5 (signing and auto-update) follows. "Created by" on documents and the DSR staff column are still open.
+1. Start from the latest `main`; the latest code commit is `7fb4ec9` (desktop app built).
+2. A restart of the live server puts it on better-sqlite3 13.0.3. Back up first, as always.
+3. Next in the plan is step 5: code signing and notarization (Apple Developer account, the user's cost) plus auto-update through GitHub Releases.
+4. Still open:
+   - the flaky sign-in browser test;
+   - "Created by" on documents and the DSR staff column;
+   - testing Import from backup by hand.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
