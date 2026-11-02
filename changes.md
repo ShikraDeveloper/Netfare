@@ -1650,9 +1650,31 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 - **Release:** tag `v1.0.1` (two note lines), run 41491088053: Build (mac), Build (win) and Publish release all succeeded. The assets are arm64 dmg 141 MB, x64 dmg 148 MB, Windows exe 130 MB, and `latest.json`.
 - **Checked from GitHub:** both released dmgs match their digests, contain version 1.0.1 (arm64 and x86_64), pass deep verify (ad-hoc, `com.shikragroup.netfare`), and a quarantined copy is "rejected", not damaged. `latest.json` reports 1.0.1, which the update check counts as newer than the installed 1.0.0.
 
+(The changes.md record above was pushed later with the user's OK. On the user's Mac the 1.0.1 dmg was downloaded in Safari and installed. macOS showed "Apple could not verify Netfare" — not "damaged" — and Open Anyway worked. Netfare 1.0.1 runs from /Applications on the same books.)
+
+### Created by on documents, staff in the DSR — code commit `95dd1e5`
+
+- **Schema:** `created_by TEXT NOT NULL DEFAULT ''` (the signed-in user's full name) is added by migration to 21 tables: bookings, visa_applications, visa_groups, visa_deposits, invoices, payments, customer_advances, credit_notes, refunds, cancellations, bills, bill_payments, supplier_credit_notes, portal_topups, portal_refunds, portal_credits, cash_deposits, post_dated_cheques, card_settlements, petty_cash_counts and journal_entries.
+- **Stamping:**
+  - `postEntry` writes it for every posting. New `server/created-by.js` (`markCreated(db, table, id)`, limited to these tables) stamps the other 30 insert sites: 24 were found by script after `const X = Number(info.lastInsertRowid)`; 6 were done by hand in visa-deposits (3), advances, visas (groups) and cheques.
+  - Records from before logins, and records made by scripts, stay blank. Sample data takes the name of the admin who loaded it.
+  - It is a plain UPDATE after the insert, so `updated_at` (edit versions) is unchanged.
+- **Pages:** booking, visa, invoice, bill, receipt, refund, credit note, cancellation and supplier credit subtitles end with "· by <name>" (`createdByText` in ui.js).
+- **DSR:**
+  - **Who made each sale:** each item has `staff` — the booking's or visa's creator, else the invoice's; for a cancellation, its own creator. "Not recorded" if blank.
+  - **Display:** each ticket, visa, service and cancellation row shows "by <name>".
+  - **Staff picker:** "Staff: All staff / names", shown when there are two or more names, and not printed. It sends `?staff=` and narrows sales and cancellations to that person. Money collected, refunds and money paid out stay for everyone, and the header shows the name.
+  - **Sales by staff:** a table under the Summary (sales count, amount, gross profit with Show profit) always covers the whole period.
+- **Tests:**
+  - New `test/created-by.test.js`: every tracked table has the column; a signed-in posting carries the name while a script posting is blank; untracked tables are refused.
+  - New HTTP test: a staff user's booking, its invoice and the invoice's journal entry carry her name, while the admin's booking carries the admin's; the DSR's staff totals and the staff filter are checked.
+  - `npm run check` 222 files OK, `npm test` 227 passed, `npm run test:e2e` 42 passed.
+- **Visual check on a throwaway server (demo data plus 3 bookings by two users):** the booking subtitle reads "… · Confirmed · by Omar Siddiqui"; the DSR shows the "by" lines, Sales by staff (Omar 2 · 4,400.00; Aisha 1 · -2,690.00 net of a demo cancellation), and the Omar filter (2 rows, name in the header). No errors.
+- **Not yet in the desktop app:** the user runs the desktop app (1.0.1), so this reaches them only in a new release (1.0.2). Not pushed yet.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist. This changes.md entry is committed locally; it is pushed only with the user's OK.
+1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist.
 2. The user's `/Applications/Netfare.app` is 1.0.0, so its admin should see the "Netfare 1.0.1 is available" banner — the first real check of the update notice. To update: quit Netfare, install the 1.0.1 arm64 dmg, open it. The books stay in Application Support.
 2. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
 3. **Still open:**
