@@ -1609,12 +1609,26 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   - The app's own update check (`server/services/updates.js`, default address, temporary data folder) read it: latest 1.0.0, not newer than the installed 1.0.0, no error.
 - **Not checked yet:** a person installing from the release on a Mac (Open Anyway) and on a Windows PC (SmartScreen → Run anyway).
 
+### Website / landing page (Qadam 5) — code commits `e88b0e5`, `db43ff0`
+
+- **`website/` (plain HTML, CSS and JS, no build step, 940 KB):**
+  - **Hero:** an OS-aware Download button. Mac Apple Silicon or Intel comes from userAgentData architecture or the WebGL renderer; Windows and phones are handled too. It links to the stable `releases/latest/download/` files.
+  - **Sections:** a strip of key facts, nine feature cards, real screenshots captured from demo data on a throwaway server (invoices, booking, DSR, rights; JPEG), For your team, How it works (diagram), Download (three cards, with "your computer" highlighted), and install steps for Mac (Open Anyway), Windows (SmartScreen) and the first start.
+  - **What's new:** read live from `api.github.com/repos/ShikraDeveloper/Netfare/releases/latest`, as text only. If that fails, built-in text shows.
+  - **FAQ** and footer.
+  - **Look:** brand fonts (Bricolage Grotesque, Quicksand) and colours, light and dark, a phone layout, and a strict meta CSP (fetch only to api.github.com).
+  - **Checks:** desktop and phone, light and dark — no horizontal scroll, no script errors, axe WCAG 2.1 AA clean. 16 light-mode contrast issues were fixed by darkening the text accent to `#1a6a9e`.
+- **Hosting:** the user will host the page on their own website, not GitHub Pages.
+  - So the Pages workflow from `e88b0e5` was removed in `db43ff0`.
+  - `npm run website:zip` makes `netfare-website.zip` (751 KB, git-ignored).
+  - README has the hosting checklist: keep the paths, use https, allow CSP `connect-src` for api.github.com, set `og:image` to a full address.
+  - The zip was tested when served from a `/netfare/` sub-folder: no 404s, no errors, fonts load, the live version shows and the Download link is right.
+- **Not pushed yet:** `e88b0e5` and `db43ff0` are local only. The user chose not to publish via Pages, so a push is asked separately.
+
 ### Next session
 
-1. Start from the latest `main`. The `v1.0.0` tag exists.
-2. **Qadam 5:** the landing page on GitHub Pages.
-   - Its download buttons use the `releases/latest/download/` links above.
-   - The user enables Pages with Settings → Pages → Source: GitHub Actions.
+1. Start from the latest `main`. The `v1.0.0` tag exists; `main` is 3 commits ahead of `origin` until pushed.
+2. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
 3. **Still open:**
    - testing the installers by hand on Mac and Windows;
    - the flaky sign-in browser test;
