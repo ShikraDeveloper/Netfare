@@ -1369,9 +1369,43 @@ Verification:
 - Visual check on a throwaway server (port 4391): setup, dashboard, the Users card, and staff sign-in.
 - Schema change: new `users` and `sessions` tables and the `audit_logs.user_name` column (all additive). Restart needed. After the restart, the live app asks once for the admin account.
 
+### Rights per user (step 2b) — code commit `1c417d3`
+
+- **Rights model** (new `server/permissions.js`): 14 areas. For each one the admin picks No access, View or Edit. Dashboard, Reports and Audit log are view-only. A separate **Void, cancel & delete** tick covers any `DELETE` and any `…/void` or `…/cancel` request, and it also needs Edit for that area. The rights are stored in the new `users.permissions` column (JSON; migration adds it). The admin is never limited.
+- **Server enforcement:** the API guard in `server/routes/index.js` matches each request to an area by its prefix. GET needs View; other methods need Edit (and Void where it applies). It answers 403 with `code: 'no_right'` and a plain message such as "You do not have Edit rights for Invoices, payments & advances. Ask the admin." Unknown prefixes, `/users` and `/admin` are admin-only.
+  - **Readable by everyone:** the picker lists every screen loads (`GET /settings`, `/accounts`, `/customers`, `/vendors`, `/portals`), and `/reports/dashboard` and `/reports/reconciliation` with Dashboard rights.
+  - **Related reads:** booking and visa screens may read invoices (outstanding invoices for advances), portals and cancellations, and may record customer advances. Documents may open their own journal entry (one entry, not the journal list). Supplier credits may read bookings and visas. Cheques may read compliance.
+  - **Attachments** follow the rights of the document they belong to.
+  - Rights changes apply on the next request, without signing in again, and are audited (action "rights", with a summary).
+- **Settings → Users & logins:**
+  - **Rights checklist:** New user and a new Rights button (shield) on each user open a checklist table with No access, View and Edit radio buttons per area, "Set all" buttons and the Void tick.
+  - **List:** a Rights column ("Edit 1 · View 2 · Void").
+  - **Defaults:** a new user starts with Dashboard View only.
+- **App:**
+  - **Menu:** the menu and the phone tab bar show only allowed screens.
+  - **Blocked screens:** opening a screen without View shows "You do not have access to this screen". The home screen goes to the first allowed screen.
+  - **Buttons:** one generated stylesheet hides "New …" buttons and void, cancel and delete buttons without the right, plus Audit chain links without Audit rights.
+  - **Settings:** company settings are read-only without Edit.
+- **Not done yet:** "created by" on each document. It needs a column on about ten document tables; it is left for the DSR staff column work. The audit log already records who voided, cancelled or deleted.
+
+Key files: `server/permissions.js` (new), `server/routes/{index,users}.js`, `server/services/auth.js`, `server/schema.js`, `server/migrations.js`, `public/js/{app,store}.js`, `public/js/views/{account,settings}.js`, `public/css/styles.css`, `README.md`, `test/permissions.test.js` (new), `test/http-security.test.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 204 files OK.
+- `npm test`: 207 passed.
+  - **Unit (new):** each prefix belongs to one area; unknown areas and levels are dropped; view, edit and void decisions; shared lists; dashboard, journal and attachment rules; the admin is unlimited.
+  - **HTTP (new):** View allows reading but not creating, and the message names the area; deleting without Void is 403; granting Void works at once; removed rights are gone at once; the journal list stays closed; the admin's rights cannot be set; the rights change is audited.
+- `npm run test:e2e`: 42 passed. The sign-in test now sets rights in the checklist (Reports has no Edit option). The staff menu shows only Dashboard, Bookings, Invoices, Settlements, Customer balances and Settings. New booking shows, New bill and New invoice are hidden, Bills shows No access, and the company settings form is disabled.
+- **Visual check on a throwaway server (port 4391, demo data):**
+  - The staff menu and dashboard buttons follow the rights.
+  - A booking detail page opens with Cancel booking hidden.
+  - The admin Rights modal is shown.
+- Schema change: `users.permissions` (additive). Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `a0daf49` (sign-in and users). Next in the plan: step 2b, rights per user (View/Edit checklist) enforced on the server, plus "created by" on documents.
+1. Start from the latest `main`; the latest code commit is `1c417d3` (rights per user). Next in the plan: step 3, the multi-computer (LAN/Tailscale) mode. "Created by" on documents and the DSR staff column are still open.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
