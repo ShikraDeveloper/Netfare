@@ -1558,10 +1558,22 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 - **LICENSE:** added (MIT, © 2026 ShikraGroup). README's License section and `"license": "MIT"` in both `package.json` files point to it.
 - **GitHub CLI:** Homebrew has no bottle for macOS 27, so gh **2.102.0** (released 2026-09-30) was downloaded from github.com/cli/cli releases. Its SHA-256 matched the official checksums file, and the binary is signed (Team VEKTX9H2N7). It is installed at `~/.local/bin/gh`, which is on PATH.
 
+### Published on GitHub (2026-11-02)
+
+- **Login:** `gh auth login` as **ShikraDeveloper** (token stored in the keyring; scopes `repo`, `read:org`, `gist`; no `workflow` yet). The first try sat at gh's "Authenticate Git?" prompt, so the login ran again with `< /dev/null` to print the device code straight away.
+- **Remote:** `origin` = `https://github.com/ShikraDeveloper/Netfare.git`. Global git settings are untouched: pushes run with `-c credential.https://github.com.helper='!~/.local/bin/gh auth git-credential'`.
+- **First push:** GitHub had made one "Initial commit" (`f4b7163`, a two-line README, author `riskcontrol96@gmail.com`). With the user's OK it was replaced with `git push --force-with-lease=main:f4b7163`; the README content is already covered by ours.
+- **Checked on GitHub:** public; "MIT License" detected; 113 commits, the same as local; no `data/`; `desktop/` holds only source (no `node_modules`, `build` or `dist`).
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `2b0f99d` (MIT license).
-2. After `gh auth login` and the user's OK: add the `origin` remote and push `main`.
+1. Start from the latest `main` (tracks `origin/main`).
+2. Next is building releases with GitHub Actions:
+   1. Add a workflow that builds Mac arm64/x64 and Windows when a `v*` tag is pushed and uploads them with `latest.json` to GitHub Releases.
+   2. Use stable asset names.
+   3. Allow the GitHub redirect in the update check, and set the default update address.
+   4. Pushing workflow files first needs `gh auth refresh -s workflow`.
+3. Then the landing page on GitHub Pages.
 2. Step 6 is a download page. It needs a place to host the `.dmg` and `latest.json`: the Netfare website or GitHub Releases, chosen by the user.
 3. Still open:
    - the flaky sign-in browser test;
