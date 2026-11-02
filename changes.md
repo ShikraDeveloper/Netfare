@@ -1565,15 +1565,41 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 - **First push:** GitHub had made one "Initial commit" (`f4b7163`, a two-line README, author `riskcontrol96@gmail.com`). With the user's OK it was replaced with `git push --force-with-lease=main:f4b7163`; the README content is already covered by ours.
 - **Checked on GitHub:** public; "MIT License" detected; 113 commits, the same as local; no `data/`; `desktop/` holds only source (no `node_modules`, `build` or `dist`).
 
+### Release builds on GitHub Actions (Qadam 4) — code commits `6996d63`, `a94ee37`
+
+- **`.github/workflows/release.yml`:**
+  - **Triggers:** a `v*` tag, or a manual run, which builds and tests only.
+  - **Build matrix:** `macos-latest` builds arm64 and x64 `.dmg`; `windows-latest` builds the NSIS `.exe`.
+  - **Steps:** `npm ci` (root with `--ignore-scripts`; `desktop/` with scripts, so Electron downloads itself). Unit tests run on the Mac runner. Then `scripts/build-desktop.js dist mac|win`, `scripts/smoke-desktop.js`, and upload of the installers.
+  - **Release job** (tags only, `contents: write`): checks that the tag matches `package.json`, writes `latest.json` from the annotated tag's message lines (`scripts/release-feed.js --notes-from-tag`), and runs `gh release create` with the three installers, `latest.json` and install notes.
+  - **Pinned actions:** checkout v7.0.1 (`3d3c42e…`), setup-node v7.1.0 (`949feb2…`), upload-artifact v7.0.2 (`cf430e0…`), download-artifact v8.0.2 (`9000827…`). Each is the newest release at least two weeks old.
+  - Top-level permissions are `contents: read`, and steps run in `bash`.
+- **Installer names never change:** `Netfare-mac-arm64.dmg`, `Netfare-mac-x64.dmg` and `Netfare-windows-x64.exe`, so `…/releases/latest/download/<file>` always points at the newest version.
+  - The NSIS installer is per-user, with a choosable folder and a "Netfare" shortcut.
+  - The Hide, Hide Others and Show All menu items exist only on a Mac.
+- **`scripts/build-desktop.js`:** runs npm, Electron and electron-builder through node, so the same commands work on Windows; `dist` takes `mac` or `win`. The staged install uses `--ignore-scripts`: better-sqlite3 13 ships `win32-x64` and darwin prebuilds, and without the flag npm runs node-gyp, which needs Visual Studio on Windows.
+- **`scripts/smoke-desktop.js` (new):** opens the packaged app (Mac or Windows) with a temporary app folder and port 4397, clicks "Start new books here", and checks `/api/health` and that `accounting.db` was created.
+- **Update check:**
+  - Netfare's GitHub releases are now the default address (`settings.update_feed` blank). `off` turns checking off, and Settings → Updates gained a "Check for new versions" switch.
+  - Redirects are followed by hand, up to 5, https only; a 404 on the default address says "No Netfare release has been published yet".
+  - `NETFARE_UPDATE_FEED` overrides the default; the test servers set it to `off`, so tests never reach the internet.
+- **Workflow permission:** pushing workflow files needed the `workflow` scope (`gh auth refresh -s workflow`). The first device code was never authorized; the second (`79D1-1EC9`) worked.
+- **Trial runs (manual):**
+  - Run 41438222363 (`6996d63`): Mac passed. Windows built the `.exe`, but root `npm ci` had failed on node-gyp. PowerShell carried on, so the smoke test failed on a missing `playwright-core`. That led to `a94ee37`.
+  - Run 41439053865 (`a94ee37`): **Success** on both. The artifacts were netfare-mac (276 MB) and netfare-win (125 MB), and the Windows smoke test passed.
+  - During the runs `api.github.com` stopped resolving on this network for a few minutes while `github.com` worked. The result was read from the run page.
+- **Local checks:**
+  - `npm run check`: 219 files OK.
+  - `npm test`: 224 passed.
+  - `npm run test:e2e`: 42 passed.
+  - Both Mac builds were made here, and the smoke test passed.
+- **Not done yet:** publishing a real release (a tag), and a person opening the Windows app on a Windows PC.
+
 ### Next session
 
-1. Start from the latest `main` (tracks `origin/main`).
-2. Next is building releases with GitHub Actions:
-   1. Add a workflow that builds Mac arm64/x64 and Windows when a `v*` tag is pushed and uploads them with `latest.json` to GitHub Releases.
-   2. Use stable asset names.
-   3. Allow the GitHub redirect in the update check, and set the default update address.
-   4. Pushing workflow files first needs `gh auth refresh -s workflow`.
-3. Then the landing page on GitHub Pages.
+1. Start from the latest `main`.
+2. **First release:** with the user's OK, run `git tag -a v1.0.0 -m "…notes…"` and push the tag. The workflow then publishes the release.
+3. **Qadam 5:** the landing page on GitHub Pages. The user enables Pages with Settings → Pages → Source: GitHub Actions.
 2. Step 6 is a download page. It needs a place to host the `.dmg` and `latest.json`: the Netfare website or GitHub Releases, chosen by the user.
 3. Still open:
    - the flaky sign-in browser test;
