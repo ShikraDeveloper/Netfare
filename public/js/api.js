@@ -13,6 +13,10 @@ async function request(path, options = {}) {
     }
   }
   if (!response.ok) {
+    // The session ended or a one-time password must be changed: show sign-in.
+    const signIn = response.status === 401
+      || (response.status === 403 && data?.code === 'password_change_required');
+    if (signIn && !path.startsWith('/auth/')) window.dispatchEvent(new CustomEvent('auth-required'));
     const error = new Error((data && data.error) || `Request failed (${response.status})`);
     error.status = response.status;
     error.data = data;

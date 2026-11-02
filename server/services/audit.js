@@ -1,6 +1,7 @@
 'use strict';
 
 const { bad, optionalStr } = require('../util');
+const { currentUser } = require('../request-context');
 
 const MAX_REMARKS = 2000;
 
@@ -32,8 +33,8 @@ function record(db, {
   if (amount != null && !Number.isFinite(amount)) throw bad('Audit amount is invalid');
   const info = db.prepare(`
     INSERT INTO audit_logs (
-      entity_type, entity_id, entity_number, action, remarks, amount_cents, metadata
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      entity_type, entity_id, entity_number, action, remarks, amount_cents, metadata, user_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     type,
     id,
@@ -42,6 +43,7 @@ function record(db, {
     cleanRemarks(remarks),
     amount,
     metadata ? JSON.stringify(metadata) : '',
+    currentUser()?.full_name || '',
   );
   return Number(info.lastInsertRowid);
 }
@@ -73,9 +75,9 @@ function list(db, {
     params.push(String(to));
   }
   if (search) {
-    clauses.push('(entity_type LIKE ? OR entity_number LIKE ? OR remarks LIKE ? OR action LIKE ?)');
+    clauses.push('(entity_type LIKE ? OR entity_number LIKE ? OR remarks LIKE ? OR action LIKE ? OR user_name LIKE ?)');
     const term = `%${String(search).trim()}%`;
-    params.push(term, term, term, term);
+    params.push(term, term, term, term, term);
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const total = db.prepare(`SELECT COUNT(*) AS c FROM audit_logs ${where}`).get(...params).c;

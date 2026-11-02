@@ -198,6 +198,8 @@ body {
 .about-logo-dark { display: none; }
 html[data-theme="dark"] .about-logo-light { display: none; }
 html[data-theme="dark"] .about-logo-dark { display: block; }
+html[data-theme="dark"] .auth-logo-light { display: none; }
+html[data-theme="dark"] .auth-logo-dark { display: block; }
 
 .nav-group-label { color: var(--sidebar-muted); }
 .nav-item {

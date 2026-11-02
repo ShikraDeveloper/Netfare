@@ -79,6 +79,18 @@ function writeConsistentCopy(source, destination) {
   }
 }
 
+// Browser sign-ins saved in a backup must not come back to life with it.
+function signOutEveryone(file) {
+  const copy = new Database(file, { fileMustExist: true });
+  try {
+    if (copy.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'sessions'").get()) {
+      copy.prepare('DELETE FROM sessions').run();
+    }
+  } finally {
+    copy.close();
+  }
+}
+
 async function restoreDatabase({ source, dataDir = resolveDataDir(), force = false, checkServer = isServerRunning } = {}) {
   if (!source) throw new Error('choose a backup file to restore');
   const sourcePath = path.resolve(source);
@@ -130,6 +142,7 @@ async function restoreDatabase({ source, dataDir = resolveDataDir(), force = fal
   try {
     fs.rmSync(tempPath, { force: true });
     writeConsistentCopy(sourcePath, tempPath);
+    signOutEveryone(tempPath);
     // Verify the exact bytes that will become the live database.
     verifyDatabase(tempPath, requiredTables);
     restrictFile(tempPath);

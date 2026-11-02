@@ -610,6 +610,30 @@ CREATE TABLE IF NOT EXISTS petty_cash_counts (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Logins. The first user is the admin, who manages the others. Passwords are
+-- scrypt hashes; sessions store only a SHA-256 of the browser's token.
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  full_name TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+  is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+  must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
+  failed_attempts INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,
+  last_login_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS cash_deposits (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT NOT NULL UNIQUE,
@@ -704,4 +728,5 @@ CREATE INDEX IF NOT EXISTS idx_supplier_credit_items_note ON supplier_credit_ite
 CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_note ON supplier_credit_applications(credit_note_id);
 CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_bill ON supplier_credit_applications(bill_id);
 CREATE INDEX IF NOT EXISTS idx_portal_credits_portal ON portal_credits(portal_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `;

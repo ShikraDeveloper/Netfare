@@ -2,6 +2,9 @@
 
 const router = require('express').Router();
 const db = require('../db');
+const auth = require('../services/auth');
+const { runWithUser } = require('../request-context');
+const { router: authRouter, readToken } = require('./auth');
 
 router.get('/health', (req, res) => {
   let database = 'ok';
@@ -18,6 +21,25 @@ router.get('/health', (req, res) => {
     uptime_seconds: Math.round(process.uptime()),
   });
 });
+
+router.use('/auth', authRouter);
+
+// Everything below needs a signed-in user. A user given a one-time password
+// must change it before anything else.
+router.use((req, res, next) => {
+  const user = auth.userForToken(db, readToken(req));
+  if (!user) return res.status(401).json({ error: 'Sign in to continue', code: 'auth_required' });
+  if (user.must_change_password) {
+    return res.status(403).json({ error: 'Change your password to continue', code: 'password_change_required' });
+  }
+  req.user = user;
+  return runWithUser(user, next);
+});
+
+function adminOnly(req, res, next) {
+  if (req.user.is_admin) return next();
+  return res.status(403).json({ error: 'Only the admin can do this' });
+}
 
 router.use('/accounts', require('./accounts'));
 router.use('/customers', require('./customers'));
@@ -48,6 +70,7 @@ router.use('/reports', require('./reports'));
 router.use('/settings', require('./settings'));
 router.use('/audit-logs', require('./audit-logs'));
 router.use('/audit-chain', require('./audit-chain'));
-router.use('/admin', require('./admin'));
+router.use('/users', adminOnly, require('./users'));
+router.use('/admin', adminOnly, require('./admin'));
 
 module.exports = router;

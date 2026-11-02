@@ -24,6 +24,16 @@ const CHROME_CANDIDATES = [
 
 const AXE_SOURCE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
+// Every API call needs a signed-in user. before() creates the admin; this
+// sends its session cookie with the test's own fetch calls to the server.
+const E2E_ADMIN = { full_name: 'E2E Admin', username: 'e2eadmin', password: 'e2e-admin-pass' };
+const rawFetch = global.fetch;
+let sessionCookie = '';
+global.fetch = (url, options = {}) => {
+  if (!sessionCookie || !String(url).startsWith(baseUrl)) return rawFetch(url, options);
+  return rawFetch(url, { ...options, headers: { Cookie: sessionCookie, ...(options.headers || {}) } });
+};
+
 function chromePath() {
   const found = CHROME_CANDIDATES.find((candidate) => fs.existsSync(candidate));
   if (!found) {
@@ -165,6 +175,21 @@ async function axeViolations() {
   });
 }
 
+// Period reports open on this month, which can be empty early in a month.
+// Widen the period so fixtures dated in earlier months are shown.
+async function setReportPeriod(from) {
+  const input = page.locator('#report-from');
+  if (!(await input.count())) return;
+  await input.fill(from);
+  await input.dispatchEvent('change');
+  await page.waitForFunction(() => !document.querySelector('#report-body .loading'));
+  await page.waitForTimeout(250);
+}
+
+function yearAgoISO() {
+  return new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
+}
+
 // Page actions such as Print, Void or Audit chain sit in the "More" menu.
 async function clickPageAction(selector) {
   const target = page.locator(`#page-actions ${selector}`).first();
@@ -201,6 +226,13 @@ before(async () => {
 
   try {
     await waitForHealth(baseUrl);
+    const setup = await fetch(`${baseUrl}/api/auth/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(E2E_ADMIN),
+    });
+    assert.equal(setup.status, 201, 'Admin account should be created');
+    sessionCookie = String(setup.headers.get('set-cookie')).split(';')[0];
     const demoResponse = await fetch(`${baseUrl}/api/admin/demo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -219,6 +251,8 @@ before(async () => {
       colorScheme: 'light',
       reducedMotion: 'reduce',
     });
+    const [cookieName, ...cookieValue] = sessionCookie.split('=');
+    await context.addCookies([{ name: cookieName, value: cookieValue.join('='), url: baseUrl }]);
     page = await context.newPage();
     page.setDefaultTimeout(15_000);
     page.on('console', (message) => {
@@ -350,6 +384,7 @@ test('data tables expose captions and column scopes', async () => {
 
   for (const route of routes) {
     await openRoute(route);
+    if (route.startsWith('/reports/')) await setReportPeriod(yearAgoISO());
     const tables = await page.$$eval('#view table', (elements) => elements.map((table) => ({
       caption: table.querySelector('caption')?.textContent?.trim() || '',
       headers: [...table.querySelectorAll('thead th')].map((header) => header.getAttribute('scope')),
@@ -1485,6 +1520,7 @@ test('a cancelled sale stays on its day in the DSR and statement, with its own c
   const cancellation = (await getJson(baseUrl, '/api/cancellations')).find((row) => row.source_type === 'booking' && row.source_id === booking.id);
 
   await openRoute('/reports/daily-sales');
+  await setReportPeriod('2026-10-01');
   await page.locator('[data-dsr]').waitFor();
   const tickets = page.locator('[data-dsr-table="tickets"]');
   const saleRow = tickets.locator('tr', { has: page.locator(`a[href="#/invoices/${confirmed.invoice_id}"]`) });
@@ -1968,6 +2004,63 @@ test('documents show the agency initial, not a Netfare or old Ledgerly mark', as
   await openRoute('/settings');
   assert.ok(await page.locator('.about-logo-light').evaluate((img) => img.complete && img.naturalWidth > 0), 'About logo loads');
   assertNoConsoleErrors();
+});
+
+test('sign-in: the admin adds a staff user in Settings, who signs in without admin cards', async () => {
+  await openRoute('/settings');
+  const card = page.locator('#users-card');
+  await card.waitFor();
+  assert.match(await card.innerText(), /E2E Admin/);
+  await card.locator('#user-new').click();
+  const modal = page.locator('.modal');
+  await modal.locator('#user-name').fill('Counter Staff');
+  await modal.locator('#user-username').fill('counter');
+  await modal.locator('#pw-new').fill('counter-pass-1');
+  await modal.locator('#pw-confirm').fill('counter-pass-2');
+  await modal.locator('[data-submit]').click();
+  assert.match(await modal.locator('.modal-error').innerText(), /do not match/);
+  await modal.locator('#pw-confirm').fill('counter-pass-1');
+  await modal.locator('[data-submit]').click();
+  await modal.waitFor({ state: 'detached' });
+  await card.locator('tbody tr', { hasText: 'Counter Staff' }).waitFor();
+  assertNoConsoleErrors();
+
+  // A browser with no session sees the sign-in screen, never the books.
+  const guest = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+  try {
+    const guestPage = await guest.newPage();
+    const errors = [];
+    guestPage.on('pageerror', (error) => errors.push(error.message));
+    await guestPage.goto(`${baseUrl}/#/invoices`);
+    const signIn = guestPage.locator('#auth-root');
+    await signIn.waitFor();
+    assert.equal(await guestPage.locator('.app').isVisible(), false, 'the app stays hidden');
+    for (const theme of ['light', 'dark']) {
+      await guestPage.evaluate((name) => { document.documentElement.dataset.theme = name; }, theme);
+      await guestPage.evaluate(AXE_SOURCE);
+      const violations = await guestPage.evaluate(async () => (await window.axe.run(document, {
+        runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+      })).violations.map((violation) => violation.id));
+      assert.deepEqual(violations, [], `sign-in screen axe (${theme})`);
+    }
+    await guestPage.locator('#auth-username').fill('counter');
+    await guestPage.locator('#auth-password').fill('wrong-pass');
+    await guestPage.locator('.auth-submit').click();
+    await guestPage.locator('.auth-error', { hasText: 'Wrong username or password' }).waitFor();
+    await guestPage.locator('#auth-password').fill('counter-pass-1');
+    await guestPage.locator('.auth-submit').click();
+    await guestPage.locator('#auth-root').waitFor({ state: 'detached' });
+    await guestPage.locator('.company-meta', { hasText: 'Counter Staff' }).waitFor();
+    await guestPage.goto(`${baseUrl}/?staff=1#/settings`);
+    await guestPage.locator('#company-form').waitFor();
+    assert.equal(await guestPage.locator('#users-card').count(), 0, 'no Users card for staff');
+    assert.equal(await guestPage.locator('#reset-data').isVisible(), false, 'no Clear all data for staff');
+    await guestPage.locator('[data-account="signout"]').click();
+    await guestPage.locator('#auth-root').waitFor();
+    assert.deepEqual(errors, []);
+  } finally {
+    await guest.close();
+  }
 });
 
 test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => {

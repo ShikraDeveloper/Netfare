@@ -9,6 +9,7 @@ import {
   setHeader,
   toast,
 } from '../ui.js';
+import { bindUsersCard, usersCardHtml } from './account.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -169,7 +170,8 @@ export async function render(container) {
       </div>
 
       <div class="settings-stack">
-        <div class="card">
+        ${store.user?.is_admin ? usersCardHtml() : ''}
+        <div class="card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Data &amp; backup</h2><p>Your books live on this computer</p></div>
           </div>
@@ -209,7 +211,7 @@ export async function render(container) {
           </div>
         </div>
 
-        <div class="card danger-card">
+        <div class="card danger-card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Danger zone</h2><p>These actions cannot be undone</p></div>
           </div>
@@ -295,6 +297,8 @@ export async function render(container) {
       button.disabled = false;
     }
   });
+
+  if (store.user?.is_admin) bindUsersCard(container);
 
   container.querySelector('#local-backup').addEventListener('click', async (event) => {
     const button = event.currentTarget;

@@ -146,7 +146,11 @@ svg { display: block; }
 .company-card .avatar { font-size: 12px; width: 34px !important; height: 34px !important; }
 .company-meta { min-width: 0; }
 .company-meta strong { display: block; color: #e2e8f0; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.company-meta span { display: block; color: #64748b; font-size: 10.5px; margin-top: 2px; }
+.company-meta span { display: block; color: #64748b; font-size: 10.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.company-meta { flex: 1; }
+.company-actions { display: flex; gap: 2px; margin-left: auto; }
+.company-actions .icon-btn { color: #94a3b8; width: 30px; height: 30px; }
+.company-actions .icon-btn:hover, .company-actions .icon-btn:focus-visible { color: #fff; background: rgba(255, 255, 255, 0.08); }
 
 .sidebar-scrim {
   position: fixed;
@@ -1577,3 +1581,16 @@ details.ledger-checks[open] > :not(summary),
 @media print {
   .view.t-page-enter > *, .t-shake { animation: none !important; }
 }
+
+/* Sign-in screens cover the app until someone is signed in. */
+body.auth-mode .app, body.auth-mode .tabbar, body.auth-mode .skip-link { display: none !important; }
+html:not(.is-admin) .admin-only { display: none; }
+.auth-screen { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); }
+.auth-card { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 26px 26px; box-shadow: 0 12px 40px rgba(11, 27, 46, 0.08); }
+.auth-logo { display: block; width: 180px; height: auto; margin: 0 0 18px -5px; }
+.auth-logo-dark { display: none; }
+.auth-card h1 { display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 700; margin: 0 0 6px; color: var(--text); }
+.auth-intro { margin: 0 0 18px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.auth-form { display: grid; gap: 14px; }
+.auth-error { color: var(--red); background: var(--red-soft); border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; }
+.auth-submit { width: 100%; justify-content: center; height: 42px; margin-top: 4px; }

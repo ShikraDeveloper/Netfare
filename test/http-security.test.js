@@ -16,6 +16,16 @@ let dataDir;
 let port;
 let baseUrl;
 let serverOutput = '';
+// The admin's session cookie, set up in before().
+let cookie = '';
+const ADMIN = { full_name: 'HTTP Test Admin', username: 'httpadmin', password: 'http-admin-pass' };
+
+function cookieFrom(response) {
+  const header = typeof response.headers.get === 'function'
+    ? response.headers.get('set-cookie')
+    : [].concat(response.headers['set-cookie'] || []).join(', ');
+  return String(header || '').split(';')[0];
+}
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -49,7 +59,7 @@ function rawRequest(pathname, { method = 'GET', headers = {} } = {}) {
       port,
       path: pathname,
       method,
-      headers,
+      headers: { Cookie: cookie, ...headers },
     }, (res) => {
       let body = '';
       res.setEncoding('utf8');
@@ -62,7 +72,10 @@ function rawRequest(pathname, { method = 'GET', headers = {} } = {}) {
 }
 
 async function jsonRequest(pathname, options = {}) {
-  const response = await fetch(`${baseUrl}${pathname}`, options);
+  const response = await fetch(`${baseUrl}${pathname}`, {
+    ...options,
+    headers: { Cookie: cookie, ...(options.headers || {}) },
+  });
   const text = await response.text();
   let data = null;
   if (text) {
@@ -89,6 +102,13 @@ before(async () => {
   serverProcess.stdout.on('data', (chunk) => { serverOutput += chunk.toString(); });
   serverProcess.stderr.on('data', (chunk) => { serverOutput += chunk.toString(); });
   await waitForHealth();
+  const setup = await fetch(`${baseUrl}/api/auth/setup`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify(ADMIN),
+  });
+  assert.equal(setup.status, 201, 'admin setup');
+  cookie = cookieFrom(setup);
 });
 
 after(async () => {
@@ -186,7 +206,7 @@ test('run-due ignores a client-supplied today date', async () => {
 
 test('downloads use temporary copies and do not consume backup slots', async () => {
   const before = await jsonRequest('/api/admin/backups');
-  const response = await fetch(`${baseUrl}/api/admin/backup/database`);
+  const response = await fetch(`${baseUrl}/api/admin/backup/database`, { headers: { Cookie: cookie } });
   assert.equal(response.status, 200);
   const bytes = Buffer.from(await response.arrayBuffer());
   assert.match(bytes.subarray(0, 16).toString('utf8'), /^SQLite format 3/);
@@ -241,4 +261,125 @@ test('other sites and local ports cannot read the API, and nothing is embeddable
   assert.equal(page.headers['cross-origin-resource-policy'], 'same-origin');
   const api = await rawRequest('/api/health');
   assert.equal(api.headers['cross-origin-resource-policy'], 'same-origin');
+});
+
+async function postAs(sessionCookie, pathname, body, method = 'POST') {
+  return jsonRequest(pathname, {
+    method,
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json', Cookie: sessionCookie },
+    body: JSON.stringify(body),
+  });
+}
+
+async function signIn(username, password) {
+  const response = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  });
+  return { status: response.status, cookie: cookieFrom(response), setCookie: response.headers.get('set-cookie'), data: await response.json() };
+}
+
+test('the API needs a signed-in user; health and sign-in stay open', async () => {
+  for (const pathname of ['/api/settings', '/api/invoices', '/api/admin/backups', '/api/users']) {
+    const anonymous = await jsonRequest(pathname, { headers: { Cookie: '' } });
+    assert.equal(anonymous.status, 401, `${pathname} needs sign-in`);
+  }
+  const forged = await jsonRequest('/api/settings', { headers: { Cookie: `netfare_session_${port}=not-a-real-token` } });
+  assert.equal(forged.status, 401);
+  assert.equal((await jsonRequest('/api/health', { headers: { Cookie: '' } })).status, 200);
+  const status = await jsonRequest('/api/auth/status', { headers: { Cookie: '' } });
+  assert.deepEqual(status.data, { setup_needed: false, user: null });
+  const again = await postAs('', '/api/auth/setup', { full_name: 'Second', username: 'second', password: 'second-pass' });
+  assert.equal(again.status, 400, 'setup runs only once');
+});
+
+test('sign-in sets a strict HttpOnly cookie, wrong passwords lock the user, sign-out ends the session', async () => {
+  const created = await postAs(cookie, '/api/users', { full_name: 'Lock Test', username: 'locktest', password: 'lock-pass-1' });
+  assert.equal(created.status, 201);
+
+  const good = await signIn('LockTest', 'lock-pass-1');
+  assert.equal(good.status, 200);
+  assert.match(good.setCookie, new RegExp(`^netfare_session_${port}=`));
+  assert.match(good.setCookie, /HttpOnly/);
+  assert.match(good.setCookie, /SameSite=Strict/);
+  assert.equal((await jsonRequest('/api/settings', { headers: { Cookie: good.cookie } })).status, 200);
+
+  const signedOut = await postAs(good.cookie, '/api/auth/logout', {});
+  assert.equal(signedOut.status, 200);
+  assert.equal((await jsonRequest('/api/settings', { headers: { Cookie: good.cookie } })).status, 401);
+
+  const unknown = await signIn('nobody', 'whatever-1');
+  assert.equal(unknown.status, 400);
+  assert.match(unknown.data.error, /Wrong username or password/);
+  for (let attempt = 1; attempt <= 4; attempt += 1) {
+    assert.match((await signIn('locktest', 'wrong-pass')).data.error, /Wrong username or password/);
+  }
+  assert.match((await signIn('locktest', 'wrong-pass')).data.error, /Too many wrong attempts/);
+  assert.match((await signIn('locktest', 'lock-pass-1')).data.error, /Too many wrong attempts/, 'locked even with the right password');
+});
+
+test('staff cannot manage users or data; disabling or a new password ends their sessions', async () => {
+  const created = await postAs(cookie, '/api/users', { full_name: 'Desk Staff', username: 'desk', password: 'desk-pass-1' });
+  assert.equal(created.status, 201);
+  const duplicate = await postAs(cookie, '/api/users', { full_name: 'Other', username: 'DESK', password: 'desk-pass-2' });
+  assert.equal(duplicate.status, 400);
+  const weak = await postAs(cookie, '/api/users', { full_name: 'Weak', username: 'weak', password: 'short' });
+  assert.equal(weak.status, 400);
+
+  let staff = await signIn('desk', 'desk-pass-1');
+  for (const pathname of ['/api/users', '/api/admin/backups', '/api/admin/backup/database']) {
+    assert.equal((await jsonRequest(pathname, { headers: { Cookie: staff.cookie } })).status, 403, `${pathname} is admin only`);
+  }
+  assert.equal((await postAs(staff.cookie, '/api/admin/reset', { confirm: 'RESET' })).status, 403);
+  assert.equal((await jsonRequest('/api/invoices', { headers: { Cookie: staff.cookie } })).status, 200);
+
+  const changed = await postAs(staff.cookie, '/api/auth/password', { current_password: 'desk-pass-1', new_password: 'desk-pass-9' });
+  assert.equal(changed.status, 200);
+  assert.equal((await jsonRequest('/api/invoices', { headers: { Cookie: staff.cookie } })).status, 200, 'this browser stays signed in');
+
+  const reset = await postAs(cookie, `/api/users/${created.data.id}/password`, { password: 'desk-pass-new' });
+  assert.equal(reset.status, 200);
+  assert.equal((await jsonRequest('/api/invoices', { headers: { Cookie: staff.cookie } })).status, 401, 'a new password ends their sessions');
+
+  staff = await signIn('desk', 'desk-pass-new');
+  const disabled = await postAs(cookie, `/api/users/${created.data.id}`, { is_active: false }, 'PUT');
+  assert.equal(disabled.status, 200);
+  assert.equal((await jsonRequest('/api/invoices', { headers: { Cookie: staff.cookie } })).status, 401);
+  assert.match((await signIn('desk', 'desk-pass-new')).data.error, /disabled/);
+
+  const admin = (await jsonRequest('/api/users')).data.find((user) => user.is_admin);
+  assert.equal((await postAs(cookie, `/api/users/${admin.id}`, { is_active: false }, 'PUT')).status, 400, 'the admin cannot be disabled');
+
+  const audit = await jsonRequest('/api/audit-logs?entity_type=user');
+  const rows = audit.data.rows || audit.data;
+  const disable = rows.find((row) => row.action === 'disable' && row.entity_number === 'desk');
+  assert.ok(disable, 'disabling is in the audit log');
+  assert.equal(disable.user_name, ADMIN.full_name, 'with the name of who did it');
+});
+
+test('npm run reset-admin gives a one-time password that must be changed first', async () => {
+  const { execFileSync } = require('node:child_process');
+  const output = execFileSync(process.execPath, ['scripts/reset-admin.js'], {
+    cwd: ROOT,
+    env: { ...process.env, LEDGERLY_DATA_DIR: dataDir },
+    encoding: 'utf8',
+  });
+  const oneTime = /One-time password: (\S+)/.exec(output)?.[1];
+  assert.ok(oneTime, output);
+  assert.match(output, new RegExp(`Admin username: ${ADMIN.username}`));
+  assert.equal((await jsonRequest('/api/settings')).status, 401, 'the old admin session has ended');
+
+  const admin = await signIn(ADMIN.username, oneTime);
+  assert.equal(admin.status, 200);
+  assert.equal(admin.data.user.must_change_password, true);
+  const blocked = await jsonRequest('/api/settings', { headers: { Cookie: admin.cookie } });
+  assert.equal(blocked.status, 403);
+  assert.equal(blocked.data.code, 'password_change_required');
+
+  const changed = await postAs(admin.cookie, '/api/auth/password', { current_password: oneTime, new_password: 'http-admin-pass-2' });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.data.user.must_change_password, false);
+  assert.equal((await jsonRequest('/api/settings', { headers: { Cookie: admin.cookie } })).status, 200);
+  cookie = admin.cookie;
 });

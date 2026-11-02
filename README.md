@@ -77,6 +77,16 @@ For development with auto-reload:
 npm run dev
 ```
 
+## Users & sign-in
+
+- The first time Netfare opens, it asks you to create the **admin** account. Everyone, admin included, must sign in before seeing any data.
+- The admin adds staff from **Settings → Users & logins**: full name, username and password. From there the admin can rename a user, set a new password or disable a user. Disabled users cannot sign in, and their past entries keep their name.
+- Users, backups, restore and Clear all data are admin-only. Rights for each user's screens are planned next.
+- Anyone can change their own password with the lock button at the bottom of the sidebar.
+- Passwords are stored as salted scrypt hashes. A session ends after 12 hours without activity. Five wrong passwords lock that username for 5 minutes.
+- The audit log shows who did each action.
+- **Forgot the admin password?** On the main computer, run `npm run reset-admin`. It prints a one-time password, and Netfare asks for a new password at the next sign-in.
+
 ## Theme & appearance
 
 Netfare uses the colours of its logo kit (navy `#0B1B2E`, sky blue `#4FB3E8`, blue `#2B8FCB`, slate `#55657A`) with a matching dark mode. The logo files live in `public/brand/` (sidebar, favicon, Apple touch icon, About card). Open **Settings → Appearance** and pick **Light** or **Dark**; the change applies immediately and is saved per browser/device, so a laptop can stay light while a phone stays dark.

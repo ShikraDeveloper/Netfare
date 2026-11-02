@@ -34,6 +34,7 @@ const ENTITY_LABELS = {
   booking: 'Booking',
   visa: 'Visa application',
   visa_deposit: 'Visa security deposit',
+  user: 'User login',
 };
 
 const ACTION_LABELS = {
@@ -42,6 +43,9 @@ const ACTION_LABELS = {
   delete: 'Delete',
   create: 'Created',
   forfeit: 'Forfeit',
+  enable: 'Enabled',
+  disable: 'Disabled',
+  password_reset: 'Password reset',
 };
 
 function entityLabel(value) {
@@ -76,7 +80,7 @@ function auditRow(row) {
     <tr>
       <td class="nowrap">
         <div class="cell-main">${fmtDateTime(row.created_at)}</div>
-        <div class="cell-sub">#${row.id}</div>
+        <div class="cell-sub">#${row.id}${row.user_name ? ` · ${esc(row.user_name)}` : ''}</div>
       </td>
       <td>
         <div class="cell-main">${esc(entityLabel(row.entity_type))}</div>
@@ -204,6 +208,7 @@ export async function render(container) {
         row.action,
         ACTION_LABELS[row.action],
         row.remarks,
+        row.user_name,
       ].some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} matching`;

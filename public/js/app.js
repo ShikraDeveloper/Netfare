@@ -1,5 +1,7 @@
 import { refreshMeta, store } from './store.js';
 import { initTheme } from './theme.js';
+import { ensureSignedIn, signOut } from './auth.js';
+import { openChangePassword } from './views/account.js';
 import { icon, esc, avatar, setHeader, toast } from './ui.js';
 import * as dashboardView from './views/dashboard.js';
 import * as invoicesView from './views/invoices.js';
@@ -301,15 +303,22 @@ function updateNav(section) {
 function updateSidebarFooter() {
   const foot = document.getElementById('sidebar-foot');
   const name = store.settings?.company_name || 'My Company';
+  const user = store.user;
   foot.innerHTML = `
     <div class="company-card">
-      ${avatar(name, 34)}
+      ${avatar(user?.full_name || name, 34)}
       <div class="company-meta">
-        <strong>${esc(name)}</strong>
-        <span>Local ledger · v1.0</span>
+        <strong>${esc(user?.full_name || name)}</strong>
+        <span>${esc(user ? `${user.is_admin ? 'Admin' : 'Staff'} · ${name}` : 'Local ledger · v1.0')}</span>
+      </div>
+      <div class="company-actions">
+        <button type="button" class="icon-btn" data-account="password" aria-label="Change your password" title="Change your password">${icon('lock', 16)}</button>
+        <button type="button" class="icon-btn" data-account="signout" aria-label="Sign out" title="Sign out">${icon('logout', 16)}</button>
       </div>
     </div>
   `;
+  foot.querySelector('[data-account="password"]').addEventListener('click', () => openChangePassword());
+  foot.querySelector('[data-account="signout"]').addEventListener('click', () => signOut());
 }
 
 function openSidebar() {
@@ -456,6 +465,8 @@ async function boot() {
   new MutationObserver(() => labelCardTables(document.getElementById('view')))
     .observe(document.getElementById('view'), { childList: true, subtree: true });
   try {
+    store.user = await ensureSignedIn();
+    document.documentElement.classList.toggle('is-admin', store.user.is_admin);
     await refreshMeta();
   } catch (error) {
     document.getElementById('view').innerHTML = `

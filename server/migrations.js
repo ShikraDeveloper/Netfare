@@ -208,6 +208,8 @@ ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 
 // Void audit trail and void metadata. Rows are retained so the audit log can
 // always point back to the original document.
+// Who did it: the logged-in user's name on each audit entry.
+ensureColumn('audit_logs', 'user_name', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('journal_entries', 'reversal_of_id', 'INTEGER');
 // Opening balance reversals used to be linked only by source_id. Linking them
 // as reversals too keeps an old opening 1030 line out of the open card items.

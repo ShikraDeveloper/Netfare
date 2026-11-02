@@ -1,6 +1,7 @@
 import { api } from './api.js';
 
 export const store = {
+  user: null,
   settings: null,
   accounts: [],
   customers: [],
