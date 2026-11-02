@@ -1507,15 +1507,48 @@ Verification (Playwright `_electron`, with test app folders and spare ports, nev
 
 Key files: `desktop/package.json`, `desktop/package-lock.json` (new), `desktop/main.js`, `scripts/build-desktop.js`, `package.json`, `package-lock.json`, `README.md`.
 
+(The live server was restarted on better-sqlite3 13.0.3 after this entry: the backup was verified, and the process loads `prebuilds/darwin-arm64.node`.)
+
+### Update notice and one-click download (step 5) — code commit `78a3c2d`
+
+The user has no Apple Developer account and will not get one. So the desktop app stays unsigned, and macOS asks "Open Anyway" once. An unsigned Mac app cannot replace itself (electron-updater and Squirrel need signing). The user chose "notification + one-click download" instead.
+
+- **`server/services/updates.js`:**
+  - **Feed:** reads `latest.json` (`version`, `released`, `notes[]`, `downloads{"mac-arm64":…}`, `page`) from the update address the admin sets. The address is stored in the new column `settings.update_feed`. It must be https, or http on this computer for testing.
+  - **Checking:** at most once a day, cached in memory, with "Check now" to force it. It fetches with an 8-second timeout, no redirects and a 64 KB limit.
+  - **Rules:** versions compare by number. Notes are trimmed and capped. Links must be https and others are dropped (a `javascript:` page link is never kept). The download picks the link for this platform, or falls back to the page.
+  - **Errors** ("answered 404", "not valid JSON") show in the card, never as a crash.
+- **API:** `GET /api/admin/updates` (with `?force=1`) and `PUT /api/admin/updates {feed_url}`. Both are admin-only.
+- **App:** after the admin signs in, a banner shows when a newer version exists: "Netfare 1.1.0 is available. You have 1.0.0." with What's new, Download and Later.
+  - Later hides that version in this browser.
+  - What's new lists the notes and the three update steps (download, replace in Applications, Open Anyway). It says the books are not in the app and are backed up before an update.
+  - In the desktop app, Download opens the normal browser.
+- **Settings → Updates (admin):** the installed version, the status, the update address, Check now, and "How updating works".
+- **One version source:** `package.json` `version` feeds `/api/health`, the JSON export, the About card (now `store.version`) and the update check. `scripts/build-desktop.js` copies it into `desktop/package.json`.
+- **Releases:** `scripts/release-feed.js` (`npm run release:feed -- --download-base https://… --note "…" [--page https://…]`) writes `desktop/dist/latest.json` with the electron-builder `.dmg` name. README lists the release steps.
+- **Hosting not chosen yet:** the project has no git remote and no website folder. Until the admin sets an update address, checking stays off.
+- The dmg was rebuilt with this code: `desktop/dist/Netfare-1.0.0-arm64.dmg`, 143 MB, unsigned.
+
+Key files: `server/services/updates.js` (new), `server/routes/{admin,index}.js`, `server/migrations.js`, `public/js/updates.js` (new), `public/js/views/updates-card.js` (new), `public/js/{app,store}.js`, `public/js/views/settings.js`, `public/css/styles.css`, `scripts/release-feed.js` (new), `scripts/build-desktop.js`, `package.json`, `README.md`, `test/updates.test.js` (new), `test/http-security.test.js`.
+
+Verification:
+
+- `npm run check`: 218 files OK.
+- `npm test`: 223 passed.
+  - **Unit (new):** numeric version order; feed cleaning (a bad key or an http link is dropped, a `javascript:` page is dropped, long notes are cut); address rules (http only on this computer, no credentials); status when off, available, cached for a day, up to date, invalid JSON and 404; the release script's feed is accepted by the parser and refuses http and missing notes.
+  - **HTTP (new):** a real local `latest.json` (99.1.0) shows as available, with the download falling back to the page. A plain-http address on another host is refused. A staff user with Company settings Edit gets 403. `/api/health` reports the `package.json` version.
+- `npm run test:e2e`: 42 passed.
+- **Visual check on a throwaway server with a local feed (1.1.0):** the admin banner, What's new with the steps, Later hiding it across a reload, and the Updates card.
+- Schema change: `settings.update_feed` (additive). Restart needed.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `7fb4ec9` (desktop app built).
-2. A restart of the live server puts it on better-sqlite3 13.0.3. Back up first, as always.
-3. Next in the plan is step 5: code signing and notarization (Apple Developer account, the user's cost) plus auto-update through GitHub Releases.
-4. Still open:
+1. Start from the latest `main`; the latest code commit is `78a3c2d` (update notice).
+2. Step 6 is a download page. It needs a place to host the `.dmg` and `latest.json`: the Netfare website or GitHub Releases, chosen by the user.
+3. Still open:
    - the flaky sign-in browser test;
    - "Created by" on documents and the DSR staff column;
-   - testing Import from backup by hand.
+   - testing "Start from a backup" in the desktop app by hand.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
