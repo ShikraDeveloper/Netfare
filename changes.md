@@ -1595,11 +1595,31 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   - Both Mac builds were made here, and the smoke test passed.
 - **Not done yet:** publishing a real release (a tag), and a person opening the Windows app on a Windows PC.
 
+### First public release: Netfare 1.0.0 (2026-11-02)
+
+- **Tag:** with the user's OK, the annotated tag `v1.0.0` was made on `62a801a` with seven note lines (features), and pushed.
+- **Release:** run 41439758691: Build (mac), Build (win) and Publish release all succeeded. https://github.com/ShikraDeveloper/Netfare/releases/tag/v1.0.0 holds:
+  - `Netfare-mac-arm64.dmg` (142 MB);
+  - `Netfare-mac-x64.dmg` (146 MB);
+  - `Netfare-windows-x64.exe` (130 MB);
+  - `latest.json`.
+- **Checked after publishing:**
+  - Each `https://github.com/ShikraDeveloper/Netfare/releases/latest/download/<file>` link redirects to `release-assets.githubusercontent.com` with HTTP 200.
+  - `latest.json` holds version 1.0.0, the seven notes, versioned download links and the release page.
+  - The app's own update check (`server/services/updates.js`, default address, temporary data folder) read it: latest 1.0.0, not newer than the installed 1.0.0, no error.
+- **Not checked yet:** a person installing from the release on a Mac (Open Anyway) and on a Windows PC (SmartScreen → Run anyway).
+
 ### Next session
 
-1. Start from the latest `main`.
-2. **First release:** with the user's OK, run `git tag -a v1.0.0 -m "…notes…"` and push the tag. The workflow then publishes the release.
-3. **Qadam 5:** the landing page on GitHub Pages. The user enables Pages with Settings → Pages → Source: GitHub Actions.
+1. Start from the latest `main`. The `v1.0.0` tag exists.
+2. **Qadam 5:** the landing page on GitHub Pages.
+   - Its download buttons use the `releases/latest/download/` links above.
+   - The user enables Pages with Settings → Pages → Source: GitHub Actions.
+3. **Still open:**
+   - testing the installers by hand on Mac and Windows;
+   - the flaky sign-in browser test;
+   - "Created by" on documents and the DSR staff column;
+   - "Start from a backup" in the desktop app.
 2. Step 6 is a download page. It needs a place to host the `.dmg` and `latest.json`: the Netfare website or GitHub Releases, chosen by the user.
 3. Still open:
    - the flaky sign-in browser test;
