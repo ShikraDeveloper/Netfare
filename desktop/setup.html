@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up Netfare</title>
+  <style>
+    :root { --navy: #0b1b2e; --sky: #4fb3e8; --blue: #2b8fcb; --slate: #55657a; --bg: #f3f6fa; --border: #dce4ec; --red: #b42318; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: var(--bg); color: var(--navy); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { width: 100%; max-width: 560px; }
+    .brand { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
+    .brand span { color: var(--blue); }
+    .tagline { margin: 2px 0 20px; color: var(--slate); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; font-family: ui-monospace, monospace; }
+    h1 { font-size: 19px; margin: 0 0 6px; }
+    p { margin: 0 0 14px; color: var(--slate); }
+    .choice { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-top: 12px; }
+    .choice h2 { font-size: 15px; margin: 0 0 4px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    button { font: inherit; font-weight: 600; border-radius: 9px; padding: 9px 14px; cursor: pointer; border: 1px solid var(--navy); background: var(--navy); color: #fff; }
+    button.secondary { background: #fff; color: var(--navy); border-color: var(--border); }
+    button:disabled { opacity: 0.6; cursor: default; }
+    input { font: inherit; flex: 1; min-width: 200px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px; }
+    label { display: block; font-size: 12.5px; font-weight: 600; margin-top: 12px; }
+    .message { color: var(--red); background: #fef3f2; border: 1px solid #fecdca; border-radius: 9px; padding: 9px 11px; margin-top: 12px; }
+    .hint { font-size: 12px; margin: 6px 0 0; }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="brand">Net<span>fare</span></p>
+    <p class="tagline">Invoicing &amp; Books</p>
+    <h1>How will this computer use Netfare?</h1>
+    <p>You can change this later from the Netfare menu → Change setup.</p>
+
+    <section class="choice" aria-labelledby="main-title">
+      <h2 id="main-title">This computer keeps the books</h2>
+      <p>Choose this for the agency's main computer. The books are saved in Netfare's folder on this computer, and other computers can connect to it.</p>
+      <div class="row">
+        <button type="button" id="use-main">Start new books here</button>
+        <button type="button" class="secondary" id="import">Start from a backup (.db)…</button>
+      </div>
+    </section>
+
+    <section class="choice" aria-labelledby="connect-title">
+      <h2 id="connect-title">Connect to the office computer</h2>
+      <p>Choose this for staff computers. The books stay on the main computer.</p>
+      <form id="connect-form">
+        <label for="address">Office computer address</label>
+        <div class="row" style="margin-top:6px">
+          <input id="address" name="address" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="192.168.1.10 or office-mac.local">
+          <button type="submit">Connect</button>
+        </div>
+        <p class="hint">On the main computer, the address is in Settings → Office network.</p>
+      </form>
+    </section>
+
+    <div class="message" id="message" role="alert" hidden></div>
+  </main>
+  <script src="setup.js"></script>
+</body>
+</html>

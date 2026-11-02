@@ -1,0 +1,22 @@
+{
+  "name": "netfare-desktop",
+  "productName": "Netfare",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Netfare desktop app: invoicing and books for non-IATA travel agencies",
+  "author": "ShikraGroup",
+  "main": "main.js",
+  "build": {
+    "appId": "com.shikragroup.netfare",
+    "productName": "Netfare",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "config.js", "setup.html", "setup.js", "package.json"],
+    "extraResources": [{ "from": "build/app-server", "to": "app-server" }],
+    "npmRebuild": false,
+    "mac": {
+      "category": "public.app-category.finance",
+      "icon": "../public/brand/netfare-icon-512.png",
+      "target": ["dmg"]
+    }
+  }
+}

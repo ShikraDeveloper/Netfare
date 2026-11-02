@@ -100,6 +100,21 @@ npm run dev
 - The main computer must stay on and awake. The first time, macOS may ask to allow incoming connections for "node".
 - If two people edit the same record, the second save is refused with "Someone else changed this record…", instead of overwriting the first person's change.
 
+## Desktop app (in progress)
+
+The `desktop/` folder holds a Netfare desktop app (Electron). It is written but not built yet, because Electron and electron-builder have not been downloaded.
+
+- **First run** asks how this computer uses Netfare:
+  - **This computer keeps the books:** starts new books, or starts from a `.db` backup. The server runs inside the app, and the books live in the app's folder (`~/Library/Application Support/Netfare/data` on a Mac).
+  - **Connect to the office computer:** enter its address, such as `192.168.1.10` or `office-mac.local`. The app checks that Netfare answers there.
+- The window only shows Netfare pages; other links open in the normal browser. Netfare menu → **Change setup…** asks again, and **Show books folder** opens the data folder.
+- To build:
+  1. `cd desktop && npm install`. This downloads Electron and electron-builder.
+  2. `npm run desktop` opens the app from source.
+  3. `npm run desktop:dist` makes `desktop/dist/Netfare-*.dmg`.
+- The build copies the server into `desktop/build/app-server` with its own `node_modules`, rebuilt for Electron, so `npm start` and the tests keep using the normal ones.
+- Signing and auto-update come in the next step.
+
 ## Theme & appearance
 
 Netfare uses the colours of its logo kit (navy `#0B1B2E`, sky blue `#4FB3E8`, blue `#2B8FCB`, slate `#55657A`) with a matching dark mode. The logo files live in `public/brand/` (sidebar, favicon, Apple touch icon, About card). Open **Settings → Appearance** and pick **Light** or **Dark**; the change applies immediately and is saved per browser/device, so a laptop can stay light while a phone stays dark.

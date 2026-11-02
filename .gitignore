@@ -6,3 +6,7 @@ test-results/
 .env
 
 OpenCode*.pdf
+
+# Desktop app build output (scripts/build-desktop.js)
+desktop/build/
+desktop/dist/

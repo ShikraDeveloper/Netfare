@@ -5,14 +5,15 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const root = path.join(__dirname, '..');
-const roots = ['server', 'public/js', 'scripts', 'test'];
+const roots = ['server', 'public/js', 'scripts', 'test', 'desktop'];
+const SKIP = new Set(['node_modules', 'build', 'dist']);
 const files = [];
 
 function walk(directory) {
   if (!fs.existsSync(directory)) return;
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const full = path.join(directory, entry.name);
-    if (entry.isDirectory()) walk(full);
+    if (entry.isDirectory()) { if (!SKIP.has(entry.name)) walk(full); }
     else if (entry.isFile() && entry.name.endsWith('.js')) files.push(full);
   }
 }

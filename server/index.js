@@ -78,7 +78,13 @@ app.use((err, req, res, next) => {
   res.status(status).json({ error: status >= 500 ? 'Something went wrong on the server' : err.message });
 });
 
-const server = app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST);
+// Resolves once Netfare is listening; the desktop app waits on it.
+const ready = new Promise((resolve, reject) => {
+  server.once('listening', resolve);
+  server.once('error', reject);
+});
+ready.then(() => {
   console.log(`\n  Netfare is running at http://${network.listensOnNetwork() ? '127.0.0.1' : HOST}:${PORT}`);
   if (network.listensOnNetwork()) {
     console.log('  Office network mode is on. Other computers can open:');
@@ -86,6 +92,13 @@ const server = app.listen(PORT, HOST, () => {
   }
   console.log('');
   startAutoBackup(db);
+}, (error) => {
+  if (require.main !== module) return;
+  console.error(error.code === 'EADDRINUSE'
+    ? `\n  Port ${PORT} is already in use. Is Netfare already running?\n`
+    : `\n  Netfare could not start: ${error.message}\n`);
+  process.exitCode = 1;
+  try { db.close(); } catch { /* already closed */ }
 });
 
 let shuttingDown = false;
@@ -113,3 +126,5 @@ process.on('uncaughtException', (error) => {
   process.exitCode = 1;
   shutdown(1);
 });
+
+module.exports = { app, server, ready, shutdown };
