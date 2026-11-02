@@ -1672,6 +1672,31 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 - **Visual check on a throwaway server (demo data plus 3 bookings by two users):** the booking subtitle reads "… · Confirmed · by Omar Siddiqui"; the DSR shows the "by" lines, Sales by staff (Omar 2 · 4,400.00; Aisha 1 · -2,690.00 net of a demo cancellation), and the Omar filter (2 rows, name in the header). No errors.
 - **Not yet in the desktop app:** the user runs the desktop app (1.0.1), so this reaches them only in a new release (1.0.2). Not pushed yet.
 
+(`95dd1e5` and `03cfbd7` were pushed without a tag at the user's choice, so 1.0.1 is still the latest release.)
+
+### Second copy of backups — code commit `20079cb`
+
+Until now every backup sat on the same computer as the books.
+
+- **`server/services/backup-mirror.js` (new):**
+  - **Copying:** after every backup made by `createDatabaseBackup` (automatic, manual, Save locally, pre-demo/pre-reset), the file is copied to `<chosen folder>/Netfare backups/`. It is written as `*.copying`, then renamed and made owner-only. The newest 30 `netfare-*/ledgerly-*.db` there are kept.
+  - **Missing folder** (unplugged USB, signed-out cloud app): the backup is still made, the error is saved in `settings.backup_mirror_error` and shown, and the 6-hourly auto-backup check copies the newest local backup once the folder is back. Download copies are not mirrored.
+  - **Suggestions:** on a Mac, iCloud Drive, `~/Library/CloudStorage` (Google Drive "My Drive", OneDrive, Dropbox), `~/Dropbox`, and other volumes under `/Volumes` except the system disk. On Windows, OneDrive / Dropbox / Google Drive under the user folder, a Google Drive letter, and other drive letters.
+  - **Rules:** the folder must be absolute, existing, writable (a test file is written and removed) and outside Netfare's own data folder.
+- **Settings:** new columns `backup_mirror_dir`, `backup_mirror_at` and `backup_mirror_error`, added by migration. Scripts that open an older database without them are tolerated.
+- **API (admin-only):** `GET`/`PUT /api/admin/backup-mirror` and `POST /api/admin/backup-mirror/copy`. Saving a folder makes a fresh backup and copies it at once. Changes are audited ("Backup copy" enable/disable).
+- **Settings card "Second copy of backups":**
+  - an amber warning while backups are only on this computer;
+  - a picker (Not copied anywhere / the suggestions / Another folder… with a path field), Save and Copy now;
+  - the status (where, last copy, how many kept, or the last error);
+  - a note on how to restore from there (`npm run restore`, or "Start from a backup" in the desktop app).
+- **Tests:**
+  - New `test/backup-mirror.test.js`: folder rules; each backup is copied; only the newest 30 are kept (35 old files pruned); owner-only copy; with an unplugged folder the backup is still made and the error recorded; the copy catches up when the folder is back; nothing happens when the newest is already there; turning it off stops copying.
+  - New HTTP test: staff get 403; a relative path gets 400; saving copies one backup at once; Copy now makes two; clearing turns it off.
+  - `npm run check` 225 files OK, `npm test` 231 passed, `npm run test:e2e` 42 passed.
+- **Visual check on a throwaway server:** on this Mac it suggests "iCloud Drive" and "Drive: Mac SSD". Nothing was saved to them. No errors.
+- **Not in the desktop app yet:** it needs a release (1.0.2, with "Created by" and DSR staff). Not pushed yet.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist.
