@@ -1625,9 +1625,35 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   - The zip was tested when served from a `/netfare/` sub-folder: no 404s, no errors, fonts load, the live version shows and the Download link is right.
 - **Not pushed yet:** `e88b0e5` and `db43ff0` are local only. The user chose not to publish via Pages, so a push is asked separately.
 
+(`e88b0e5`, `db43ff0` and `c3cf6ab` were pushed later with the user's OK.)
+
+### Netfare installed on the user's Mac (2026-11-02)
+
+- **Found:** the user was running the desktop app from the build folder `desktop/dist/mac/Netfare.app`. That is the **Intel** build, running under Rosetta, and the build folder is wiped by every `desktop:dist`.
+  - Its books are at `~/Library/Application Support/Netfare/data`: Shikra Travel FZE, admin `jamal`, 1 customer, 2 suppliers, 2 visas, 2 invoices, 2 payments, 3 bills, 8 entries; integrity ok on a copy.
+  - The desktop app was listening on 127.0.0.1:4173. The old `npm start` server (project `data/`, nearly empty) was not running, so these are now two separate sets of books. The user was advised to use only the desktop app.
+- **Install (user's OK):**
+  1. Quit the app gracefully (`osascript … quit`); the WAL files disappeared.
+  2. Made the safety copy `backups/netfare-2026-11-02T17-19-16-000Z-pre-install.db` (integrity ok, 2 invoices, 8 entries).
+  3. Downloaded the v1.0.0 `Netfare-mac-arm64.dmg` from GitHub; its SHA-256 matched the release digest.
+  4. Copied it with `ditto` to `/Applications/Netfare.app` (arm64) and opened it: health ok, `setup_needed: false`, and the same `accounting.db` is open.
+
+### Mac signing fix and release 1.0.1 — code commit `ed98285`, tag `v1.0.1`
+
+- **Problem:** the installed v1.0.0 failed `codesign --verify` ("code has no resources but signature indicates they must be present"). Only Electron's linker signature on the main binary (identifier "Electron") was present, because `CSC_IDENTITY_AUTO_DISCOVERY=false` skipped bundle signing. A browser-downloaded (quarantined) copy is then reported as **damaged**, without Open Anyway.
+- **Fix:** `desktop/package.json` sets `mac.identity: "-"` (electron-builder 26 ad-hoc signing) and `hardenedRuntime: false`, which electron-builder documents as needed for ad-hoc signing; otherwise library validation rejects Electron's frameworks.
+- **Local checks:**
+  - both builds pass `codesign --verify --deep --strict`, identifier `com.shikragroup.netfare`, Signature=adhoc;
+  - the smoke test passed;
+  - a quarantined copy gets `spctl` "rejected" (not notarized, so Open Anyway works); `syspolicy_check distribution` only warns "Adhoc Signed App".
+- **Version 1.0.1:** set in `package.json`, `package-lock.json` and `desktop/package.json`; README explains the signing. `npm run check` 220 files OK, `npm test` 224 passed, `npm run test:e2e` 42 passed.
+- **Release:** tag `v1.0.1` (two note lines), run 41491088053: Build (mac), Build (win) and Publish release all succeeded. The assets are arm64 dmg 141 MB, x64 dmg 148 MB, Windows exe 130 MB, and `latest.json`.
+- **Checked from GitHub:** both released dmgs match their digests, contain version 1.0.1 (arm64 and x86_64), pass deep verify (ad-hoc, `com.shikragroup.netfare`), and a quarantined copy is "rejected", not damaged. `latest.json` reports 1.0.1, which the update check counts as newer than the installed 1.0.0.
+
 ### Next session
 
-1. Start from the latest `main`. The `v1.0.0` tag exists; `main` is 3 commits ahead of `origin` until pushed.
+1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist. This changes.md entry is committed locally; it is pushed only with the user's OK.
+2. The user's `/Applications/Netfare.app` is 1.0.0, so its admin should see the "Netfare 1.0.1 is available" banner — the first real check of the update notice. To update: quit Netfare, install the 1.0.1 arm64 dmg, open it. The books stay in Application Support.
 2. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
 3. **Still open:**
    - testing the installers by hand on Mac and Windows;
