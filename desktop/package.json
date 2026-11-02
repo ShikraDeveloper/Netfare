@@ -9,14 +9,38 @@
   "build": {
     "appId": "com.shikragroup.netfare",
     "productName": "Netfare",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "config.js", "setup.html", "setup.js", "package.json"],
-    "extraResources": [{ "from": "build/app-server", "to": "app-server" }],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "config.js",
+      "setup.html",
+      "setup.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/app-server",
+        "to": "app-server"
+      },
+      {
+        "from": "build/app-server/node_modules",
+        "to": "app-server/node_modules"
+      }
+    ],
     "npmRebuild": false,
     "mac": {
       "category": "public.app-category.finance",
       "icon": "../public/brand/netfare-icon-512.png",
-      "target": ["dmg"]
+      "target": [
+        "dmg"
+      ]
     }
+  },
+  "devDependencies": {
+    "electron": "44.9.0",
+    "electron-builder": "26.17.0"
   }
 }

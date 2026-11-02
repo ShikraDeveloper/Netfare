@@ -11,6 +11,8 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, net, shell } = require('elect
 const config = require('./config');
 
 app.setName('Netfare');
+// For testing: keep a test run's books and choice out of the real app folder.
+if (process.env.NETFARE_USER_DATA) app.setPath('userData', process.env.NETFARE_USER_DATA);
 
 // The Netfare server and its node_modules (rebuilt for Electron) are staged
 // by scripts/build-desktop.js and shipped as extra resources.
