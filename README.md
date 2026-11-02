@@ -102,7 +102,7 @@ npm run dev
 
 ## Desktop app
 
-The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with electron-builder 26.17.0). `npm run desktop:dist` makes `desktop/dist/Netfare-1.0.0-arm64.dmg`. The app is not code-signed (there is no Apple Developer account), so the first time it is opened macOS asks for **System Settings → Privacy & Security → Open Anyway**.
+The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with electron-builder 26.17.0). `npm run desktop:dist` makes `desktop/dist/Netfare-1.0.0-arm64.dmg`. The Mac app is ad-hoc signed (`identity: "-"`, no Apple Developer account) but not notarized, so the first time it is opened macOS asks for **System Settings → Privacy & Security → Open Anyway**. The whole bundle must stay signed: v1.0.0 carried only Electron's own signature on the main binary, which a browser-downloaded copy reports as "damaged".
 
 - **First run** asks how this computer uses Netfare:
   - **This computer keeps the books:** starts new books, or starts from a `.db` backup. The server runs inside the app, and the books live in the app's folder (`~/Library/Application Support/Netfare/data` on a Mac).

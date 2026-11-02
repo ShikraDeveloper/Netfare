@@ -1,7 +1,7 @@
 {
   "name": "netfare-desktop",
   "productName": "Netfare",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "license": "MIT",
   "description": "Netfare desktop app: invoicing and books for non-IATA travel agencies",
@@ -35,6 +35,8 @@
     "mac": {
       "category": "public.app-category.finance",
       "icon": "../public/brand/netfare-icon-512.png",
+      "identity": "-",
+      "hardenedRuntime": false,
       "artifactName": "Netfare-mac-${arch}.${ext}",
       "target": [
         {
