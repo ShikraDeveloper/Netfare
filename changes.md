@@ -1327,9 +1327,51 @@ Verification:
 - `npm run test:e2e`: 41 passed. In-app downloads, attachments and the dashboard chart still work.
 - No schema change. Restart needed.
 
+## 2026-11-02
+
+### Sign-in, admin setup and staff users (step 2a) — code commit `a0daf49`
+
+The user asked for no fixed roles: the admin creates each staff login from Settings. Rights per user come in step 2b.
+
+- **First run:** with no users, Netfare shows "Create the admin account" (full name, username, password). After that, every `/api` route except `/health` and `/auth/*` needs a signed-in user (401 otherwise). This closes security audit lead 1.
+- **Sessions:**
+  - A session token is 32 random bytes in an HttpOnly, SameSite=Strict cookie that lasts up to 7 days. Only its SHA-256 is stored in the new `sessions` table.
+  - The cookie name includes the port (`netfare_session_4173`), so a test copy on another port never signs you out of the real one.
+  - A session ends after 12 idle hours, on sign-out, when the admin disables the user or sets a new password, and on restore (`scripts/restore.js` clears sessions in the restored copy).
+- **Passwords:** salted scrypt hashes in the new `users` table. They need at least 8 characters and cannot equal the username. Five wrong attempts lock a username for 5 minutes. An unknown username costs the same hashing time, so timing does not reveal which usernames exist.
+- **Settings → Users & logins** (admin only): list with status and last sign-in, plus New user, Rename, Set a new password and Disable/Enable. The admin cannot be disabled. On the server, `/users` and `/admin` (backups, restore download, demo, Clear all data) are admin-only. Staff do not see the Data & backup and Danger zone cards.
+- **Sidebar:** shows who is signed in (Admin or Staff · company), with buttons to change your own password (other browsers are signed out) and to sign out. If a session ends while the app is open, the sign-in screen comes back.
+- **Forgotten admin password:** `npm run reset-admin` (new `scripts/reset-admin.js`) prints a one-time password. Until it is changed, the API answers 403 `password_change_required` and the app shows "Choose a new password".
+- **Audit:** new `audit_logs.user_name` column, filled from the signed-in user through `server/request-context.js` (AsyncLocalStorage). The audit log shows "#id · name" and searches by name. Creating a user, disabling or enabling one and setting a new password are audited.
+- **Not included:** the JSON export (`GET /api/admin/backup`) leaves out `users` and `sessions`. "Clear all data" keeps the users.
+- **Tests:**
+  - The browser suite creates an admin and sends its cookie.
+  - Two report tests failed on the committed code too, because on 2 November "this month" no longer held their October fixtures. They now set the report period themselves.
+
+Key files: `server/services/auth.js`, `server/routes/{auth,users,index}.js`, `server/request-context.js`, `server/schema.js`, `server/migrations.js`, `server/services/audit.js`, `scripts/{reset-admin,restore}.js`, `public/js/{auth,api,app,store,ui}.js`, `public/js/views/{account,settings,audit-logs}.js`, `public/css/{styles,theme}.css`, `README.md`, `package.json`, `test/auth.test.js` (new), `test/http-security.test.js`, `test/e2e/browser.test.js`.
+
+Verification:
+
+- `npm run check`: 202 files OK.
+- `npm test`: 201 passed. New tests cover:
+  - scrypt hashing;
+  - one-time admin setup;
+  - idle expiry;
+  - restore signing everyone out;
+  - 401 without a session or with a forged cookie;
+  - cookie flags;
+  - lockout;
+  - staff getting 403 on users and admin routes;
+  - a password reset or disable ending sessions;
+  - the audit user name;
+  - `reset-admin` end to end.
+- `npm run test:e2e`: 42 passed. The new browser test has the admin add a user in Settings (including the mismatch error). A fresh browser sees only the sign-in screen, which is axe-clean in light and dark; a wrong password shows an error; the staff user signs in and gets no Users or Clear card; and sign-out returns to sign-in.
+- Visual check on a throwaway server (port 4391): setup, dashboard, the Users card, and staff sign-in.
+- Schema change: new `users` and `sessions` tables and the `audit_logs.user_name` column (all additive). Restart needed. After the restart, the live app asks once for the admin account.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `5153a86` (security batch). Next in the plan: step 2, login and roles.
+1. Start from the latest `main`; the latest code commit is `a0daf49` (sign-in and users). Next in the plan: step 2b, rights per user (View/Edit checklist) enforced on the server, plus "created by" on documents.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
