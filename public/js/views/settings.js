@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { applyTheme, getTheme } from '../theme.js';
-import { refreshMeta, store } from '../store.js';
+import { can, refreshMeta, store } from '../store.js';
 import {
   confirmDialog,
   esc,
@@ -299,6 +299,12 @@ export async function render(container) {
   });
 
   if (store.user?.is_admin) bindUsersCard(container);
+  // Without Edit rights for company settings the forms are read-only.
+  if (!can('settings', 'edit')) {
+    container.querySelectorAll('#company-form, #defaults-form').forEach((form) => {
+      form.querySelectorAll('input, select, textarea, button[type="submit"]').forEach((field) => { field.disabled = true; });
+    });
+  }
 
   container.querySelector('#local-backup').addEventListener('click', async (event) => {
     const button = event.currentTarget;

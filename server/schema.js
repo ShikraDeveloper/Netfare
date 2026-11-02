@@ -620,6 +620,7 @@ CREATE TABLE IF NOT EXISTS users (
   is_admin INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
   is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
   must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
+  permissions TEXT NOT NULL DEFAULT '{}',
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
   last_login_at TEXT,

@@ -27,6 +27,16 @@ export async function refreshMeta() {
   return store;
 }
 
+// The admin may do everything; staff have the rights the admin ticked:
+// {"bookings":"edit","visas":"view","void":true}.
+export function can(area, level = 'view') {
+  const permissions = store.user?.permissions;
+  if (!store.user) return false;
+  if (!permissions) return true;
+  if (area === 'void') return Boolean(permissions.void);
+  return level === 'edit' ? permissions[area] === 'edit' : Boolean(permissions[area]);
+}
+
 export function accountsOfType(...types) {
   return store.accounts.filter((account) => account.is_active && types.includes(account.type));
 }

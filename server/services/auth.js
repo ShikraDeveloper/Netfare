@@ -7,6 +7,7 @@
 const crypto = require('crypto');
 const { bad, notFound } = require('../util');
 const audit = require('./audit');
+const { AREAS, cleanPermissions, parsePermissions } = require('../permissions');
 
 const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const KEY_LENGTH = 64;
@@ -71,6 +72,7 @@ function publicUser(user) {
     is_admin: Boolean(user.is_admin),
     is_active: Boolean(user.is_active),
     must_change_password: Boolean(user.must_change_password),
+    permissions: user.is_admin ? null : parsePermissions(user.permissions),
     last_login_at: user.last_login_at,
     created_at: user.created_at,
   };
@@ -164,11 +166,22 @@ function createUser(db, payload = {}) {
     if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) {
       throw bad(`The username "${username}" is already taken`);
     }
-    const info = db.prepare('INSERT INTO users (username, full_name, password_hash) VALUES (?, ?, ?)')
-      .run(username, fullName, hashPassword(password));
-    audit.record(db, { entity_type: 'user', entity_id: info.lastInsertRowid, entity_number: username, action: 'create', remarks: `Added ${fullName}` });
+    const permissions = cleanPermissions(payload.permissions);
+    const info = db.prepare('INSERT INTO users (username, full_name, password_hash, permissions) VALUES (?, ?, ?, ?)')
+      .run(username, fullName, hashPassword(password), JSON.stringify(permissions));
+    audit.record(db, {
+      entity_type: 'user', entity_id: info.lastInsertRowid, entity_number: username, action: 'create',
+      remarks: `Added ${fullName} · ${rightsSummary(permissions)}`,
+    });
     return publicUser(userById(db, info.lastInsertRowid));
   })();
+}
+
+function rightsSummary(permissions) {
+  const parts = AREAS.filter((area) => permissions[area.key])
+    .map((area) => `${area.label}: ${permissions[area.key] === 'edit' ? 'Edit' : 'View'}`);
+  if (permissions.void) parts.push('Void, cancel & delete');
+  return parts.length ? parts.join(', ') : 'No rights';
 }
 
 function editableUser(db, id) {
@@ -186,9 +199,20 @@ function updateUser(db, id, payload = {}) {
       active = payload.is_active ? 1 : 0;
       if (user.is_admin && !active) throw bad('The admin account cannot be disabled');
     }
-    db.prepare(`UPDATE users SET full_name = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(fullName, active, user.id);
+    let permissions = user.permissions;
+    if (payload.permissions !== undefined) {
+      if (user.is_admin) throw bad('The admin always has every right');
+      permissions = JSON.stringify(cleanPermissions(payload.permissions));
+    }
+    db.prepare(`UPDATE users SET full_name = ?, is_active = ?, permissions = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(fullName, active, permissions, user.id);
     if (!active) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+    if (permissions !== user.permissions) {
+      audit.record(db, {
+        entity_type: 'user', entity_id: user.id, entity_number: user.username, action: 'rights',
+        remarks: rightsSummary(parsePermissions(permissions)),
+      });
+    }
     if (active !== user.is_active) {
       audit.record(db, { entity_type: 'user', entity_id: user.id, entity_number: user.username, action: active ? 'enable' : 'disable' });
     }

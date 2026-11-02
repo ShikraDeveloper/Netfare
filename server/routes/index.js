@@ -4,6 +4,7 @@ const router = require('express').Router();
 const db = require('../db');
 const auth = require('../services/auth');
 const { runWithUser } = require('../request-context');
+const { refusal } = require('../permissions');
 const { router: authRouter, readToken } = require('./auth');
 
 router.get('/health', (req, res) => {
@@ -32,6 +33,8 @@ router.use((req, res, next) => {
   if (user.must_change_password) {
     return res.status(403).json({ error: 'Change your password to continue', code: 'password_change_required' });
   }
+  const refused = refusal(db, user, req);
+  if (refused) return res.status(403).json({ error: refused, code: 'no_right' });
   req.user = user;
   return runWithUser(user, next);
 });

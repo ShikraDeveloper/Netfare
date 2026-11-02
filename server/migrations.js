@@ -208,6 +208,8 @@ ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 
 // Void audit trail and void metadata. Rows are retained so the audit log can
 // always point back to the original document.
+// Each staff user's rights, set by the admin (see server/permissions.js).
+ensureColumn('users', 'permissions', "TEXT NOT NULL DEFAULT '{}'");
 // Who did it: the logged-in user's name on each audit entry.
 ensureColumn('audit_logs', 'user_name', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('journal_entries', 'reversal_of_id', 'INTEGER');

@@ -2022,7 +2022,19 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
   await modal.locator('#pw-confirm').fill('counter-pass-1');
   await modal.locator('[data-submit]').click();
   await modal.waitFor({ state: 'detached' });
-  await card.locator('tbody tr', { hasText: 'Counter Staff' }).waitFor();
+  const row = card.locator('tbody tr', { hasText: 'Counter Staff' });
+  await row.waitFor();
+  assert.match(await row.innerText(), /View 1/, 'a new user starts with Dashboard only');
+
+  // Rights: Bookings Edit, Invoices View, nothing to void.
+  await row.locator('[data-user-rights]').click();
+  const rights = page.locator('.modal');
+  await rights.locator('input[name="right-bookings"][value="edit"]').check();
+  await rights.locator('input[name="right-sales"][value="view"]').check();
+  assert.equal(await rights.locator('input[name="right-reports"][value="edit"]').count(), 0, 'Reports has no Edit');
+  await rights.locator('[data-submit]').click();
+  await rights.waitFor({ state: 'detached' });
+  await card.locator('tbody tr', { hasText: 'Edit 1 · View 2' }).waitFor();
   assertNoConsoleErrors();
 
   // A browser with no session sees the sign-in screen, never the books.
@@ -2051,10 +2063,26 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     await guestPage.locator('.auth-submit').click();
     await guestPage.locator('#auth-root').waitFor({ state: 'detached' });
     await guestPage.locator('.company-meta', { hasText: 'Counter Staff' }).waitFor();
-    await guestPage.goto(`${baseUrl}/?staff=1#/settings`);
+    assert.deepEqual(
+      await guestPage.locator('#main-nav .nav-item span').allInnerTexts(),
+      ['Dashboard', 'Bookings', 'Invoices', 'Settlements', 'Customer balances', 'Settings'],
+      'the menu shows only screens the user may open',
+    );
+    const visible = async (selector) => guestPage.locator(selector).evaluateAll((nodes) => nodes.filter((node) => node.offsetParent).length);
+    await guestPage.goto(`${baseUrl}/?staff=0#/dashboard`);
+    await guestPage.locator('#page-actions [data-action="new-visa"]').waitFor({ state: 'attached' });
+    assert.ok(await visible('#page-actions [data-action="new-booking"]') > 0, 'New booking stays');
+    assert.equal(await visible('#page-actions [data-action="new-bill"]'), 0, 'New bill is hidden without Suppliers rights');
+    await guestPage.goto(`${baseUrl}/?staff=1#/bills`);
+    await guestPage.locator('#view .error-state', { hasText: 'You do not have access to this screen' }).waitFor();
+    await guestPage.goto(`${baseUrl}/?staff=2#/invoices`);
+    await guestPage.locator('#view table').first().waitFor();
+    assert.equal(await visible('#page-actions [data-action="new-invoice"]'), 0, 'View only: no New invoice');
+    await guestPage.goto(`${baseUrl}/?staff=3#/settings`);
     await guestPage.locator('#company-form').waitFor();
     assert.equal(await guestPage.locator('#users-card').count(), 0, 'no Users card for staff');
     assert.equal(await guestPage.locator('#reset-data').isVisible(), false, 'no Clear all data for staff');
+    assert.equal(await guestPage.locator('#company-name').isDisabled(), true, 'company settings are read-only without Edit');
     await guestPage.locator('[data-account="signout"]').click();
     await guestPage.locator('#auth-root').waitFor();
     assert.deepEqual(errors, []);

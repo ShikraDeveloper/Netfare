@@ -1,4 +1,4 @@
-import { refreshMeta, store } from './store.js';
+import { can, refreshMeta, store } from './store.js';
 import { initTheme } from './theme.js';
 import { ensureSignedIn, signOut } from './auth.js';
 import { openChangePassword } from './views/account.js';
@@ -120,6 +120,93 @@ const NAV_GROUPS = [
   },
 ];
 
+// The rights area behind each screen (see server/permissions.js). A screen
+// opens when the user may view any one of its areas. Settings is always
+// open: everyone needs Appearance and their own password.
+const SECTION_AREAS = {
+  dashboard: ['dashboard'],
+  bookings: ['bookings'],
+  visas: ['visas'],
+  invoices: ['sales'],
+  customers: ['customers'],
+  'settlement-queue': ['sales', 'refunds'],
+  cancellations: ['refunds'],
+  refunds: ['refunds'],
+  credits: ['refunds'],
+  'customer-balances': ['customers', 'sales'],
+  vendors: ['suppliers'],
+  bills: ['suppliers'],
+  'supplier-credits': ['suppliers'],
+  portals: ['portals'],
+  reports: ['reports'],
+  banking: ['banking'],
+  'petty-cash': ['banking'],
+  'card-settlements': ['banking'],
+  'bank-reconciliation': ['banking'],
+  cheques: ['banking'],
+  compliance: ['compliance'],
+  journal: ['books'],
+  'opening-balances': ['books'],
+  accounts: ['books'],
+  'audit-logs': ['audit'],
+};
+
+function canOpen(section) {
+  const areas = SECTION_AREAS[section];
+  return !areas || areas.some((area) => can(area));
+}
+
+// Buttons that add or reverse records hide when the user lacks that right;
+// the server refuses the request anyway. One stylesheet covers every screen,
+// including buttons drawn later (empty states, lists, modals).
+const NEW_ACTION_AREAS = {
+  'new-account': 'books',
+  'new-batch': 'banking',
+  'new-bill': 'suppliers',
+  'new-booking': 'bookings',
+  'new-compliance': 'compliance',
+  'new-deposit': 'banking',
+  'new-entry': 'books',
+  'new-entry-empty': 'books',
+  'new-invoice': 'sales',
+  'new-portal': 'portals',
+  'new-reconciliation': 'banking',
+  'new-refund': 'refunds',
+  'new-visa': 'visas',
+};
+// These mean "new" for whatever screen they are on.
+const SECTION_NEW_ACTIONS = ['new-party', 'new-credit'];
+const VOID_SELECTORS = [
+  '[data-action="void"]', '[data-action="void-credit"]', '[data-action="cancel"]', '[data-action="cancel-job"]',
+  '[data-action="delete"]', '[data-delete-payment]', '[data-delete-recon]', '[data-delete]', '[data-void-advance]',
+  '[data-void-cheque]', '[data-void-count]', '[data-void-kind]', '[data-void-portal]', '[data-void-settlement]', '[data-void]',
+];
+
+function applyRightsStyles() {
+  if (!store.user?.permissions) return;
+  const hidden = Object.entries(NEW_ACTION_AREAS)
+    .filter(([, area]) => !can(area, 'edit'))
+    .map(([action]) => `[data-action="${action}"]`);
+  for (const [section, areas] of Object.entries(SECTION_AREAS)) {
+    if (!can(areas[0], 'edit')) hidden.push(...SECTION_NEW_ACTIONS.map((action) => `html[data-section="${section}"] [data-action="${action}"]`));
+  }
+  if (!can('void')) hidden.push(...VOID_SELECTORS.map((selector) => `.main ${selector}`));
+  if (!can('audit')) hidden.push('.main a[href^="#/audit-chain"]', '.main [data-action="audit-chain"]');
+  const style = document.createElement('style');
+  style.id = 'rights-style';
+  style.textContent = hidden.length ? `${hidden.join(',\n')} { display: none !important; }` : '';
+  document.getElementById('rights-style')?.remove();
+  document.head.appendChild(style);
+}
+
+function firstOpenSection() {
+  for (const group of NAV_GROUPS) {
+    const item = group.items.find((candidate) => canOpen(candidate.section));
+    if (item) return item;
+  }
+  return null;
+}
+
 const NAV_GROUPS_KEY = 'ledgerly.nav.groups';
 
 function readNavState() {
@@ -204,7 +291,7 @@ document.getElementById('skip-link')?.addEventListener('click', (event) => {
 });
 
 function navItemsHtml(group) {
-  return group.items.map((item) => `
+  return group.items.filter((item) => canOpen(item.section)).map((item) => `
     <a class="nav-item" href="${item.href}" data-section="${item.section}">
       ${icon(item.icon, 17)}
       <span>${esc(item.label)}</span>
@@ -215,7 +302,7 @@ function navItemsHtml(group) {
 function buildNav() {
   const nav = document.getElementById('main-nav');
   const state = readNavState();
-  nav.innerHTML = NAV_GROUPS.map((group) => {
+  nav.innerHTML = NAV_GROUPS.filter((group) => group.items.some((item) => canOpen(item.section))).map((group) => {
     if (!group.label) return `<div class="nav-group" data-nav-group="${group.key}">${navItemsHtml(group)}</div>`;
     const collapsed = state[group.key] ?? Boolean(group.collapsed);
     return `
@@ -253,7 +340,7 @@ function buildTabbar() {
   const bar = document.createElement('nav');
   bar.className = 'tabbar no-print';
   bar.setAttribute('aria-label', 'Quick navigation');
-  bar.innerHTML = `${TABBAR_ITEMS.map((item) => `
+  bar.innerHTML = `${TABBAR_ITEMS.filter((item) => canOpen(item.section)).map((item) => `
     <a class="tab-item" href="${item.href}" data-section="${item.section}">${icon(item.icon, 20)}<span>${esc(item.label)}</span></a>
   `).join('')}
     <button type="button" class="tab-item" data-tab-more aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
@@ -282,6 +369,7 @@ function labelCardTables(root = document) {
 }
 
 function updateNav(section) {
+  document.documentElement.dataset.section = section;
   document.querySelectorAll('.tab-item[data-section]').forEach((item) => {
     item.classList.toggle('active', item.dataset.section === section);
   });
@@ -419,7 +507,12 @@ async function renderRoute() {
 
   const route = ROUTES.find((candidate) => candidate.pattern.test(path));
   if (!route) {
-    location.hash = '#/dashboard';
+    location.hash = firstOpenSection()?.href || '#/settings';
+    return;
+  }
+  // The home screen without Dashboard rights: open the first allowed one.
+  if (route.section === 'dashboard' && !canOpen('dashboard')) {
+    location.hash = firstOpenSection()?.href || '#/settings';
     return;
   }
 
@@ -431,6 +524,19 @@ async function renderRoute() {
   viewEl.setAttribute('aria-busy', 'true');
   viewEl.innerHTML = '<div class="loading"><div class="spinner"></div><span>Loading…</span></div>';
   window.scrollTo(0, 0);
+
+  if (!canOpen(route.section)) {
+    setHeader({ title: 'No access', subtitle: '', actions: '' });
+    viewEl.setAttribute('aria-busy', 'false');
+    viewEl.innerHTML = `
+      <div class="card">
+        <div class="error-state">
+          <h3>${icon('lock', 18)} You do not have access to this screen</h3>
+          <p>Ask the admin to give you View rights for it in Settings → Users &amp; logins.</p>
+        </div>
+      </div>`;
+    return;
+  }
 
   try {
     const cleanup = await route.view.render(viewEl, { query, params: match.slice(1), path });
@@ -460,13 +566,17 @@ async function renderRoute() {
 }
 
 async function boot() {
-  buildNav();
-  buildTabbar();
   new MutationObserver(() => labelCardTables(document.getElementById('view')))
     .observe(document.getElementById('view'), { childList: true, subtree: true });
   try {
     store.user = await ensureSignedIn();
     document.documentElement.classList.toggle('is-admin', store.user.is_admin);
+    // The menu shows only the screens this user may open.
+    if (!document.querySelector('#main-nav .nav-group')) {
+      buildNav();
+      buildTabbar();
+    }
+    applyRightsStyles();
     await refreshMeta();
   } catch (error) {
     document.getElementById('view').innerHTML = `

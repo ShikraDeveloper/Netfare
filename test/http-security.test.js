@@ -320,7 +320,7 @@ test('sign-in sets a strict HttpOnly cookie, wrong passwords lock the user, sign
 });
 
 test('staff cannot manage users or data; disabling or a new password ends their sessions', async () => {
-  const created = await postAs(cookie, '/api/users', { full_name: 'Desk Staff', username: 'desk', password: 'desk-pass-1' });
+  const created = await postAs(cookie, '/api/users', { full_name: 'Desk Staff', username: 'desk', password: 'desk-pass-1', permissions: { sales: 'edit' } });
   assert.equal(created.status, 201);
   const duplicate = await postAs(cookie, '/api/users', { full_name: 'Other', username: 'DESK', password: 'desk-pass-2' });
   assert.equal(duplicate.status, 400);
@@ -382,4 +382,55 @@ test('npm run reset-admin gives a one-time password that must be changed first',
   assert.equal(changed.data.user.must_change_password, false);
   assert.equal((await jsonRequest('/api/settings', { headers: { Cookie: admin.cookie } })).status, 200);
   cookie = admin.cookie;
+});
+
+test('rights: view, edit and void are enforced per area and changes apply at once', async () => {
+  const created = await postAs(cookie, '/api/users', {
+    full_name: 'Rights Staff', username: 'rights', password: 'rights-pass-1',
+    permissions: { bookings: 'edit', sales: 'view', reports: 'edit', made_up: 'edit' },
+  });
+  assert.equal(created.status, 201);
+  assert.deepEqual(created.data.permissions, { bookings: 'edit', sales: 'view' }, 'Edit is refused for view-only Reports and unknown areas are dropped');
+  const staff = await signIn('rights', 'rights-pass-1');
+  const get = async (pathname) => (await jsonRequest(pathname, { headers: { Cookie: staff.cookie } }));
+
+  assert.equal((await get('/api/bookings')).status, 200);
+  assert.equal((await get('/api/invoices')).status, 200, 'View on invoices');
+  assert.equal((await get('/api/settings')).status, 200, 'pickers stay readable');
+  const bills = await get('/api/bills');
+  assert.equal(bills.status, 403);
+  assert.equal(bills.data.code, 'no_right');
+  assert.match(bills.data.error, /View rights for Suppliers/);
+  assert.equal((await get('/api/reports/trial-balance')).status, 403);
+  assert.equal((await get('/api/audit-logs')).status, 403);
+
+  const customer = (await jsonRequest('/api/customers')).data[0]
+    || (await postAs(cookie, '/api/customers', { name: 'Rights Customer' })).data;
+  const accounts = (await jsonRequest('/api/accounts')).data;
+  const booking = await postAs(staff.cookie, '/api/bookings', {
+    customer_id: customer.id, booking_date: '2026-11-02', due_date: '2026-11-02', destination: 'Rights test',
+    sale_items: [{ description: 'Pax', quantity: 1, unit_price_cents: 10_000, account_id: accounts.find((a) => a.code === '4000').id }],
+  });
+  assert.equal(booking.status, 201, 'Edit on bookings');
+  const invoice = await postAs(staff.cookie, '/api/invoices', { customer_id: customer.id });
+  assert.equal(invoice.status, 403, 'View only on invoices');
+  assert.match(invoice.data.error, /Edit rights for Invoices/);
+  const removed = await jsonRequest(`/api/bookings/${booking.data.id}`, { method: 'DELETE', headers: { Origin: baseUrl, Cookie: staff.cookie } });
+  assert.equal(removed.status, 403, 'deleting needs the void right');
+  assert.match(removed.data.error, /void, cancel or delete/);
+
+  const granted = await postAs(cookie, `/api/users/${created.data.id}`, { permissions: { bookings: 'edit', void: true } }, 'PUT');
+  assert.equal(granted.status, 200);
+  const again = await jsonRequest(`/api/bookings/${booking.data.id}`, { method: 'DELETE', headers: { Origin: baseUrl, Cookie: staff.cookie } });
+  assert.equal(again.status, 200, 'new rights apply without signing in again');
+  assert.equal((await get('/api/customer-balances')).status, 403, 'and removed rights are gone at once');
+  assert.equal((await get('/api/invoices')).status, 200, 'bookings still show their invoices');
+  assert.equal((await get('/api/journal-entries')).status, 403, 'but not the whole journal');
+
+  const admin = (await jsonRequest('/api/users')).data.find((user) => user.is_admin);
+  assert.equal(admin.permissions, null, 'the admin has every right');
+  assert.equal((await postAs(cookie, `/api/users/${admin.id}`, { permissions: {} }, 'PUT')).status, 400);
+  const audit = await jsonRequest('/api/audit-logs?entity_type=user&action=rights');
+  const rows = audit.data.rows || audit.data;
+  assert.ok(rows.some((row) => row.entity_number === 'rights' && /Bookings: Edit/.test(row.remarks) && /Void/.test(row.remarks)));
 });

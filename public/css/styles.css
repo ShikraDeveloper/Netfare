@@ -1594,3 +1594,19 @@ html:not(.is-admin) .admin-only { display: none; }
 .auth-form { display: grid; gap: 14px; }
 .auth-error { color: var(--red); background: var(--red-soft); border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.4; }
 .auth-submit { width: 100%; justify-content: center; height: 42px; margin-top: 4px; }
+
+/* Rights checklist in the user forms */
+.rights { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px 14px; margin: 16px 0 0; }
+.rights legend { font-size: 12.5px; font-weight: 700; color: var(--text-soft); padding: 0 6px; }
+.rights-quick { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 12px; margin-bottom: 6px; }
+.rights-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rights-table th, .rights-table td { padding: 7px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+.rights-table thead th { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.rights-table thead th:not(:first-child), .rights-cell { text-align: center; width: 84px; }
+.rights-table tbody th { font-weight: 500; color: var(--text); }
+.rights-cell input { width: 16px; height: 16px; accent-color: var(--primary); }
+.rights-void { margin-top: 12px; }
+@media (max-width: 600px) {
+  .rights-table thead th:not(:first-child), .rights-cell { width: 54px; }
+  .rights-table thead th { font-size: 10px; letter-spacing: 0; }
+}

@@ -81,7 +81,11 @@ npm run dev
 
 - The first time Netfare opens, it asks you to create the **admin** account. Everyone, admin included, must sign in before seeing any data.
 - The admin adds staff from **Settings → Users & logins**: full name, username and password. From there the admin can rename a user, set a new password or disable a user. Disabled users cannot sign in, and their past entries keep their name.
-- Users, backups, restore and Clear all data are admin-only. Rights for each user's screens are planned next.
+- **Rights:** for each staff user, the admin sets each area (Bookings, Visas, Invoices & payments, Suppliers & bills, Banking, Books, Reports and others) to No access, View or Edit. **Void, cancel & delete** is a separate tick.
+  - The server checks every request.
+  - The menu shows only allowed screens, and "New …" and void buttons hide without the right.
+  - Bookings and visas also show their invoices, portals and journal postings.
+- Users, backups, restore and Clear all data are always admin-only.
 - Anyone can change their own password with the lock button at the bottom of the sidebar.
 - Passwords are stored as salted scrypt hashes. A session ends after 12 hours without activity. Five wrong passwords lock that username for 5 minutes.
 - The audit log shows who did each action.
