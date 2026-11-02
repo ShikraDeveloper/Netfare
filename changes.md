@@ -1432,9 +1432,55 @@ Verification:
 - **Not tested from a second computer:** that needs the user's own office network. The live server stays on this computer only until the admin turns the setting on and restarts.
 - Schema change: `settings.lan_enabled`, `settings.lan_hosts`, `customers/vendors/accounts.updated_at` (all additive). Restart needed.
 
+### Desktop app code (step 4, written but not built) — code commit `fc50020`
+
+The user chose not to download Electron yet (about 160 MB) and to keep the desktop app's books in the app folder on the internal disk. So the code is written, but the app has not been run.
+
+- **`desktop/main.js` (Electron):** the first run shows `desktop/setup.html`, with three choices.
+  - **Start new books here:** the main computer runs `server/index.js` inside the app. It sets `LEDGERLY_DATA_DIR` to `~/Library/Application Support/Netfare/data` and `PORT` to 4173.
+  - **Start from a backup (.db):** uses `scripts/restore.js` into the empty app data folder. It is refused if books already exist.
+  - **Connect to the office computer:** cleans the typed address, checks `/api/health` answers "Netfare", then opens it.
+  - The choice is saved in `desktop.json` (owner-only) in the app folder.
+  - If the office computer does not answer at start-up, the setup screen returns with a message.
+  - If the port is busy, an error dialog is shown.
+  - **Menu:** Change setup… (clears the choice and relaunches; the books are kept), Show books folder, and Edit, View and Window menus.
+- **Window security:**
+  - contextIsolation, sandbox and no nodeIntegration.
+  - Navigation stays on the Netfare origin; other http(s) links open in the normal browser.
+  - The preload exposes only the three setup calls, and the main process accepts them only from the `file://` setup page, never from a Netfare page (local or office).
+  - One app instance at a time; closing the window quits the app and stops the server.
+- **`desktop/config.js`:** plain Node, tested. It holds the saved choice, office address cleaning (adds `http://` and port 4173, refuses other schemes and credentials) and the same-origin check.
+- **`scripts/build-desktop.js` (`npm run desktop`, `npm run desktop:dist`):**
+  - Copies the server, `public/`, the package files and the restore, backup and reset-admin scripts into `desktop/build/app-server`.
+  - Runs `npm ci --omit=dev` there (a download).
+  - Rebuilds `better-sqlite3` for the installed Electron with `@electron/rebuild`.
+  - Then opens the app or runs electron-builder (`--mac dmg`). `desktop/package.json` holds the builder config: appId `com.shikragroup.netfare`, the server staged as `extraResources`, and the 512 px icon.
+  - The project's own `node_modules` stay on system Node, so `npm start` and the tests are unaffected.
+  - `desktop/build/` and `desktop/dist/` are git-ignored.
+- **`server/index.js`:** exports `{ app, server, ready, shutdown }`. `ready` resolves once listening. A busy port now prints "Port 4173 is already in use. Is Netfare already running?" and exits 1, instead of a stack trace.
+- **`scripts/check.js`:** also checks `desktop/`, skipping `node_modules`, `build` and `dist`.
+- **Not done:** downloading Electron and electron-builder, running and building the app, signing and auto-update (step 5).
+- **Session note:** a test command that would have started the server without a temporary data folder was blocked by the permission check. It was re-run against a temporary folder and a spare port.
+
+Key files: `desktop/{main,preload,config,setup}.js`, `desktop/setup.html`, `desktop/package.json`, `scripts/build-desktop.js` (new), `scripts/check.js`, `server/index.js`, `package.json`, `.gitignore`, `README.md`, `test/desktop-config.test.js` (new).
+
+Verification:
+
+- `npm run check`: 213 files OK (now including `desktop/`).
+- `npm test`: 217 passed. The new desktop config tests cover the data folder path, saving, reading and clearing the choice (owner-only file, a broken file asks again), office address cleaning, and the same-origin check.
+- `npm run test:e2e`: 42 passed.
+- The busy-port message was checked against a temporary data folder on spare port 4392.
+- The setup screen was looked at in the browser pane (design only; the buttons need Electron).
+- No schema change. No restart needed: the server behaves the same when started with `npm start`.
+
 ### Next session
 
-1. Start from the latest `main`; the latest code commit is `23b6b58` (office network mode). Next in the plan: step 4, the Electron desktop app. "Created by" on documents and the DSR staff column are still open.
+1. Start from the latest `main`; the latest code commit is `fc50020` (desktop app code).
+2. To continue step 4, the user must approve downloading Electron and electron-builder (about 160 MB). Then:
+   1. Pin exact versions at least two weeks old in `desktop/package.json`.
+   2. Run `cd desktop && npm install`, then `npm run desktop`, and test both setup paths.
+   3. Run `npm run desktop:dist`.
+3. Step 5 (signing and auto-update) follows. "Created by" on documents and the DSR staff column are still open.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
