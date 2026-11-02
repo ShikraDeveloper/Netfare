@@ -21,6 +21,12 @@ on:
 permissions:
   contents: read
 
+# bash on every runner (Git Bash on Windows), so a failing command stops
+# its step.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     name: Build (${{ matrix.target }})
@@ -43,9 +49,12 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             desktop/package-lock.json
+      # better-sqlite3 ships prebuilt binaries; --ignore-scripts stops npm
+      # trying to compile it (Windows runners have no C++ build tools).
+      # desktop/ keeps its scripts: Electron downloads itself in one.
       - name: Install
         run: |
-          npm ci --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
           npm ci --prefix desktop --no-audit --no-fund
       - name: Unit tests
         if: matrix.target == 'mac'

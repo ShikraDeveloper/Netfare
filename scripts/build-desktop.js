@@ -52,9 +52,11 @@ function stage() {
   for (const item of SERVER_FILES) fs.cpSync(path.join(root, item), path.join(stageDir, item), { recursive: true });
   for (const file of SCRIPT_FILES) fs.copyFileSync(path.join(root, 'scripts', file), path.join(stageDir, 'scripts', file));
   console.log('  Installing the server packages…');
-  // On Windows npm is npm.cmd, which needs a shell.
+  // On Windows npm is npm.cmd, which needs a shell. --ignore-scripts: the
+  // server's packages need no install step, and better-sqlite3's prebuilt
+  // binary is used as it is (no C++ compiler needed).
   const windows = process.platform === 'win32';
-  execFileSync(windows ? 'npm.cmd' : 'npm', ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: stageDir, stdio: 'inherit', shell: windows });
+  execFileSync(windows ? 'npm.cmd' : 'npm', ['ci', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund'], { cwd: stageDir, stdio: 'inherit', shell: windows });
   console.log(`  Staged in ${path.relative(root, stageDir)}`);
 }
 
