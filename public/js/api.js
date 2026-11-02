@@ -1,6 +1,23 @@
+// The version (updated_at) of each record as this browser last loaded it.
+// An edit sends it back, and the server refuses the edit if someone else
+// changed the record in between (see server/routes/index.js).
+const VERSIONED = new Set(['accounts', 'bills', 'bookings', 'cheques', 'compliance', 'customers', 'invoices', 'portals', 'vendors', 'visas']);
+const versions = new Map();
+
+function rememberVersions(path, data) {
+  const match = /^\/([a-z-]+)(?:\/(\d+))?$/.exec(path.split('?')[0]);
+  if (!match || !VERSIONED.has(match[1]) || !data || typeof data !== 'object') return;
+  const rows = Array.isArray(data) ? data : [data];
+  for (const row of rows) {
+    if (row && row.id != null && typeof row.updated_at === 'string') versions.set(`/${match[1]}/${row.id}`, row.updated_at);
+  }
+}
+
 async function request(path, options = {}) {
+  const method = options.method || 'GET';
+  const version = method === 'PUT' ? versions.get(path) : undefined;
   const response = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(version !== undefined ? { 'X-Record-Version': version } : {}) },
     ...options,
   });
   const text = await response.text();
@@ -22,6 +39,7 @@ async function request(path, options = {}) {
     error.data = data;
     throw error;
   }
+  if (method === 'GET' || method === 'PUT') rememberVersions(path, data);
   return data;
 }
 

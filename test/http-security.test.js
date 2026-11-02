@@ -434,3 +434,75 @@ test('rights: view, edit and void are enforced per area and changes apply at onc
   const rows = audit.data.rows || audit.data;
   assert.ok(rows.some((row) => row.entity_number === 'rights' && /Bookings: Edit/.test(row.remarks) && /Void/.test(row.remarks)));
 });
+
+test('two people editing the same record: the older copy is refused, not saved over', async () => {
+  const customers = (await jsonRequest('/api/customers')).data;
+  const customer = customers[0] || (await postAs(cookie, '/api/customers', { name: 'Version Customer' })).data;
+  const accounts = (await jsonRequest('/api/accounts')).data;
+  const created = await postAs(cookie, '/api/bookings', {
+    customer_id: customer.id, booking_date: '2026-11-02', due_date: '2026-11-02', destination: 'Version test',
+    sale_items: [{ description: 'Pax', quantity: 1, unit_price_cents: 10_000, account_id: accounts.find((a) => a.code === '4000').id }],
+  });
+  assert.equal(created.status, 201);
+  const loaded = (await jsonRequest(`/api/bookings/${created.data.id}`)).data;
+  const put = (version, destination) => jsonRequest(`/api/bookings/${created.data.id}`, {
+    method: 'PUT',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json', ...(version ? { 'X-Record-Version': version } : {}) },
+    body: JSON.stringify({ ...loaded, destination }),
+  });
+
+  // Make sure the second save lands in a later second than the first load.
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const first = await put(loaded.updated_at, 'Saved by the first person');
+  assert.equal(first.status, 200);
+  const second = await put(loaded.updated_at, 'Saved by the second person');
+  assert.equal(second.status, 409);
+  assert.equal(second.data.code, 'record_changed');
+  assert.equal((await jsonRequest(`/api/bookings/${created.data.id}`)).data.destination, 'Saved by the first person');
+  const fresh = (await jsonRequest(`/api/bookings/${created.data.id}`)).data;
+  assert.equal((await put(fresh.updated_at, 'After reopening')).status, 200, 'a fresh copy saves');
+  assert.equal((await put(null, 'A script without a version')).status, 200);
+
+  const customerBefore = (await jsonRequest('/api/customers')).data.find((row) => row.id === customer.id);
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  const renamed = await jsonRequest(`/api/customers/${customer.id}`, {
+    method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json', 'X-Record-Version': customerBefore.updated_at },
+    body: JSON.stringify({ notes: 'first' }),
+  });
+  assert.equal(renamed.status, 200);
+  assert.notEqual(renamed.data.updated_at, customerBefore.updated_at, 'customers now record their edit time');
+  const stale = await jsonRequest(`/api/customers/${customer.id}`, {
+    method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json', 'X-Record-Version': customerBefore.updated_at },
+    body: JSON.stringify({ notes: 'second' }),
+  });
+  assert.equal(stale.status, 409);
+});
+
+test('office network settings are admin-only and apply after a restart', async () => {
+  const status = await jsonRequest('/api/admin/network');
+  assert.equal(status.status, 200);
+  assert.equal(status.data.lan_enabled, false);
+  assert.equal(status.data.running_on_network, false);
+
+  const saved = await jsonRequest('/api/admin/network', {
+    method: 'PUT',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lan_enabled: true, lan_hosts: 'Office.tail9.ts.net bad_name' }),
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.data.lan_enabled, true);
+  assert.deepEqual(saved.data.lan_hosts, ['office.tail9.ts.net']);
+  assert.equal(saved.data.running_on_network, false, 'still this computer only until a restart');
+  const officeHost = await rawRequest('/api/health', { headers: { Host: `192.168.1.20:${port}` } });
+  assert.equal(officeHost.status, 421, 'office names are refused while listening on this computer only');
+
+  const staff = await postAs(cookie, '/api/users', { full_name: 'Net Staff', username: 'netstaff', password: 'net-staff-1', permissions: { settings: 'edit' } });
+  assert.equal(staff.status, 201);
+  const signedIn = await signIn('netstaff', 'net-staff-1');
+  const blocked = await postAs(signedIn.cookie, '/api/admin/network', { lan_enabled: false }, 'PUT');
+  assert.equal(blocked.status, 403, 'Company settings Edit does not open the network');
+
+  await jsonRequest('/api/admin/network', {
+    method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify({ lan_enabled: false }),
+  });
+});

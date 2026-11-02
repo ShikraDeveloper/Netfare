@@ -39,6 +39,36 @@ router.use((req, res, next) => {
   return runWithUser(user, next);
 });
 
+// Two people editing the same record: the app sends the version (updated_at)
+// it loaded, and an edit made from an older copy is refused instead of
+// silently overwriting the other person's change.
+const VERSIONED_TABLES = {
+  accounts: 'accounts',
+  bills: 'bills',
+  bookings: 'bookings',
+  cheques: 'post_dated_cheques',
+  compliance: 'compliance_items',
+  customers: 'customers',
+  invoices: 'invoices',
+  portals: 'supplier_portals',
+  vendors: 'vendors',
+  visas: 'visa_applications',
+};
+
+router.put('/:kind/:id', (req, res, next) => {
+  const table = VERSIONED_TABLES[req.params.kind];
+  const expected = req.get('x-record-version');
+  if (!table || expected === undefined || !/^\d+$/.test(req.params.id)) return next();
+  const current = db.prepare(`SELECT updated_at FROM ${table} WHERE id = ?`).get(Number(req.params.id));
+  if (current && current.updated_at !== expected) {
+    return res.status(409).json({
+      error: 'Someone else changed this record while you were editing. Close it and open it again to see their changes.',
+      code: 'record_changed',
+    });
+  }
+  return next();
+});
+
 function adminOnly(req, res, next) {
   if (req.user.is_admin) return next();
   return res.status(403).json({ error: 'Only the admin can do this' });

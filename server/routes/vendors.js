@@ -49,7 +49,7 @@ router.put('/:id', (req, res) => {
   if (!existing) throw notFound('Vendor not found');
   const body = req.body || {};
   db.prepare(`
-    UPDATE vendors SET name = ?, email = ?, phone = ?, address = ?, notes = ?, is_active = ? WHERE id = ?
+    UPDATE vendors SET name = ?, email = ?, phone = ?, address = ?, notes = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?
   `).run(
     body.name != null ? str(body.name, 'Vendor name', { max: 160 }) : existing.name,
     body.email != null ? optionalStr(body.email, 'Email', 200) : existing.email,

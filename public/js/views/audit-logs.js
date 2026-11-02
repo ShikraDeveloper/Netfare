@@ -35,6 +35,7 @@ const ENTITY_LABELS = {
   visa: 'Visa application',
   visa_deposit: 'Visa security deposit',
   user: 'User login',
+  settings: 'Settings',
 };
 
 const ACTION_LABELS = {

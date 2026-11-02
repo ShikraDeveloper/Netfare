@@ -10,6 +10,7 @@ import {
   toast,
 } from '../ui.js';
 import { bindUsersCard, usersCardHtml } from './account.js';
+import { bindNetworkCard, networkCardHtml } from './network.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -170,7 +171,7 @@ export async function render(container) {
       </div>
 
       <div class="settings-stack">
-        ${store.user?.is_admin ? usersCardHtml() : ''}
+        ${store.user?.is_admin ? usersCardHtml() + networkCardHtml() : ''}
         <div class="card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Data &amp; backup</h2><p>Your books live on this computer</p></div>
@@ -298,7 +299,10 @@ export async function render(container) {
     }
   });
 
-  if (store.user?.is_admin) bindUsersCard(container);
+  if (store.user?.is_admin) {
+    bindUsersCard(container);
+    bindNetworkCard(container);
+  }
   // Without Edit rights for company settings the forms are read-only.
   if (!can('settings', 'edit')) {
     container.querySelectorAll('#company-form, #defaults-form').forEach((form) => {

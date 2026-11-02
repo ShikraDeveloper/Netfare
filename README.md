@@ -91,6 +91,15 @@ npm run dev
 - The audit log shows who did each action.
 - **Forgot the admin password?** On the main computer, run `npm run reset-admin`. It prints a one-time password, and Netfare asks for a new password at the next sign-in.
 
+## Office network (several computers)
+
+- One computer is the **main computer**: it runs Netfare and keeps the books. Others open Netfare in their browser.
+- The admin turns this on in **Settings → Office network** ("Allow other computers") and restarts Netfare. The card then lists the links to open on other computers, such as `http://192.168.1.10:4173`, the computer's `.local` name, or its Tailscale address.
+- Only this computer, private office networks and Tailscale (100.64.0.0/10) can connect. Internet addresses are always refused, and other host names are refused (DNS rebinding protection).
+- For staff working from home, install Tailscale on the main computer and on theirs. Tailscale encrypts the connection; plain office Wi-Fi does not. A Tailscale name can be added under "Extra names".
+- The main computer must stay on and awake. The first time, macOS may ask to allow incoming connections for "node".
+- If two people edit the same record, the second save is refused with "Someone else changed this record…", instead of overwriting the first person's change.
+
 ## Theme & appearance
 
 Netfare uses the colours of its logo kit (navy `#0B1B2E`, sky blue `#4FB3E8`, blue `#2B8FCB`, slate `#55657A`) with a matching dark mode. The logo files live in `public/brand/` (sidebar, favicon, Apple touch icon, About card). Open **Settings → Appearance** and pick **Light** or **Dark**; the change applies immediately and is saved per browser/device, so a laptop can stay light while a phone stays dark.

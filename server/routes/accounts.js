@@ -94,7 +94,8 @@ router.put('/:id', (req, res) => {
   }
 
   db.prepare(`
-    UPDATE accounts SET code = ?, name = ?, type = ?, normal_balance = ?, is_cash = ?, is_active = ?, description = ?
+    UPDATE accounts SET code = ?, name = ?, type = ?, normal_balance = ?, is_cash = ?, is_active = ?, description = ?,
+      updated_at = datetime('now')
     WHERE id = ?
   `).run(code, name, type, normal, isCash, isActive, description, id);
 

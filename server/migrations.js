@@ -208,6 +208,15 @@ ensureColumn('post_dated_cheques', 'anchor_date', 'TEXT');
 
 // Void audit trail and void metadata. Rows are retained so the audit log can
 // always point back to the original document.
+// The edit time of customers, suppliers and accounts, so two people editing
+// the same record do not overwrite each other (see routes/index.js).
+ensureColumn('customers', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('vendors', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('accounts', 'updated_at', "TEXT NOT NULL DEFAULT ''");
+// Office network mode (server/network.js): listen beyond this computer, and
+// extra names such as a Tailscale name that browsers may use.
+ensureColumn('settings', 'lan_enabled', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('settings', 'lan_hosts', "TEXT NOT NULL DEFAULT ''");
 // Each staff user's rights, set by the admin (see server/permissions.js).
 ensureColumn('users', 'permissions', "TEXT NOT NULL DEFAULT '{}'");
 // Who did it: the logged-in user's name on each audit entry.

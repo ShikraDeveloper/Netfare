@@ -5,12 +5,23 @@ const path = require('path');
 const db = require('./db');
 const { startAutoBackup } = require('./services/backup');
 const { hostGuard, apiGuard } = require('./security');
+const network = require('./network');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4173;
-const HOST = process.env.HOST || '127.0.0.1';
+// Office network mode (Settings) listens on every interface; otherwise this
+// computer only. HOST still overrides both.
+const HOST = process.env.HOST || (network.readSettings(db).lan_enabled ? '0.0.0.0' : '127.0.0.1');
+network.setRunning(HOST, PORT);
+const officeName = (hostname) => network.isOfficeHostname(db, hostname);
 
 app.disable('x-powered-by');
+// Only this computer and, in office mode, the office network or Tailscale.
+app.use((req, res, next) => {
+  const address = req.socket.remoteAddress;
+  if (network.isLoopback(address) || (network.listensOnNetwork() && network.isOfficeAddress(address))) return next();
+  return res.status(403).type('text/plain').send('Netfare accepts connections only from this computer and the office network.');
+});
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
@@ -32,8 +43,8 @@ app.use((req, res, next) => {
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
 });
-app.use(hostGuard());
-app.use('/api', apiGuard({ port: PORT }));
+app.use(hostGuard({ extra: officeName }));
+app.use('/api', apiGuard({ port: PORT, extra: officeName }));
 app.use(express.json({ limit: '2mb' }));
 app.use((req, res, next) => {
   const started = process.hrtime.bigint();
@@ -68,7 +79,12 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(PORT, HOST, () => {
-  console.log(`\n  Netfare is running at http://${HOST}:${PORT}\n`);
+  console.log(`\n  Netfare is running at http://${network.listensOnNetwork() ? '127.0.0.1' : HOST}:${PORT}`);
+  if (network.listensOnNetwork()) {
+    console.log('  Office network mode is on. Other computers can open:');
+    for (const address of network.connectAddresses(db)) console.log(`    ${address.url}  (${address.kind})`);
+  }
+  console.log('');
   startAutoBackup(db);
 });
 

@@ -30,11 +30,15 @@ function hostnameFromHost(host) {
   return value;
 }
 
-function isAllowedHost(host, allowed = configuredHosts()) {
-  return allowed.has(hostnameFromHost(host));
+// `extra` is a check for names allowed in office network mode.
+function isAllowedHost(host, allowed = configuredHosts(), extra = null) {
+  const hostname = hostnameFromHost(host);
+  return allowed.has(hostname) || Boolean(extra && hostname && extra(hostname));
 }
 
-function isAllowedOrigin(origin, { port = process.env.PORT || 4173, hosts = configuredHosts(), origins = configuredOrigins() } = {}) {
+function isAllowedOrigin(origin, {
+  port = process.env.PORT || 4173, hosts = configuredHosts(), origins = configuredOrigins(), extra = null,
+} = {}) {
   if (origin == null || origin === '') return true;
   if (String(origin).toLowerCase() === 'null') return false;
   if (origins.has(String(origin).toLowerCase())) return true;
@@ -46,7 +50,8 @@ function isAllowedOrigin(origin, { port = process.env.PORT || 4173, hosts = conf
     return false;
   }
   if (!['http:', 'https:'].includes(parsed.protocol)) return false;
-  if (!hosts.has(parsed.hostname.toLowerCase())) return false;
+  const hostname = parsed.hostname.toLowerCase();
+  if (!hosts.has(hostname) && !(extra && extra(hostname))) return false;
   const actualPort = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
   return actualPort === String(port);
 }
@@ -55,9 +60,9 @@ function hasRequestBody(req) {
   return Boolean(req.headers['transfer-encoding']) || Number(req.headers['content-length'] || 0) > 0;
 }
 
-function hostGuard({ hosts = configuredHosts() } = {}) {
+function hostGuard({ hosts = configuredHosts(), extra = null } = {}) {
   return (req, res, next) => {
-    if (isAllowedHost(req.get('host'), hosts)) return next();
+    if (isAllowedHost(req.get('host'), hosts, extra)) return next();
     if (req.path.startsWith('/api/')) return res.status(421).json({ error: 'Misdirected request' });
     return res.status(421).type('text/plain').send('Misdirected request');
   };
@@ -76,13 +81,15 @@ function isAllowedFetchSite(req, origins = configuredOrigins()) {
   return Boolean(origin) && origins.has(origin);
 }
 
-function apiGuard({ port = process.env.PORT || 4173, hosts = configuredHosts(), origins = configuredOrigins() } = {}) {
+function apiGuard({
+  port = process.env.PORT || 4173, hosts = configuredHosts(), origins = configuredOrigins(), extra = null,
+} = {}) {
   return (req, res, next) => {
     if (!isAllowedFetchSite(req, origins)) {
       return res.status(403).json({ error: 'Cross-site request blocked' });
     }
     if (SAFE_METHODS.has(req.method)) return next();
-    if (!isAllowedOrigin(req.get('origin'), { port, hosts, origins })) {
+    if (!isAllowedOrigin(req.get('origin'), { port, hosts, origins, extra })) {
       return res.status(403).json({ error: 'Cross-origin request blocked' });
     }
     // The UI always sends JSON. Raw uploads use octet-stream. A bodyless DELETE is safe.
