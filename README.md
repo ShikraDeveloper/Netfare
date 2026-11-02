@@ -125,6 +125,11 @@ The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with
   - The download links stay the same for every version: `https://github.com/ShikraDeveloper/Netfare/releases/latest/download/<file>`.
   - Running the workflow by hand (Actions → Release → Run workflow) only builds and tests.
   - Locally, `npm run desktop:dist` builds this computer's installers, and `node scripts/smoke-desktop.js` opens the built app once.
+- **Website:** `website/` is the landing page.
+  - It is plain HTML, CSS and a little JS, with no build step.
+  - Its Download button picks this computer's installer, and it reads the latest version and notes from GitHub.
+  - `.github/workflows/pages.yml` publishes it on GitHub Pages when `website/` changes on `main`.
+  - To preview it, run `python3 -m http.server --directory website` and open the address it prints.
 - For testing, `NETFARE_USER_DATA=<folder>` keeps a run's books and choice out of the real app folder, and `PORT` picks another port.
 
 ## Theme & appearance

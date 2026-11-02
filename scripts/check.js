@@ -5,7 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const root = path.join(__dirname, '..');
-const roots = ['server', 'public/js', 'scripts', 'test', 'desktop'];
+const roots = ['server', 'public/js', 'scripts', 'test', 'desktop', 'website'];
 const SKIP = new Set(['node_modules', 'build', 'dist']);
 const files = [];
 
