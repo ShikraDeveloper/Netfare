@@ -1971,6 +1971,33 @@ The user asked for a nationality on customers, documents per customer (Emirates 
 - Until the next release, in 1.0.3 the page is reached through Money back → Customer balances → the customer.
 - Checks: `npm test` 252 passed, `npm run test:e2e` 42 passed. On a throwaway server, clicking "Bilal Ahmed" opened the balance page with Receive payment.
 
+### Login lock cannot be dodged by changing address — code commit `b24ba95`
+
+From the security check of everything since 1.0.2 (user: "jo abi changes kiye hy sub unka bus secuirty check ker lo"). One real weakness was found, plus two hardening notes that are not fixed.
+
+- **Weakness (medium):** the 1.0.3 lockout counted per address and username. An attacker who keeps changing address escaped it, so password guessing had no cap:
+  - other local users on Windows or Linux can use any 127.x address;
+  - on the office LAN in office mode, a device can make new IPv6 addresses.
+
+  Also, counts never expired, so a few typos spread over weeks added up to a lock.
+- **Fix** (`server/services/auth.js`):
+  - `sourceOf(address)` counts every loopback address (127.x, ::1, ::ffff:127.x) as one computer, and an IPv6 address by its /64 network;
+  - a per-account cap across all other computers: 20 wrong passwords from elsewhere refuse that account from other computers for 15 minutes ("…or sign in at the main computer"). The main computer (loopback) still signs in. This map only tracks real accounts;
+  - an unlocked count older than 5 minutes starts again.
+- **Tests** (`test/auth.test.js`):
+  - address grouping;
+  - 127.0.0.2–6 lock 127.0.0.9;
+  - 20 wrong from 20 different addresses lock the account for other computers but not for the main computer;
+  - the account lock ends after 15 minutes;
+  - 4 + 4 mistakes 7 minutes apart do not lock;
+  - `npm test` 253 passed, `npm run test:e2e` 42 passed.
+- **Hardening notes, not fixed:**
+  - customer documents (passport, Emirates ID) are readable with Customers View;
+  - the shared `/api/customers` picker list returns full rows (address, notes, nationality) to every staff user.
+- **Accepted design, unchanged:**
+  - staff with bookings/visas Edit can use Receive payment (as with advances before);
+  - portals Edit staff can pay supplier bills through a credit-portal top-up (as with wallet settlement before).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.3` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
