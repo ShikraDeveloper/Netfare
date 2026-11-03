@@ -43,7 +43,7 @@ export async function render(container, { params, query } = {}) {
   const hasCreditRefunds = isCredit && creditRefundCount > 0;
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
-  const canWithdraw = !isCredit && portal.balance_cents > 0;
+  const canWithdraw = portal.balance_cents > 0;
 
   // Statement period. With no query the whole history is used, so the printed
   // document is complete by default.
@@ -84,7 +84,7 @@ export async function render(container, { params, query } = {}) {
   } else {
     actions.push(`<button class="btn btn-secondary" data-action="restore">${icon('refresh', 15)}<span>Restore</span></button>`);
   }
-  if (!isCredit) actions.push(`<button class="btn btn-primary" data-action="topup">${icon('plus', 15)}<span>Top up</span></button>`);
+  if (portal.is_active) actions.push(`<button class="btn btn-primary" data-action="topup">${icon('plus', 15)}<span>Top up</span></button>`);
 
   setHeader({
     title: portal.name,
@@ -98,7 +98,7 @@ export async function render(container, { params, query } = {}) {
       order: 0,
       ref: topup.number,
       label: `Top-up ${topup.number}`,
-      detail: `${topup.method || 'Top-up'}${topup.deposit_account_name ? ` · ${topup.deposit_account_name}` : ''}${topup.reference ? ` · ${topup.reference}` : ''}`,
+      detail: `${topup.method || 'Top-up'}${topup.deposit_account_name ? ` · ${topup.deposit_account_name}` : ''}${topup.reference ? ` · ${topup.reference}` : ''}${topup.bank_charges_cents ? ` · bank charges ${fmtMoney(topup.bank_charges_cents)}` : ''}`,
       inCents: topup.amount_cents,
       outCents: 0,
       source: 'portal_topup',
@@ -302,6 +302,26 @@ export async function render(container, { params, query } = {}) {
     </div>
   ` : '';
 
+  // A credit account can be topped up too: the money pays its oldest open
+  // bills, and whatever is left waits as an advance for the next ones.
+  const creditTopupCard = isCredit ? `
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><h2>Top-ups</h2><p>${portal.balance_cents > 0 ? `${fmtMoney(portal.balance_cents)} left as an advance for the next bills` : 'Each top-up pays the oldest open bills first'}</p></div>
+        <div style="display:flex;gap:6px">
+          ${canWithdraw ? `<button class="btn btn-secondary btn-sm" data-action="withdraw">${icon('arrowUp', 14)} Withdraw</button>` : ''}
+        </div>
+      </div>
+      <div class="card-body" ${walletHistory ? 'style="padding:4px 20px"' : ''}>
+        ${walletHistory || emptyState({
+    iconName: 'wallet',
+    title: 'No top-ups yet',
+    message: 'Top up to pay this supplier in advance. Open bills are paid oldest first.',
+  })}
+      </div>
+    </div>
+  ` : '';
+
   const walletCards = isCredit ? '' : `
     <div class="card">
       <div class="card-head">
@@ -333,7 +353,7 @@ export async function render(container, { params, query } = {}) {
       <div class="kpi">
         <div class="kpi-top"><span class="kpi-label">Balance due</span><span class="kpi-icon amber">${icon('bill', 16)}</span></div>
         <div class="kpi-value">${fmtMoney(portal.outstanding_ap_cents)}</div>
-        <div class="kpi-meta">${portal.open_bills.length} open bill${portal.open_bills.length === 1 ? '' : 's'}</div>
+        <div class="kpi-meta">${portal.open_bills.length} open bill${portal.open_bills.length === 1 ? '' : 's'}${portal.balance_cents > 0 ? ` · ${fmtMoney(portal.balance_cents)} advance` : ''}</div>
       </div>
       <div class="kpi">
         <div class="kpi-top"><span class="kpi-label">${hasCreditRefunds ? 'Billed / refunded' : 'Billed'}</span><span class="kpi-icon green">${icon('plus', 16)}</span></div>
@@ -486,7 +506,7 @@ export async function render(container, { params, query } = {}) {
     </div>
 
     <div class="detail-grid no-print">
-      ${walletCards}${creditPaymentCard}
+      ${walletCards}${creditTopupCard}${creditPaymentCard}
 
       <div class="card">
         <div class="card-head">

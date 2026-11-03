@@ -8,6 +8,7 @@ import {
   toCents,
   voidDialog,
 } from '../../ui.js';
+import { bindBankCharges, readBankCharges } from '../../bank-charges.js';
 import { settleModalBody, topUpModalBody, withdrawModalBody } from './modals.js';
 
 export function bindPortalActions({ portal, id, refresh, refreshIncluding }) {
@@ -16,24 +17,34 @@ export function bindPortalActions({ portal, id, refresh, refreshIncluding }) {
   }
 
   on('[data-action="topup"]', () => {
+    const isCredit = portal.settlement === 'credit';
     openModal({
       title: `Top up ${portal.name}`,
-      subtitle: `Current wallet balance ${fmtMoney(portal.balance_cents)}`,
+      subtitle: isCredit
+        ? `Balance due ${fmtMoney(portal.outstanding_ap_cents)}${portal.balance_cents > 0 ? ` · advance ${fmtMoney(portal.balance_cents)}` : ''}`
+        : `Current wallet balance ${fmtMoney(portal.balance_cents)}`,
       body: topUpModalBody(portal),
       submitLabel: 'Record top-up',
+      onMount(overlay) {
+        bindBankCharges(overlay, overlay.querySelector('#tu-method'), overlay.querySelector('#tu-account'));
+      },
       async onSubmit(form) {
         const values = new FormData(form);
         const amount = toCents(values.get('amount'));
         if (amount <= 0) throw new Error('Enter a top-up amount');
         if (!values.get('deposit_account_id')) throw new Error('Choose the account the money came from');
-        await api.post(`/portals/${id}/topups`, {
+        const saved = await api.post(`/portals/${id}/topups`, {
           amount_cents: amount,
           topup_date: values.get('topup_date'),
           method: values.get('method'),
           reference: values.get('reference'),
           deposit_account_id: Number(values.get('deposit_account_id')),
+          bank_charges_cents: readBankCharges(form),
         });
-        toast(`Top-up of ${fmtMoney(amount)} recorded`);
+        const paid = saved.paid_bills || [];
+        toast(paid.length
+          ? `Top-up of ${fmtMoney(amount)} recorded · paid ${paid.length} bill${paid.length === 1 ? '' : 's'}`
+          : `Top-up of ${fmtMoney(amount)} recorded`);
         refreshIncluding(values.get('topup_date'));
       },
     });

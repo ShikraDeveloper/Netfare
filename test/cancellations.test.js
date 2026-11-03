@@ -925,14 +925,14 @@ test('fractional cents, advance refunds and vendor deletion safeguards are enfor
     settlement: 'credit',
     vendor_id: insertVendor('Credit Portal Vendor'),
   });
-  assert.throws(
-    () => portalService.topUp(db, {
-      portal_id: creditPortal.id,
-      topup_date: '2026-10-04',
-      amount_cents: 5_000,
-      deposit_account_id: account('1010').id,
-    }),
-    /prepaid portals/i,
-  );
+  // A credit account may be topped up; with no open bills it waits as an advance.
+  const toppedUp = portalService.topUp(db, {
+    portal_id: creditPortal.id,
+    topup_date: '2026-10-04',
+    amount_cents: 5_000,
+    deposit_account_id: account('1010').id,
+  });
+  assert.equal(toppedUp.balance_cents, 5_000);
+  assert.deepEqual(toppedUp.paid_bills, []);
   assertBalanced();
 });

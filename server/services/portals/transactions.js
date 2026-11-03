@@ -2,7 +2,9 @@
 
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../../util');
 const { markCreated } = require('../../created-by');
-const { systemAccount, postEntry, reverseEntry, billBalanceCents } = require('../../accounting');
+const {
+  systemAccount, postEntry, reverseEntry, billBalanceCents, bankChargesCents, bankChargeLines,
+} = require('../../accounting');
 const { allocateNumber } = require('../numbering');
 const audit = require('../audit');
 const {
@@ -16,23 +18,27 @@ const {
 } = require('./common');
 const { getPortal, portalForVendor } = require('./lifecycle');
 
+// A top-up moves money from the bank into Advances to Suppliers. On a prepaid
+// portal it waits in the wallet for bookings. On a credit account it pays the
+// supplier's oldest open bills at once; anything left over pays the next ones.
+// Bank charges on the transfer go to 6700 Bank Charges in the same entry.
 function topUp(db, payload) {
   return db.transaction(() => {
     const portal = db.prepare('SELECT * FROM supplier_portals WHERE id = ?').get(Number(payload.portal_id));
     if (!portal) throw bad('Choose a portal');
     if (!portal.is_active) throw bad('That portal is archived');
     if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
-    if (portal.settlement !== 'prepaid') throw bad('Only prepaid portals accept top-ups. Use the supplier ledger for credit accounts.');
 
     const amount = cents(payload.amount_cents, 'Top-up amount', { min: 1 });
     const date = dateISO(payload.topup_date || todayISO(), 'Top-up date');
     const account = assertAccount(db, payload.deposit_account_id, 'source account');
+    const charges = bankChargesCents(payload);
     const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
     const number = allocateNumber(db, 'topup', date);
 
     const info = db.prepare(`
-      INSERT INTO portal_topups (number, portal_id, topup_date, amount_cents, method, reference, notes, deposit_account_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO portal_topups (number, portal_id, topup_date, amount_cents, method, reference, notes, deposit_account_id, bank_charges_cents)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       portal.id,
@@ -42,6 +48,7 @@ function topUp(db, payload) {
       optionalStr(payload.reference, 'Reference', 200),
       optionalStr(payload.notes, 'Notes', 2000),
       account.id,
+      charges,
     );
     const topupId = Number(info.lastInsertRowid);
     markCreated(db, 'portal_topups', topupId);
@@ -55,11 +62,31 @@ function topUp(db, payload) {
       lines: [
         { account_id: supplierAdvances.id, debit_cents: amount, credit_cents: 0, description: `Top-up ${number} · ${portal.name}` },
         { account_id: account.id, debit_cents: 0, credit_cents: amount, description: `Top-up ${number}` },
+        ...bankChargeLines(db, charges, account, `top-up ${number}`),
       ],
     });
     db.prepare('UPDATE portal_topups SET journal_entry_id = ? WHERE id = ?').run(entryId, topupId);
-    return getPortal(db, portal.id);
+    const paidBills = portal.settlement === 'credit' ? payOpenBills(db, portal, date) : [];
+    return { ...getPortal(db, portal.id), paid_bills: paidBills };
   })();
+}
+
+// Oldest bills first, each up to what is left in the portal on that date.
+// Bills dated after the top-up wait for the next booking or top-up.
+function payOpenBills(db, portal, date) {
+  const paid = [];
+  const bills = db.prepare(`
+    SELECT * FROM bills
+    WHERE vendor_id = ? AND status = 'received' AND bill_date <= ?
+    ORDER BY COALESCE(due_date, bill_date), bill_date, id
+  `).all(portal.vendor_id, date);
+  for (const bill of bills) {
+    if (billBalanceCents(bill) <= 0) continue;
+    if (Math.min(lockBalance(db, portal.id), balanceAsOf(db, portal.id, date)) <= 0) break;
+    const result = settleBillFromPortal(db, { bill_id: bill.id, portal_id: portal.id, settle_date: date });
+    paid.push({ bill_id: bill.id, bill_number: bill.number, amount_cents: result.settled_cents });
+  }
+  return paid;
 }
 
 function voidTopup(db, id, payload = {}) {
@@ -69,7 +96,10 @@ function voidTopup(db, id, payload = {}) {
     if (topup.status === 'void') throw bad('This top-up is already void');
     const balance = lockBalance(db, topup.portal_id);
     if (balance < topup.amount_cents) {
-      throw bad('Part of this top-up has already been used. Withdraw the remaining balance instead.');
+      const settlement = db.prepare('SELECT settlement FROM supplier_portals WHERE id = ?').get(topup.portal_id)?.settlement;
+      throw bad(settlement === 'credit'
+        ? 'This top-up has already paid bills. Delete those bill payments first, then void the top-up.'
+        : 'Part of this top-up has already been used. Withdraw the remaining balance instead.');
     }
     if (!canRemoveTopup(db, topup)) {
       throw bad('Voiding this top-up would make the wallet negative on a past date. Withdraw the remaining balance instead.');
@@ -183,7 +213,6 @@ function refundPortal(db, id, payload = {}) {
     if (!portal) throw notFound('Portal not found');
 
     if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
-    if (portal.settlement !== 'prepaid') throw bad('Only prepaid portal wallets can be withdrawn');
 
     const date = dateISO(payload.refund_date || todayISO(), 'Refund date');
     const balance = Math.min(lockBalance(db, id), balanceAsOf(db, id, date));
@@ -244,9 +273,6 @@ function settleBillFromPortal(db, payload) {
     if (!portal.vendor_id || portal.vendor_id !== bill.vendor_id) {
       throw bad(`Portal "${portal.name}" is not linked to this bill's supplier`);
     }
-    if (portal.settlement !== 'prepaid') {
-      throw bad('Only a prepaid portal wallet can settle a bill. Pay credit-account bills through Trade Payables.');
-    }
 
     const date = dateISO(payload.settle_date || todayISO(), 'Settlement date');
     if (date < bill.bill_date) throw bad('Settlement date cannot be before the bill date');
@@ -303,17 +329,20 @@ function settleBillFromPortal(db, payload) {
 }
 
 // Used when a booking is confirmed: prepaid portals settle their vendor's bill
-// automatically, up to whatever balance is available.
+// automatically, up to whatever balance is available. A credit account does
+// the same with money left over from a top-up; with none, the bill simply
+// stays payable on credit.
 function autoSettleBill(db, billId, settleDate) {
   const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(billId);
   if (!bill || bill.status !== 'received') return null;
   const portal = portalForVendor(db, bill.vendor_id);
-  if (!portal || portal.settlement !== 'prepaid') return null;
+  if (!portal) return null;
 
   const billBalance = billBalanceCents(bill);
   if (billBalance <= 0) return null;
   const available = Math.min(lockBalance(db, portal.id), balanceAsOf(db, portal.id, settleDate || bill.bill_date));
   if (available <= 0) {
+    if (portal.settlement === 'credit') return null;
     return { settled_cents: 0, portal_id: portal.id, portal_name: portal.name, shortfall_cents: billBalance };
   }
 

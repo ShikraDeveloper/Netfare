@@ -245,6 +245,8 @@ ensureColumn('customer_advances', 'voided_at', 'TEXT');
 ensureColumn('portal_topups', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
 ensureColumn('portal_topups', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_topups', 'voided_at', 'TEXT');
+// Charges the bank took on a top-up transfer, posted to 6700 in the top-up's entry.
+ensureColumn('portal_topups', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
 ensureColumn('portal_refunds', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_refunds', 'voided_at', 'TEXT');

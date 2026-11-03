@@ -1,3 +1,4 @@
+import { bankChargesFieldHtml } from '../../bank-charges.js';
 import { cashAccounts } from '../../store.js';
 import {
   centsToInput,
@@ -48,8 +49,11 @@ export function topUpModalBody(portal) {
           ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
         </select>
       </div>
+      ${bankChargesFieldHtml('paid')}
       <div class="field full">
-        <div class="form-note">This moves money from your bank into <strong>Advances to Suppliers</strong> — an asset, not an expense. It becomes a cost only when a booking uses the wallet.</div>
+        <div class="form-note">${portal.settlement === 'credit'
+    ? `This pays <strong>${esc(portal.vendor_name || 'the supplier')}</strong>: the oldest open bills dated on or before the top-up date are paid first. Anything left over stays as an advance and pays the next bills.`
+    : 'This moves money from your bank into <strong>Advances to Suppliers</strong> — an asset, not an expense. It becomes a cost only when a booking uses the wallet.'}</div>
       </div>
     </div>
   `;
