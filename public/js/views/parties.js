@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
+import { openingFieldsHtml, readOpening } from '../opening-balance.js';
 import { refreshMeta } from '../store.js';
 import {
   avatar,
@@ -97,6 +98,7 @@ function partyModal({ party = null, config, onSaved }) {
           <label for="party-notes">Notes</label>
           <textarea class="input" id="party-notes" name="notes" rows="2" placeholder="Optional internal notes">${esc(party?.notes || '')}</textarea>
         </div>
+        ${isEdit ? '' : openingFieldsHtml(config.singular)}
       </div>
     `,
     submitLabel: isEdit ? 'Save changes' : `Add ${config.singular}`,
@@ -109,6 +111,7 @@ function partyModal({ party = null, config, onSaved }) {
         address: values.get('address'),
         notes: values.get('notes'),
       };
+      if (!isEdit) payload.opening = readOpening(form);
       if (!String(payload.name || '').trim()) throw new Error('Name is required');
       const saved = isEdit
         ? await api.put(`${config.base}/${party.id}`, payload)

@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
+import { openingFieldsHtml, readOpening } from '../opening-balance.js';
 import { activeVendors } from '../store.js';
 import {
   avatar,
@@ -99,6 +100,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
         <label for="pt-notes">Notes</label>
         <textarea class="input" id="pt-notes" name="notes" rows="2" placeholder="Internal note">${esc(portal?.notes || '')}</textarea>
       </div>
+      ${isEdit ? '' : openingFieldsHtml('portal')}
     </div>
   `;
 
@@ -155,6 +157,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
         login_ref: values.get('login_ref'),
         notes: values.get('notes'),
       };
+      if (!isEdit) payload.opening = readOpening(form);
       const saved = isEdit
         ? await api.put(`/portals/${portal.id}`, payload)
         : await api.post('/portals', payload);

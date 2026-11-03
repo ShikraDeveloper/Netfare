@@ -1653,3 +1653,13 @@ html:not(.is-admin) .admin-only { display: none; }
 .mirror-state.ok .icon { color: var(--green); }
 .mirror-state.warn { color: var(--amber, #b45309); }
 .mirror-state strong { word-break: break-all; }
+
+/* Opening balance on new customer, supplier and portal forms (admin only) */
+.opening-fields { border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); padding: 10px 12px; }
+.opening-fields > summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.opening-fields .radio-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opening-fields .radio-option { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 13px; }
+.opening-fields .radio-option:has(input:checked) { border-color: var(--primary); background: var(--primary-soft); }
+.opening-fields .radio-option input { margin-top: 3px; }
+.opening-fields .radio-option .hint { display: block; font-weight: 400; margin-top: 2px; }
+@media (max-width: 680px) { .opening-fields .radio-row { grid-template-columns: 1fr; } }

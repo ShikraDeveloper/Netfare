@@ -628,3 +628,21 @@ test('second copy of backups: admin only, copies at once, Copy now works', async
     fs.rmSync(place, { recursive: true, force: true });
   }
 });
+
+test('opening balances on new customers, suppliers and portals: admin only', async () => {
+  const opening = { direction: 'they_owe', amount_cents: 5_000, as_of: '2026-11-01' };
+  const customer = await postAs(cookie, '/api/customers', { name: 'Opening Customer', opening });
+  assert.equal(customer.status, 201);
+  assert.equal(customer.data.opening.kind, 'invoice');
+
+  const created = await postAs(cookie, '/api/users', {
+    full_name: 'Desk Opening', username: 'desk.opening', password: 'desk-opening-1', permissions: { customers: 'edit', suppliers: 'edit' },
+  });
+  assert.equal(created.status, 201);
+  const staff = await signIn('desk.opening', 'desk-opening-1');
+  const refused = await postAs(staff.cookie, '/api/customers', { name: 'Staff Customer', opening });
+  assert.equal(refused.status, 400);
+  assert.match(refused.data.error, /Only the admin/);
+  assert.equal((await postAs(staff.cookie, '/api/customers', { name: 'Staff Customer' })).status, 201, 'without an opening balance staff may add customers');
+  assert.equal((await postAs(staff.cookie, '/api/vendors', { name: 'Staff Supplier', opening: { ...opening, direction: 'we_owe' } })).status, 400);
+});

@@ -4,13 +4,23 @@ const router = require('express').Router();
 const db = require('../db');
 const service = require('../services/portals');
 const reconcile = require('../services/reconcile');
+const partyOpening = require('../services/party-opening');
+const { bad } = require('../util');
 
 router.get('/', (req, res) => {
   res.json(service.listPortals(db, req.query));
 });
 
+// Only the admin may give a new portal an opening balance.
 router.post('/', (req, res) => {
-  res.status(201).json(service.createPortal(db, req.body || {}));
+  const body = req.body || {};
+  if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');
+  const created = db.transaction(() => {
+    const portal = service.createPortal(db, body);
+    const opening = partyOpening.forPortal(db, portal, body.opening);
+    return { ...(opening ? service.getPortal(db, portal.id) : portal), opening };
+  })();
+  res.status(201).json(created);
 });
 
 // Settle an existing bill using a portal balance.

@@ -41,6 +41,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     -- mistakes are left out.
     WHERE (i.status = 'sent' OR (i.status = 'void' AND x.id IS NOT NULL))
       AND i.cancellation_id IS NULL
+      AND i.is_opening = 0
       AND i.issue_date >= ? AND i.issue_date <= ?
     ORDER BY i.issue_date, i.id
   `).all(start, end);

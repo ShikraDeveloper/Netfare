@@ -4,6 +4,7 @@ const router = require('express').Router();
 const db = require('../db');
 const { bad, notFound, str, optionalStr, isTruthy } = require('../util');
 const statementService = require('../services/statements');
+const partyOpening = require('../services/party-opening');
 
 function listCustomers() {
   return db.prepare(`
@@ -28,19 +29,25 @@ router.get('/:id/statement', (req, res) => {
   res.json(statementService.customerStatement(db, req.params.id, req.query));
 });
 
+// Only the admin may give a new record an opening balance.
 router.post('/', (req, res) => {
   const body = req.body || {};
-  const info = db.prepare(`
-    INSERT INTO customers (name, email, phone, address, notes)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    str(body.name, 'Customer name', { max: 160 }),
-    optionalStr(body.email, 'Email', 200),
-    optionalStr(body.phone, 'Phone', 60),
-    optionalStr(body.address, 'Address', 500),
-    optionalStr(body.notes, 'Notes', 1000),
-  );
-  res.status(201).json(db.prepare('SELECT * FROM customers WHERE id = ?').get(info.lastInsertRowid));
+  if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');
+  const created = db.transaction(() => {
+    const info = db.prepare(`
+      INSERT INTO customers (name, email, phone, address, notes)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(
+      str(body.name, 'Customer name', { max: 160 }),
+      optionalStr(body.email, 'Email', 200),
+      optionalStr(body.phone, 'Phone', 60),
+      optionalStr(body.address, 'Address', 500),
+      optionalStr(body.notes, 'Notes', 1000),
+    );
+    const row = db.prepare('SELECT * FROM customers WHERE id = ?').get(info.lastInsertRowid);
+    return { ...row, opening: partyOpening.forCustomer(db, row, body.opening) };
+  })();
+  res.status(201).json(created);
 });
 
 router.put('/:id', (req, res) => {
