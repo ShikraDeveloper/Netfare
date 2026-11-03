@@ -7,6 +7,11 @@ import { amountInWords } from '../amount-words.js';
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
   const receipt = await api.get(`/invoices/payments/${id}/receipt`);
+  // Part of one payment for several invoices: show that whole receipt.
+  if (receipt.advance_is_receipt) {
+    location.replace(`#/customer-receipts/${receipt.advance_id}`);
+    return;
+  }
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const isVoid = receipt.status === 'void';

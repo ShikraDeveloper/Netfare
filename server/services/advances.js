@@ -8,7 +8,9 @@ const {
   dateISO,
   todayISO,
 } = require('../util');
-const { systemAccount, isCashAccount, postEntry, reverseEntry } = require('../accounting');
+const {
+  systemAccount, isCashAccount, postEntry, reverseEntry, bankChargesCents, bankChargeLines,
+} = require('../accounting');
 const { markCreated } = require('../created-by');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
@@ -81,7 +83,7 @@ function listAdvances(db, { customer_id, booking_id, visa_id, status } = {}) {
   `).all(...params).map(serializeAdvance);
 }
 
-function createAdvance(db, payload) {
+function createAdvance(db, payload, { receipt = false } = {}) {
   return db.transaction(() => {
     const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(Number(payload.customer_id));
     if (!customer) throw bad('Choose a customer');
@@ -111,12 +113,14 @@ function createAdvance(db, payload) {
     if (!isCashAccount(account)) throw bad('Deposit account must be an active cash or bank account');
 
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
+    // The customer's money counts in full; what the bank keeps is our cost.
+    const charges = bankChargesCents(payload, { max: amount });
     const number = allocateNumber(db, 'advance', advanceDate);
 
     const info = db.prepare(`
       INSERT INTO customer_advances (number, customer_id, booking_id, visa_id, advance_date, amount_cents,
-        method, reference, deposit_account_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        method, reference, deposit_account_id, bank_charges_cents, is_receipt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       customer.id,
@@ -127,18 +131,21 @@ function createAdvance(db, payload) {
       optionalStr(payload.method, 'Payment method', 100) || 'Bank transfer',
       optionalStr(payload.reference, 'Reference', 200),
       account.id,
+      charges,
+      receipt ? 1 : 0,
     );
     const advanceId = Number(info.lastInsertRowid);
     markCreated(db, 'customer_advances', advanceId);
     const entryId = postEntry(db, {
       entry_date: advanceDate,
-      memo: `Customer advance ${number} — ${customer.name}`,
+      memo: `${receipt ? 'Customer receipt' : 'Customer advance'} ${number} — ${customer.name}`,
       reference: number,
       source_type: 'advance',
       source_id: advanceId,
       lines: [
         { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Advance ${number}` },
         { account_id: advancesAccount.id, debit_cents: 0, credit_cents: amount, description: `Advance from ${customer.name}` },
+        ...bankChargeLines(db, charges, account, `advance ${number}`),
       ],
     });
     db.prepare('UPDATE customer_advances SET journal_entry_id = ? WHERE id = ?').run(entryId, advanceId);
@@ -161,7 +168,10 @@ function applyAdvance(db, id, payload = {}) {
 
     const invoiceBalance = Math.max(0, invoice.total_cents - invoice.amount_paid_cents - (invoice.credit_applied_cents || 0));
     if (invoiceBalance <= 0) throw bad('That invoice is already fully paid');
-    const amount = Math.min(remaining, invoiceBalance);
+    const requested = payload.amount_cents == null || payload.amount_cents === ''
+      ? Infinity
+      : cents(payload.amount_cents, 'Amount to use', { min: 1 });
+    const amount = Math.min(remaining, invoiceBalance, requested);
 
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     const ar = systemAccount(db, AR_ACCOUNT, 'Trade Receivables');
@@ -171,13 +181,15 @@ function applyAdvance(db, id, payload = {}) {
     const info = db.prepare(`
       INSERT INTO payments (number, customer_id, invoice_id, payment_date, amount_cents, method,
         reference, deposit_account_id, advance_id)
-      VALUES (?, ?, ?, ?, ?, 'Advance applied', ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       advance.customer_id,
       invoice.id,
       paymentDate,
       amount,
+      // A receipt's share of an invoice reads like the payment it was.
+      advance.is_receipt ? advance.method : 'Advance applied',
       advance.number,
       advancesAccount.id,
       advance.id,
@@ -334,7 +346,95 @@ function voidAdvance(db, id, payload = {}) {
   })();
 }
 
+// One payment from a customer for several invoices: one receipt and one
+// bank entry for the full amount, shared out over the chosen invoices (or the
+// oldest first). Anything left stays as the customer's advance. It is an
+// advance applied at once, so voiding the receipt undoes every share.
+function receivePayment(db, payload = {}) {
+  return db.transaction(() => {
+    const customerId = Number(payload.customer_id);
+    const date = dateISO(payload.receipt_date || todayISO(), 'Date received');
+    const amount = cents(payload.amount_cents, 'Amount received', { min: 1 });
+
+    const open = db.prepare(`
+      SELECT * FROM invoices
+      WHERE customer_id = ? AND status = 'sent' AND issue_date <= ?
+        AND total_cents > amount_paid_cents + credit_applied_cents
+      ORDER BY due_date, issue_date, id
+    `).all(customerId, date);
+    const openById = new Map(open.map((invoice) => [invoice.id, invoice]));
+    const balanceOf = (invoice) => invoice.total_cents - invoice.amount_paid_cents - invoice.credit_applied_cents;
+
+    let shares;
+    if (Array.isArray(payload.allocations)) {
+      shares = [];
+      for (const row of payload.allocations) {
+        const share = row.amount_cents == null || row.amount_cents === '' ? 0 : cents(row.amount_cents, 'Amount for an invoice');
+        if (!share) continue;
+        const invoice = openById.get(Number(row.invoice_id));
+        if (!invoice) throw bad('Choose open invoices of this customer dated on or before the receipt');
+        if (share > balanceOf(invoice)) throw bad(`More than the ${(balanceOf(invoice) / 100).toFixed(2)} due on invoice ${invoice.number}`);
+        if (shares.some((existing) => existing.invoice.id === invoice.id)) throw bad(`Invoice ${invoice.number} is listed twice`);
+        shares.push({ invoice, amount: share });
+      }
+    } else {
+      let left = amount;
+      shares = [];
+      for (const invoice of open) {
+        if (left <= 0) break;
+        const share = Math.min(left, balanceOf(invoice));
+        shares.push({ invoice, amount: share });
+        left -= share;
+      }
+    }
+    const shared = shares.reduce((sum, share) => sum + share.amount, 0);
+    if (shared > amount) throw bad('The invoice amounts add up to more than the amount received');
+
+    const receipt = createAdvance(db, {
+      customer_id: customerId,
+      amount_cents: amount,
+      advance_date: date,
+      method: payload.method,
+      reference: payload.reference,
+      deposit_account_id: payload.deposit_account_id,
+      bank_charges_cents: payload.bank_charges_cents,
+    }, { receipt: true });
+    for (const share of shares) {
+      applyAdvance(db, receipt.id, { invoice_id: share.invoice.id, amount_cents: share.amount, payment_date: date });
+    }
+    return getReceipt(db, receipt.id);
+  })();
+}
+
+// Everything the printed receipt needs: the money in, and where it went.
+function getReceipt(db, id) {
+  const receipt = db.prepare(`
+    SELECT a.*, c.name AS customer_name, c.address AS customer_address, c.email AS customer_email, c.phone AS customer_phone,
+           acc.name AS deposit_account_name
+    FROM customer_advances a
+    JOIN customers c ON c.id = a.customer_id
+    JOIN accounts acc ON acc.id = a.deposit_account_id
+    WHERE a.id = ?
+  `).get(Number(id));
+  if (!receipt) throw notFound('Receipt not found');
+  const invoices = db.prepare(`
+    SELECT p.id AS payment_id, p.number AS payment_number, p.amount_cents, p.status,
+           i.id AS invoice_id, i.number AS invoice_number, i.issue_date, i.total_cents,
+           MAX(0, i.total_cents - i.amount_paid_cents - i.credit_applied_cents) AS balance_cents,
+           b.number AS booking_number, v.number AS visa_number, v.applicant_name
+    FROM payments p
+    JOIN invoices i ON i.id = p.invoice_id
+    LEFT JOIN bookings b ON b.id = i.booking_id
+    LEFT JOIN visa_applications v ON v.id = i.visa_id
+    WHERE p.advance_id = ? AND p.status = 'posted'
+    ORDER BY p.id
+  `).all(receipt.id);
+  return { ...serializeAdvance(receipt), invoices };
+}
+
 module.exports = {
+  receivePayment,
+  getReceipt,
   listAdvances,
   getAdvance,
   createAdvance,

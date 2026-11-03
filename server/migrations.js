@@ -253,6 +253,10 @@ ensureColumn('invoices', 'is_opening', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('bills', 'is_opening', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('credit_notes', 'is_opening', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('supplier_credit_notes', 'is_opening', 'INTEGER NOT NULL DEFAULT 0');
+// A customer receipt is an advance shared out over invoices at once
+// (receivePayment in services/advances.js); bank charges as on payments.
+ensureColumn('customer_advances', 'is_receipt', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('customer_advances', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
 ensureColumn('portal_refunds', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_refunds', 'voided_at', 'TEXT');

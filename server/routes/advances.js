@@ -12,6 +12,15 @@ router.post('/', (req, res) => {
   res.status(201).json(service.createAdvance(db, req.body || {}));
 });
 
+// One customer payment shared over several invoices (services/advances.js).
+router.post('/receipts', (req, res) => {
+  res.status(201).json(service.receivePayment(db, req.body || {}));
+});
+
+router.get('/:id/receipt', (req, res) => {
+  res.json(service.getReceipt(db, Number(req.params.id)));
+});
+
 router.get('/:id', (req, res) => {
   res.json(service.getAdvance(db, Number(req.params.id)));
 });

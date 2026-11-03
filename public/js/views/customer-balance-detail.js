@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { openApplyAdvance, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
+import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
 import {
   emptyState,
   esc,
@@ -79,7 +79,7 @@ function advanceRows(advances) {
         : '<span class="muted">Unallocated</span>';
     return `
       <tr>
-        <td><div class="cell-main">${esc(advance.number)}</div><div class="cell-sub">${esc(fmtDate(advance.advance_date))}</div></td>
+        <td><div class="cell-main">${advance.is_receipt ? `<a href="#/customer-receipts/${advance.id}">${esc(advance.number)}</a>` : esc(advance.number)}</div><div class="cell-sub">${advance.is_receipt ? 'Left from a receipt · ' : ''}${esc(fmtDate(advance.advance_date))}</div></td>
         <td>${source}</td>
         <td class="num">${fmtMoney(advance.amount_cents)}</td>
         <td class="num">${fmtMoney(advance.applied_cents)}</td>
@@ -129,7 +129,8 @@ export async function render(container, { params } = {}) {
     actions: `
       <a class="btn btn-ghost" href="#/customer-balances">${icon('chevron', 15)}<span>All balances</span></a>
       <a class="btn btn-secondary" href="#/customers/${customer.id}/statement">${icon('file', 15)}<span>Statement</span></a>
-      <button class="btn btn-primary" data-action="record-advance">${icon('plus', 15)}<span>Record advance</span></button>
+      <button class="btn btn-secondary" data-action="record-advance">${icon('plus', 15)}<span>Record advance</span></button>
+      <button class="btn btn-primary" data-action="receive-payment">${icon('check', 15)}<span>Receive payment</span></button>
     `,
   });
 
@@ -224,6 +225,11 @@ export async function render(container, { params } = {}) {
 
   const refresh = () => render(container, { params: [String(id)] });
   document.querySelector('#page-actions [data-action="record-advance"]')?.addEventListener('click', () => openRecordAdvance(customer, refresh));
+  document.querySelector('#page-actions [data-action="receive-payment"]')?.addEventListener('click', () => openReceivePayment(
+    customer,
+    data.open_invoices,
+    (receipt) => { location.hash = `#/customer-receipts/${receipt.id}`; },
+  ));
   const advanceById = new Map(data.advances.map((advance) => [String(advance.id), advance]));
   container.onclick = (event) => {
     const apply = event.target.closest('[data-advance-apply]');

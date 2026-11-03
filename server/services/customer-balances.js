@@ -84,8 +84,11 @@ function openInvoices(db, customerId) {
   return db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.due_date, i.status,
            i.total_cents, i.amount_paid_cents, i.credit_applied_cents,
-           MAX(0, i.total_cents - i.amount_paid_cents - i.credit_applied_cents) AS balance_cents
+           MAX(0, i.total_cents - i.amount_paid_cents - i.credit_applied_cents) AS balance_cents,
+           b.number AS booking_number, v.number AS visa_number, v.applicant_name
     FROM invoices i
+    LEFT JOIN bookings b ON b.id = i.booking_id
+    LEFT JOIN visa_applications v ON v.id = i.visa_id
     WHERE i.customer_id = ? AND i.status = 'sent'
       AND (i.total_cents - i.amount_paid_cents - i.credit_applied_cents) > 0
     ORDER BY i.due_date, i.issue_date, i.id
@@ -107,7 +110,7 @@ function customerCredits(db, customerId) {
 
 function customerAdvances(db, customerId) {
   return db.prepare(`
-    SELECT a.id, a.number, a.advance_date, a.amount_cents, a.applied_cents, a.refunded_cents,
+    SELECT a.id, a.number, a.advance_date, a.amount_cents, a.applied_cents, a.refunded_cents, a.is_receipt,
            a.booking_id, a.visa_id, b.number AS booking_number, v.number AS visa_number,
            (a.amount_cents - a.applied_cents - a.refunded_cents) AS remaining_cents
     FROM customer_advances a
