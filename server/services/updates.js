@@ -20,7 +20,10 @@ const OFF = 'off';
 const DEFAULT_FEED = process.env.NETFARE_UPDATE_FEED
   || 'https://github.com/ShikraDeveloper/Netfare/releases/latest/download/latest.json';
 const MAX_REDIRECTS = 5;
-const CHECK_EVERY_MS = 24 * 60 * 60 * 1000;
+// The app often stays open for days, so a result is kept only a few hours;
+// a failed check (no internet yet) is tried again soon.
+const CHECK_EVERY_MS = 3 * 60 * 60 * 1000;
+const RETRY_AFTER_ERROR_MS = 15 * 60 * 1000;
 const MAX_FEED_BYTES = 64 * 1024;
 let cached = null;
 
@@ -133,8 +136,8 @@ async function fetchFeed(url, fetchImpl = fetch) {
   }
 }
 
-// The admin's update status, checked at most once a day unless `force`.
-async function status(db, { force = false, fetchImpl } = {}) {
+// The admin's update status, checked at most every few hours unless `force`.
+async function status(db, { force = false, fetchImpl, now = Date.now() } = {}) {
   const url = feedUrl(db);
   const stored = storedFeed(db);
   const base = {
@@ -144,13 +147,14 @@ async function status(db, { force = false, fetchImpl } = {}) {
     platform: platformKey(),
   };
   if (!url) return { ...base, enabled: false, available: false };
-  const fresh = cached && cached.url === url && Date.now() - cached.at < CHECK_EVERY_MS;
+  const keepFor = cached?.error ? RETRY_AFTER_ERROR_MS : CHECK_EVERY_MS;
+  const fresh = cached && cached.url === url && now - cached.at < keepFor;
   if (!fresh || force) {
     try {
       const latest = await fetchFeed(url, fetchImpl);
-      cached = { url, at: Date.now(), latest, error: '' };
+      cached = { url, at: now, latest, error: '' };
     } catch (error) {
-      cached = { url, at: Date.now(), latest: null, error: error.message || 'The update check failed' };
+      cached = { url, at: now, latest: null, error: error.message || 'The update check failed' };
     }
   }
   const { latest, error } = cached;

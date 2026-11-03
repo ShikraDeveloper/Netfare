@@ -2,7 +2,7 @@ import { can, refreshMeta, store } from './store.js';
 import { initTheme } from './theme.js';
 import { ensureSignedIn, signOut } from './auth.js';
 import { openChangePassword } from './views/account.js';
-import { checkForUpdate } from './updates.js';
+import { keepCheckingForUpdates } from './updates.js';
 import { icon, esc, avatar, setHeader, toast } from './ui.js';
 import * as dashboardView from './views/dashboard.js';
 import * as invoicesView from './views/invoices.js';
@@ -595,7 +595,7 @@ async function boot() {
   }
   updateSidebarFooter();
   renderRoute();
-  if (store.user.is_admin) checkForUpdate();
+  if (store.user.is_admin) keepCheckingForUpdates();
 }
 
 window.addEventListener('hashchange', renderRoute);

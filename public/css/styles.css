@@ -1617,16 +1617,27 @@ html:not(.is-admin) .admin-only { display: none; }
 .network-addresses li { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
 .network-addresses code { font-size: 12.5px; user-select: all; }
 
-/* New version notice (admin) */
-.update-banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 24px 4px; padding: 9px 12px; border: 1px solid var(--border); border-left: 3px solid var(--accent, #4fb3e8); border-radius: 10px; background: var(--surface); font-size: 13px; }
-.update-text { display: inline-flex; align-items: center; gap: 7px; }
-.update-actions { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+/* Notification bell (admin): new version notice */
+.topbar-tools { display: flex; align-items: center; padding-top: 2px; flex: none; }
+.topbar-tools:empty { display: none; }
+.notify-btn { position: relative; }
+.notify-btn:hover, .notify-menu[open] > .notify-btn { background: var(--surface-2); color: var(--text); }
+.notify-dot { position: absolute; top: 6px; right: 7px; width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface); }
+.notify-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: min(320px, calc(100vw - 32px)); display: grid; gap: 8px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); }
+.notify-menu[open] > .notify-list { transform-origin: top right; animation: t-menu-in var(--t-fast) var(--t-ease-out); }
+.notify-head { margin: 0 2px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.notify-item { display: flex; gap: 10px; padding: 10px; border-radius: 10px; background: var(--surface-2); font-size: 13px; }
+.notify-item p { margin: 2px 0 8px; font-size: 12px; }
+.notify-icon { flex: none; margin-top: 1px; color: var(--primary); }
+.notify-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.notify-empty { margin: 2px 2px 4px; font-size: 13px; }
+@media (max-width: 680px) { .topbar-tools { order: 1; } .page-actions { order: 2; } }
+@media (prefers-reduced-motion: reduce) { .notify-menu[open] > .notify-list { animation: none; } }
 .update-notes { margin: 0 0 14px; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
 .update-subhead { font-size: 13px; margin: 0 0 6px; }
 .update-steps { margin: 0 0 8px; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
 .update-error { color: var(--red); font-size: 13px; }
 .update-howto summary { cursor: pointer; font-size: 13px; font-weight: 600; }
-@media (max-width: 900px) { .update-banner { margin: 0 16px 4px; } }
 
 /* DSR: who made each sale, the staff picker and sales by staff */
 .dsr-staff { color: var(--muted); }

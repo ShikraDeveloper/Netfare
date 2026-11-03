@@ -70,8 +70,8 @@ test('status: off, then available, up to date or a clear error', async () => {
   assert.equal(newer.available, true);
   assert.equal(newer.latest.version, '99.0.0');
   assert.equal(newer.current_version, require('../package.json').version);
-  const cachedResult = await updates.status(db, { fetchImpl: () => { throw new Error('must not fetch again today'); } });
-  assert.equal(cachedResult.available, true, 'checked at most once a day');
+  const cachedResult = await updates.status(db, { fetchImpl: () => { throw new Error('must not fetch again yet'); } });
+  assert.equal(cachedResult.available, true, 'not fetched again within a few hours');
   const same = await updates.status(db, { force: true, fetchImpl: feedResponse({ version: updates.CURRENT_VERSION }) });
   assert.equal(same.available, false);
   const broken = await updates.status(db, { force: true, fetchImpl: feedResponse('<html>', 200) });
@@ -79,6 +79,25 @@ test('status: off, then available, up to date or a clear error', async () => {
   assert.match(broken.error, /not valid JSON/);
   const missing = await updates.status(db, { force: true, fetchImpl: feedResponse('', 404) });
   assert.match(missing.error, /answered 404/);
+});
+
+test('an open app sees a new release within hours, and a failed check is retried soon', async () => {
+  updates.setFeed(db, { feed_url: 'https://updates.example.com/latest.json' });
+  const hour = 60 * 60 * 1000;
+  const start = Date.now();
+  const before = await updates.status(db, { now: start, fetchImpl: feedResponse({ version: updates.CURRENT_VERSION }) });
+  assert.equal(before.available, false);
+  const released = feedResponse({ version: '99.0.0' });
+  const soon = await updates.status(db, { now: start + hour, fetchImpl: released });
+  assert.equal(soon.available, false, 'kept for a while');
+  const later = await updates.status(db, { now: start + 3 * hour, fetchImpl: released });
+  assert.equal(later.available, true, 'a release published while the app was open shows up');
+
+  updates.setFeed(db, { feed_url: 'https://other.example.com/latest.json' });
+  const offline = await updates.status(db, { now: start, fetchImpl: () => { throw new Error('getaddrinfo ENOTFOUND'); } });
+  assert.match(offline.error, /ENOTFOUND/);
+  const back = await updates.status(db, { now: start + 16 * 60 * 1000, fetchImpl: released });
+  assert.equal(back.available, true, 'a failed check does not stick for hours');
 });
 
 test('the release script writes a feed the app accepts', () => {
