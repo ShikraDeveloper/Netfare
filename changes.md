@@ -1697,21 +1697,54 @@ Until now every backup sat on the same computer as the books.
 - **Visual check on a throwaway server:** on this Mac it suggests "iCloud Drive" and "Drive: Mac SSD". Nothing was saved to them. No errors.
 - **Not in the desktop app yet:** it needs a release (1.0.2, with "Created by" and DSR staff). Not pushed yet.
 
+## 2026-11-03
+
+### Security audit run-2 (changed code since run-1)
+
+A source-only audit of everything changed since run-1 (`54119c3..233c2c2`), using the Cloudflare security-audit skill. 38 agents ran; nothing was executed and no real data was touched.
+
+- **Result:** 0 confirmed findings and 9 "needs validation" leads. 7 of the 9 run-1 leads are now fixed in source.
+- **Reports** (outside the repo): `~/security-audit-skill/ledgerly/run-2/REPORT.md` and `NEEDS-VALIDATION.md`.
+- **The 3 staff-rights leads are fixed below.** The other 6 each depend on one office fact, so they are left as leads:
+  - login lockout used to keep the admin out;
+  - plain http on the office LAN;
+  - a backup file from someone else (table definitions are kept);
+  - the session cookie reaching other ports on the same Mac;
+  - a custom Windows install folder;
+  - another user holding port 4173 on a shared PC.
+
+### Staff-rights bypasses closed — code commit `db5a7d4`
+
+Fixes the three audit leads that needed no special office setup. Each one let a staff user go beyond the rights the admin gave them.
+
+- **`/VOID` in another case** (`server/permissions.js`): the void check was case-sensitive, but Express routes are not. So `POST /api/invoices/5/VOID` voided an invoice with only Edit rights. The check now ignores case.
+- **Void under other names:** three actions undo or cancel records but did not need the void right. They now do:
+  - `POST /visa-deposits/:id/void-last` (undo a deposit step);
+  - `POST /visas/:id/reject` (the same cancellation as Cancel);
+  - `POST /opening-balances` with no non-zero amounts, which reverses the posted entry the same way Clear does.
+
+  Saving opening balances that have amounts, and deposit refunds, stay normal edits.
+- **Encoded attachment id:** `GET /api/attachments/%35/download?entity_type=booking` skipped the lookup of the file's real area, because `req.path` is not decoded but the route's `:id` is. A staff user with bookings rights could open any file, passport scans included. An attachment id must now be plain digits, and the area always comes from the stored row.
+- **UI** (`public/js/app.js`): staff without the void right no longer see these buttons:
+  - the deposit "Void the latest step";
+  - visa Reject;
+  - opening-balance Clear.
+- **Tests** (`test/permissions.test.js`): 3 new tests cover:
+  - upper- and mixed-case void and cancel;
+  - `void-last` and `reject`;
+  - empty, zero and missing opening-balance saves;
+  - encoded attachment ids on download and delete.
+- **Checks:** `npm run check` 225 files OK, `npm test` 234 passed, `npm run test:e2e` 42 passed, all on a temporary data folder.
+- **Not in the desktop app yet:** it needs release 1.0.2. Not pushed yet.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist.
-2. The user's `/Applications/Netfare.app` is 1.0.0, so its admin should see the "Netfare 1.0.1 is available" banner — the first real check of the update notice. To update: quit Netfare, install the 1.0.1 arm64 dmg, open it. The books stay in Application Support.
-2. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
-3. **Still open:**
+1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist. The user's Mac runs the 1.0.1 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+2. **Release 1.0.2** when the user asks. It brings "Created by", DSR staff, the second backup copy and the staff-rights fixes to the desktop app.
+3. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
+4. **Still open:**
+   - the 6 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2);
    - testing the installers by hand on Mac and Windows;
    - the flaky sign-in browser test;
-   - "Created by" on documents and the DSR staff column;
-   - "Start from a backup" in the desktop app.
-2. Step 6 is a download page. It needs a place to host the `.dmg` and `latest.json`: the Netfare website or GitHub Releases, chosen by the user.
-3. Still open:
-   - the flaky sign-in browser test;
-   - "Created by" on documents and the DSR staff column;
    - testing "Start from a backup" in the desktop app by hand.
-2. Read this entry and run the full check suite.
-3. Use a disposable database for review; never modify live `data/accounting.db`.
-4. Append the next change under a new date heading before committing.
+5. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
