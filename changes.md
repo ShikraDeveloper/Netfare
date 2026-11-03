@@ -1752,11 +1752,29 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
   - `latest.json`.
 - **Checked:** `releases/latest/download/latest.json` reports 1.0.2 with the three notes and the v1.0.2 download links. The 1.0.1 app on the user's Mac should now show the update banner to the admin.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac this time.
+- **On the user's Mac:** no banner appeared. The user updated to 1.0.2 through Settings → "Check for updates".
+
+### Notification bell for updates — code commit `30c2301`
+
+- **Why the banner did not appear:** the app checks once when it opens, and the server kept the answer (and any error) for 24 hours. An app that was already open before 1.0.2 was published kept saying "up to date".
+- **Fix** (`server/services/updates.js`, `public/js/updates.js`):
+  - the server goes to GitHub at most every 3 hours, and retries a failed check (no internet) after 15 minutes;
+  - the open app asks again every hour.
+- **Bell instead of the banner** (`public/index.html`, `public/js/updates.js`, `public/css/styles.css`, a `bell` icon in `ui.js`):
+  - a bell in the top bar, top right, for the admin only;
+  - a red dot shows while there is a version the admin has not seen. Opening the bell removes the dot (stored per browser);
+  - the panel shows "Netfare X is available", the current version and the release date, with What's new and Download. With nothing new it shows "No new notifications";
+  - on a phone the bell stays next to the page title.
+- **Tests:**
+  - `test/updates.test.js` adds: a release published while the app is open shows within 3 hours, and a failed check is retried after 15 minutes;
+  - `npm run check` 225 files OK, `npm test` 235 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** a throwaway server (temp data, a local test feed reporting 9.9.9), on desktop, at phone width and in dark mode. The dot, the panel and What's new all worked. The light-only hover colour of icon buttons was fixed for the bell.
+- **Not in the desktop app yet:** it needs release 1.0.3. Not pushed yet.
 
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.1 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
-2. **Update to 1.0.2:** the user's 1.0.1 app should show the "Netfare 1.0.2 is available" banner. This is the first real check of the update notice. To update: quit Netfare, install the arm64 dmg, open it. The books stay in Application Support.
+1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
 3. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
 4. **Still open:**
    - the 6 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2);
