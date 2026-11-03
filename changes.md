@@ -1887,11 +1887,44 @@ The user asked for an opening balance when a portal or supplier is created (admi
   - `npm run check` 228 files OK, `npm test` 248 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, the customer form showed the folded section, the two choices, the amount and the As of date. A customer with AED 5,000 opening gave invoice INV-2026-0001 (sent, line "Opening balance / 3900"). A supplier with AED 2,500 gave bill BILL-2026-0001 (received). An opening invoice dated in the past shows as Overdue, as an old debt should.
 
+### Receive payment: one payment for several invoices — code commit `502e509`
+
+The user asked how a customer's single payment of 700 for two visas (350 + 350) would show. Before this, each invoice had to be paid separately (two bank lines), or the money had to go through a customer advance by hand.
+
+- **Customer balance page:** new **Receive payment** button (Record advance stays as a secondary button). The form has:
+  - amount, date, method, received-into account, reference, and the shared "Bank charges (optional)" field;
+  - the customer's open invoices with their visa, applicant or booking. Typing the amount shares it out oldest first, never more than each balance; the shares can be changed;
+  - invoices dated after the payment cannot take a share;
+  - "X not used for an invoice: it stays as the customer's advance".
+- **How it is stored** (`receivePayment` in `server/services/advances.js`, `POST /api/advances/receipts`): the receipt is a customer advance with the new `is_receipt = 1`, applied straight away to each chosen invoice. That gives:
+  - one bank entry for the full amount (Dr bank · Cr 2400, plus Dr 6700 · Cr bank for charges);
+  - one Dr 2400 · Cr 1100 payment per invoice, shown with the receipt's own method and its number as reference.
+
+  Voiding the receipt (void advance) undoes every share and the charges. Deleting one share on an invoice returns that money to the receipt as advance.
+- **Advances in general:**
+  - they now take bank charges (`customer_advances.bank_charges_cents`);
+  - `applyAdvance` accepts an optional `amount_cents` cap.
+- **Receipt:** new printable page `#/customer-receipts/:id` (`views/customer-receipt.js`, `GET /api/advances/:id/receipt`). It shows:
+  - the amount in words;
+  - every invoice paid, with its total, the amount paid now and the balance now;
+  - any amount kept as advance.
+
+  An invoice's receipt link (`#/receipts/:paymentId`) for a share opens this combined receipt. Receipts that still hold an advance link to it from the advances table. The number uses the advance series (ADV-…).
+- **Tests:**
+  - new `test/customer-receipts.test.js`:
+    - 700 for 350 + 350 gives one receipt, a single bank line of 700, and both invoices paid;
+    - chosen shares with the rest kept as advance, and bank charges;
+    - refusals: a later-dated invoice, shares above the amount, a share above an invoice balance;
+    - a void undoes everything;
+    - the ledger checks match;
+  - `npm run check` 231 files OK, `npm test` 251 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** on a throwaway server, a customer with two AED 350 visa invoices. Typing 700 filled 350 + 350. Record payment opened receipt ADV-2026-0001 (AED 700, "UAE Dirhams Seven Hundred Only", both invoices at balance 0). The invoice receipt link redirected to it.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
-3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up and opening balance changes, then push it.
+3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up, opening balance and receive payment changes, then push it.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
