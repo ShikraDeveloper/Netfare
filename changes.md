@@ -1920,11 +1920,37 @@ The user asked how a customer's single payment of 700 for two visas (350 + 350) 
   - `npm run check` 231 files OK, `npm test` 251 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, a customer with two AED 350 visa invoices. Typing 700 filled 350 + 350. Record payment opened receipt ADV-2026-0001 (AED 700, "UAE Dirhams Seven Hundred Only", both invoices at balance 0). The invoice receipt link redirected to it.
 
+### Customer nationality and documents; nationality type-ahead — code commit `82bb821`
+
+The user asked for a nationality on customers, documents per customer (Emirates ID, passport…), and nationalities that suggest themselves while typing.
+
+- **Nationality on customers:**
+  - new column `customers.nationality`, saved by `POST`/`PUT /api/customers` (max 80);
+  - a Nationality field on the new and edit customer forms;
+  - shown under the name on the customer's balance page;
+  - on a visa, when the customer is the one travelling, their saved nationality fills an empty Nationality field.
+- **Customer documents:**
+  - a **Documents** card ("Emirates ID, passport and other papers for this customer") on the customer's balance page, built on the attachments component (which now takes a `title`);
+  - attachments take the new entity type `customer`. The `attachments` CHECK constraint is widened by rebuilding the table once (the existing migration now checks for `'customer'`);
+  - access follows the customers right (`ATTACHMENT_AREAS.customer = 'customers'`);
+  - deleting a customer deletes their documents in the same transaction.
+- **Type-ahead** (`public/js/nationalities.js`): one shared `<datalist>` of 194 nationalities, added to the page on first use. It is on the customer form, the visa form, group visa applicants and the invoice beneficiary. Typing "Pak" offers "Pakistani"; free text still works.
+- **Tests:**
+  - `http-security.test.js`:
+    - nationality is saved and changed;
+    - a passport PDF is uploaded and listed for a customer;
+    - staff without customers rights get 403 on the download, staff with customers View get 200;
+    - deleting the customer removes the file;
+  - `npm run check` 232 files OK, `npm test` 252 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** on a throwaway server:
+  - the customer form shows Nationality, and typing "Pak" matches "Pakistani" from the 194-item list;
+  - a saved customer's balance page shows "Pakistani · 0 open invoices" and the Documents card with Add file.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
-3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up, opening balance and receive payment changes, then push it.
+3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up, opening balance, receive payment and customer nationality/documents changes, then push it.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
