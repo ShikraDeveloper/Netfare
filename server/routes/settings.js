@@ -4,8 +4,18 @@ const router = require('express').Router();
 const db = require('../db');
 const { bad, str, optionalStr, num } = require('../util');
 
+// Every screen reads the company settings. Where backups are copied, the
+// update address and the office network are the admin's business only.
+const ADMIN_ONLY = ['backup_mirror_dir', 'backup_mirror_at', 'backup_mirror_error', 'update_feed', 'lan_enabled', 'lan_hosts'];
+
+function settingsFor(user) {
+  const settings = db.prepare('SELECT * FROM settings WHERE id = 1').get();
+  if (!user?.is_admin) for (const key of ADMIN_ONLY) delete settings[key];
+  return settings;
+}
+
 router.get('/', (req, res) => {
-  res.json(db.prepare('SELECT * FROM settings WHERE id = 1').get());
+  res.json(settingsFor(req.user));
 });
 
 router.put('/', (req, res) => {
@@ -63,7 +73,7 @@ router.put('/', (req, res) => {
     fiscalMonth,
   );
 
-  res.json(db.prepare('SELECT * FROM settings WHERE id = 1').get());
+  res.json(settingsFor(req.user));
 });
 
 module.exports = router;

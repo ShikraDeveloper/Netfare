@@ -380,6 +380,28 @@ test('restore refuses backups carrying triggers, views or broken links', async (
   }
 });
 
+test('restore refuses a users table that makes new accounts admins', async () => {
+  const targetDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-restore-target-'));
+  try {
+    const source = backupService.createDatabaseBackup(db, 'restore-users-default');
+    const tampered = new Database(source.path);
+    const usersSql = tampered.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get().sql;
+    const adminByDefault = usersSql
+      .replace(/CREATE TABLE (IF NOT EXISTS )?"?users"?/, 'CREATE TABLE users_new')
+      .replace(/is_admin INTEGER NOT NULL DEFAULT 0/, 'is_admin INTEGER NOT NULL DEFAULT 1');
+    assert.notEqual(adminByDefault, usersSql);
+    tampered.exec(`PRAGMA foreign_keys = OFF; ${adminByDefault}; INSERT INTO users_new SELECT * FROM users; DROP TABLE users; ALTER TABLE users_new RENAME TO users;`);
+    tampered.close();
+    await assert.rejects(
+      restoreDatabase({ source: source.path, dataDir: targetDir, checkServer: async () => false }),
+      /new users would become admins/,
+    );
+    assert.equal(fs.existsSync(path.join(targetDir, 'accounting.db')), false, 'nothing was restored');
+  } finally {
+    fs.rmSync(targetDir, { recursive: true, force: true });
+  }
+});
+
 test('the data folder, database and backups are readable by this OS user only', { skip: process.platform === 'win32' }, () => {
   const mode = (file) => fs.statSync(file).mode & 0o777;
   assert.equal(mode(tempDir), 0o700);

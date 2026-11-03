@@ -22,9 +22,14 @@ function hashPassword(password) {
   return ['scrypt', SCRYPT.N, SCRYPT.r, SCRYPT.p, salt.toString('base64'), key.toString('base64')].join('$');
 }
 
+// A hash can come from a restored backup, so its cost settings are capped:
+// a huge one would stall every sign-in for that name.
+const MAX_SCRYPT = { N: 2 ** 17, r: 16, p: 4 };
+
 function verifyPassword(password, stored) {
   const [kind, N, r, p, salt, key] = String(stored || '').split('$');
   if (kind !== 'scrypt' || !salt || !key) return false;
+  if (!(Number(N) <= MAX_SCRYPT.N && Number(r) <= MAX_SCRYPT.r && Number(p) >= 1 && Number(p) <= MAX_SCRYPT.p)) return false;
   const expected = Buffer.from(key, 'base64');
   const actual = crypto.scryptSync(String(password), Buffer.from(salt, 'base64'), expected.length, {
     N: Number(N), r: Number(r), p: Number(p), maxmem: SCRYPT.maxmem,
@@ -109,26 +114,51 @@ function setupAdmin(db, payload = {}) {
   })();
 }
 
-function login(db, payload = {}) {
+// Wrong passwords are counted per computer (the connection's address) and
+// username. Someone on the office network who guesses wrong locks only their
+// own attempts, never the admin signing in at the main computer or anywhere
+// else. A computer that tries many usernames is slowed down as a whole.
+const ANY_USER = '*';
+const MAX_ATTEMPTS_ANY_USER = 20;
+const MAX_TRACKED = 5000;
+const failures = new Map();
+
+function failureKey(address, username) {
+  return `${address || 'unknown'}|${username}`;
+}
+
+function isLocked(key, now) {
+  return (failures.get(key)?.lockedUntil || 0) > now;
+}
+
+function noteFailure(key, limit, now) {
+  const entry = failures.get(key) || { count: 0, lockedUntil: 0 };
+  entry.count += 1;
+  if (entry.count >= limit) {
+    entry.count = 0;
+    entry.lockedUntil = now + LOCK_MINUTES * 60 * 1000;
+  }
+  failures.delete(key);
+  failures.set(key, entry);
+  if (failures.size > MAX_TRACKED) failures.delete(failures.keys().next().value);
+  return entry.lockedUntil > now;
+}
+
+function login(db, payload = {}, { address = '', now = Date.now() } = {}) {
   const username = String(payload.username ?? '').trim().toLowerCase();
   const password = String(payload.password ?? '');
+  const key = failureKey(address, username);
+  const anyKey = failureKey(address, ANY_USER);
+  const lockedMessage = `Too many wrong attempts. Try again in ${LOCK_MINUTES} minutes.`;
+  if (isLocked(key, now) || isLocked(anyKey, now)) throw bad(lockedMessage);
   const user = username ? db.prepare('SELECT * FROM users WHERE username = ?').get(username) : null;
-  if (!user) {
-    verifyPassword(password, DUMMY_HASH);
-    throw bad('Wrong username or password');
+  const passwordOk = verifyPassword(password, user ? user.password_hash : DUMMY_HASH);
+  if (!user || !passwordOk) {
+    const lockedNow = noteFailure(key, MAX_ATTEMPTS, now);
+    const anyLocked = noteFailure(anyKey, MAX_ATTEMPTS_ANY_USER, now);
+    throw bad(lockedNow || anyLocked ? lockedMessage : 'Wrong username or password');
   }
-  const locked = db.prepare("SELECT ? > datetime('now') AS locked").get(user.locked_until || '').locked;
-  if (locked) throw bad(`Too many wrong attempts. Try again in ${LOCK_MINUTES} minutes.`);
-  if (!verifyPassword(password, user.password_hash)) {
-    const attempts = user.failed_attempts + 1;
-    if (attempts >= MAX_ATTEMPTS) {
-      db.prepare(`UPDATE users SET failed_attempts = 0, locked_until = datetime('now', ?) WHERE id = ?`)
-        .run(`+${LOCK_MINUTES} minutes`, user.id);
-      throw bad(`Too many wrong attempts. Try again in ${LOCK_MINUTES} minutes.`);
-    }
-    db.prepare('UPDATE users SET failed_attempts = ? WHERE id = ?').run(attempts, user.id);
-    throw bad('Wrong username or password');
-  }
+  failures.delete(key);
   if (!user.is_active) throw bad('This user is disabled. Ask the admin to enable it.');
   db.prepare(`
     UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = datetime('now') WHERE id = ?
@@ -167,8 +197,12 @@ function createUser(db, payload = {}) {
       throw bad(`The username "${username}" is already taken`);
     }
     const permissions = cleanPermissions(payload.permissions);
-    const info = db.prepare('INSERT INTO users (username, full_name, password_hash, permissions) VALUES (?, ?, ?, ?)')
-      .run(username, fullName, hashPassword(password), JSON.stringify(permissions));
+    // Every flag is set here rather than left to the table's defaults, which
+    // a restored backup could have changed.
+    const info = db.prepare(`
+      INSERT INTO users (username, full_name, password_hash, permissions, is_admin, is_active, must_change_password)
+      VALUES (?, ?, ?, ?, 0, 1, 0)
+    `).run(username, fullName, hashPassword(password), JSON.stringify(permissions));
     audit.record(db, {
       entity_type: 'user', entity_id: info.lastInsertRowid, entity_number: username, action: 'create',
       remarks: `Added ${fullName} · ${rightsSummary(permissions)}`,

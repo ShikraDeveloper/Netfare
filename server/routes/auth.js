@@ -39,7 +39,7 @@ router.post('/setup', (req, res) => {
 });
 
 router.post('/login', (req, res) => {
-  const { user, token } = auth.login(db, req.body);
+  const { user, token } = auth.login(db, req.body, { address: req.socket.remoteAddress });
   setCookie(res, token);
   res.json({ user });
 });

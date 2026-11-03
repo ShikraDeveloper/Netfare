@@ -40,6 +40,12 @@ function verifyDatabase(file, requiredTables) {
     // logic that keeps changing every later posting, so refuse them.
     const extra = check.prepare("SELECT type, name FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").get();
     if (extra) throw new Error(`backup contains a ${extra.type} ("${extra.name}") that Netfare does not create`);
+    // A users table that makes new accounts admins by default would turn
+    // every staff user created after the restore into an admin.
+    if (tables.has('users')) {
+      const isAdmin = check.pragma('table_info(users)').find((column) => column.name === 'is_admin');
+      if (isAdmin && isAdmin.dflt_value !== '0') throw new Error('backup has a changed users table (new users would become admins)');
+    }
     const broken = check.pragma('foreign_key_check');
     if (broken.length) throw new Error(`backup has ${broken.length} broken link${broken.length === 1 ? '' : 's'} between records (first in "${broken[0].table}")`);
   } finally {

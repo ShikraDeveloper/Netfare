@@ -323,6 +323,14 @@ test('sign-in sets a strict HttpOnly cookie, wrong passwords lock the user, sign
 test('staff cannot manage users or data; disabling or a new password ends their sessions', async () => {
   const created = await postAs(cookie, '/api/users', { full_name: 'Desk Staff', username: 'desk', password: 'desk-pass-1', permissions: { sales: 'edit' } });
   assert.equal(created.status, 201);
+  const staffSignIn = await signIn('desk', 'desk-pass-1');
+  const staffSettings = await jsonRequest('/api/settings', { headers: { Cookie: staffSignIn.cookie } });
+  assert.equal(staffSettings.status, 200);
+  assert.ok('company_name' in staffSettings.data);
+  for (const key of ['backup_mirror_dir', 'update_feed', 'lan_enabled', 'lan_hosts']) {
+    assert.ok(!(key in staffSettings.data), `staff do not see ${key}`);
+  }
+  assert.ok('update_feed' in (await jsonRequest('/api/settings', { headers: { Cookie: cookie } })).data, 'the admin does');
   const duplicate = await postAs(cookie, '/api/users', { full_name: 'Other', username: 'DESK', password: 'desk-pass-2' });
   assert.equal(duplicate.status, 400);
   const weak = await postAs(cookie, '/api/users', { full_name: 'Weak', username: 'weak', password: 'short' });
