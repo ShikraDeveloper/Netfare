@@ -1824,11 +1824,43 @@ Three more leads from audit run-2. These ones don't depend on the office setup t
 - `npm run check` OK, `npm test` 239 passed. The About card was checked on a throwaway server. `netfare-website.zip` was rebuilt (19 files).
 - **Not live yet:** on 2026-11-04 every path on shikragroup.com (including `/netfare`) served a parking page that redirects to `/lander`. The user still needs to upload the zip's contents into a `netfare` folder there.
 
+### Bank charges on top-ups, top-ups on credit portals — code commit `aa5615c`
+
+The user asked for bank charges on top-ups, and for top-ups on credit-account portals as well. They chose:
+- on a credit portal, a top-up pays the oldest open bills first;
+- bank charges are an optional field on each top-up.
+
+- **Bank charges** (`server/services/portals/transactions.js`, migration `portal_topups.bank_charges_cents`):
+  - the top-up form has the shared "Bank charges (optional)" field, which is hidden for Cash;
+  - the portal gets the full amount, and the charges come out of the bank to 6700 Bank Charges in the same entry (Dr 1400 · Dr 6700 · Cr bank), so a void reverses both;
+  - the wallet list shows "bank charges AED x".
+- **Credit portals:**
+  - `topUp` no longer refuses them. After posting the top-up, `payOpenBills` settles the supplier's received bills dated on or before the top-up date, oldest due first, through `settleBillFromPortal` (Dr 2000 · Cr 1400, a `Portal wallet` bill payment). Bills dated later wait.
+  - Money left over stays as the portal balance (an advance). `autoSettleBill` now uses it for the next bills when a booking or visa is issued. With no advance it returns nothing, so there is no "portal has no balance" warning on credit.
+  - Left-over money can be withdrawn. The Advances to Suppliers ledger check already counts every portal's balance.
+  - Voiding a credit top-up that already paid bills says: delete those bill payments first, then void.
+- **Credit portal page:**
+  - a Top up button (in the header, for active portals);
+  - a **Top-ups** card with Withdraw when money is left;
+  - "· AED x advance" under Balance due;
+  - the form subtitle shows the balance due, and after saving the toast says how many bills were paid.
+- **Tests:**
+  - new `test/portal-topups.test.js`:
+    - charges and their void;
+    - oldest-first payment across two top-ups;
+    - the advance paying a later bill;
+    - no warning on credit;
+    - withdrawing the left-over;
+  - the old test that expected credit portals to refuse top-ups was updated to the new rule;
+  - `npm run check` 226 files OK, `npm test` 243 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** on a throwaway server, a credit portal with bills of 4,000 + 6,000 + 2,000 and a 9,000 top-up with 25 charges. Two bills were paid and the toast said "paid 2 bills". Balance due went to 3,000 and credit available to 47,000. The entry was 1400 Dr 9,000 / bank Cr 9,000 / 6700 Dr 25 / bank Cr 25.
+- **Release note:** the local tag `v1.0.3` points at `67b138e`, before this change. Before releasing, move the tag to the latest commit (`git tag -f -a v1.0.3 …`) so 1.0.3 includes it.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
-3. **Release 1.0.3:** push tag `v1.0.3` when the user asks.
+3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up changes, then push it.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
