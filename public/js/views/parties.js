@@ -44,10 +44,16 @@ const CONFIG = {
   },
 };
 
+// A customer's row opens their page: balance, Receive payment, documents.
+function customerPage(party) {
+  return `#/customer-balances/${party.id}`;
+}
+
 function partyRow(party, config) {
   const count = party[config.countKey] || 0;
+  const isCustomer = config.singular === 'customer';
   return `
-    <tr data-id="${party.id}">
+    <tr data-id="${party.id}" ${isCustomer ? `class="clickable" data-href="${customerPage(party)}" tabindex="0"` : ''}>
       <td>
         <div class="party-cell">
           ${avatar(party.name, 34)}
@@ -62,6 +68,7 @@ function partyRow(party, config) {
       <td class="num ${party.outstanding_cents > 0 ? 'amount-due' : 'muted'}">${party.outstanding_cents > 0 ? fmtMoney(party.outstanding_cents) : '—'}</td>
       <td>
         <div class="row-actions">
+          ${isCustomer ? `<a class="icon-btn" href="${customerPage(party)}" title="Open customer: payments and documents" aria-label="Open ${esc(party.name)}">${icon('chevron', 16)}</a>` : ''}
           <a class="icon-btn" href="#${config.base}/${party.id}/statement" title="Statement">${icon('file', 16)}</a>
           <button class="icon-btn" data-edit="${party.id}" title="Edit">${icon('edit', 16)}</button>
           <button class="icon-btn" data-archive="${party.id}" title="${party.is_active ? 'Archive' : 'Restore'}">${icon(party.is_active ? 'archive' : 'refresh', 16)}</button>
@@ -309,7 +316,15 @@ export async function renderPartyView(container, { query = new URLSearchParams()
       } catch (error) {
         toast(error.message, 'error');
       }
+      return;
     }
+
+    if (event.target.closest('a, button')) return;
+    const row = event.target.closest('tr[data-href]');
+    if (row) location.hash = row.dataset.href;
+  });
+  body.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && event.target.matches('tr[data-href]')) location.hash = event.target.dataset.href;
   });
 
   applyFilters();
