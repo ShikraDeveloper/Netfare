@@ -1998,11 +1998,24 @@ From the security check of everything since 1.0.2 (user: "jo abi changes kiye hy
   - staff with bookings/visas Edit can use Receive payment (as with advances before);
   - portals Edit staff can pay supplier bills through a credit-portal top-up (as with wallet settlement before).
 
+### Release 1.0.4 — code commit `c206b53`, tag `v1.0.4`
+
+- Version 1.0.4 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 253 passed.
+- Two note lines: clicking a customer opens their page; the sign-in lock holds when the address changes.
+- Release run 41727801559: all jobs succeeded. The assets are:
+  - arm64 dmg, 142 MB;
+  - x64 dmg, 149 MB;
+  - Windows exe, 131 MB;
+  - `latest.json`.
+- **Checked:** `releases/latest/download/latest.json` reports 1.0.4.
+- **First real bell test:** the user's 1.0.3 app has the bell, so a red dot should appear within 3 hours (or at once after restarting the app).
+- **Not checked:** the released dmgs were not downloaded and verified on this Mac.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.3` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
-2. The user's Mac runs 1.0.2 until they update to 1.0.3. After that, the next release is the first real test of the bell.
-3. **Release 1.0.3** is published.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.4` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+2. The user's Mac runs 1.0.3; release 1.0.4 is the first real test of the bell (red dot within 3 hours or after a restart).
+3. **Next code work (suggested):** put customer documents behind Edit or their own right, and trim the shared `/api/customers` picker list.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
