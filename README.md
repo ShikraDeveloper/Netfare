@@ -128,7 +128,8 @@ The `desktop/` folder holds the Netfare desktop app (Electron 44.9.0, built with
 - **Website:** `website/` is the landing page.
   - It is plain HTML, CSS and a little JS, with no build step.
   - Its Download button picks this computer's installer, and it reads the latest version and notes from GitHub.
-  - It is hosted on the ShikraGroup website, not on GitHub Pages. `npm run website:zip` makes `netfare-website.zip` (git-ignored) for upload.
+  - It is hosted on the ShikraGroup website at https://shikragroup.com/netfare/, not on GitHub Pages. `npm run website:zip` makes `netfare-website.zip` (git-ignored) for upload.
+  - The share-preview tags (`og:url`, `og:image`, canonical) and the app's About card point at that address. If the site moves, change them too.
   - **Hosting checklist:**
     1. Upload the zip's contents (`index.html` and `assets/`) as they are to any folder (`…/netfare/`) or subdomain (`netfare.…`). All paths are relative; keep the names and folders.
     2. Serve it over https.

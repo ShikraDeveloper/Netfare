@@ -244,6 +244,7 @@ export async function render(container) {
               <div><span>Accounting</span><strong>Double-entry</strong></div>
               <div><span>Currency</span><strong>AED</strong></div>
               <div><span>Server</span><strong>127.0.0.1</strong></div>
+              <div><span>Website</span><strong><a href="https://shikragroup.com/netfare/" target="_blank" rel="noopener">shikragroup.com/netfare</a></strong></div>
             </div>
             <div class="form-note" style="margin-top:16px">
               Every invoice, bill and payment posts a balanced journal entry. Reports are calculated directly from the general ledger.
