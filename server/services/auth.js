@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const { bad, notFound } = require('../util');
 const audit = require('./audit');
 const { AREAS, cleanPermissions, parsePermissions } = require('../permissions');
+const { isLoopback } = require('../network');
 
 const SCRYPT = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const KEY_LENGTH = 64;
@@ -114,48 +115,87 @@ function setupAdmin(db, payload = {}) {
   })();
 }
 
-// Wrong passwords are counted per computer (the connection's address) and
-// username. Someone on the office network who guesses wrong locks only their
-// own attempts, never the admin signing in at the main computer or anywhere
-// else. A computer that tries many usernames is slowed down as a whole.
+// Wrong passwords are counted per computer and username. Someone on the office
+// network who guesses wrong locks only their own attempts, never the admin
+// signing in at the main computer. A computer that tries many usernames is
+// locked as a whole.
+//
+// So that changing address does not escape the count, every loopback address
+// (127.x, ::1) is one computer and an IPv6 address counts by its /64 network.
+// On top of that each account has a cap across all other computers: after 20
+// wrong passwords from elsewhere, sign-in for that account is refused from
+// other computers for 15 minutes, while the main computer still gets in.
+// Counts older than the lock time are forgotten.
 const ANY_USER = '*';
 const MAX_ATTEMPTS_ANY_USER = 20;
+const MAX_REMOTE_ATTEMPTS_PER_ACCOUNT = 20;
+const ACCOUNT_LOCK_MINUTES = 15;
 const MAX_TRACKED = 5000;
 const failures = new Map();
+const accountFailures = new Map();
 
-function failureKey(address, username) {
-  return `${address || 'unknown'}|${username}`;
+function expandIpv6(ip) {
+  const [head, tail = ''] = ip.split('::');
+  const left = head ? head.split(':') : [];
+  const right = ip.includes('::') && tail ? tail.split(':') : [];
+  const middle = ip.includes('::') ? Array(Math.max(0, 8 - left.length - right.length)).fill('0') : [];
+  return [...left, ...middle, ...right];
 }
 
-function isLocked(key, now) {
-  return (failures.get(key)?.lockedUntil || 0) > now;
+function sourceOf(address) {
+  const ip = String(address || '').replace(/^::ffff:/i, '').replace(/^\[|\]$/g, '').replace(/%.*$/, '').toLowerCase();
+  if (!ip) return 'unknown';
+  if (isLoopback(ip)) return 'loopback';
+  if (ip.includes(':')) return `${expandIpv6(ip).slice(0, 4).map((part) => part.replace(/^0+(?=.)/, '')).join(':')}::/64`;
+  return ip;
 }
 
-function noteFailure(key, limit, now) {
-  const entry = failures.get(key) || { count: 0, lockedUntil: 0 };
+function failureKey(source, username) {
+  return `${source}|${username}`;
+}
+
+function isLocked(map, key, now) {
+  return (map.get(key)?.lockedUntil || 0) > now;
+}
+
+function noteFailure(map, key, { limit, lockMinutes = LOCK_MINUTES, now }) {
+  let entry = map.get(key);
+  if (!entry || (entry.lockedUntil <= now && now - entry.since > LOCK_MINUTES * 60 * 1000)) {
+    entry = { count: 0, since: now, lockedUntil: 0 };
+  }
   entry.count += 1;
   if (entry.count >= limit) {
     entry.count = 0;
-    entry.lockedUntil = now + LOCK_MINUTES * 60 * 1000;
+    entry.since = now;
+    entry.lockedUntil = now + lockMinutes * 60 * 1000;
   }
-  failures.delete(key);
-  failures.set(key, entry);
-  if (failures.size > MAX_TRACKED) failures.delete(failures.keys().next().value);
+  map.delete(key);
+  map.set(key, entry);
+  if (map.size > MAX_TRACKED) map.delete(map.keys().next().value);
   return entry.lockedUntil > now;
 }
 
 function login(db, payload = {}, { address = '', now = Date.now() } = {}) {
   const username = String(payload.username ?? '').trim().toLowerCase();
   const password = String(payload.password ?? '');
-  const key = failureKey(address, username);
-  const anyKey = failureKey(address, ANY_USER);
+  const source = sourceOf(address);
+  const fromElsewhere = source !== 'loopback';
+  const key = failureKey(source, username);
+  const anyKey = failureKey(source, ANY_USER);
   const lockedMessage = `Too many wrong attempts. Try again in ${LOCK_MINUTES} minutes.`;
-  if (isLocked(key, now) || isLocked(anyKey, now)) throw bad(lockedMessage);
+  if (isLocked(failures, key, now) || isLocked(failures, anyKey, now)) throw bad(lockedMessage);
+  if (fromElsewhere && isLocked(accountFailures, username, now)) {
+    throw bad(`Too many wrong attempts for this user. Try again in ${ACCOUNT_LOCK_MINUTES} minutes, or sign in at the main computer.`);
+  }
   const user = username ? db.prepare('SELECT * FROM users WHERE username = ?').get(username) : null;
   const passwordOk = verifyPassword(password, user ? user.password_hash : DUMMY_HASH);
   if (!user || !passwordOk) {
-    const lockedNow = noteFailure(key, MAX_ATTEMPTS, now);
-    const anyLocked = noteFailure(anyKey, MAX_ATTEMPTS_ANY_USER, now);
+    const lockedNow = noteFailure(failures, key, { limit: MAX_ATTEMPTS, now });
+    const anyLocked = noteFailure(failures, anyKey, { limit: MAX_ATTEMPTS_ANY_USER, now });
+    // Only real accounts are tracked here, so the map stays as small as the user list.
+    if (user && fromElsewhere) {
+      noteFailure(accountFailures, username, { limit: MAX_REMOTE_ATTEMPTS_PER_ACCOUNT, lockMinutes: ACCOUNT_LOCK_MINUTES, now });
+    }
     throw bad(lockedNow || anyLocked ? lockedMessage : 'Wrong username or password');
   }
   failures.delete(key);
@@ -311,6 +351,7 @@ module.exports = {
   setupNeeded,
   setupAdmin,
   login,
+  sourceOf,
   userForToken,
   logout,
   listUsers,

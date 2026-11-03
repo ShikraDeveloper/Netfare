@@ -74,6 +74,33 @@ test('wrong passwords lock only the computer that typed them', () => {
   assert.throws(() => auth.login(db, { username: 'owner', password: 'owner-pass-1' }, scanner), /Too many wrong attempts/);
 });
 
+test('changing address does not escape the count, and old mistakes are forgotten', () => {
+  assert.equal(auth.sourceOf('127.0.0.2'), 'loopback');
+  assert.equal(auth.sourceOf('::ffff:127.0.0.1'), 'loopback');
+  assert.equal(auth.sourceOf('::1'), 'loopback');
+  assert.equal(auth.sourceOf('fd7a:115c:a1e0:ab12:4843:cd96:6258:b240'), auth.sourceOf('fd7a:115c:a1e0:ab12::99'), 'same /64 network');
+  assert.notEqual(auth.sourceOf('fd7a:115c:a1e0:ab12::1'), auth.sourceOf('fd7a:115c:a1e0:ab13::1'));
+  assert.equal(auth.sourceOf('::ffff:192.168.1.9'), '192.168.1.9');
+
+  auth.createUser(db, { full_name: 'Lock Target', username: 'lock.target', password: 'lock-target-1', permissions: {} });
+  const now = Date.now();
+  const wrong = (address, at = now) => assert.throws(() => auth.login(db, { username: 'lock.target', password: 'nope-nope' }, { address, now: at }));
+
+  for (let n = 2; n <= 6; n += 1) wrong(`127.0.0.${n}`);
+  assert.throws(() => auth.login(db, { username: 'lock.target', password: 'lock-target-1' }, { address: '127.0.0.9', now }), /Too many wrong attempts/, 'every 127.x is one computer');
+
+  for (let n = 1; n <= 20; n += 1) wrong(`10.0.0.${n}`);
+  assert.throws(() => auth.login(db, { username: 'lock.target', password: 'lock-target-1' }, { address: '10.0.9.9', now }), /for this user/, '20 wrong from many computers lock the account for other computers');
+  assert.ok(auth.login(db, { username: 'lock.target', password: 'lock-target-1' }, { address: '127.0.0.1', now: now + 6 * 60 * 1000 }).token, 'the main computer still gets in');
+  assert.ok(auth.login(db, { username: 'lock.target', password: 'lock-target-1' }, { address: '10.0.9.9', now: now + 16 * 60 * 1000 }).token, 'and the account lock ends');
+
+  for (let n = 1; n <= 4; n += 1) wrong('172.16.0.5', now + 20 * 60 * 1000);
+  for (let n = 1; n <= 4; n += 1) wrong('172.16.0.5', now + 27 * 60 * 1000);
+  assert.ok(auth.login(db, { username: 'lock.target', password: 'lock-target-1' }, { address: '172.16.0.5', now: now + 27 * 60 * 1000 }).token, 'four mistakes long ago do not count');
+  db.prepare("DELETE FROM sessions WHERE user_id = (SELECT id FROM users WHERE username = 'lock.target')").run();
+  db.prepare("DELETE FROM users WHERE username = 'lock.target'").run();
+});
+
 test('a stored hash with an extreme cost is refused, not computed', () => {
   const [kind, , r, , salt, key] = auth.hashPassword('cost-pass-1').split('$');
   assert.equal(auth.verifyPassword('cost-pass-1', [kind, 2 ** 20, r, 1, salt, key].join('$')), false);
