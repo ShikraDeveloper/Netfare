@@ -1946,11 +1946,29 @@ The user asked for a nationality on customers, documents per customer (Emirates 
   - the customer form shows Nationality, and typing "Pak" matches "Pakistani" from the 194-item list;
   - a saved customer's balance page shows "Pakistani · 0 open invoices" and the Documents card with Add file.
 
+### Release 1.0.3 — tag `v1.0.3` on `9c5fa81`
+
+- The unpushed local tag `v1.0.3` was moved from `67b138e` to the latest commit `9c5fa81`, so 1.0.3 includes everything since 1.0.2. Its six note lines:
+  - the notification bell;
+  - Receive payment;
+  - top-up bank charges and credit-portal top-ups;
+  - opening balances on new records;
+  - customer nationality and documents;
+  - the security fixes (lockout per computer, safer restores, admin-only settings hidden from staff).
+- Release run 41723922990: Build (mac), Build (win) and Publish release all succeeded. The assets are:
+  - arm64 dmg, 142 MB;
+  - x64 dmg, 149 MB;
+  - Windows exe, 131 MB;
+  - `latest.json`.
+- **Checked:** `releases/latest/download/latest.json` reports 1.0.3 with the six notes.
+- **Next:** the user's 1.0.2 app has the old update check (once at start, cached 24 hours, no bell). To see 1.0.3 it needs a restart of the app, or Settings → Check for updates. From 1.0.3 on, the bell checks every few hours.
+- **Not checked:** the released dmgs were not downloaded and verified on this Mac.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
-2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
-3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up, opening balance, receive payment and customer nationality/documents changes, then push it.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.3` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+2. The user's Mac runs 1.0.2 until they update to 1.0.3. After that, the next release is the first real test of the bell.
+3. **Release 1.0.3** is published.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
