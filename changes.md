@@ -1769,7 +1769,44 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
   - `test/updates.test.js` adds: a release published while the app is open shows within 3 hours, and a failed check is retried after 15 minutes;
   - `npm run check` 225 files OK, `npm test` 235 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** a throwaway server (temp data, a local test feed reporting 9.9.9), on desktop, at phone width and in dark mode. The dot, the panel and What's new all worked. The light-only hover colour of icon buttons was fixed for the bell.
-- **Not in the desktop app yet:** it needs release 1.0.3. Not pushed yet.
+- **Not in the desktop app yet:** it needs release 1.0.3. Not pushed yet. (Pushed later with the user's OK.)
+
+## 2026-11-04
+
+### Lockout per computer, safer restores, staff settings — code commit `85b3785`
+
+Three more leads from audit run-2. These ones don't depend on the office setup to be worth fixing.
+
+- **Login lockout** (`server/services/auth.js`, `server/routes/auth.js`):
+  - Old behaviour: 5 wrong passwords locked the account itself for 5 minutes. Anyone who could reach the sign-in page could keep the admin locked out with about one request a minute.
+  - Now the count is kept per computer (the connection's address) and username. 5 wrong tries lock only that computer for that name. A computer that gets 20 wrong across any usernames is locked for 5 minutes as a whole.
+  - The admin at the main computer, or at any other computer, still signs in.
+  - Unknown and known usernames get the same answers. The counts are kept in memory, newest 5,000.
+- **Restore** (`scripts/restore.js`, `server/services/auth.js`):
+  - A backup whose `users` table makes new accounts admins by default is refused, with the message "backup has a changed users table (new users would become admins)".
+  - `createUser` now sets `is_admin = 0`, `is_active = 1` and `must_change_password = 0` itself, instead of trusting table defaults.
+  - Stored scrypt hashes above N 2^17, r 16 or p 4 are refused rather than computed, so a restored hash cannot stall sign-in.
+- **Staff settings** (`server/routes/settings.js`): `GET` and `PUT /api/settings` leave these out for staff:
+  - `backup_mirror_dir`, `backup_mirror_at`, `backup_mirror_error`;
+  - `update_feed`;
+  - `lan_enabled`, `lan_hosts`.
+
+  The admin still gets everything. The client only reads them from admin endpoints.
+- **Tests:**
+  - `auth.test.js`:
+    - a lock from one address does not stop another;
+    - the lock ends after 5 minutes;
+    - many usernames from one computer;
+    - extreme hash costs are refused;
+    - a table defaulting to admin still gives staff `is_admin = 0`.
+  - `hardening.test.js`: restore refuses the changed users table.
+  - `http-security.test.js`: staff do not see the admin-only settings.
+  - `npm run check` 225 files OK, `npm test` 239 passed, `npm run test:e2e` 42 passed.
+- **Audit leads still open:**
+  - plain http on the office LAN (use Tailscale);
+  - the session cookie reaching other ports when used in a browser;
+  - a custom Windows install folder;
+  - port squatting on a shared PC.
 
 ### Next session
 
@@ -1777,7 +1814,7 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
 2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
 3. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
 4. **Still open:**
-   - the 6 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2);
+   - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
    - the flaky sign-in browser test;
    - testing "Start from a backup" in the desktop app by hand.
