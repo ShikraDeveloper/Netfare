@@ -1735,12 +1735,28 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
   - empty, zero and missing opening-balance saves;
   - encoded attachment ids on download and delete.
 - **Checks:** `npm run check` 225 files OK, `npm test` 234 passed, `npm run test:e2e` 42 passed, all on a temporary data folder.
-- **Not in the desktop app yet:** it needs release 1.0.2. Not pushed yet.
+- **Not in the desktop app yet:** it needs release 1.0.2. Not pushed yet. (Both commits were pushed later with the user's OK.)
+
+### Release 1.0.2 — code commit `c5cc202`, tag `v1.0.2`
+
+- **Version:** 1.0.2 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm run check` 225 files OK, and `npm test` 234 passed.
+- **What it brings to the desktop app:**
+  - "Created by" on documents;
+  - staff in the DSR;
+  - the second copy of backups;
+  - the staff-rights fixes from audit run-2.
+- **Release:** tag `v1.0.2` (three note lines), run 41618596717. Build (mac), Build (win) and Publish release all succeeded. The assets are:
+  - arm64 dmg, 142 MB;
+  - x64 dmg, 149 MB;
+  - Windows exe, 131 MB;
+  - `latest.json`.
+- **Checked:** `releases/latest/download/latest.json` reports 1.0.2 with the three notes and the v1.0.2 download links. The 1.0.1 app on the user's Mac should now show the update banner to the admin.
+- **Not checked:** the released dmgs were not downloaded and verified on this Mac this time.
 
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` and `v1.0.1` exist. The user's Mac runs the 1.0.1 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
-2. **Release 1.0.2** when the user asks. It brings "Created by", DSR staff, the second backup copy and the staff-rights fixes to the desktop app.
+1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.1 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+2. **Update to 1.0.2:** the user's 1.0.1 app should show the "Netfare 1.0.2 is available" banner. This is the first real check of the update notice. To update: quit Netfare, install the arm64 dmg, open it. The books stay in Application Support.
 3. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
 4. **Still open:**
    - the 6 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2);
