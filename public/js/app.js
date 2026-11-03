@@ -181,6 +181,7 @@ const VOID_SELECTORS = [
   '[data-action="void"]', '[data-action="void-credit"]', '[data-action="cancel"]', '[data-action="cancel-job"]',
   '[data-action="delete"]', '[data-delete-payment]', '[data-delete-recon]', '[data-delete]', '[data-void-advance]',
   '[data-void-cheque]', '[data-void-count]', '[data-void-kind]', '[data-void-portal]', '[data-void-settlement]', '[data-void]',
+  '[data-deposit-action="void-last"]', '[data-action="reject"]', '[data-action="clear-opening"]',
 ];
 
 function applyRightsStyles() {

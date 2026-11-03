@@ -90,8 +90,21 @@ function canEdit(permissions, area) {
   return permissions[area] === 'edit';
 }
 
-function isVoidAction(method, path) {
-  return method === 'DELETE' || /\/(void|cancel)$/.test(path);
+// Requests that void, cancel or undo a posted record. Express matches routes
+// without regard to case, so this does too: /VOID must not pass as an edit.
+// void-last undoes a deposit step; reject cancels a visa like cancel does.
+const VOID_ENDINGS = /\/(void|cancel|void-last|reject)$/i;
+
+// Saving opening balances with no amounts reverses the posted entry, the
+// same as Clear, so it needs the void right too.
+function clearsOpeningBalances(req, path) {
+  if (req.method !== 'POST' || !/^\/opening-balances$/i.test(path)) return false;
+  const rows = Array.isArray(req.body?.balances) ? req.body.balances : [];
+  return !rows.some((row) => Number(row?.debit_cents) > 0 || Number(row?.credit_cents) > 0);
+}
+
+function isVoidAction(req, path) {
+  return req.method === 'DELETE' || VOID_ENDINGS.test(path) || clearsOpeningBalances(req, path);
 }
 
 // Why a request is refused, or null when the user may make it.
@@ -106,8 +119,13 @@ function refusal(db, user, req) {
 
   let areas;
   if (prefix === '/attachments') {
+    // A file's area comes from its stored row. The id must be plain digits:
+    // req.path is not decoded but the route's :id is, so %35 would skip the
+    // lookup here and still open file 5.
     let entityType = req.query.entity_type;
-    const id = Number(path.split('/')[2]);
+    const idPart = path.split('/')[2];
+    if (idPart !== undefined && !/^\d+$/.test(idPart)) return 'You do not have access to this file';
+    const id = Number(idPart);
     if (id) entityType = db.prepare('SELECT entity_type FROM attachments WHERE id = ?').get(id)?.entity_type;
     const area = ATTACHMENT_AREAS[entityType];
     if (!area) return 'You do not have access to this file';
@@ -129,7 +147,7 @@ function refusal(db, user, req) {
     return areas.some((area) => canView(permissions, area)) ? null : `You do not have View rights for ${label}. Ask the admin.`;
   }
   if (!areas.some((area) => canEdit(permissions, area))) return `You do not have Edit rights for ${label}. Ask the admin.`;
-  if (prefix !== '/attachments' && isVoidAction(req.method, path) && !permissions.void) {
+  if (prefix !== '/attachments' && isVoidAction(req, path) && !permissions.void) {
     return 'You do not have the right to void, cancel or delete. Ask the admin.';
   }
   return null;

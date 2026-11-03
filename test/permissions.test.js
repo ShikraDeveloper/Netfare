@@ -8,8 +8,8 @@ const { AREAS, cleanPermissions, refusal } = require('../server/permissions');
 
 const fakeDb = { prepare: () => ({ get: () => ({ entity_type: 'visa' }) }) };
 
-function decide(permissions, method, path, query = {}) {
-  return refusal(fakeDb, { is_admin: 0, permissions: JSON.stringify(permissions) }, { method, path, query });
+function decide(permissions, method, path, query = {}, body = {}) {
+  return refusal(fakeDb, { is_admin: 0, permissions: JSON.stringify(permissions) }, { method, path, query, body });
 }
 
 test('every API prefix belongs to one area only', () => {
@@ -59,6 +59,36 @@ test('shared lists, the dashboard, journal entries and attachments', () => {
   assert.equal(decide({ visas: 'edit' }, 'DELETE', '/attachments/9'), null, 'removing a file needs Edit, not Void');
   assert.match(decide({ visas: 'edit', void: true }, 'GET', '/users'), /Only the admin/);
   assert.match(decide({ visas: 'edit', void: true }, 'POST', '/admin/reset'), /Only the admin/);
+});
+
+test('void needs the void right under any case or name', () => {
+  const rights = { sales: 'edit', visas: 'edit', books: 'edit' };
+  for (const path of ['/invoices/5/VOID', '/invoices/5/Void', '/visas/4/CANCEL', '/opening-balances/VOID']) {
+    assert.match(decide(rights, 'POST', path), /void, cancel or delete/, path);
+  }
+  assert.match(decide(rights, 'POST', '/visa-deposits/7/void-last'), /void, cancel or delete/);
+  assert.match(decide(rights, 'POST', '/visa-deposits/7/VOID-LAST'), /void, cancel or delete/);
+  assert.match(decide(rights, 'POST', '/visas/4/reject'), /void, cancel or delete/);
+  assert.equal(decide({ ...rights, void: true }, 'POST', '/visas/4/reject'), null);
+  assert.equal(decide(rights, 'POST', '/visa-deposits/7/refund'), null, 'a deposit refund is a normal edit');
+});
+
+test('saving opening balances with no amounts needs the void right', () => {
+  const rights = { books: 'edit' };
+  const amounts = { entry_date: '2026-01-01', balances: [{ account_id: 1, debit_cents: 5000, credit_cents: 0 }] };
+  assert.equal(decide(rights, 'POST', '/opening-balances', {}, amounts), null);
+  for (const balances of [[], [{ account_id: 1, debit_cents: 0, credit_cents: 0 }], undefined]) {
+    assert.match(decide(rights, 'POST', '/opening-balances', {}, { entry_date: '2026-01-01', balances }), /void, cancel or delete/);
+  }
+  assert.equal(decide({ ...rights, void: true }, 'POST', '/opening-balances', {}, { balances: [] }), null);
+});
+
+test('an attachment id must be plain digits', () => {
+  const bookings = { bookings: 'edit' };
+  assert.match(decide(bookings, 'GET', '/attachments/%35/download', { entity_type: 'booking' }), /access to this file/);
+  assert.match(decide(bookings, 'DELETE', '/attachments/%35', { entity_type: 'booking' }), /access to this file/);
+  assert.match(decide(bookings, 'GET', '/attachments/5/download', { entity_type: 'booking' }), /View rights for Visas/, 'the stored row decides');
+  assert.equal(decide(bookings, 'GET', '/attachments', { entity_type: 'booking' }), null, 'listing still follows entity_type');
 });
 
 test('the admin is never limited', () => {
