@@ -1856,11 +1856,42 @@ The user asked for bank charges on top-ups, and for top-ups on credit-account po
 - **Visual check:** on a throwaway server, a credit portal with bills of 4,000 + 6,000 + 2,000 and a 9,000 top-up with 25 charges. Two bills were paid and the toast said "paid 2 bills". Balance due went to 3,000 and credit available to 47,000. The entry was 1400 Dr 9,000 / bank Cr 9,000 / 6700 Dr 25 / bank Cr 25.
 - **Release note:** the local tag `v1.0.3` points at `67b138e`, before this change. Before releasing, move the tag to the latest commit (`git tag -f -a v1.0.3 …`) so 1.0.3 includes it.
 
+### Opening balance on new customers, suppliers and portals — code commit `8d40779`
+
+The user asked for an opening balance when a portal or supplier is created (admin only), and for customers too. They chose both directions, and an "As of" date that the admin picks.
+
+- **Forms** (`public/js/opening-balance.js`, used by `views/parties.js` and `views/portals.js`):
+  - the new customer, supplier and portal forms have a folded "Opening balance (optional, admin only)" section with who owes whom, the amount, and an As of date (default today);
+  - staff never see it, and it is not on the edit forms.
+- **Server** (`server/services/party-opening.js`, called from `POST /api/customers`, `/api/vendors`, `/api/portals` in the same transaction): each balance becomes an ordinary document against 3900 Opening Balance Equity, so it shows on statements and aging and is settled the normal way.
+
+  | Who | Direction | Document | Entry |
+  |---|---|---|---|
+  | Customer | owes us | invoice | Dr 1100 · Cr 3900 |
+  | Customer | we owe them | customer credit | Dr 3900 · Cr 2450 |
+  | Supplier | we owe them | bill | Dr 3900 · Cr 2000 |
+  | Supplier | owes us | supplier credit | Dr 1450 · Cr 3900 |
+  | Portal | money held on it | portal balance (top-up, method "Opening balance") | Dr 1400 · Cr 3900 |
+  | Portal | owed to its supplier | bill linked to the portal | Dr 3900 · Cr 2000 |
+
+  - The documents use the normal numbering and carry one line "Opening balance" on 3900. They are audited as created.
+  - The routes refuse an `opening` from staff with "Only the admin can enter an opening balance".
+- **Not sales:** new column `is_opening` on invoices, bills, credit notes and supplier credit notes. The daily sales report (and so the DSR) leaves out opening invoices. Payments against them still appear as collections.
+- **Tests:**
+  - new `test/party-opening.test.js`:
+    - an opening invoice is paid normally and is not a sale;
+    - credit, bill and supplier credit;
+    - portal balance and portal bill;
+    - the books balance and every ledger check matches;
+  - `http-security.test.js`: the admin creates a customer with an opening invoice; staff with customers/suppliers Edit are refused only when they send an opening balance;
+  - `npm run check` 228 files OK, `npm test` 248 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** on a throwaway server, the customer form showed the folded section, the two choices, the amount and the As of date. A customer with AED 5,000 opening gave invoice INV-2026-0001 (sent, line "Opening balance / 3900"). A supplier with AED 2,500 gave bill BILL-2026-0001 (received). An opening invoice dated in the past shows as Overdue, as an old debt should.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
-3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up changes, then push it.
+3. **Release 1.0.3:** when the user asks, first move the local tag `v1.0.3` to the latest commit so it includes the top-up and opening balance changes, then push it.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
