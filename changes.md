@@ -1808,14 +1808,31 @@ Three more leads from audit run-2. These ones don't depend on the office setup t
   - a custom Windows install folder;
   - port squatting on a shared PC.
 
+### Release 1.0.3 prepared — code commit `67b138e`, tag `v1.0.3` (local only)
+
+- Version 1.0.3 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 239 passed.
+- The annotated tag `v1.0.3` has three note lines (the bell; lockout per computer; restore and staff settings). Pushing the tag was held back: the user chose "Push only", so the commits are on GitHub but no release has been built. Pushing the tag starts the release.
+
+### Website address — code commit `91736ee`
+
+- The user's site address is **https://shikragroup.com/netfare/**.
+- `website/index.html`:
+  - the share preview now uses absolute addresses: `og:url`, `og:image` (with 1200×630 size), `link rel="canonical"`;
+  - `twitter:card` is `summary_large_image`.
+- The app's Settings → About card has a **Website** row linking to the site. In the desktop app it opens in the browser.
+- The README hosting notes give the address.
+- `npm run check` OK, `npm test` 239 passed. The About card was checked on a throwaway server. `netfare-website.zip` was rebuilt (19 files).
+- **Not live yet:** on 2026-11-04 every path on shikragroup.com (including `/netfare`) served a parking page that redirects to `/lander`. The user still needs to upload the zip's contents into a `netfare` folder there.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0`, `v1.0.1` and `v1.0.2` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.2. Release 1.0.3 brings the notification bell; after that, the next release is the first real test of the bell.
-3. **Website:** the user uploads `netfare-website.zip` to their site. Once the address is known, set `og:image` (and optionally a link to the site in the app's About card).
-4. **Still open:**
+3. **Release 1.0.3:** push tag `v1.0.3` when the user asks.
+4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
+5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
    - the flaky sign-in browser test;
    - testing "Start from a backup" in the desktop app by hand.
-5. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
+6. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
