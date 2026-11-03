@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { nationalityList } from '../nationalities.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { activeCustomers, store } from '../store.js';
 import {
@@ -218,7 +219,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
           </div>
           <div class="field">
             <label for="visa-nationality">Nationality</label>
-            <input class="input" id="visa-nationality" name="nationality" value="${esc(visa?.nationality || '')}" placeholder="e.g. Indian" autocomplete="off">
+            <input class="input" id="visa-nationality" name="nationality" value="${esc(visa?.nationality || '')}" placeholder="Start typing, e.g. Indian" autocomplete="off" ${nationalityList()}>
           </div>
           <div class="field">
             <label for="visa-dob">Date of birth</label>
@@ -311,6 +312,10 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         if (!isOther) {
           const name = customerName();
           if (name) applicant.value = name;
+          // The customer is travelling: their saved nationality fills an empty field.
+          const nationality = overlay.querySelector('#visa-nationality');
+          const saved = store.customers.find((customer) => String(customer.id) === customerSelect?.value)?.nationality;
+          if (nationality && saved && !nationality.value.trim()) nationality.value = saved;
         }
       }
 

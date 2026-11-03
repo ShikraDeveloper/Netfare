@@ -35,14 +35,15 @@ router.post('/', (req, res) => {
   if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');
   const created = db.transaction(() => {
     const info = db.prepare(`
-      INSERT INTO customers (name, email, phone, address, notes)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO customers (name, email, phone, address, notes, nationality)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).run(
       str(body.name, 'Customer name', { max: 160 }),
       optionalStr(body.email, 'Email', 200),
       optionalStr(body.phone, 'Phone', 60),
       optionalStr(body.address, 'Address', 500),
       optionalStr(body.notes, 'Notes', 1000),
+      optionalStr(body.nationality, 'Nationality', 80),
     );
     const row = db.prepare('SELECT * FROM customers WHERE id = ?').get(info.lastInsertRowid);
     return { ...row, opening: partyOpening.forCustomer(db, row, body.opening) };
@@ -56,13 +57,14 @@ router.put('/:id', (req, res) => {
   if (!existing) throw notFound('Customer not found');
   const body = req.body || {};
   db.prepare(`
-    UPDATE customers SET name = ?, email = ?, phone = ?, address = ?, notes = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?
+    UPDATE customers SET name = ?, email = ?, phone = ?, address = ?, notes = ?, nationality = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?
   `).run(
     body.name != null ? str(body.name, 'Customer name', { max: 160 }) : existing.name,
     body.email != null ? optionalStr(body.email, 'Email', 200) : existing.email,
     body.phone != null ? optionalStr(body.phone, 'Phone', 60) : existing.phone,
     body.address != null ? optionalStr(body.address, 'Address', 500) : existing.address,
     body.notes != null ? optionalStr(body.notes, 'Notes', 1000) : existing.notes,
+    body.nationality != null ? optionalStr(body.nationality, 'Nationality', 80) : existing.nationality,
     body.is_active != null ? (isTruthy(body.is_active) ? 1 : 0) : existing.is_active,
     id,
   );
@@ -75,7 +77,11 @@ router.delete('/:id', (req, res) => {
   if (!existing) throw notFound('Customer not found');
   const count = db.prepare('SELECT COUNT(*) AS c FROM invoices WHERE customer_id = ?').get(id).c;
   if (count > 0) throw bad('This customer has invoices. Archive them instead of deleting.');
-  db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+  db.transaction(() => {
+    // Their documents (Emirates ID, passport…) go with them.
+    db.prepare("DELETE FROM attachments WHERE entity_type = 'customer' AND entity_id = ?").run(id);
+    db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+  })();
   res.json({ deleted: true });
 });
 

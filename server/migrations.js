@@ -48,13 +48,14 @@ function protectReconciledLines() {
 // and other. Rebuild the table once so visa agents can be recorded as well,
 // preserving portal IDs and every wallet row that references them.
 // Attachments started with invoices, bills, bookings and visas. Settlement
-// documents (cancellation proof, refund receipts, credit notes) need them too.
-// SQLite cannot widen a CHECK constraint in place, so rebuild the table once.
+// documents (cancellation proof, refund receipts, credit notes) need them too,
+// and so do customers (Emirates ID, passport). SQLite cannot widen a CHECK
+// constraint in place, so rebuild the table when a type is missing.
 function allowSettlementAttachments() {
   const table = db.prepare(
     "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'attachments'",
   ).get();
-  if (!table || String(table.sql).includes("'supplier_credit'")) return;
+  if (!table || String(table.sql).includes("'customer'")) return;
 
   db.pragma('foreign_keys = OFF');
   try {
@@ -63,7 +64,7 @@ function allowSettlementAttachments() {
         DROP TABLE IF EXISTS attachments_new;
         CREATE TABLE attachments_new (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
-          entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa', 'cancellation', 'refund', 'credit_note', 'supplier_credit')),
+          entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa', 'cancellation', 'refund', 'credit_note', 'supplier_credit', 'customer')),
           entity_id INTEGER NOT NULL,
           file_name TEXT NOT NULL,
           mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
@@ -256,6 +257,8 @@ ensureColumn('supplier_credit_notes', 'is_opening', 'INTEGER NOT NULL DEFAULT 0'
 // A customer receipt is an advance shared out over invoices at once
 // (receivePayment in services/advances.js); bank charges as on payments.
 ensureColumn('customer_advances', 'is_receipt', 'INTEGER NOT NULL DEFAULT 0');
+// A customer's nationality, offered for visas and invoices made for them.
+ensureColumn('customers', 'nationality', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('customer_advances', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
 ensureColumn('portal_refunds', 'void_entry_id', 'INTEGER');

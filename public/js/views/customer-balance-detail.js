@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
 import {
   emptyState,
@@ -109,7 +110,10 @@ function cancellationRows(cancellations) {
 
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
-  const data = await api.get(`/customer-balances/${id}`);
+  const [data, documents] = await Promise.all([
+    api.get(`/customer-balances/${id}`),
+    loadAttachments('customer', id),
+  ]);
   const { customer, summary } = data;
   const creditTotal = summary.unapplied_credit_cents + summary.advance_cents + summary.cancellation_refund_cents;
   const netLabel = summary.net_balance_cents > 0
@@ -125,7 +129,7 @@ export async function render(container, { params } = {}) {
 
   setHeader({
     title: `${customer.name} balance`,
-    subtitle: `${customer.email || customer.phone || 'Customer account'} · ${summary.open_invoice_count} open invoice${summary.open_invoice_count === 1 ? '' : 's'}`,
+    subtitle: `${[customer.nationality, customer.email || customer.phone].filter(Boolean).join(' · ') || 'Customer account'} · ${summary.open_invoice_count} open invoice${summary.open_invoice_count === 1 ? '' : 's'}`,
     actions: `
       <a class="btn btn-ghost" href="#/customer-balances">${icon('chevron', 15)}<span>All balances</span></a>
       <a class="btn btn-secondary" href="#/customers/${customer.id}/statement">${icon('file', 15)}<span>Statement</span></a>
@@ -207,6 +211,8 @@ export async function render(container, { params } = {}) {
       </div>
     ` : ''}
 
+    ${attachmentSection({ entityType: 'customer', entityId: id, attachments: documents, title: 'Documents', hint: 'Emirates ID, passport and other papers for this customer' })}
+
     ${data.cancellation_refunds.length ? `
       <div class="card" style="margin-top:16px">
         <div class="card-head">
@@ -224,6 +230,7 @@ export async function render(container, { params } = {}) {
   `;
 
   const refresh = () => render(container, { params: [String(id)] });
+  bindAttachmentSection(container, { entityType: 'customer', entityId: id });
   document.querySelector('#page-actions [data-action="record-advance"]')?.addEventListener('click', () => openRecordAdvance(customer, refresh));
   document.querySelector('#page-actions [data-action="receive-payment"]')?.addEventListener('click', () => openReceivePayment(
     customer,

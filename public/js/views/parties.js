@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { nationalityList } from '../nationalities.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { openingFieldsHtml, readOpening } from '../opening-balance.js';
 import { refreshMeta } from '../store.js';
@@ -90,6 +91,11 @@ function partyModal({ party = null, config, onSaved }) {
           <label for="party-phone">Phone</label>
           <input class="input" id="party-phone" name="phone" value="${esc(party?.phone || '')}" placeholder="(555) 555-0100">
         </div>
+        ${config.singular === 'customer' ? `
+        <div class="field">
+          <label for="party-nationality">Nationality</label>
+          <input class="input" id="party-nationality" name="nationality" maxlength="80" autocomplete="off" value="${esc(party?.nationality || '')}" placeholder="Start typing, e.g. Indian" ${nationalityList()}>
+        </div>` : ''}
         <div class="field full">
           <label for="party-address">Address</label>
           <textarea class="input" id="party-address" name="address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(party?.address || '')}</textarea>
@@ -111,6 +117,7 @@ function partyModal({ party = null, config, onSaved }) {
         address: values.get('address'),
         notes: values.get('notes'),
       };
+      if (config.singular === 'customer') payload.nationality = values.get('nationality');
       if (!isEdit) payload.opening = readOpening(form);
       if (!String(payload.name || '').trim()) throw new Error('Name is required');
       const saved = isEdit

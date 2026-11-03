@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { nationalityList } from '../nationalities.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { depositAccounts } from './job-modals.js';
 import { activeCustomers, activeVendors, portalForVendorId, purchaseAccounts, revenueAccounts, store } from '../store.js';
@@ -57,7 +58,7 @@ function applicantRowHtml(row = {}) {
       <button type="button" class="icon-btn danger" data-va-remove title="Remove applicant" aria-label="Remove applicant">${icon('x', 16)}</button>
       <div class="va-details" hidden>
         <label>Nationality
-          <input class="input va-nationality" value="${esc(row.nationality || '')}" autocomplete="off" placeholder="Optional">
+          <input class="input va-nationality" value="${esc(row.nationality || '')}" autocomplete="off" placeholder="Optional" ${nationalityList()}>
         </label>
         <label>Date of birth
           <input class="input va-dob" type="date" value="${esc(row.dob || '')}">

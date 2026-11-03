@@ -664,7 +664,7 @@ CREATE INDEX IF NOT EXISTS idx_job_status_history_job ON job_status_history(sour
 
 CREATE TABLE IF NOT EXISTS attachments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa', 'cancellation', 'refund', 'credit_note', 'supplier_credit')),
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('invoice', 'bill', 'booking', 'visa', 'cancellation', 'refund', 'credit_note', 'supplier_credit', 'customer')),
   entity_id INTEGER NOT NULL,
   file_name TEXT NOT NULL,
   mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',

@@ -6,7 +6,7 @@ const { notFound, todayISO } = require('../util');
 // cached, so the page always agrees with the ledger after a refund, credit,
 // advance application or cancellation settlement.
 const balanceSelect = `
-  SELECT c.id, c.name, c.email, c.phone, c.address, c.notes, c.is_active,
+  SELECT c.id, c.name, c.email, c.phone, c.address, c.notes, c.nationality, c.is_active,
     COALESCE((
       SELECT COUNT(*) FROM invoices i
       WHERE i.customer_id = c.id AND i.status = 'sent'

@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { nationalityList } from '../nationalities.js';
 import { activeCustomers, revenueAccounts, store } from '../store.js';
 import { lineItemsHtml, mountLineItems } from '../line-items.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -300,7 +301,7 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
           </div>
           <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
             <label for="invoice-beneficiary-nationality">Nationality</label>
-            <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off"
+            <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off" ${nationalityList()}
               value="${esc(invoice?.beneficiary_nationality || '')}" placeholder="Optional">
           </div>
           <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>

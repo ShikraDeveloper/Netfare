@@ -646,3 +646,32 @@ test('opening balances on new customers, suppliers and portals: admin only', asy
   assert.equal((await postAs(staff.cookie, '/api/customers', { name: 'Staff Customer' })).status, 201, 'without an opening balance staff may add customers');
   assert.equal((await postAs(staff.cookie, '/api/vendors', { name: 'Staff Supplier', opening: { ...opening, direction: 'we_owe' } })).status, 400);
 });
+
+test('customers keep a nationality and their own documents, behind the customers right', async () => {
+  const saved = await postAs(cookie, '/api/customers', { name: 'Documents Customer', nationality: 'Pakistani' });
+  assert.equal(saved.status, 201);
+  assert.equal(saved.data.nationality, 'Pakistani');
+  const id = saved.data.id;
+  const changed = await postAs(cookie, `/api/customers/${id}`, { nationality: 'Emirati' }, 'PUT');
+  assert.equal(changed.data.nationality, 'Emirati');
+
+  const upload = await fetch(`${baseUrl}/api/attachments?entity_type=customer&entity_id=${id}&filename=passport.pdf&type=application/pdf`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/octet-stream', Cookie: cookie },
+    body: Buffer.from('%PDF-1.4 dummy passport'),
+  });
+  assert.equal(upload.status, 201);
+  const file = await upload.json();
+  const list = await jsonRequest(`/api/attachments?entity_type=customer&entity_id=${id}`);
+  assert.deepEqual(list.data.map((row) => row.file_name), ['passport.pdf']);
+
+  await postAs(cookie, '/api/users', { full_name: 'No Customers', username: 'no.customers', password: 'no-customers-1', permissions: { bookings: 'edit' } });
+  const outsider = await signIn('no.customers', 'no-customers-1');
+  assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`, { headers: { Cookie: outsider.cookie } })).status, 403);
+  await postAs(cookie, '/api/users', { full_name: 'Customer Desk', username: 'customer.desk', password: 'customer-desk-1', permissions: { customers: 'view' } });
+  const desk = await signIn('customer.desk', 'customer-desk-1');
+  assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`, { headers: { Cookie: desk.cookie } })).status, 200);
+
+  assert.equal((await jsonRequest(`/api/customers/${id}`, { method: 'DELETE', headers: { Origin: baseUrl } })).status, 200);
+  assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`)).status, 404, 'the documents go with the customer');
+});

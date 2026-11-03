@@ -56,6 +56,7 @@ const ATTACHMENT_AREAS = {
   refund: 'refunds',
   credit_note: 'refunds',
   supplier_credit: 'suppliers',
+  customer: 'customers',
 };
 
 function areaForPrefix(prefix) {

@@ -16,6 +16,7 @@ const ENTITY_TABLES = {
   refund: 'refunds',
   credit_note: 'credit_notes',
   supplier_credit: 'supplier_credit_notes',
+  customer: 'customers',
 };
 
 const ALLOWED_EXTENSIONS = new Set([
@@ -25,7 +26,7 @@ const ALLOWED_EXTENSIONS = new Set([
 
 function assertEntity(entityType, entityId) {
   const table = ENTITY_TABLES[entityType];
-  if (!table) throw bad('Attachments must belong to an invoice, bill, booking, visa, cancellation, refund or credit note');
+  if (!table) throw bad('Attachments must belong to a customer, invoice, bill, booking, visa, cancellation, refund or credit note');
   const id = Number(entityId);
   if (!Number.isInteger(id) || id <= 0) throw bad('Choose a valid document for this attachment');
   const row = db.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(id);
