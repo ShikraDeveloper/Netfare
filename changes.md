@@ -1964,6 +1964,13 @@ The user asked for a nationality on customers, documents per customer (Emirates 
 - **Next:** the user's 1.0.2 app has the old update check (once at start, cached 24 hours, no bell). To see 1.0.3 it needs a restart of the app, or Settings → Check for updates. From 1.0.3 on, the bell checks every few hours.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
+### Customers list opens the customer's page — code commit `0d7b772`
+
+- The user, on 1.0.3, could not find Receive payment or the customer documents. Both live on the customer's balance page (`#/customer-balances/:id`), and the Customers list had no link to it, only Statement, Edit, Archive and Delete.
+- `public/js/views/parties.js`: on the Customers list, clicking a customer row (or Enter on the focused row) opens their page. A new Open icon (›, "Open customer: payments and documents") does the same. Suppliers are unchanged.
+- Until the next release, in 1.0.3 the page is reached through Money back → Customer balances → the customer.
+- Checks: `npm test` 252 passed, `npm run test:e2e` 42 passed. On a throwaway server, clicking "Bilal Ahmed" opened the balance page with Receive payment.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.3` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
