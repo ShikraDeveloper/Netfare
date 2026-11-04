@@ -2171,11 +2171,38 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Backup:** a bundle of the old history was kept outside the repo for this session.
 - **Note:** any other clone of the repo must be cloned again. GitHub can take a while to refresh the Contributors list.
 
+### Admin recovery key: forgot password and reset at the main computer — code commit `03285e3`
+
+- **Why:** The sign-in screen had no "Forgot password?". A forgotten admin password could be reset only with `npm run reset-admin`, which the desktop app does not include. The user preferred a recovery key to security questions, so that a person at the main computer cannot reset the admin without the key.
+- **Recovery key:**
+  - The key looks like `NF-7KQM-4XTA-9PMW-2HRC`: 16 Crockford base-32 characters, 80 random bits.
+  - Only a scrypt hash is stored, in new `users` columns: `recovery_key_hash`, `_created_at`, `_confirmed`, `_uses`.
+  - Typed keys ignore case, dashes and spaces, and read O as 0 and I/L as 1.
+- **When the admin sees it:**
+  - The admin sees the key after the first sign-in, and on older books after updating. There are Copy and Print buttons (Print shows only the key sheet), and Continue unlocks after ticking "I saved the key".
+  - A key that was shown but never ticked is replaced by a fresh one at the next sign-in.
+- **Settings → Recovery key** (admin only):
+  - shows when the key was made and how many times it was used;
+  - "Make a new key" needs the admin password once a key is saved, and the old key stops working at once.
+- **Sign-in → Forgot password?** tells staff to ask the admin and the admin to use Help → Reset admin password. On the main computer it also offers the reset button.
+- **Reset** (`POST /api/auth/recovery/reset`):
+  - accepted only from this computer (loopback); the office network gets 403;
+  - five wrong keys lock it for 15 minutes;
+  - on success: new password, unlock, other sessions end, the admin is signed in, and a new key is shown to save;
+  - the audit log records it under the admin's name.
+- **Desktop app:** Help → Reset admin password opens `/?reset=admin` on the main computer. On an office computer it says to go to the main computer. Help → Netfare on GitHub was added too.
+- `npm run reset-admin` stays as the last resort. The README was updated.
+- **Tests:** new `test/recovery-key.test.js` (4), an HTTP test for admin-only access and the reset, and e2e checks for Forgot password, the reset screen (with axe) and the Settings card.
+  - The e2e setup saves the admin's key through the API.
+  - `npm test` 261 passed, `npm run test:e2e` 43 passed.
+- **Checked in the browser** on a temp data folder: the key after setup, a new key from Settings, the reset with a lower-case key typed with spaces, the new key after the reset, audit entries, and the dark Forgot box. There were no console errors.
+- **Not checked:** the Help menu inside the built desktop app. It is checked when the next release is installed.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.7` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.7** is published (Side or Top menu, search, New menu).
+3. **Release 1.0.7** is published (Side or Top menu, search, New menu). The recovery key (`03285e3`) is not released yet: release 1.0.8 when the user asks.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
