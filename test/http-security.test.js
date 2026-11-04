@@ -687,3 +687,30 @@ test('customers keep a nationality and their own documents, behind the customers
   assert.equal((await jsonRequest(`/api/customers/${id}`, { method: 'DELETE', headers: { Origin: baseUrl } })).status, 200);
   assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`)).status, 404, 'the documents go with the customer');
 });
+
+test('attachments: PDFs and pictures can be previewed; anything else is only ever saved', async () => {
+  const customer = await postAs(cookie, '/api/customers', { name: 'Preview Customer' });
+  const upload = async (name, type, body) => (await fetch(`${baseUrl}/api/attachments?entity_type=customer&entity_id=${customer.data.id}&filename=${name}&type=${encodeURIComponent(type)}`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/octet-stream', Cookie: cookie },
+    body: Buffer.from(body),
+  })).json();
+  const pdf = await upload('id-card.pdf', 'application/pdf', '%PDF-1.4 dummy');
+  const sneaky = await upload('notes.txt', 'text/html', '<script>alert(1)</script>');
+  const list = await jsonRequest(`/api/attachments?entity_type=customer&entity_id=${customer.data.id}`);
+  const byName = Object.fromEntries(list.data.map((row) => [row.file_name, row]));
+  assert.equal(byName['id-card.pdf'].preview_url, `/api/attachments/${pdf.id}/download?inline=1`);
+  assert.equal(byName['notes.txt'].preview_url, null, 'only PDFs and pictures get a preview link');
+
+  const headers = async (url) => {
+    const response = await fetch(`${baseUrl}${url}`, { headers: { Cookie: cookie } });
+    return [response.headers.get('content-type'), response.headers.get('content-disposition')];
+  };
+  assert.deepEqual(await headers(`/api/attachments/${pdf.id}/download?inline=1`), ['application/pdf', 'inline; filename="id-card.pdf"']);
+  assert.match((await headers(`/api/attachments/${pdf.id}/download`))[1], /^attachment/);
+  for (const url of [`/api/attachments/${sneaky.id}/download`, `/api/attachments/${sneaky.id}/download?inline=1`]) {
+    const [type, disposition] = await headers(url);
+    assert.equal(type, 'application/octet-stream', 'the uploader\'s type is never trusted');
+    assert.match(disposition, /^attachment/);
+  }
+});

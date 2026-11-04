@@ -44,6 +44,10 @@ function cleanFileName(value) {
   return name;
 }
 
+function canPreview(fileName) {
+  return /\.(pdf|png|jpe?g|webp|gif)$/i.test(fileName);
+}
+
 function listAttachments(entityType, entityId) {
   const id = assertEntity(entityType, entityId);
   return db.prepare(`
@@ -54,6 +58,7 @@ function listAttachments(entityType, entityId) {
   `).all(entityType, id).map((row) => ({
     ...row,
     download_url: `/api/attachments/${row.id}/download`,
+    preview_url: canPreview(row.file_name) ? `/api/attachments/${row.id}/download?inline=1` : null,
   }));
 }
 
@@ -93,12 +98,31 @@ router.post('/', express.raw({ type: 'application/octet-stream', limit: '15mb' }
   });
 });
 
+// PDFs and pictures can be shown in a window instead of saved (?inline=1).
+// The type comes from the file name, never from what the uploader sent, so a
+// file can only ever be shown as a PDF or an image.
+const PREVIEW_TYPES = {
+  '.pdf': 'application/pdf',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+};
+
 router.get('/:id/download', (req, res) => {
   const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(Number(req.params.id));
   if (!attachment) throw notFound('Attachment not found');
   if (!attachment.data) throw notFound('The attachment file is missing');
-  res.attachment(attachment.file_name);
-  res.type(attachment.mime_type || 'application/octet-stream');
+  const previewType = PREVIEW_TYPES[path.extname(attachment.file_name).toLowerCase()];
+  if (req.query.inline === '1' && previewType) {
+    res.set('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.file_name)}"`);
+    res.type(previewType);
+  } else {
+    // Saved, never shown: the uploader's type is not trusted here either.
+    res.attachment(attachment.file_name);
+    res.type(previewType || 'application/octet-stream');
+  }
   res.send(attachment.data);
 });
 

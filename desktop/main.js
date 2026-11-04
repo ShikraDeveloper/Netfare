@@ -7,7 +7,7 @@
 // Netfare. Either way the window shows only Netfare pages.
 
 const path = require('path');
-const { app, BrowserWindow, dialog, ipcMain, Menu, net, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } = require('electron');
 const config = require('./config');
 
 app.setName('Netfare');
@@ -43,15 +43,50 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
   // Links to other sites open in the normal browser; the window never leaves
-  // Netfare or the setup screen.
+  // Netfare or the setup screen. A Netfare file opened for viewing (a PDF or
+  // picture attachment) gets its own small window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//.test(url) && !(appOrigin && config.isSameOrigin(url, appOrigin))) shell.openExternal(url);
+    if (appOrigin && config.isSameOrigin(url, appOrigin)) {
+      if (isFilePreview(url)) openFilePreview(url);
+    } else if (/^https?:\/\//.test(url)) {
+      shell.openExternal(url);
+    }
     return { action: 'deny' };
   });
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!appOrigin || !config.isSameOrigin(url, appOrigin)) event.preventDefault();
   });
   mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+function isFilePreview(url) {
+  try {
+    const { pathname, search } = new URL(url);
+    return /^\/api\/attachments\/\d+\/download$/.test(pathname) && search === '?inline=1';
+  } catch {
+    return false;
+  }
+}
+
+// A plain viewer: no bridge, no Node, it cannot go anywhere else or open
+// windows. It shares the main window's sign-in, so the file loads.
+function openFilePreview(url) {
+  const preview = new BrowserWindow({
+    width: 980,
+    height: 1000,
+    parent: mainWindow,
+    autoHideMenuBar: true,
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      plugins: true,
+    },
+  });
+  preview.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  preview.webContents.on('will-navigate', (event) => event.preventDefault());
+  preview.loadURL(url);
 }
 
 function showSetup(message = '') {
@@ -206,6 +241,11 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.whenReady().then(() => {
     buildMenu();
+    // Downloads (an attachment's Download button) ask where to save, starting
+    // in the Downloads folder.
+    session.defaultSession.on('will-download', (event, item) => {
+      item.setSaveDialogOptions({ defaultPath: path.join(app.getPath('downloads'), item.getFilename()) });
+    });
     createWindow();
     start();
   });
