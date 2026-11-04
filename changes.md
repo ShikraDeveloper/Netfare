@@ -2296,11 +2296,24 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - The four numbers are now Cash, To collect, To pay and **Portal wallets** (the total held with portals; it links to `#/portals`). The month's profit is still in the P&L (Revenue & expenses → P&L).
 - **Tests:** `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK. **Checked** in the preview on sample data.
 
+### Release 1.0.9 — code commit `7195ebe`, tag `v1.0.9`
+
+- Version 1.0.9 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 267 passed, `npm run check` OK.
+- **What's in it:** simplify phase 1 (dashboard, invoice page, New invoice form), with Portal wallets as the fourth number. Three note lines.
+- **Release run 41848639633:** Build (mac), Build (win) and Publish release all succeeded first time. Pushing main and the tag also went through first time.
+- **Assets:**
+  - arm64 dmg, 135 MB;
+  - x64 dmg, 142 MB;
+  - Windows exe, 125 MB;
+  - `latest.json`.
+- **Checked:** 1.0.9 is marked Latest, and `latest.json` reports 1.0.9.
+- **Not checked:** the installers on a real Mac or Windows PC.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.8` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.9` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.8** is published (recovery key, things pending, created-by footers). Simplify phase 1 (with Portal wallets in place of Profit, `41d1e94`) is done (`6071fc7`, not released); release it as 1.0.9 when the user asks, then a week in the office, then phase 2 group by group (Sales, Suppliers, Bookings/Visas, Banking, Reports, Settings).
+3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group (Sales, Suppliers, Bookings/Visas, Banking, Reports, Settings), following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
