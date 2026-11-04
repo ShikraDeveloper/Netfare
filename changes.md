@@ -2402,11 +2402,36 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Helper text 218 → 175.
 - **Checked** in the preview: the booking and visa pages; pictures were sent to the user.
 
+### Simplify, phase 2 — Banking — code commit `b94da64`
+
+- **Why:** The user said "Yes, Banking next".
+- **Banking / cash deposit:** no subtitle, empty-state text, Dr Bank / Cr Cash page note or form note. The cash balance line in the deposit form stays, because it is live data.
+- **Petty cash:**
+  - no subtitles, card taglines (Activity, Cash counts → 6900 note) or top-up note;
+  - amounts carry their note in the label ("Amount · to the float of AED …", "Float (topped back up to)");
+  - the count difference line starts empty and still shows "Short by …".
+- **Card settlements:** no subtitle, card taglines or posting note; the empty state is a title only.
+- **Bank reconciliation:**
+  - no subtitle, empty-state text, modal subtitle, "only tick statement lines" hint or bank-charge note;
+  - the number captions are gone (Last reconciliation shows only the account name).
+- **Cheques:**
+  - no subtitles, register page note, batch note or hints; the count label reads "Number of cheques (1–60)";
+  - the linked-to-a-payment warning and note stay, because they protect data.
+- **Compliance:**
+  - the list has no subtitle or empty-state text;
+  - the item form has no hints, and the labels are now "Supplier", "Expense account", "End date" and "Remind (days before)";
+  - the generate-bill popup has no subtitle, hint or note.
+- Number cards in banking, cheques and compliance show only their value (the `kpi-meta` lines are gone).
+- **Tests:**
+  - e2e: the bank-debit compliance check no longer reads "(optional)" on the supplier label; saving without a supplier still proves it isn't needed.
+  - `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Helper text 175 → 138.
+- **Checked** in the preview: petty cash and the compliance form; pictures were sent to the user.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.9` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales, Suppliers and Bookings/Visas done (`72e6cce`, dd04626`, 2d5e48b`, not released); next Banking, Reports, Settings, then money back (cancellations, refunds, credit notes), following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
+3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales, Suppliers, Bookings/Visas and Banking done (`b94da64`, 72e6cce`, dd04626`, 2d5e48b`, not released); next Reports, Settings, then money back (cancellations, refunds, credit notes), following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
