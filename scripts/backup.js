@@ -3,11 +3,17 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const Database = require('better-sqlite3');
-const { createDatabaseBackup } = require('../server/services/backup');
+const { resolveDataDir } = require('../server/data-dir');
 
-const dataDir = process.env.LEDGERLY_DATA_DIR
-  ? path.resolve(process.env.LEDGERLY_DATA_DIR)
-  : path.join(__dirname, '..', 'data');
+let dataDir;
+try {
+  dataDir = resolveDataDir();
+} catch (error) {
+  console.error(`\n${error.message}\n`);
+  process.exit(1);
+}
+// Loaded after the check: the backup service works out the folder itself.
+const { createDatabaseBackup } = require('../server/services/backup');
 const dbPath = path.join(dataDir, 'accounting.db');
 
 if (!fs.existsSync(dbPath)) {

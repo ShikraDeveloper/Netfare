@@ -5,13 +5,10 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const { restrictFile } = require('../server/file-safety');
 
-const root = path.join(__dirname, '..');
 
-function resolveDataDir() {
-  return process.env.LEDGERLY_DATA_DIR
-    ? path.resolve(process.env.LEDGERLY_DATA_DIR)
-    : path.join(root, 'data');
-}
+// The same rule as the server: never the old data/ by mistake once the
+// desktop app holds the books (server/data-dir.js).
+const { resolveDataDir } = require('../server/data-dir');
 
 function timestamp() {
   return new Date().toISOString().replace(/[:.]/g, '-');

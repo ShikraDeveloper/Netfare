@@ -7,10 +7,16 @@ const schema = require('./schema');
 const defaultAccounts = require('./default-accounts');
 const runMigrations = require('./migrations');
 const { restrictDataDir } = require('./file-safety');
+const { resolveDataDir } = require('./data-dir');
 
-const dataDir = process.env.LEDGERLY_DATA_DIR
-  ? path.resolve(process.env.LEDGERLY_DATA_DIR)
-  : path.join(__dirname, '..', 'data');
+let dataDir;
+try {
+  dataDir = resolveDataDir();
+} catch (error) {
+  if (error.code !== 'NETFARE_DESKTOP_BOOKS') throw error;
+  console.error(`\n${error.message}\n`);
+  process.exit(1);
+}
 fs.mkdirSync(dataDir, { recursive: true });
 restrictDataDir(dataDir);
 

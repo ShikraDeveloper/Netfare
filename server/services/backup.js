@@ -5,10 +5,9 @@ const os = require('os');
 const path = require('path');
 const { restrictFile } = require('../file-safety');
 const mirror = require('./backup-mirror');
+const { resolveDataDir } = require('../data-dir');
 
-const dataDir = process.env.LEDGERLY_DATA_DIR
-  ? path.resolve(process.env.LEDGERLY_DATA_DIR)
-  : path.join(__dirname, '..', '..', 'data');
+const dataDir = resolveDataDir();
 const backupDir = path.join(dataDir, 'backups');
 
 function stamp() {
