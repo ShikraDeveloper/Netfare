@@ -1,7 +1,7 @@
 {
   "name": "netfare-desktop",
   "productName": "Netfare",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "private": true,
   "license": "MIT",
   "description": "Netfare desktop app: invoicing and books for non-IATA travel agencies",
