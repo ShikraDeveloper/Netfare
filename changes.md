@@ -2465,12 +2465,19 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Website zip:** `netfare-website.zip` was rebuilt (566 KB) for the user to upload to `shikragroup.com/netfare/`. The DSR title and the rights popup still have a subtitle; they belong to the Reports and Settings groups, which are not simplified yet.
 - **Tests:** `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 
+### Website screenshots with made-up names — code commit `d275911`
+
+- **Why:** The user keeps the old pictures on the live site for now ("mene hud wahi rakho photos"). For the repo they want the new ones kept, but with random names for the user and the agency.
+- `scripts/website-screens.js` now names the agency **Blue Dune Travel** and the admin **Karim Aziz** (made-up, and not used in the demo data). The staff user is still "Sara Counter". The four screenshots were retaken.
+- `netfare-website.zip` was rebuilt. It only goes live if the user uploads it; the live site keeps the old pictures by choice.
+- **Website status:** HTTPS redirect (301) ✓ and no Cloudflare analytics beacon ✓; both were checked on 2026-11-05.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.11` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
 3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Next: simplify the remaining groups (Reports, Settings, money back: cancellations, refunds, credit notes; books: journal, accounts, opening balances, audit; the menu descriptions), then phase 3 cleanup (one CSS token file, remove unused code). Follow `DESIGN.md` and keep `scripts/copy-budget.json` going down (138 now, 310 at the start).
-4. **Website:** live at `shikragroup.com/netfare/`. The user uploads the new zip (fresh screenshots) and fixes two Cloudflare settings: Always Use HTTPS, and turn Web Analytics off. Re-run `npm run website:screens` after more screens are simplified.
+4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
