@@ -2373,11 +2373,40 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - `npm test` 267 passed. `npm run test:e2e` passed 43/43 on the second run; the first run had one dark-mode colour check on the top menu's New button fail mid theme switch. That button was not changed; it passed when the suite was re-run. `npm run check` OK.
 - **Checked** in the preview on sample data: the bill page and folds, the portal page and the New portal form. Pictures were sent to the user.
 
+### Simplify, phase 2 — Bookings and Visas — code commit `72e6cce`
+
+- **Why:** The user said "Yes, Bookings/Visas".
+- **Booking and visa pages:**
+  - the status badge sits by the number, with no subtitle;
+  - the summary strip keeps Total, Paid, Balance and Gross profit (Status and Customer were already shown elsewhere);
+  - no card taglines (status history, invoice, bills, advances, payments, group) and no empty-state text; the cancellation card is titled "Cancellation CNC-…";
+  - internal notes lose "Staff only · not printed" (the box is not printed anyway);
+  - the Record payment, Record advance and Use advance popups have no subtitles.
+  - Workflow buttons (Mark travelled / Mark approved / Reject) stay next to the main button.
+- **Forms and lists:**
+  - bookings: no list subtitle, empty-state text, form subtitle or wallet hint; the passenger-row hint is gone;
+  - visas: no list subtitle or empty-state text; the costs label is now "Costs" and the duration placeholder "Not fixed"; the applicant hint is gone (the placeholder already says "Select a customer to fill this" or "Enter the visitor's full name").
+- **Advance popups** (`job-modals.js`): the label reads "Amount · AED X due"; the Contract Liabilities notes are gone.
+- **Visa group form:** no subtitle, applicant hint or deposit note.
+- **Security deposit card:**
+  - no tagline;
+  - amounts show what is available after the label ("Amount · In hand AED …");
+  - the wallet hint and the dynamic 1460 note moved into a code comment;
+  - deductions are labelled "Supplier deductions (customer pays)".
+- **Caught by tests:** removing the visa subtitle also removed `duration`, which the visa page still used, so the page broke (7 e2e failures). It was restored before committing.
+- **e2e:**
+  - the deposit checks read "Still held AED …";
+  - the dashboard Recent check waits for the card;
+  - the visa applicant checks read the placeholder;
+  - the top-menu contrast check waits 400 ms after switching theme (it failed now and then mid colour transition, twice in this phase).
+- `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Helper text 218 → 175.
+- **Checked** in the preview: the booking and visa pages; pictures were sent to the user.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.9` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales and Suppliers done (`dd04626`, 2d5e48b`, not released); next Suppliers, Bookings/Visas, Banking, Reports, Settings, following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
+3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales, Suppliers and Bookings/Visas done (`72e6cce`, dd04626`, 2d5e48b`, not released); next Banking, Reports, Settings, then money back (cancellations, refunds, credit notes), following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
