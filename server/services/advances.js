@@ -115,7 +115,7 @@ function createAdvance(db, payload, { receipt = false } = {}) {
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     // The customer's money counts in full; what the bank keeps is our cost.
     const charges = bankChargesCents(payload, { max: amount });
-    const number = allocateNumber(db, 'advance', advanceDate);
+    const number = allocateNumber(db, receipt ? 'receipt' : 'advance', advanceDate);
 
     const info = db.prepare(`
       INSERT INTO customer_advances (number, customer_id, booking_id, visa_id, advance_date, amount_cents,

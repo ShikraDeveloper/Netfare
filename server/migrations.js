@@ -260,6 +260,9 @@ ensureColumn('customer_advances', 'is_receipt', 'INTEGER NOT NULL DEFAULT 0');
 // A customer's nationality, offered for visas and invoices made for them.
 ensureColumn('customers', 'nationality', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('customer_advances', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');
+// Receipts get their own series (RCP-…) so they are not read as advances.
+ensureColumn('settings', 'receipt_prefix', "TEXT NOT NULL DEFAULT 'RCP'");
+ensureColumn('settings', 'next_receipt_number', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
 ensureColumn('portal_refunds', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_refunds', 'voided_at', 'TEXT');

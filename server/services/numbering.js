@@ -67,6 +67,14 @@ function allocateNumber(db, kind, dateStr) {
       next: settings.next_advance_number,
       column: 'next_advance_number',
     },
+    // One payment shared over several invoices (Receive payment). It is kept
+    // as an advance, but numbered as the receipt it is.
+    receipt: {
+      table: 'customer_advances',
+      prefix: settings.receipt_prefix || 'RCP',
+      next: settings.next_receipt_number || 1,
+      column: 'next_receipt_number',
+    },
     topup: {
       table: 'portal_topups',
       prefix: settings.topup_prefix || 'TOP',

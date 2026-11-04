@@ -65,6 +65,15 @@ test('700 for two visa invoices of 350: one receipt, one bank entry, both invoic
     method: 'Bank transfer', reference: 'TT 123', deposit_account_id: account('1010').id,
   });
   assert.equal(receipt.is_receipt, 1);
+  assert.match(receipt.number, /^RCP-2026-\d{4}$/, 'receipts have their own series');
+  const advance = advances.createAdvance(db, { customer_id: customerId, amount_cents: 1_000, advance_date: '2026-11-03', deposit_account_id: account('1010').id });
+  assert.match(advance.number, /^ADV-2026-\d{4}$/, 'plain advances keep ADV');
+  db.prepare("UPDATE settings SET receipt_prefix = 'RV' WHERE id = 1").run();
+  const renamed = advances.receivePayment(db, { customer_id: customerId, amount_cents: 500, receipt_date: '2026-11-03', deposit_account_id: account('1010').id, allocations: [] });
+  assert.match(renamed.number, /^RV-2026-\d{4}$/, 'the prefix comes from Settings');
+  db.prepare("UPDATE settings SET receipt_prefix = 'RCP' WHERE id = 1").run();
+  advances.voidAdvance(db, advance.id, {});
+  advances.voidAdvance(db, renamed.id, {});
   assert.deepEqual(receipt.invoices.map((row) => [row.invoice_number, row.amount_cents, row.balance_cents]), [
     [first.number, 35_000, 0],
     [second.number, 35_000, 0],

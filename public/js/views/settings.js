@@ -160,8 +160,12 @@ export async function render(container) {
                   <label for="visa-prefix">Visa prefix</label>
                   <input class="input" id="visa-prefix" name="visa_prefix" value="${esc(settings.visa_prefix || 'VIS')}" maxlength="12">
                 </div>
+                <div class="field">
+                  <label for="receipt-prefix">Receipt prefix</label>
+                  <input class="input" id="receipt-prefix" name="receipt_prefix" value="${esc(settings.receipt_prefix || 'RCP')}" maxlength="12">
+                </div>
                 <div class="field full">
-                  <div class="form-note">Document numbers look like <strong>${esc(settings.invoice_prefix)}-${new Date().getFullYear()}-0001</strong>, bookings like <strong>${esc(settings.booking_prefix || 'BK')}-${new Date().getFullYear()}-0001</strong>, visas like <strong>${esc(settings.visa_prefix || 'VIS')}-${new Date().getFullYear()}-0001</strong> and refunds like <strong>REF-${new Date().getFullYear()}-0001</strong>. Changing a prefix only affects new documents.</div>
+                  <div class="form-note">Document numbers look like <strong>${esc(settings.invoice_prefix)}-${new Date().getFullYear()}-0001</strong>, bookings like <strong>${esc(settings.booking_prefix || 'BK')}-${new Date().getFullYear()}-0001</strong>, visas like <strong>${esc(settings.visa_prefix || 'VIS')}-${new Date().getFullYear()}-0001</strong>, receipts like <strong>${esc(settings.receipt_prefix || 'RCP')}-${new Date().getFullYear()}-0001</strong> and refunds like <strong>REF-${new Date().getFullYear()}-0001</strong>. Changing a prefix only affects new documents.</div>
                 </div>
               </div>
             </div>
@@ -292,6 +296,7 @@ export async function render(container) {
         bill_prefix: values.get('bill_prefix'),
         booking_prefix: values.get('booking_prefix'),
         visa_prefix: values.get('visa_prefix'),
+        receipt_prefix: values.get('receipt_prefix'),
       });
       store.settings = updated;
       window.dispatchEvent(new Event('meta-changed'));
