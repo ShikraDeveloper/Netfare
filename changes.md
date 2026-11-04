@@ -2042,11 +2042,25 @@ Pending items 3 and 4, at the user's request.
 - **Flaky sign-in test** (`12f669b`, `test/e2e/browser.test.js`): after the mismatched passwords, the test read `.modal-error` at once. The box is always in the modal (hidden and empty) and gets its text a moment later, so the read sometimes came back empty. It now waits for the visible box with "do not match". The test passed 10/10 runs on its own, and the full browser suite passed twice in a row.
 - **Checks:** `npm run check` 234 files OK, `npm test` 255 passed, `npm run test:e2e` 42 passed (twice).
 
+### Receipts numbered RCP-… — code commit `daf699c`
+
+The user approved the optional item after an explanation: Receive payment receipts showed **ADV-…**, because they are stored as customer advances.
+
+- **Numbers:** new series `receipt` in `services/numbering.js` (table `customer_advances`, counter `settings.next_receipt_number`, prefix `settings.receipt_prefix`, default `RCP`, both added by migration). `createAdvance(..., { receipt: true })` uses it.
+  - Plain advances keep ADV-….
+  - Existing receipts keep their old numbers.
+- **Settings:** a "Receipt prefix" field next to the other prefixes. The example line reads "receipts like RCP-2026-0001". It is saved through `PUT /api/settings`.
+- **Clear all data** resets `next_receipt_number`.
+- **Tests:**
+  - `test/customer-receipts.test.js`: a receipt is RCP-2026-…, an advance stays ADV-2026-…, and a Settings prefix "RV" gives RV-2026-…;
+  - `npm test` 255 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** on a throwaway server, Settings showed "Receipt prefix: RCP".
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.4` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.3; release 1.0.4 is the first real test of the bell (red dot within 3 hours or after a restart).
-3. **Release 1.0.5** when the user asks: it brings the customer documents and picker list changes (and the old-books guard for npm start) to the desktop app.
+3. **Release 1.0.5** when the user asks: it brings the customer documents and picker list changes (and the old-books guard for npm start, and RCP receipt numbers) to the desktop app.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
