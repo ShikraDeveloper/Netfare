@@ -2011,11 +2011,28 @@ From the security check of everything since 1.0.2 (user: "jo abi changes kiye hy
 - **First real bell test:** the user's 1.0.3 app has the bell, so a red dot should appear within 3 hours (or at once after restarting the app).
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
+### Customer documents need Edit; customer picker list trimmed — code commit `4ecf5ef`
+
+The two hardening notes from the 2026-11-04 security check, done at the user's request ("3 or 4 kero").
+
+- **Documents** (`server/permissions.js`, `views/customer-balance-detail.js`):
+  - listing, opening or adding a customer's documents (passport, Emirates ID) now needs Customers **Edit**. With View only, the server answers "You need Edit rights for Customers to open customer documents";
+  - the Documents card is hidden from staff without Edit.
+- **Picker list** (`server/routes/customers.js`, new `canViewArea` in `permissions.js`):
+  - `GET /api/customers` is a shared read that every screen loads. Staff without any Customers right now get only `id`, `name`, `is_active` and `nationality` (nationality fills the visa form);
+  - staff with Customers View or Edit, and the admin, get the full rows as before.
+- **Tests** (`http-security.test.js`):
+  - View-only staff get 403 on a customer document and on its list, and Edit staff get 200;
+  - staff with no Customers right see exactly the four picker fields, while View staff still see email and balances;
+  - `npm test` 253 passed, `npm run test:e2e` 42 passed.
+- **Visual check:** on a throwaway server, a Customers View staff user opened a customer page and saw no Documents card.
+- **Status:** user item 1 is done (1.0.4 update and bell). Item 2, checking the website, waits until the user puts it live.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.4` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.3; release 1.0.4 is the first real test of the bell (red dot within 3 hours or after a restart).
-3. **Next code work (suggested):** put customer documents behind Edit or their own right, and trim the shared `/api/customers` picker list.
+3. **Release 1.0.5** when the user asks: it brings the customer documents and picker list changes to the desktop app.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
