@@ -3,6 +3,10 @@ import { initTheme } from './theme.js';
 import { ensureSignedIn, signOut } from './auth.js';
 import { openChangePassword } from './views/account.js';
 import { keepCheckingForUpdates } from './updates.js';
+import {
+  MENU_GROUPS, SECTION_AREAS, bindPops, buildTopNav, canOpen, getMenuMode, markTopNav, newMenuHtml,
+  rememberRecent, searchButtonHtml, visibleGroups,
+} from './menu.js';
 import { icon, esc, avatar, setHeader, toast } from './ui.js';
 import * as dashboardView from './views/dashboard.js';
 import * as invoicesView from './views/invoices.js';
@@ -47,116 +51,6 @@ import * as reportsView from './views/reports.js';
 import * as auditLogsView from './views/audit-logs.js';
 import * as auditChainView from './views/audit-chain.js';
 import * as settingsView from './views/settings.js';
-
-// Everyday work first; less frequent screens sit under "More", which starts
-// closed. Groups can be collapsed and the choice is remembered per browser.
-const NAV_GROUPS = [
-  {
-    key: 'home',
-    label: '',
-    items: [
-      { section: 'dashboard', href: '#/dashboard', icon: 'dashboard', label: 'Dashboard' },
-    ],
-  },
-  {
-    key: 'travel',
-    label: 'Travel',
-    items: [
-      { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings' },
-      { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas' },
-    ],
-  },
-  {
-    key: 'sales',
-    label: 'Sales',
-    items: [
-      { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices' },
-      { section: 'customers', href: '#/customers', icon: 'customers', label: 'Customers' },
-    ],
-  },
-  {
-    key: 'money-back',
-    label: 'Money back',
-    items: [
-      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'Settlements' },
-      { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations' },
-      { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds' },
-      { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes' },
-      { section: 'customer-balances', href: '#/customer-balances', icon: 'wallet', label: 'Customer balances' },
-    ],
-  },
-  {
-    key: 'suppliers',
-    label: 'Suppliers',
-    items: [
-      { section: 'vendors', href: '#/vendors', icon: 'vendors', label: 'Suppliers' },
-      { section: 'bills', href: '#/bills', icon: 'bill', label: 'Bills & expenses' },
-      { section: 'supplier-credits', href: '#/supplier-credits', icon: 'bill', label: 'Supplier credits' },
-      { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets' },
-    ],
-  },
-  {
-    key: 'reports',
-    label: 'Reports',
-    items: [
-      { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports' },
-    ],
-  },
-  {
-    key: 'more',
-    label: 'More',
-    collapsed: true,
-    items: [
-      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking' },
-      { section: 'petty-cash', href: '#/petty-cash', icon: 'wallet', label: 'Petty cash' },
-      { section: 'card-settlements', href: '#/card-settlements', icon: 'cash', label: 'Card settlements' },
-      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation' },
-      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques' },
-      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance' },
-      { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal' },
-      { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances' },
-      { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts' },
-      { section: 'audit-logs', href: '#/audit-logs', icon: 'shield', label: 'Audit log' },
-      { section: 'settings', href: '#/settings', icon: 'settings', label: 'Settings' },
-    ],
-  },
-];
-
-// The rights area behind each screen (see server/permissions.js). A screen
-// opens when the user may view any one of its areas. Settings is always
-// open: everyone needs Appearance and their own password.
-const SECTION_AREAS = {
-  dashboard: ['dashboard'],
-  bookings: ['bookings'],
-  visas: ['visas'],
-  invoices: ['sales'],
-  customers: ['customers'],
-  'settlement-queue': ['sales', 'refunds'],
-  cancellations: ['refunds'],
-  refunds: ['refunds'],
-  credits: ['refunds'],
-  'customer-balances': ['customers', 'sales'],
-  vendors: ['suppliers'],
-  bills: ['suppliers'],
-  'supplier-credits': ['suppliers'],
-  portals: ['portals'],
-  reports: ['reports'],
-  banking: ['banking'],
-  'petty-cash': ['banking'],
-  'card-settlements': ['banking'],
-  'bank-reconciliation': ['banking'],
-  cheques: ['banking'],
-  compliance: ['compliance'],
-  journal: ['books'],
-  'opening-balances': ['books'],
-  accounts: ['books'],
-  'audit-logs': ['audit'],
-};
-
-function canOpen(section) {
-  const areas = SECTION_AREAS[section];
-  return !areas || areas.some((area) => can(area));
-}
 
 // Buttons that add or reverse records hide when the user lacks that right;
 // the server refuses the request anyway. One stylesheet covers every screen,
@@ -203,7 +97,7 @@ function applyRightsStyles() {
 }
 
 function firstOpenSection() {
-  for (const group of NAV_GROUPS) {
+  for (const group of MENU_GROUPS) {
     const item = group.items.find((candidate) => canOpen(candidate.section));
     if (item) return item;
   }
@@ -295,19 +189,27 @@ document.getElementById('skip-link')?.addEventListener('click', (event) => {
 });
 
 function navItemsHtml(group) {
-  return group.items.filter((item) => canOpen(item.section)).map((item) => `
-    <a class="nav-item" href="${item.href}" data-section="${item.section}">
+  return group.items.map((item) => `
+    <a class="nav-item" href="${item.href}" data-section="${item.section}" title="${esc(item.desc)}">
       ${icon(item.icon, 17)}
       <span>${esc(item.label)}</span>
     </a>
   `).join('');
 }
 
+// The side menu: search and New at the top, then the groups. One-screen
+// groups (Dashboard, Reports, Settings) show without a heading; the others
+// fold, and the choice is remembered per browser.
 function buildNav() {
   const nav = document.getElementById('main-nav');
   const state = readNavState();
-  nav.innerHTML = NAV_GROUPS.filter((group) => group.items.some((item) => canOpen(item.section))).map((group) => {
-    if (!group.label) return `<div class="nav-group" data-nav-group="${group.key}">${navItemsHtml(group)}</div>`;
+  const tools = document.getElementById('side-tools');
+  if (tools) {
+    tools.innerHTML = `${searchButtonHtml('side-search')}${newMenuHtml()}`;
+    bindPops(tools);
+  }
+  nav.innerHTML = visibleGroups().map((group) => {
+    if (group.items.length === 1) return `<div class="nav-group nav-group-single" data-nav-group="${group.key}">${navItemsHtml(group)}</div>`;
     const collapsed = state[group.key] ?? Boolean(group.collapsed);
     return `
       <div class="nav-group ${collapsed ? 'collapsed' : ''}" data-nav-group="${group.key}">
@@ -330,6 +232,30 @@ function buildNav() {
     if (event.target.closest('.nav-item')) closeSidebar();
   });
 }
+
+// Top menu (Settings → Appearance → Menu). The bell moves into it on wide
+// screens; phones keep the side drawer and the bell beside the page title.
+function buildTopMenu() {
+  const root = document.getElementById('top-nav');
+  if (!root) return;
+  buildTopNav(root, { onPassword: () => openChangePassword(), onSignOut: () => signOut() });
+  placeTopbarTools();
+}
+
+function placeTopbarTools() {
+  const tools = document.getElementById('topbar-tools');
+  const slot = document.querySelector('#top-nav [data-tools-slot]');
+  const topbar = document.querySelector('.main > .topbar');
+  if (!tools) return;
+  const useTop = getMenuMode() === 'top' && !mobileNav.matches && slot;
+  if (useTop && tools.parentElement !== slot) slot.appendChild(tools);
+  if (!useTop && topbar && tools.parentElement !== topbar) topbar.appendChild(tools);
+}
+
+window.addEventListener('menu-mode-changed', () => {
+  placeTopbarTools();
+  syncMenuState();
+});
 
 // On phones a bottom tab bar holds the everyday screens; "More" opens the
 // full sidebar.
@@ -374,6 +300,7 @@ function labelCardTables(root = document) {
 
 function updateNav(section) {
   document.documentElement.dataset.section = section;
+  markTopNav(section);
   document.querySelectorAll('.tab-item[data-section]').forEach((item) => {
     item.classList.toggle('active', item.dataset.section === section);
   });
@@ -478,6 +405,7 @@ document.addEventListener('keydown', (event) => {
 // Crossing the breakpoint should never leave the mobile overlay (or its
 // scroll lock) behind.
 mobileNav.addEventListener('change', () => {
+  placeTopbarTools();
   if (!mobileNav.matches) {
     sidebar.classList.remove('open');
     scrim.classList.remove('visible');
@@ -552,6 +480,7 @@ async function renderRoute() {
     viewEl.classList.add('t-page-enter');
     viewEl.focus({ preventScroll: true });
     if (typeof cleanup === 'function') currentCleanup = cleanup;
+    rememberRecent({ hash: location.hash, title: document.getElementById('page-title')?.textContent.trim(), section: route.section });
   } catch (error) {
     if (token !== renderToken) return;
     viewEl.setAttribute('aria-busy', 'false');
@@ -596,6 +525,7 @@ async function boot() {
     return;
   }
   updateSidebarFooter();
+  buildTopMenu();
   renderRoute();
   if (store.user.is_admin) keepCheckingForUpdates();
 }
