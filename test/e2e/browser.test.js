@@ -2019,7 +2019,9 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
   await modal.locator('#pw-new').fill('counter-pass-1');
   await modal.locator('#pw-confirm').fill('counter-pass-2');
   await modal.locator('[data-submit]').click();
-  assert.match(await modal.locator('.modal-error').innerText(), /do not match/);
+  // The error box is always in the modal (hidden, empty); wait for the text
+  // itself, which appears only once the form has been checked.
+  await modal.locator('.modal-error:not([hidden])', { hasText: 'do not match' }).waitFor();
   await modal.locator('#pw-confirm').fill('counter-pass-1');
   await modal.locator('[data-submit]').click();
   await modal.waitFor({ state: 'detached' });
