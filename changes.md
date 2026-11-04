@@ -2056,11 +2056,23 @@ The user approved the optional item after an explanation: Receive payment receip
   - `npm test` 255 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, Settings showed "Receipt prefix: RCP".
 
+### Release 1.0.5 — code commit `588de8d`, tag `v1.0.5`
+
+- Version 1.0.5 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 255 passed.
+- Two note lines: RCP receipt numbers; customer documents need Edit, and the trimmed customer list. The old-books guard only matters for `npm start`, so it has no note.
+- Release run 41808790500: all jobs succeeded. The assets are:
+  - arm64 dmg, 142 MB;
+  - x64 dmg, 149 MB;
+  - Windows exe, 131 MB;
+  - `latest.json`.
+- **Checked:** `releases/latest/download/latest.json` reports 1.0.5.
+- **Not checked:** the released dmgs were not downloaded and verified on this Mac.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.4` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
-2. The user's Mac runs 1.0.3; release 1.0.4 is the first real test of the bell (red dot within 3 hours or after a restart).
-3. **Release 1.0.5** when the user asks: it brings the customer documents and picker list changes (and the old-books guard for npm start, and RCP receipt numbers) to the desktop app.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.5` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
+3. **Release 1.0.5** is published.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
