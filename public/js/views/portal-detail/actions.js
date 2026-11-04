@@ -17,12 +17,8 @@ export function bindPortalActions({ portal, id, refresh, refreshIncluding }) {
   }
 
   on('[data-action="topup"]', () => {
-    const isCredit = portal.settlement === 'credit';
     openModal({
       title: `Top up ${portal.name}`,
-      subtitle: isCredit
-        ? `Balance due ${fmtMoney(portal.outstanding_ap_cents)}${portal.balance_cents > 0 ? ` · advance ${fmtMoney(portal.balance_cents)}` : ''}`
-        : `Current wallet balance ${fmtMoney(portal.balance_cents)}`,
       body: topUpModalBody(portal),
       submitLabel: 'Record top-up',
       onMount(overlay) {
@@ -53,7 +49,6 @@ export function bindPortalActions({ portal, id, refresh, refreshIncluding }) {
   on('[data-action="withdraw"]', () => {
     openModal({
       title: `Withdraw from ${portal.name}`,
-      subtitle: `${fmtMoney(portal.balance_cents)} available`,
       body: withdrawModalBody(portal),
       submitLabel: 'Record withdrawal',
       async onSubmit(form) {
@@ -77,7 +72,6 @@ export function bindPortalActions({ portal, id, refresh, refreshIncluding }) {
   on('[data-action="settle"]', () => {
     const modal = openModal({
       title: `Settle a bill from ${portal.name}`,
-      subtitle: `${fmtMoney(portal.balance_cents)} available in the wallet`,
       body: settleModalBody(portal),
       submitLabel: 'Settle bill',
       async onSubmit(form) {

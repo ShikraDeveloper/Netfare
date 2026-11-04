@@ -12,7 +12,7 @@ const root = path.join(__dirname, '..');
 const BUDGET_FILE = path.join(__dirname, 'copy-budget.json');
 const PATTERNS = {
   hint: /class="hint"/g,
-  note: /class="form-note"/g,
+  note: /class="(?:form-note|stmt-hint|recon-intro)\b/g,
   tagline: /<div class="card-title">\s*<h2>[^<]*<\/h2>\s*<p>/g,
   subtitle: /\bsubtitle:\s*[`'"]/g,
   menu: /\bdesc: '/g,

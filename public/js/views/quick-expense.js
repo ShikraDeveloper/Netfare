@@ -16,7 +16,6 @@ export function openQuickExpenseModal({ onSaved = () => {}, paidFromCode = '1000
 
   return openModal({
     title: 'Quick expense',
-    subtitle: 'For a small expense you have already paid. It is saved as a paid bill in one step.',
     body: `
       <div class="form-grid">
         <div class="field full">
@@ -69,7 +68,6 @@ export function openQuickExpenseModal({ onSaved = () => {}, paidFromCode = '1000
           <label for="qe-receipt">Receipt photo or PDF <span class="muted">(optional)</span></label>
           <input class="input" id="qe-receipt" type="file" accept="image/*,application/pdf">
         </div>
-        <div class="field full"><div class="form-note">Posts the expense and the payment on the same date (Dr expense · Cr cash or bank). For a supplier you will pay later, use <strong>New bill</strong>.</div></div>
       </div>`,
     submitLabel: 'Save expense',
     onMount(overlay) {

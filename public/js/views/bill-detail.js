@@ -6,12 +6,14 @@ import {
   companyMark,
   confirmDialog,
   currencySymbol,
-  emptyState,
   esc,
   fmtDate,
   fmtMoney,
   fmtNumber,
+  foldHtml,
+  foldsHtml,
   icon,
+  moreMenuHtml,
   openModal,
   optionsHtml,
   setHeader,
@@ -24,7 +26,7 @@ import {
 } from '../ui.js';
 import { openBillModal } from './bills.js';
 import { openRefundModal } from './refund-modal.js';
-import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
+import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 function billVoidPreview(bill) {
   const payments = bill.payments.filter((payment) => payment.status === 'posted');
@@ -73,7 +75,6 @@ function paymentModalBody(bill) {
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="payment-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(bill.balance_cents)}" required>
         </div>
-        <div class="hint">Balance due ${fmtMoney(bill.balance_cents)}</div>
       </div>
       <div class="field">
         <label for="payment-date">Payment date</label>
@@ -97,7 +98,6 @@ function paymentModalBody(bill) {
       <div class="field" data-cheque-field hidden>
         <label for="cheque-date">Cheque date</label>
         <input class="input" id="cheque-date" name="cheque_date" type="date" value="${todayISO()}">
-        <div class="hint">For tracking; the ledger posts on the payment date.</div>
       </div>
       <div class="field" data-cheque-field hidden>
         <label for="cheque-bank">Bank</label>
@@ -108,9 +108,6 @@ function paymentModalBody(bill) {
         <select class="input" id="payment-account" name="payment_account_id">
           ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
         </select>
-      </div>
-      <div class="field full">
-        <div class="form-note">Paying a bill debits Trade Payables and credits your bank or cash account. The bill balance updates automatically. Bank charges, if any, are posted separately to 6700 Bank Charges.</div>
       </div>
     </div>
   `;
@@ -137,35 +134,37 @@ export async function render(container, { params } = {}) {
   const canVoid = bill.status === 'received' && !isJobBill;
   const canCreditJobBill = bill.status === 'received' && isJobBill;
 
+  // One main action; everything else is in the More menu.
   const actions = [];
-  actions.push(`<a class="btn btn-ghost" href="#/bills"><span>All bills</span></a>`);
+  const menu = [];
   if (bill.booking_id) {
-    actions.push(`<a class="btn btn-secondary" href="#/bookings/${bill.booking_id}">${icon('plane', 15)}<span>Booking</span></a>`);
+    menu.push(`<a class="btn btn-ghost" href="#/bookings/${bill.booking_id}">${icon('plane', 15)}<span>Booking</span></a>`);
   }
   if (bill.visa_id) {
-    actions.push(`<a class="btn btn-secondary" href="#/visas/${bill.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
+    menu.push(`<a class="btn btn-ghost" href="#/visas/${bill.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
   }
-  actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
+  menu.push(`<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
   if (isDraft) {
     actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
-    actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
+    menu.push(`<button class="btn btn-danger-ghost" data-action="delete">${icon('trash', 15)}<span>Delete draft</span></button>`);
     actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Receive &amp; post</span></button>`);
   } else if (canRecordPayment) {
     actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
   }
-  if (canVoid) {
-    actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
-  }
+  // Booking and visa bills are adjusted with a supplier credit or by cancelling the job.
   if (canCreditJobBill) {
-    actions.push(`<a class="btn btn-secondary" href="#/supplier-credits?new=1&bill=${bill.id}" data-action="supplier-credit" title="Booking and visa bills are adjusted with a supplier credit or by cancelling the job">${icon('invoice', 15)}<span>Supplier credit</span></a>`);
+    menu.push(`<a class="btn btn-ghost" href="#/supplier-credits?new=1&bill=${bill.id}" data-action="supplier-credit">${icon('invoice', 15)}<span>Supplier credit</span></a>`);
   }
-
-  actions.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  menu.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  menu.push(`<a class="btn btn-ghost" href="#/bills"><span>All bills</span></a>`);
+  if (canVoid) {
+    menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
+  }
   pageRecord(bill);
   setHeader({
     title: bill.number,
-    subtitle: `${bill.vendor_name} · ${fmtDate(bill.bill_date)}`,
-    actions: actions.join(''),
+    badge: statusBadge(bill.status_display),
+    actions: actions.join('') + moreMenuHtml(menu),
   });
 
   const paymentRows = bill.payments.length
@@ -192,11 +191,7 @@ export async function render(container, { params } = {}) {
         </div>
       `;
     }).join('')
-    : emptyState({
-      iconName: 'cash',
-      title: 'No payments recorded',
-      message: canRecordPayment ? 'Record a payment to reduce the amount payable.' : 'Payments will appear here once recorded.',
-    });
+    : '<p class="muted fold-empty">No payments yet</p>';
 
   const journalHtml = journal
     ? `
@@ -296,32 +291,20 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
-    <div class="detail-grid no-print">
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Payments</h2><p>${bill.amount_paid_cents > 0 ? `${fmtMoney(bill.amount_paid_cents)} paid` : 'Nothing paid yet'}</p></div>
-          ${canRecordPayment ? `<button class="btn btn-secondary btn-sm" data-action="payment">${icon('plus', 14)} Record</button>` : ''}
-        </div>
-        <div class="card-body" ${bill.payments.length ? 'style="padding:4px 20px"' : ''}>
-          ${paymentRows}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Ledger entry</h2><p>${journal ? `Posted ${esc(fmtDate(journal.entry_date))}` : 'Not posted'}</p></div>
-          ${journal ? `<a class="card-link" href="#/journal?focus=${journal.id}">Open ${icon('chevron', 12)}</a>` : ''}
-        </div>
-        <div class="card-body">${journalHtml}</div>
-      </div>
-    </div>
-
-    ${bill.supplier_credits.length ? `
-      <div class="card no-print" style="margin-top:16px">
-        <div class="card-head">
-          <div class="card-title"><h2>Supplier credits</h2><p>${fmtMoney(bill.credit_applied_cents)} applied · ${fmtMoney(bill.supplier_credits.reduce((sum, credit) => sum + credit.remaining_cents, 0))} still open</p></div>
-          <a class="card-link" href="#/supplier-credits">All supplier credits ${icon('chevron', 12)}</a>
-        </div>
-        <div class="table-wrap">
+    ${foldsHtml([
+    foldHtml({ key: 'payments', title: 'Payments', count: bill.payments.length, body: paymentRows }),
+    foldHtml({
+      key: 'ledger',
+      title: 'Ledger entry',
+      actions: journal ? `<a class="card-link" href="#/journal?focus=${journal.id}">Open ${icon('chevron', 12)}</a>` : '',
+      body: journalHtml,
+    }),
+    bill.supplier_credits.length && foldHtml({
+      key: 'supplier-credits',
+      title: 'Supplier credits',
+      count: bill.supplier_credits.length,
+      actions: `<a class="card-link" href="#/supplier-credits">All supplier credits ${icon('chevron', 12)}</a>`,
+      body: `<div class="table-wrap">
           <table class="data"><caption class="sr-only">Supplier credits linked to this bill</caption>
             <thead><tr><th scope="col">Credit</th><th scope="col">Date</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Remaining</th><th scope="col">Status</th></tr></thead>
             <tbody>
@@ -336,11 +319,10 @@ export async function render(container, { params } = {}) {
               `).join('')}
             </tbody>
           </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${attachmentSection({ entityType: 'bill', entityId: id, attachments })}
+        </div>`,
+    }),
+    attachmentFoldHtml({ entityType: 'bill', entityId: id, attachments }),
+  ])}
   `;
 
   bindAttachmentSection(container, { entityType: 'bill', entityId: id });
@@ -424,7 +406,6 @@ export async function render(container, { params } = {}) {
     button.addEventListener('click', () => {
       openModal({
         title: 'Record bill payment',
-        subtitle: `${bill.number} · ${bill.vendor_name}`,
         body: paymentModalBody(bill),
         submitLabel: 'Record payment',
         onMount(overlay) {

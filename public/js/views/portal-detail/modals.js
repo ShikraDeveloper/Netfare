@@ -18,6 +18,10 @@ export function depositAccounts() {
   return { accounts, preferred };
 }
 
+// Top-up: on a credit portal it pays the supplier's oldest open bills dated on
+// or before it, and the rest stays as an advance; on a prepaid portal it
+// moves money from the bank into Advances to Suppliers (an asset, a cost only
+// once a booking uses it).
 export function topUpModalBody(portal) {
   const { accounts, preferred } = depositAccounts();
   return `
@@ -50,26 +54,21 @@ export function topUpModalBody(portal) {
         </select>
       </div>
       ${bankChargesFieldHtml('paid')}
-      <div class="field full">
-        <div class="form-note">${portal.settlement === 'credit'
-    ? `This pays <strong>${esc(portal.vendor_name || 'the supplier')}</strong>: the oldest open bills dated on or before the top-up date are paid first. Anything left over stays as an advance and pays the next bills.`
-    : 'This moves money from your bank into <strong>Advances to Suppliers</strong> — an asset, not an expense. It becomes a cost only when a booking uses the wallet.'}</div>
-      </div>
     </div>
   `;
 }
 
+// Withdrawal: the portal refunds unused money (credits Advances to Suppliers).
 export function withdrawModalBody(portal) {
   const { accounts, preferred } = depositAccounts();
   return `
     <div class="form-grid">
       <div class="field">
-        <label for="wd-amount">Withdrawal amount</label>
+        <label for="wd-amount">Amount · ${fmtMoney(portal.balance_cents)} available</label>
         <div class="money-input">
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="wd-amount" name="amount" type="number" min="0.01" step="0.01" value="${esc(centsToInput(portal.balance_cents))}" required>
         </div>
-        <div class="hint">${fmtMoney(portal.balance_cents)} available</div>
       </div>
       <div class="field">
         <label for="wd-date">Date</label>
@@ -91,13 +90,11 @@ export function withdrawModalBody(portal) {
           ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
         </select>
       </div>
-      <div class="field full">
-        <div class="form-note">Use this when the portal refunds unused money or you move the balance back to the bank. It credits <strong>Advances to Suppliers</strong>.</div>
-      </div>
     </div>
   `;
 }
 
+// Settle: the bill is paid from Advances to Suppliers; no new money leaves the bank.
 export function settleModalBody(portal) {
   return `
     <div class="form-grid">
@@ -108,19 +105,15 @@ export function settleModalBody(portal) {
         </select>
       </div>
       <div class="field">
-        <label for="st-amount">Amount to settle</label>
+        <label for="st-amount">Amount · ${fmtMoney(portal.balance_cents)} available</label>
         <div class="money-input">
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="st-amount" name="amount" type="number" min="0.01" step="0.01" required>
         </div>
-        <div class="hint">${fmtMoney(portal.balance_cents)} available in the wallet</div>
       </div>
       <div class="field">
         <label for="st-date">Date</label>
         <input class="input" id="st-date" name="settle_date" type="date" value="${todayISO()}" required>
-      </div>
-      <div class="field full">
-        <div class="form-note">The bill is marked paid and the amount moves from <strong>Advances to Suppliers</strong> to settle the payable, with no new money leaving your bank.</div>
       </div>
     </div>
   `;

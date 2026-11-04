@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
+import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { cashAccounts, store } from '../store.js';
 import {
   centsToInput,
@@ -7,7 +7,10 @@ import {
   esc,
   fmtDate,
   fmtMoney,
+  foldHtml,
+  foldsHtml,
   icon,
+  moreMenuHtml,
   openModal,
   optionsHtml,
   setHeader,
@@ -31,26 +34,28 @@ export async function render(container, { params } = {}) {
 
   const sourceLink = credit.bill_id
     ? `<a href="#/bills/${credit.bill_id}">${esc(credit.bill_number)}</a>`
-    : '<span class="muted">Standalone supplier credit</span>';
+    : '—';
   const contextLink = credit.cancellation_id
     ? `<a href="#/cancellations/${credit.cancellation_id}">${esc(credit.cancellation_number)}</a>`
     : credit.booking_id
       ? `<a href="#/bookings/${credit.booking_id}">${esc(credit.booking_number)}</a>`
       : credit.visa_id
         ? `<a href="#/visas/${credit.visa_id}">${esc(credit.visa_number)}</a>`
-        : '<span class="muted">No booking, visa or cancellation</span>';
+        : '—';
 
   pageRecord(credit);
   setHeader({
     title: credit.number,
-    subtitle: `${credit.vendor_name} · ${fmtDate(credit.credit_date, { long: true })}`,
+    badge: statusBadge(credit.status_display),
     actions: `
-      <a class="btn btn-ghost" href="#/audit-chain/supplier_credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
-      <a class="btn btn-ghost" href="#/supplier-credits"><span>All supplier credits</span></a>
-      <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>
       ${canApply ? `<button class="btn btn-primary" data-action="apply">${icon('bill', 15)}<span>Apply to bill</span></button>` : ''}
-      ${canApply ? `<button class="btn btn-secondary" data-action="refund">${icon('arrowUp', 15)}<span>Cash refund</span></button>` : ''}
-      ${canVoid ? `<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>` : ''}
+      ${moreMenuHtml([
+    canApply ? `<button class="btn btn-ghost" data-action="refund">${icon('arrowUp', 15)}<span>Cash refund</span></button>` : '',
+    `<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
+    `<a class="btn btn-ghost" href="#/audit-chain/supplier_credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`,
+    `<a class="btn btn-ghost" href="#/supplier-credits"><span>All supplier credits</span></a>`,
+    canVoid ? `<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>` : '',
+  ].filter(Boolean))}
     `,
   });
 
@@ -58,16 +63,6 @@ export async function render(container, { params } = {}) {
   const applications = credit.applications || [];
   const refunds = credit.refunds || [];
   const portalCredits = credit.portal_credits || [];
-
-  const itemRows = items.length
-    ? items.map((item) => `
-        <tr>
-          <td>${esc(item.description)}</td>
-          <td><span class="cell-sub">${esc(item.account_code)}</span> ${esc(item.account_name)}</td>
-          <td class="num">${fmtMoney(item.amount_cents)}</td>
-        </tr>
-      `).join('')
-    : `<tr><td colspan="3" class="muted">No credit lines.</td></tr>`;
 
   const applicationRows = applications.length
     ? applications.map((application) => `
@@ -79,7 +74,7 @@ export async function render(container, { params } = {}) {
           <td><button class="icon-btn danger" data-remove-application="${application.id}" title="Reverse application">${icon('trash', 15)}</button></td>
         </tr>
       `).join('')
-    : `<tr><td colspan="5" class="muted">This credit has not been applied to a bill.</td></tr>`;
+    : '';
 
   const refundRows = refunds.length
     ? refunds.map((refund) => `
@@ -91,7 +86,7 @@ export async function render(container, { params } = {}) {
           <td>${statusBadge(refund.status)}</td>
         </tr>
       `).join('')
-    : `<tr><td colspan="5" class="muted">No cash refund has been received.</td></tr>`;
+    : '';
 
   const portalRows = portalCredits.length
     ? portalCredits.map((movement) => `
@@ -102,7 +97,7 @@ export async function render(container, { params } = {}) {
           <td>${esc(movement.notes || '—')}</td>
         </tr>
       `).join('')
-    : `<tr><td colspan="4" class="muted">No part of this credit was moved to a prepaid portal wallet.</td></tr>`;
+    : '';
 
   container.innerHTML = `
     <div class="doc-wrap">
@@ -122,8 +117,8 @@ export async function render(container, { params } = {}) {
             <dl class="doc-meta-grid">
               <dt>Credit date</dt><dd>${esc(fmtDate(credit.credit_date))}</dd>
               <dt>Supplier</dt><dd>${esc(credit.vendor_name)}</dd>
-              <dt>Bill</dt><dd>${credit.bill_number ? esc(credit.bill_number) : '—'}</dd>
-              <dt>Context</dt><dd>${esc(credit.cancellation_number || credit.booking_number || credit.visa_number || '—')}</dd>
+              <dt>Bill</dt><dd>${sourceLink}</dd>
+              <dt>For</dt><dd>${contextLink}</dd>
             </dl>
           </div>
         </div>
@@ -148,10 +143,7 @@ export async function render(container, { params } = {}) {
         </div>
 
         <div class="doc-total-area">
-          <div class="doc-notes">
-            <strong>Supplier credit</strong>
-            This credit is held in 1450 Supplier Credits until it is applied to a bill, refunded in cash or moved to a prepaid portal wallet. It does not delete or reopen the original supplier bill or its payments.
-          </div>
+          <div class="doc-notes"></div>
           <div class="doc-totals">
             <div class="totals-row"><span>Credit amount</span><span>${fmtMoney(credit.amount_cents)}</span></div>
             <div class="totals-row"><span>Applied to bills</span><span>${fmtMoney(credit.applied_cents)}</span></div>
@@ -163,72 +155,30 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
-    <div class="detail-grid no-print">
-      <div class="card">
-        <div class="card-head"><div class="card-title"><h2>Credit summary</h2><p>${issued ? 'Issued and available' : 'Void'}</p></div></div>
-        <div class="card-body">
-          <div class="detail-list">
-            <div><span>Supplier</span><strong>${esc(credit.vendor_name)}</strong></div>
-            <div><span>Original bill</span><strong>${sourceLink}</strong></div>
-            <div><span>Context</span><strong>${contextLink}</strong></div>
-            <div><span>Credit amount</span><strong>${fmtMoney(credit.amount_cents)}</strong></div>
-            <div><span>Applied</span><strong>${fmtMoney(credit.applied_cents)}</strong></div>
-            <div><span>Refunded</span><strong>${fmtMoney(credit.refunded_cents)}</strong></div>
-            <div><span>Portal settled</span><strong>${fmtMoney(credit.portal_settled_cents)}</strong></div>
-            <div><span>Remaining</span><strong>${fmtMoney(credit.remaining_cents)}</strong></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><div class="card-title"><h2>Credit lines</h2><p>Posted to 1450 Supplier Credits</p></div></div>
-        <div class="table-wrap">
-          <table class="data"><caption class="sr-only">Supplier credit lines</caption>
-            <thead><tr><th scope="col">Description</th><th scope="col">Cost account</th><th scope="col" class="num">Amount</th></tr></thead>
-            <tbody>${itemRows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="card no-print" style="margin-top:16px">
-      <div class="card-head">
-        <div class="card-title"><h2>Applications</h2><p>${applications.length ? `${fmtMoney(credit.applied_cents)} applied to supplier bills` : 'Not applied yet'}</p></div>
-        ${canApply ? `<button class="btn btn-secondary btn-sm" data-action="apply">${icon('plus', 14)} Apply</button>` : ''}
-      </div>
-      <div class="table-wrap">
-        <table class="data"><caption class="sr-only">Supplier credit applications</caption>
-          <thead><tr><th scope="col">Applied date</th><th scope="col">Bill</th><th scope="col" class="num">Amount</th><th scope="col">Journal</th><th scope="col"></th></tr></thead>
-          <tbody>${applicationRows}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="detail-grid no-print" style="margin-top:16px">
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Cash refunds</h2><p>${refunds.length} refund${refunds.length === 1 ? '' : 's'}</p></div>
-          ${canApply ? `<button class="btn btn-secondary btn-sm" data-action="refund">${icon('arrowUp', 14)} Refund</button>` : ''}
-        </div>
-        <div class="table-wrap">
-          <table class="data"><caption class="sr-only">Cash refunds of this supplier credit</caption>
-            <thead><tr><th scope="col">Refund</th><th scope="col">Date</th><th scope="col">Account</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead>
-            <tbody>${refundRows}</tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><div class="card-title"><h2>Portal credits</h2><p>Moved to prepaid wallet</p></div></div>
-        <div class="table-wrap">
-          <table class="data"><caption class="sr-only">Portal credit movements</caption>
-            <thead><tr><th scope="col">Portal</th><th scope="col">Date</th><th scope="col" class="num">Amount</th><th scope="col">Notes</th></tr></thead>
-            <tbody>${portalRows}</tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-    ${attachmentSection({ entityType: 'supplier_credit', entityId: id, attachments, hint: 'Supplier credit memo or refund confirmation' })}
+    ${foldsHtml([
+    applications.length && foldHtml({
+      key: 'applications',
+      title: 'Applied to bills',
+      count: applications.length,
+      body: `<div class="table-wrap"><table class="data"><caption class="sr-only">Supplier credit applications</caption>
+          <thead><tr><th scope="col">Applied date</th><th scope="col">Bill</th><th scope="col" class="num">Amount</th><th scope="col">Journal</th><th scope="col"></th></tr></thead><tbody>${applicationRows}</tbody></table></div>`,
+    }),
+    refunds.length && foldHtml({
+      key: 'refunds',
+      title: 'Cash refunds',
+      count: refunds.length,
+      body: `<div class="table-wrap"><table class="data"><caption class="sr-only">Cash refunds of this supplier credit</caption>
+          <thead><tr><th scope="col">Refund</th><th scope="col">Date</th><th scope="col">Account</th><th scope="col" class="num">Amount</th><th scope="col">Status</th></tr></thead><tbody>${refundRows}</tbody></table></div>`,
+    }),
+    portalCredits.length && foldHtml({
+      key: 'portal-credits',
+      title: 'Moved to portals',
+      count: portalCredits.length,
+      body: `<div class="table-wrap"><table class="data"><caption class="sr-only">Portal credit movements</caption>
+          <thead><tr><th scope="col">Portal</th><th scope="col">Date</th><th scope="col" class="num">Amount</th><th scope="col">Notes</th></tr></thead><tbody>${portalRows}</tbody></table></div>`,
+    }),
+    attachmentFoldHtml({ entityType: 'supplier_credit', entityId: id, attachments }),
+  ])}
   `;
   bindAttachmentSection(container, { entityType: 'supplier_credit', entityId: id });
 
@@ -341,7 +291,6 @@ export async function render(container, { params } = {}) {
     const maxFirst = Math.min(credit.remaining_cents, first.balance_cents);
     openModal({
       title: 'Apply supplier credit',
-      subtitle: `${credit.number} · ${fmtMoney(credit.remaining_cents)} remaining`,
       submitLabel: 'Apply credit',
       body: `
         <div class="form-grid">
@@ -361,9 +310,6 @@ export async function render(container, { params } = {}) {
           <div class="field">
             <label for="sc-apply-date">Applied date</label>
             <input class="input" id="sc-apply-date" name="applied_date" type="date" value="${todayISO()}" required>
-          </div>
-          <div class="field full">
-            <div class="form-note">This debits Trade Payables and credits 1450 Supplier Credits. The bill balance drops without recording a cash payment.</div>
           </div>
         </div>
       `,
@@ -399,7 +345,6 @@ export async function render(container, { params } = {}) {
     const preferred = accounts.find((account) => account.code === '1010') || accounts[0];
     openModal({
       title: `Cash refund of ${credit.number}`,
-      subtitle: `${credit.vendor_name} · ${fmtMoney(credit.remaining_cents)} available`,
       submitLabel: 'Record refund',
       body: `
         <div class="form-grid">
@@ -409,7 +354,6 @@ export async function render(container, { params } = {}) {
               <input class="input" id="sc-refund-amount" name="amount" type="number" min="0.01" step="0.01"
                 max="${centsToInput(credit.remaining_cents)}" value="${centsToInput(credit.remaining_cents)}" required inputmode="decimal">
             </div>
-            <div class="hint">Available ${fmtMoney(credit.remaining_cents)}</div>
           </div>
           <div class="field">
             <label for="sc-refund-date">Refund date</label>
@@ -430,9 +374,6 @@ export async function render(container, { params } = {}) {
             <select class="input" id="sc-refund-account" name="account_id" required>
               ${optionsHtml(accounts, { selected: preferred.id, placeholder: 'Choose bank or cash account…', labelKey: (account) => `${account.code} · ${account.name}` })}
             </select>
-          </div>
-          <div class="field full">
-            <div class="form-note">This debits the bank or cash account and credits 1450 Supplier Credits. The original bill stays settled and is not reopened.</div>
           </div>
         </div>
       `,

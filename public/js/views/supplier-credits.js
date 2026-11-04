@@ -46,12 +46,8 @@ export async function render(container, { query } = {}) {
     api.get('/supplier-credits'),
     api.get('/vendors'),
   ]);
-  const openCredits = credits.filter((credit) => credit.status === 'issued' && credit.remaining_cents > 0);
-  const openTotal = openCredits.reduce((sum, credit) => sum + credit.remaining_cents, 0);
-
   setHeader({
     title: 'Supplier credits',
-    subtitle: `${openCredits.length} open · ${fmtMoney(openTotal)} available from suppliers`,
     actions: `<button class="btn btn-primary" data-action="new-credit">${icon('plus', 15)}<span>New supplier credit</span></button>`,
   });
 
@@ -61,8 +57,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'bill',
     title: 'No supplier credits yet',
-    message: 'Record a credit from an airline, hotel, visa supplier or consolidator. Apply it to an open bill, refund it in cash, or leave it open in 1450 Supplier Credits.',
-    action: '<button class="btn btn-primary" data-action="new-credit">Record supplier credit</button>',
+    action: '<button class="btn btn-primary" data-action="new-credit">New supplier credit</button>',
   })}
       </div>
     `;
@@ -139,7 +134,6 @@ export async function render(container, { query } = {}) {
     body.innerHTML = rows.length ? rows.map(creditRow).join('') : `<tr><td colspan="8">${emptyState({
       iconName: 'search',
       title: 'No matching supplier credits',
-      message: 'Try another search, status or date range.',
     })}</td></tr>`;
     if (countEl) countEl.textContent = `${filtered.length} credit${filtered.length === 1 ? '' : 's'}`;
     paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
@@ -197,7 +191,6 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
 
   openModal({
     title: 'New supplier credit',
-    subtitle: 'Record credit from a supplier, airline, hotel or consolidator.',
     size: 'modal-lg',
     submitLabel: 'Record supplier credit',
     body: `
@@ -213,18 +206,17 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
           <input class="input" id="sc-date" name="credit_date" type="date" value="${todayISO()}" required>
         </div>
         <div class="field full">
-          <label for="sc-bill">Apply to a bill (optional)</label>
+          <label for="sc-bill">Bill</label>
           <select class="input" id="sc-bill" name="bill_id">
-            <option value="">No bill — standalone supplier credit</option>
+            <option value="">No bill</option>
           </select>
-          <div class="hint">If you choose a bill, the credit is split across that bill's cost lines. You can apply it to this or another bill later.</div>
         </div>
         <div class="field full" data-bill-fields hidden>
           <label for="sc-bill-amount">Credit amount</label>
           <div class="money-input"><span>AED</span>
             <input class="input" id="sc-bill-amount" name="bill_amount" type="number" min="0.01" step="0.01" value="" inputmode="decimal">
           </div>
-          <div class="hint" data-bill-available>Choose a bill to see the available amount.</div>
+          <div class="hint" data-bill-available></div>
         </div>
         <div data-manual-fields class="field full">
           <div class="form-grid">
@@ -247,13 +239,13 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
           </div>
         </div>
         <div class="field">
-          <label for="sc-booking">Booking (optional)</label>
+          <label for="sc-booking">Booking</label>
           <select class="input" id="sc-booking" name="booking_id">
             ${optionsHtml(bookings, { placeholder: 'No booking', labelKey: (booking) => `${booking.number} · ${booking.customer_name}` })}
           </select>
         </div>
         <div class="field">
-          <label for="sc-visa">Visa application (optional)</label>
+          <label for="sc-visa">Visa</label>
           <select class="input" id="sc-visa" name="visa_id">
             ${optionsHtml(visas, { placeholder: 'No visa application', labelKey: (visa) => `${visa.number} · ${visa.applicant_name || visa.customer_name}` })}
           </select>
@@ -261,9 +253,6 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
         <div class="field full">
           <label for="sc-notes">Notes</label>
           <textarea class="input" id="sc-notes" name="notes" rows="2" maxlength="2000" placeholder="Reason, supplier reference or credit memo number"></textarea>
-        </div>
-        <div class="field full">
-          <div class="form-note">This debits 1450 Supplier Credits and credits the bill cost account (or the cost account you choose). It does not change the bill's payments. Apply the credit to a bill from the credit detail screen.</div>
         </div>
       </div>
     `,

@@ -51,7 +51,6 @@ export async function render(container, { params, query } = {}) {
 
   setHeader({
     title: `Reconcile ${portal.name}`,
-    subtitle: `${portalTypeLabel(portal.portal_type)} · ${portal.vendor_name || 'No supplier linked'} · match the portal's own statement against your ledger`,
     actions: [
       `<a class="btn btn-ghost" href="#/portals/${id}"><span>Statement</span></a>`,
       `<a class="btn btn-ghost" href="#/portals/${id}/ledger"><span>Ledger</span></a>`,
@@ -60,17 +59,9 @@ export async function render(container, { params, query } = {}) {
   });
 
   container.innerHTML = `
-    <div class="recon-intro no-print">
-      <span class="recon-intro-icon">${icon('link', 18)}</span>
-      <div>
-        <strong>Import the statement from ${esc(portal.name)}.</strong>
-        Every line is matched to a top-up, withdrawal or bill settlement by direction, amount and date. Lines that only exist on one side are listed so you can fix them.
-      </div>
-    </div>
-
     <div class="card no-print" id="rc-import">
       <div class="card-head">
-        <div class="card-title"><h2>1 · Import the statement</h2><p>CSV, TSV or rows copied from the portal</p></div>
+        <div class="card-title"><h2>1 · Import the statement</h2></div>
       </div>
       <div class="card-body">
         <div class="form-grid">
@@ -83,19 +74,16 @@ export async function render(container, { params, query } = {}) {
             <input class="input" id="rc-to" type="date" value="${esc(ledger.to)}">
           </div>
           <div class="field">
-            <label for="rc-window">Match window</label>
+            <label for="rc-window">Match window (days)</label>
             <input class="input" id="rc-window" type="number" min="0" max="31" step="1" value="7">
-            <div class="hint">Allow this many days between the portal date and your date.</div>
           </div>
           <div class="field">
             <label for="rc-file">Statement file</label>
             <input class="input" id="rc-file" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain">
-            <div class="hint">Or paste the rows into the box below.</div>
           </div>
           <div class="field full">
-            <label for="rc-text">Statement rows</label>
+            <label for="rc-text">Or paste the rows</label>
             <textarea class="input code-area" id="rc-text" rows="9" spellcheck="false" placeholder="Date,Description,Reference,Credit,Debit,Balance&#10;2026-08-01,Wallet top-up,TOP-102,12000.00,,12000.00&#10;2026-08-10,Ticket DXB-LHR,PNR7XQ,,2900.00,9100.00"></textarea>
-            <div class="hint">Header row optional. Debit/credit columns and a single signed amount both work. Parentheses and CR/DR suffixes are understood.</div>
           </div>
         </div>
         <div class="recon-actions">
@@ -259,7 +247,6 @@ export async function render(container, { params, query } = {}) {
         </div>
 
         <div class="recon-actions">
-          <span class="hint">Matching is by direction and amount, allowing the match window, then prefers a matching reference.</span>
           <button class="btn btn-primary" data-action="compare">${icon('check', 15)}<span>Compare with ledger</span></button>
         </div>
       </div>
@@ -438,7 +425,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card recon-section">
         <div class="card-head">
-          <div class="card-title"><h2>Matched lines</h2><p>${summary.matched} paired movement${summary.matched === 1 ? '' : 's'}</p></div>
+          <div class="card-title"><h2>Matched lines</h2></div>
           <span class="badge badge-paid">${summary.matched}</span>
         </div>
         <div class="table-wrap">
@@ -476,7 +463,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card recon-section">
         <div class="card-head">
-          <div class="card-title"><h2>On the statement, missing in Netfare</h2><p>Record these so your books catch up</p></div>
+          <div class="card-title"><h2>On the statement, missing in Netfare</h2></div>
           <span class="badge ${summary.missing_in_books ? 'badge-overdue' : 'badge-paid'}">${summary.missing_in_books}</span>
         </div>
         <div class="table-wrap">
@@ -518,7 +505,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card recon-section">
         <div class="card-head">
-          <div class="card-title"><h2>In Netfare, not on the statement</h2><p>Check whether these were recorded on the portal</p></div>
+          <div class="card-title"><h2>In Netfare, not on the statement</h2></div>
           <span class="badge ${summary.missing_on_statement ? 'badge-overdue' : 'badge-paid'}">${summary.missing_on_statement}</span>
         </div>
         <div class="table-wrap">

@@ -850,3 +850,4 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 .ledger-checks > summary > .icon:last-child { color: var(--muted); transform: rotate(90deg); transition: transform .15s; }
 .ledger-checks[open] > summary > .icon:last-child { transform: rotate(-90deg); }
 .fold-empty { margin: 4px 0; font-size: 13px; }
+.recon-warning { margin: 12px 0 0; font-size: 12.5px; color: var(--red); }

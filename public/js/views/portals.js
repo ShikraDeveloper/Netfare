@@ -81,16 +81,14 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
         <select class="input" id="pt-vendor" name="vendor_id" aria-label="Matching suppliers" style="margin-top:8px">
           ${optionsHtml(vendors, { selected: portal?.vendor_id, placeholder: 'No supplier linked' })}
         </select>
-        <div class="hint" id="pt-vendor-search-hint">Type to narrow the supplier list.</div>
-        <div class="hint">Link the supplier you bill for this portal. When you confirm a booking, that supplier's bill settles from the wallet automatically.</div>
+        <div class="hint" id="pt-vendor-search-hint" aria-live="polite"></div>
       </div>
-      <div class="field">
+      <div class="field" data-credit-field ${portal?.settlement === 'credit' ? '' : 'hidden'}>
         <label for="pt-credit">Credit limit</label>
         <div class="money-input">
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="pt-credit" name="credit_limit" type="number" min="0" step="0.01" value="${esc(centsToInput(portal?.credit_limit_cents || 0))}">
         </div>
-        <div class="hint">Used for credit accounts only.</div>
       </div>
       <div class="field">
         <label for="pt-ref">Login / URL reference</label>
@@ -108,10 +106,14 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
 
   return openModal({
     title: isEdit ? `Edit ${portal.name}` : 'New supplier portal',
-    subtitle: 'Track money held with airlines, IATA agencies, consolidators, GDS and visa agents.',
     body,
     submitLabel: isEdit ? 'Save portal' : 'Create portal',
     onMount(overlay) {
+      // The credit limit only applies to a credit account.
+      const settlement = overlay.querySelector('#pt-settlement');
+      settlement?.addEventListener('change', () => {
+        overlay.querySelector('[data-credit-field]').hidden = settlement.value !== 'credit';
+      });
       const search = overlay.querySelector('#pt-vendor-search');
       const select = overlay.querySelector('#pt-vendor');
       const hint = overlay.querySelector('#pt-vendor-search-hint');
@@ -134,7 +136,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
         if (!vendors.length) {
           hint.textContent = 'No active suppliers yet. Add a supplier first, or leave this portal unlinked.';
         } else if (!term) {
-          hint.textContent = `${vendors.length} active supplier${vendors.length === 1 ? '' : 's'}. Type to narrow the list.`;
+          hint.textContent = '';
         } else if (!matches.length) {
           hint.textContent = `No suppliers match "${search.value.trim()}".`;
         } else {
@@ -175,11 +177,9 @@ export async function render(container, { query } = {}) {
   const walletTotal = active
     .filter((portal) => portal.settlement === 'prepaid')
     .reduce((sum, portal) => sum + portal.balance_cents, 0);
-  const payableTotal = active.reduce((sum, portal) => sum + portal.outstanding_ap_cents, 0);
 
   setHeader({
     title: 'Supplier portals',
-    subtitle: `${active.length} active · ${fmtMoney(walletTotal)} held in wallets${payableTotal ? ` · ${fmtMoney(payableTotal)} payable` : ''}`,
     actions: `<button class="btn btn-primary" data-action="new-portal">${icon('plus', 16)}<span>New portal</span></button>`,
   });
 
@@ -197,8 +197,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'wallet',
     title: 'No portals yet',
-    message: 'Add the airline, IATA, consolidator, GDS or visa-agent portals you use, then top them up. Confirming a booking spends the linked supplier\'s wallet automatically.',
-    action: '<button class="btn btn-primary" data-action="new-portal">Add your first portal</button>',
+    action: '<button class="btn btn-primary" data-action="new-portal">New portal</button>',
   })}
       </div>
     `;
@@ -266,7 +265,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="6">${emptyState({
     iconName: 'search',
     title: 'No matching portals',
-    message: 'Try a different search term or filter.',
   })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(portalRow).join('');

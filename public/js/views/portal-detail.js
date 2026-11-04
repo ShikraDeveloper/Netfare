@@ -12,6 +12,8 @@ import {
   statusBadge,
   todayISO,
   pageRecord,
+  moreMenuHtml,
+  numberCardHtml,
 } from '../ui.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
@@ -74,24 +76,25 @@ export async function render(container, { params, query } = {}) {
     ? fmtDate(from, { long: true })
     : `${fmtDate(from, { long: true })} – ${fmtDate(to, { long: true })}`;
 
+  // One main action (Top up); everything else is in the More menu.
   const actions = [];
-  actions.push(`<a class="btn btn-ghost" href="#/portals"><span>All portals</span></a>`);
-  actions.push(`<a class="btn btn-secondary" href="#/portals/${id}/ledger">${icon('journal', 15)}<span>Ledger</span></a>`);
-  if (!isCredit) actions.push(`<a class="btn btn-secondary" href="#/portals/${id}/reconcile">${icon('check', 15)}<span>Reconcile</span></a>`);
-  actions.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print / PDF</span></button>`);
-  actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
+  const menu = [];
+  menu.push(`<a class="btn btn-ghost" href="#/portals/${id}/ledger">${icon('journal', 15)}<span>Ledger</span></a>`);
+  if (!isCredit) menu.push(`<a class="btn btn-ghost" href="#/portals/${id}/reconcile">${icon('check', 15)}<span>Reconcile</span></a>`);
+  menu.push(`<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print / PDF</span></button>`);
+  menu.push(`<button class="btn btn-ghost" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
   if (portal.is_active) {
-    actions.push(`<button class="btn btn-secondary" data-action="archive">${icon('archive', 15)}<span>Archive</span></button>`);
+    menu.push(`<button class="btn btn-ghost" data-action="archive">${icon('archive', 15)}<span>Archive</span></button>`);
   } else {
-    actions.push(`<button class="btn btn-secondary" data-action="restore">${icon('refresh', 15)}<span>Restore</span></button>`);
+    menu.push(`<button class="btn btn-ghost" data-action="restore">${icon('refresh', 15)}<span>Restore</span></button>`);
   }
+  menu.push(`<a class="btn btn-ghost" href="#/portals"><span>All portals</span></a>`);
   if (portal.is_active) actions.push(`<button class="btn btn-primary" data-action="topup">${icon('plus', 15)}<span>Top up</span></button>`);
 
   pageRecord(portal);
   setHeader({
     title: portal.name,
-    subtitle: `${portalTypeLabel(portal.portal_type)} · ${portal.vendor_name || 'No supplier linked'}`,
-    actions: actions.join(''),
+    actions: actions.join('') + moreMenuHtml(menu),
   });
 
   const movements = [
@@ -292,13 +295,12 @@ export async function render(container, { params, query } = {}) {
   const creditPaymentCard = isCredit ? `
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>${hasCreditRefunds ? 'Payments & refunds' : 'Bill payments'}</h2><p>${hasCreditRefunds ? 'Paid or received in this period' : 'Paid in this period'}</p></div>
+        <div class="card-title"><h2>${hasCreditRefunds ? 'Payments & refunds' : 'Bill payments'}</h2></div>
       </div>
       <div class="card-body" ${creditPaymentRows ? 'style="padding:4px 20px"' : ''}>
         ${creditPaymentRows || emptyState({
     iconName: 'check',
     title: 'No payments in this period',
-    message: 'Pay a supplier bill from the bill page and it will appear here.',
   })}
       </div>
     </div>
@@ -309,7 +311,7 @@ export async function render(container, { params, query } = {}) {
   const creditTopupCard = isCredit ? `
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Top-ups</h2><p>${portal.balance_cents > 0 ? `${fmtMoney(portal.balance_cents)} left as an advance for the next bills` : 'Each top-up pays the oldest open bills first'}</p></div>
+        <div class="card-title"><h2>Top-ups</h2></div>
         <div style="display:flex;gap:6px">
           ${canWithdraw ? `<button class="btn btn-secondary btn-sm" data-action="withdraw">${icon('arrowUp', 14)} Withdraw</button>` : ''}
         </div>
@@ -318,7 +320,6 @@ export async function render(container, { params, query } = {}) {
         ${walletHistory || emptyState({
     iconName: 'wallet',
     title: 'No top-ups yet',
-    message: 'Top up to pay this supplier in advance. Open bills are paid oldest first.',
   })}
       </div>
     </div>
@@ -327,7 +328,7 @@ export async function render(container, { params, query } = {}) {
   const walletCards = isCredit ? '' : `
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Wallet movements</h2><p>Top-ups, credits and withdrawals</p></div>
+        <div class="card-title"><h2>Wallet movements</h2></div>
         <div style="display:flex;gap:6px">
           ${canWithdraw ? `<button class="btn btn-secondary btn-sm" data-action="withdraw">${icon('arrowUp', 14)} Withdraw</button>` : ''}
           ${portal.is_active ? `<button class="btn btn-primary btn-sm" data-action="topup">${icon('plus', 14)} Top up</button>` : ''}
@@ -337,64 +338,31 @@ export async function render(container, { params, query } = {}) {
         ${walletHistory || emptyState({
     iconName: 'wallet',
     title: 'No money moved yet',
-    message: 'Top up the wallet when you deposit money with this portal.',
   })}
       </div>
     </div>
 
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Settled bills</h2><p>Costs paid from this wallet</p></div>
+        <div class="card-title"><h2>Settled bills</h2></div>
       </div>
       <div class="card-body" ${portal.settlements.length ? 'style="padding:4px 20px"' : ''}>${settlementRows}</div>
     </div>
   `;
 
   const kpiCards = isCredit
-    ? `
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Balance due</span><span class="kpi-icon amber">${icon('bill', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(portal.outstanding_ap_cents)}</div>
-        <div class="kpi-meta">${portal.open_bills.length} open bill${portal.open_bills.length === 1 ? '' : 's'}${portal.balance_cents > 0 ? ` · ${fmtMoney(portal.balance_cents)} advance` : ''}</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">${hasCreditRefunds ? 'Billed / refunded' : 'Billed'}</span><span class="kpi-icon green">${icon('plus', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(creditLedger.total_credit_cents)}</div>
-        <div class="kpi-meta">${creditLedger.counts.period_bills} bill${creditLedger.counts.period_bills === 1 ? '' : 's'}${hasCreditRefunds ? ` · ${creditRefundCount} refund${creditRefundCount === 1 ? '' : 's'}` : ''} in period</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Paid</span><span class="kpi-icon blue">${icon('check', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(creditLedger.total_debit_cents)}</div>
-        <div class="kpi-meta">${creditLedger.counts.period_payments} payment${creditLedger.counts.period_payments === 1 ? '' : 's'} in period</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Credit available</span><span class="kpi-icon indigo">${icon('wallet', 16)}</span></div>
-        <div class="kpi-value">${portal.credit_limit_cents ? fmtMoney(portal.credit_available_cents) : '—'}</div>
-        <div class="kpi-meta">${portal.credit_limit_cents ? `of ${fmtMoney(portal.credit_limit_cents)}` : 'No limit set'}</div>
-      </div>
-    `
-    : `
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Wallet balance</span><span class="kpi-icon green">${icon('wallet', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(portal.balance_cents)}</div>
-        <div class="kpi-meta">${portal.settlement === 'prepaid' ? 'Prepaid with the supplier' : 'Deposit held (if any)'}</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Topped up</span><span class="kpi-icon indigo">${icon('plus', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(portal.topup_total_cents)}</div>
-        <div class="kpi-meta">${portal.topups.length} top-up${portal.topups.length === 1 ? '' : 's'} recorded</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Used on bookings</span><span class="kpi-icon blue">${icon('plane', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(portal.consumed_total_cents)}</div>
-        <div class="kpi-meta">${portal.settlements.length} bill${portal.settlements.length === 1 ? '' : 's'} settled</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-top"><span class="kpi-label">Supplier payable</span><span class="kpi-icon amber">${icon('bill', 16)}</span></div>
-        <div class="kpi-value">${fmtMoney(portal.outstanding_ap_cents)}</div>
-        <div class="kpi-meta">${portal.open_bills.length} open bill${portal.open_bills.length === 1 ? '' : 's'}</div>
-      </div>
-    `;
+    ? [
+      numberCardHtml({ label: 'Balance due', cents: portal.outstanding_ap_cents }),
+      numberCardHtml({ label: hasCreditRefunds ? 'Billed / refunded' : 'Billed', cents: creditLedger.total_credit_cents }),
+      numberCardHtml({ label: 'Paid', cents: creditLedger.total_debit_cents }),
+      portal.credit_limit_cents ? numberCardHtml({ label: 'Credit available', cents: portal.credit_available_cents }) : '',
+    ].join('')
+    : [
+      numberCardHtml({ label: 'Wallet', cents: portal.balance_cents }),
+      numberCardHtml({ label: 'Topped up', cents: portal.topup_total_cents }),
+      numberCardHtml({ label: 'Used on bookings', cents: portal.consumed_total_cents }),
+      numberCardHtml({ label: 'Supplier payable', cents: portal.outstanding_ap_cents }),
+    ].join('');
 
   container.innerHTML = `
     <div class="kpi-grid no-print">
@@ -417,9 +385,7 @@ export async function render(container, { params, query } = {}) {
         <button class="btn btn-ghost btn-sm" data-preset="all">All time</button>
       </div>
     </div>
-    <div class="stmt-hint no-print">${isCredit
-    ? 'The period applies to the statement below. Bills, payments and supplier refunds are the posted supplier ledger for this account. Refunds increase the payable because they return money to you while the supplier bill remains due.'
-    : 'The period applies to the statement below. Wallet movements further down always show the full history.'}</div>
+
 
     <div class="doc-wrap">
       <div class="doc">
@@ -512,7 +478,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Supplier payable</h2><p>${portal.open_bills.length} open bill${portal.open_bills.length === 1 ? '' : 's'}</p></div>
+          <div class="card-title"><h2>Supplier payable</h2></div>
           ${portal.is_active && portal.balance_cents > 0 && portal.open_bills.length
     ? `<button class="btn btn-primary btn-sm" data-action="settle">${icon('check', 14)} Settle</button>` : ''}
         </div>
@@ -521,7 +487,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Portal details</h2><p>${portal.is_active ? 'Active' : 'Archived'}</p></div>
+          <div class="card-title"><h2>Portal details</h2></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-secondary btn-sm" data-action="edit">${icon('edit', 14)} Edit</button>
             <button class="icon-btn danger" data-action="delete" title="Delete portal">${icon('trash', 16)}</button>

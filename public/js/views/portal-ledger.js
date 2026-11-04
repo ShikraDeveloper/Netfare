@@ -89,9 +89,6 @@ export async function render(container, { params, query } = {}) {
 
   setHeader({
     title: `${portal.name} — Supplier ledger`,
-    subtitle: isCredit
-      ? `${portalTypeLabel(portal.portal_type)} · ${portal.vendor_name || 'No supplier linked'} · running balance of bills, payments and refunds`
-      : `${portalTypeLabel(portal.portal_type)} · ${portal.vendor_name || 'No supplier linked'} · running balance of top-ups and consumption`,
     actions: [
       `<a class="btn btn-ghost" href="#/portals/${id}"><span>Statement</span></a>`,
       isCredit ? '' : `<a class="btn btn-secondary" href="#/portals/${id}/reconcile">${icon('check', 15)}<span>Reconcile</span></a>`,
@@ -132,7 +129,7 @@ export async function render(container, { params, query } = {}) {
   const reconciliationCard = reconciliation ? `
     <div class="card no-print" style="max-width:920px;margin:16px auto 0">
       <div class="card-head">
-        <div class="card-title"><h2>Ledger reconciliation</h2><p>Portal subledger vs the general ledger</p></div>
+        <div class="card-title"><h2>Ledger reconciliation</h2></div>
         <span class="badge ${reconciled ? 'badge-paid' : 'badge-overdue'}">${reconciled ? 'Reconciled' : 'Check needed'}</span>
       </div>
       <div class="card-body">
@@ -150,11 +147,7 @@ export async function render(container, { params, query } = {}) {
             <span class="recon-value ${reconciled ? '' : 'negative'}">${fmtMoney(reconciliation.difference_cents)}</span>
           </div>
         </div>
-        <p class="hint" style="margin-top:12px">
-          ${reconciled
-    ? `Every portal movement reconciles to account ${esc(reconciliation.account_code)}. A manual journal entry that touches this account would show up here as a difference.`
-    : 'A manual journal entry or an untagged movement may have touched this account. Review the general journal before closing the period.'}
-        </p>
+        ${reconciled ? '' : '<p class="recon-warning">Review the general journal before closing the period.</p>'}
       </div>
     </div>
   ` : '';
@@ -180,9 +173,6 @@ export async function render(container, { params, query } = {}) {
         <button class="btn btn-ghost btn-sm" data-preset="all">All time</button>
       </div>
     </div>
-    <div class="stmt-hint no-print">${isCredit
-    ? 'Every bill, payment and supplier refund is a posted journal entry. Bills and supplier refunds credit Trade Payables; payments debit it. Open a row to see the double-entry lines.'
-    : 'Every movement is a posted journal entry. Debits increase the wallet, credits consume it. Open a row to see the double-entry lines.'}</div>
 
     <div class="doc-wrap">
       <div class="doc">

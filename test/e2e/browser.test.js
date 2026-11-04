@@ -1068,7 +1068,7 @@ test('booking invoices and bills offer cancel or supplier credit instead of void
 
   await openRoute(`/bills/${bill.id}`);
   assert.equal(await page.locator('#page-actions [data-action="void"]').count(), 0, 'No void on a booking bill');
-  await page.locator('#page-actions [data-action="supplier-credit"]').click();
+  await clickPageAction('[data-action="supplier-credit"]');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
   await page.waitForFunction((billId) => document.querySelector('#sc-bill')?.value === String(billId), bill.id);

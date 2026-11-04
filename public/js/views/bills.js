@@ -51,14 +51,8 @@ function billRow(bill) {
 
 export async function render(container, { query } = {}) {
   const bills = await api.get('/bills');
-  const outstanding = bills
-    .filter((bill) => !['draft', 'void', 'paid'].includes(bill.status_display))
-    .reduce((sum, bill) => sum + bill.balance_cents, 0);
-  const openCount = bills.filter((bill) => !['draft', 'void', 'paid'].includes(bill.status_display)).length;
-
   setHeader({
     title: 'Bills & expenses',
-    subtitle: `${bills.length} bill${bills.length === 1 ? '' : 's'} · ${fmtMoney(outstanding)} payable across ${openCount}`,
     actions: `
       <button class="btn btn-secondary" data-action="quick-expense">${icon('cash', 16)}<span>Quick expense</span></button>
       <button class="btn btn-primary" data-action="new-bill">${icon('plus', 16)}<span>New bill</span></button>`,
@@ -72,8 +66,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'bill',
     title: 'No bills yet',
-    message: 'Record a supplier bill or expense. Receiving it will post the expense and a payable to your ledger automatically.',
-    action: '<button class="btn btn-secondary" data-action="quick-expense">Quick expense</button> <button class="btn btn-primary" data-action="new-bill">Record your first bill</button>',
+    action: '<button class="btn btn-secondary" data-action="quick-expense">Quick expense</button> <button class="btn btn-primary" data-action="new-bill">New bill</button>',
   })}
       </div>
     `;
@@ -145,7 +138,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="7">${emptyState({
         iconName: 'search',
         title: 'No matching bills',
-        message: 'Try a different search term, status or date range.',
       })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(billRow).join('');
@@ -289,7 +281,6 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
 
   const modal = openModal({
     title: isEdit ? `Edit ${bill.number}` : 'New bill',
-    subtitle: isEdit ? 'Draft bills can be edited until they are received.' : 'Receiving a bill posts the expense and a payable to your books.',
     size: 'modal-xl',
     body,
     submitLabel: isEdit ? 'Save bill' : 'Save bill',
