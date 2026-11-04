@@ -14,7 +14,9 @@ const { chromium } = require('playwright-core');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'website', 'assets', 'screens');
-const ADMIN = { full_name: 'Jamal', username: 'screens', password: 'screens-pass-1' };
+// Made-up names, so the pictures show no real person or company.
+const ADMIN = { full_name: 'Karim Aziz', username: 'screens', password: 'screens-pass-1' };
+const AGENCY = 'Blue Dune Travel';
 const CHROME = [
   process.env.CHROME_PATH,
   '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -64,11 +66,11 @@ async function main() {
     await post('/api/auth/recovery-key');
     await post('/api/auth/recovery-key/confirm');
     await post('/api/admin/demo');
-    // The sample agency carries ShikraGroup's own name, with no contact details.
+    // A made-up agency name, with no contact details.
     await fetch(`${base}/api/settings`, {
       method: 'PUT',
       headers: { ...json, Cookie: cookie },
-      body: JSON.stringify({ company_name: 'Shikra Travel', company_email: '', company_phone: '', company_address: 'Dubai, United Arab Emirates' }),
+      body: JSON.stringify({ company_name: AGENCY, company_email: '', company_phone: '', company_address: 'Dubai, United Arab Emirates' }),
     });
     await post('/api/users', {
       full_name: 'Sara Counter', username: 'sara', password: 'sara-pass-123',
