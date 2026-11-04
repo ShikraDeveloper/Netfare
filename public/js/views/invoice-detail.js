@@ -7,8 +7,8 @@ import {
   companyMark,
   confirmDialog,
   currencySymbol,
-  emptyState,
   esc,
+  foldHtml,
   fmtDate,
   fmtMoney,
   fmtNumber,
@@ -18,7 +18,6 @@ import {
   optionsHtml,
   setHeader,
   statusBadge,
-  summaryStripHtml,
   toast,
   toCents,
   todayISO,
@@ -30,7 +29,7 @@ import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share
 import { openInvoiceModal } from './invoices.js';
 import { openRefundModal } from './refund-modal.js';
 import { visaDurationLabel, visaTypeLabel } from './visas.js';
-import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
+import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
 
 const DOCUMENT_TITLES = {
   ticket: 'Ticket invoice',
@@ -308,13 +307,17 @@ export async function render(container, { params } = {}) {
   const jobType = isCancellationInvoice ? null : invoice.booking_id ? 'booking' : invoice.visa_id ? 'visa' : null;
   const canVoid = invoice.status === 'sent' && !jobType && !isCancellationInvoice;
 
+  // One main action; everything else is in the More menu.
   const actions = [];
-  const menu = [`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`];
+  const menu = [];
+  if (!isDraft && !isVoid) {
+    menu.push(`<button class="btn btn-ghost" data-action="share">${icon('send', 15)}<span>Share</span></button>`);
+  }
   if (invoice.booking_id) {
-    actions.push(`<a class="btn btn-secondary" href="#/bookings/${invoice.booking_id}">${icon('plane', 15)}<span>Booking</span></a>`);
+    menu.push(`<a class="btn btn-ghost" href="#/bookings/${invoice.booking_id}">${icon('plane', 15)}<span>Booking</span></a>`);
   }
   if (invoice.visa_id) {
-    actions.push(`<a class="btn btn-secondary" href="#/visas/${invoice.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
+    menu.push(`<a class="btn btn-ghost" href="#/visas/${invoice.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
   }
   if (isCancellationInvoice) {
     menu.push(`<a class="btn btn-secondary" href="#/cancellations/${invoice.cancellation_id}">${icon('x', 15)}<span>Cancellation note</span></a>`);
@@ -325,13 +328,10 @@ export async function render(container, { params } = {}) {
   if (invoice.status === 'sent' && invoice.balance_cents > 0) {
     menu.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
   }
-  menu.push(`<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
-  if (!isDraft && !isVoid) {
-    actions.push(`<button class="btn btn-secondary" data-action="share">${icon('send', 15)}<span>Share</span></button>`);
-  }
+  menu.push(`<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
   if (isDraft) {
     actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
-    actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
+    menu.push(`<button class="btn btn-danger-ghost" data-action="delete">${icon('trash', 15)}<span>Delete draft</span></button>`);
     actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Send &amp; post</span></button>`);
   } else if (canRecordPayment) {
     actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
@@ -340,6 +340,7 @@ export async function render(container, { params } = {}) {
     menu.push(`<button class="btn btn-ghost" data-action="payment-link">${icon('send', 15)}<span>${invoice.payment_link ? 'Change payment link' : 'Add payment link'}</span></button>`);
   }
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/invoice/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  menu.push(`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`);
   if (canVoid) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
@@ -350,7 +351,7 @@ export async function render(container, { params } = {}) {
   pageRecord(invoice, { print: true });
   setHeader({
     title: invoice.number,
-    subtitle: `${invoice.customer_name} · Issued ${fmtDate(invoice.issue_date)}`,
+    badge: statusBadge(invoice.status_display),
     actions: actions.join('') + moreMenuHtml(menu),
   });
 
@@ -380,11 +381,7 @@ export async function render(container, { params } = {}) {
         </div>
       `;
     }).join('')
-    : emptyState({
-      iconName: 'cash',
-      title: 'No payments recorded',
-      message: canRecordPayment ? 'Record a payment to reduce the balance due.' : 'Payments will appear here once recorded.',
-    });
+    : '<p class="muted fold-empty">No payments yet</p>';
 
   const journalHtml = journal
     ? `
@@ -415,14 +412,6 @@ export async function render(container, { params } = {}) {
   const hasJobDetails = ['ticket', 'booking', 'visa'].includes(invoice.document_kind);
 
   container.innerHTML = `
-    ${summaryStripHtml([
-      { label: 'Status', html: statusBadge(invoice.status_display) },
-      { label: 'Customer', value: invoice.customer_name },
-      { label: 'Total', value: fmtMoney(invoice.total_cents) },
-      { label: 'Paid', value: fmtMoney((invoice.amount_paid_cents || 0) + (invoice.credit_applied_cents || 0)) },
-      { label: 'Balance', value: fmtMoney(invoice.balance_cents), tone: invoice.balance_cents > 0 && invoice.status === 'sent' ? 'due' : '' },
-      { label: 'Due', value: fmtDate(invoice.due_date) },
-    ])}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">
@@ -502,15 +491,12 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
-    <div class="detail-grid no-print">
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Payments</h2><p>${invoice.amount_paid_cents > 0 ? `${fmtMoney(invoice.amount_paid_cents)} received` : 'Nothing received yet'}</p></div>
-          ${canRecordPayment ? `<button class="btn btn-secondary btn-sm" data-action="payment">${icon('plus', 14)} Record</button>` : ''}
-        </div>
-        <div class="card-body" ${invoice.payments.length ? 'style="padding:4px 20px"' : ''}>
-          ${paymentRows}
-          ${invoice.credits?.length ? `
+    <div class="card folds no-print">
+      ${foldHtml({
+    key: 'payments',
+    title: 'Payments',
+    count: invoice.payments.length + (invoice.credits?.length || 0),
+    body: `${paymentRows}${invoice.credits?.length ? `
             <div class="credit-application-list">
               <div class="credit-application-title">Credits applied</div>
               ${invoice.credits.map((credit) => `
@@ -519,20 +505,16 @@ export async function render(container, { params } = {}) {
                   <strong>−${fmtMoney(credit.amount_cents)}</strong>
                 </div>
               `).join('')}
-            </div>
-          ` : ''}
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Ledger entry</h2><p>${journal ? `Posted ${esc(fmtDate(journal.entry_date))}` : 'Not posted'}</p></div>
-          ${journal ? `<a class="card-link" href="#/journal?focus=${journal.id}">Open ${icon('chevron', 12)}</a>` : ''}
-        </div>
-        <div class="card-body">${journalHtml}</div>
-      </div>
+            </div>` : ''}`,
+  })}
+      ${foldHtml({
+    key: 'ledger',
+    title: 'Ledger entry',
+    actions: journal ? `<a class="card-link" href="#/journal?focus=${journal.id}">Open ${icon('chevron', 12)}</a>` : '',
+    body: journalHtml,
+  })}
+      ${attachmentFoldHtml({ entityType: 'invoice', entityId: id, attachments })}
     </div>
-
-    ${attachmentSection({ entityType: 'invoice', entityId: id, attachments })}
   `;
 
   bindAttachmentSection(container, { entityType: 'invoice', entityId: id });

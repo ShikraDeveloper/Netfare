@@ -16,6 +16,7 @@ import {
   inDateRange,
   openModal,
   optionsHtml,
+  segmentedHtml,
   setHeader,
   statusBadge,
   todayISO,
@@ -61,7 +62,7 @@ export async function render(container, { query } = {}) {
   setHeader({
     title: 'Invoices',
     subtitle: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · ${fmtMoney(outstanding)} outstanding across ${openCount}`,
-    actions: `<button class="btn btn-primary" data-action="new-invoice">${icon('plus', 16)}<span>New service invoice</span></button>`,
+    actions: `<button class="btn btn-primary" data-action="new-invoice">${icon('plus', 16)}<span>New invoice</span></button>`,
   });
 
   if (!invoices.length) {
@@ -252,41 +253,33 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
   const issueDate = invoice?.issue_date || todayISO();
   const dueDate = invoice?.due_date || addDaysISO(issueDate, Number(settings.payment_terms_days ?? 30));
 
+  // Tickets, packages and visas are sold from a booking or visa, so their
+  // supplier cost is recorded too; the switch at the top goes there.
+  // A traveller other than the customer is printed on the invoice; it is
+  // still billed to the customer.
   const body = `
     <div class="form-grid">
-      <div class="field full">
-        <div class="form-note" data-service-invoice-hint>
-          <strong>For income with no supplier cost</strong>, such as service fees, commission or consultancy.
-          Selling a ticket, package or visa? Create a <a href="#/bookings?new=1">booking</a> or
-          <a href="#/visas?new=1">visa</a> instead, so the supplier cost and gross profit are recorded with the sale.
-        </div>
-      </div>
-      <div class="field full">
+      ${isEdit ? '' : `<div class="field full">${segmentedHtml('invoice-kind', [
+    { value: 'service', label: 'Service' },
+    { value: 'booking', label: 'Booking', action: 'new-booking' },
+    { value: 'visa', label: 'Visa', action: 'new-visa' },
+  ], 'service')}</div>`}
+      <div class="field">
         <label for="invoice-customer">Customer</label>
         <select class="input" id="invoice-customer" name="customer_id" required>
-          ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose a customer…' })}
+          ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose…' })}
         </select>
       </div>
-      <div class="field full">
-        <label class="checkbox-row" for="invoice-for-other">
-          <input type="checkbox" id="invoice-for-other" ${forSomeoneElse ? 'checked' : ''}>
-          <span>
-            <strong>This invoice is for someone else</strong><br>
-            Turn this on when the customer pays for another person, such as a traveller, guest or family member. The invoice is still billed to the customer.
-          </span>
-        </label>
-      </div>
-      <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
-        <label for="invoice-beneficiary">Name of the person</label>
-        <input class="input" id="invoice-beneficiary" name="beneficiary_name" maxlength="160" autocomplete="off"
-          value="${esc(invoice?.beneficiary_name || '')}" placeholder="Full name as on the passport" ${forSomeoneElse ? 'required' : ''}>
-      </div>
       <div class="field">
-        <label for="invoice-issue">Issue date</label>
+        <label for="invoice-issue">Date</label>
         <input class="input" id="invoice-issue" name="issue_date" type="date" value="${esc(issueDate)}" required>
       </div>
-      <div class="field full" style="margin-top:2px">
-        <label>What are you charging for?</label>
+      <div class="field full">
+        <label for="invoice-beneficiary">Traveller</label>
+        <input class="input" id="invoice-beneficiary" name="beneficiary_name" maxlength="160" autocomplete="off"
+          value="${esc(forSomeoneElse ? invoice?.beneficiary_name || '' : '')}" placeholder="Same as customer">
+      </div>
+      <div class="field full">
         ${lineItemsHtml(invoice?.items || [], accounts, { compact: true })}
         <div class="totals-panel">
           <div class="totals-row total"><span>Total</span><span id="sum-total">${fmtMoney(0)}</span></div>
@@ -307,7 +300,7 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
           <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
             <label for="invoice-beneficiary-passport">Passport number</label>
             <input class="input" id="invoice-beneficiary-passport" name="beneficiary_passport" maxlength="60" autocomplete="off"
-              value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional · only the last 4 characters are printed">
+              value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional">
           </div>
           <div class="field">
             <label for="invoice-notes">Notes</label>
@@ -321,7 +314,7 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
             <div class="field full">
               <label class="checkbox-row">
                 <input type="checkbox" name="save_draft" value="1">
-                <span>Save as draft — don’t post to the ledger until you send it</span>
+                <span>Save as draft</span>
               </label>
             </div>
           `}
@@ -331,11 +324,10 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
   `;
 
   const modal = openModal({
-    title: isEdit ? `Edit ${invoice.number}` : 'New service invoice',
-    subtitle: isEdit ? 'Draft invoices can be edited until they are sent.' : 'Sending an invoice posts a receivable and revenue to your books.',
+    title: isEdit ? `Edit ${invoice.number}` : 'New invoice',
     size: 'modal-xl',
     body,
-    submitLabel: isEdit ? 'Save invoice' : 'Create invoice',
+    submitLabel: isEdit ? 'Save invoice' : 'Create',
     onMount(overlay) {
       const editor = mountLineItems(overlay, {
         accounts,
@@ -345,24 +337,22 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
       });
       overlay.editor = editor;
 
-      // The hint links leave the form: close it first, then open the booking or visa form.
-      overlay.querySelectorAll('[data-service-invoice-hint] a').forEach((link) => {
-        link.addEventListener('click', (event) => {
-          event.preventDefault();
-          const target = link.getAttribute('href');
+      // Booking and Visa leave this form for theirs.
+      overlay.querySelectorAll('[data-seg="invoice-kind"] [data-seg-value]').forEach((button) => {
+        if (button.dataset.segValue === 'service') return;
+        button.addEventListener('click', () => {
           overlay.querySelector('[data-close]')?.click();
-          location.hash = target;
+          location.hash = `#/${button.dataset.segValue}s?new=1`;
         });
       });
 
-      const otherToggle = overlay.querySelector('#invoice-for-other');
+      // Nationality and passport (under More details) only matter for a traveller.
       const beneficiaryName = overlay.querySelector('#invoice-beneficiary');
-      otherToggle.addEventListener('change', () => {
-        const isOther = otherToggle.checked;
+      const syncTraveller = () => {
+        const isOther = Boolean(beneficiaryName.value.trim());
         overlay.querySelectorAll('[data-beneficiary-field]').forEach((field) => { field.hidden = !isOther; });
-        beneficiaryName.required = isOther;
-        if (isOther) beneficiaryName.focus();
-      });
+      };
+      beneficiaryName.addEventListener('input', syncTraveller);
 
       if (!isEdit) {
         const issueInput = overlay.querySelector('#invoice-issue');
@@ -395,13 +385,12 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         items,
         status,
       };
-      const forOther = Boolean(form.querySelector('#invoice-for-other')?.checked);
-      payload.beneficiary_is_customer = !forOther;
-      if (forOther) {
-        payload.beneficiary_name = values.get('beneficiary_name');
+      const traveller = String(values.get('beneficiary_name') || '').trim();
+      payload.beneficiary_is_customer = !traveller;
+      if (traveller) {
+        payload.beneficiary_name = traveller;
         payload.beneficiary_nationality = values.get('beneficiary_nationality');
         payload.beneficiary_passport = values.get('beneficiary_passport');
-        if (!String(payload.beneficiary_name || '').trim()) throw new Error('Enter the name of the person this invoice is for');
       }
       const saved = isEdit
         ? await api.put(`/invoices/${invoice.id}`, payload)

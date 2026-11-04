@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { confirmDialog, esc, fmtDate, icon, toast } from './ui.js';
+import { confirmDialog, esc, fmtDate, foldHtml, icon, toast } from './ui.js';
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
@@ -22,6 +22,23 @@ export function attachmentSection({ entityType, entityId, attachments, hint = 'T
       <div class="card-body" data-attachment-list>${attachmentListHtml(attachments)}</div>
     </div>
   `;
+}
+
+// The same files as a fold row (ui.js foldHtml) inside a .folds card.
+export function attachmentFoldHtml({ entityType, entityId, attachments, title = 'Attachments' }) {
+  return foldHtml({
+    key: 'attachments',
+    title,
+    count: attachments.length,
+    body: `
+      <div class="attachments-card">
+        <div class="fold-actions">
+          <button class="btn btn-secondary btn-sm" data-action="upload-attachment">${icon('plus', 14)} Add file</button>
+        </div>
+        <input type="file" hidden data-attachment-input accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.csv,.txt,.xls,.xlsx,.doc,.docx">
+        <div data-attachment-list>${attachmentListHtml(attachments)}</div>
+      </div>`,
+  });
 }
 
 export function bindAttachmentSection(container, { entityType, entityId }) {

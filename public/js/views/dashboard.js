@@ -1,5 +1,6 @@
 import { api } from '../api.js';
-import { refreshMeta, store } from '../store.js';
+import { refreshMeta } from '../store.js';
+import { bindPops, canOpen, newMenuHtml } from '../menu.js';
 import {
   avatar,
   emptyState,
@@ -8,6 +9,7 @@ import {
   icon,
   longMonth,
   monthLabel,
+  segmentedHtml,
   setHeader,
   statusBadge,
   toast,
@@ -53,31 +55,66 @@ function chartTheme() {
   };
 }
 
-function kpiCard(label, valueCents, meta, iconName, color, compact = false) {
+// One number per card; a red number means part of it is overdue.
+function kpiCard(label, valueCents, href, overdue = false) {
   return `
-    <div class="kpi">
-      <div class="kpi-top">
-        <span class="kpi-label">${esc(label)}</span>
-        <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
-      </div>
-      <div class="kpi-value">${chartMoney(valueCents, compact)}</div>
-      <div class="kpi-meta">${meta}</div>
-    </div>
+    <a class="kpi kpi-simple${overdue ? ' is-overdue' : ''}" href="${href}">
+      <span class="kpi-label">${esc(label)}</span>
+      <span class="kpi-value">${chartMoney(valueCents)}</span>
+    </a>
   `;
 }
 
-function countCard(label, value, meta, iconName, color) {
+// The latest invoices, bills, bookings and visas in one card, one list at a
+// time. Only the lists this user may open are offered.
+const RECENT = [
+  { value: 'invoices', label: 'Invoices', section: 'invoices',
+    rows: (data) => data.recent_invoices.map((row) => ({ href: `#/invoices/${row.id}`, name: row.customer_name, sub: row.number, cents: row.total_cents, status: row.status_display })) },
+  { value: 'bills', label: 'Bills', section: 'bills',
+    rows: (data) => data.recent_bills.map((row) => ({ href: `#/bills/${row.id}`, name: row.vendor_name, sub: row.number, cents: row.total_cents, status: row.status_display })) },
+  { value: 'bookings', label: 'Bookings', section: 'bookings',
+    rows: (data) => (data.recent_bookings || []).map((row) => ({ href: `#/bookings/${row.id}`, name: row.customer_name, sub: row.number, cents: row.sale_total_cents, status: row.status })) },
+  { value: 'visas', label: 'Visas', section: 'visas',
+    rows: (data) => (data.recent_visas || []).map((row) => ({ href: `#/visas/${row.id}`, name: row.applicant_name || row.customer_name, sub: row.number, cents: row.sale_total_cents, status: row.status })) },
+];
+
+function recentHtml(data) {
+  const lists = RECENT.filter((list) => canOpen(list.section));
+  if (!lists.length) return '';
+  const first = lists[0].value;
   return `
-    <div class="kpi">
-      <div class="kpi-top">
-        <span class="kpi-label">${esc(label)}</span>
-        <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
+    <div class="card recent-card" data-recent>
+      <div class="card-head">
+        <div class="card-title"><h2>Recent</h2></div>
+        ${lists.length > 1 ? segmentedHtml('recent', lists, first) : ''}
       </div>
-      <div class="kpi-value">${esc(value)}</div>
-      <div class="kpi-meta">${meta}</div>
-    </div>
-  `;
+      ${lists.map((list) => {
+    const rows = list.rows(data);
+    return `
+      <div class="mini-list" data-recent-list="${list.value}"${list.value === first ? '' : ' hidden'}>
+        ${rows.length ? rows.map((row) => `
+          <a class="mini-row" href="${row.href}">
+            ${avatar(row.name, 32)}
+            <div class="mini-main"><div class="mini-title">${esc(row.name)}</div><div class="mini-sub">${esc(row.sub)}</div></div>
+            <div class="mini-amount">${fmtMoney(row.cents)}<small>${statusBadge(row.status)}</small></div>
+          </a>`).join('') : emptyState({ iconName: 'file', title: `No ${list.label.toLowerCase()} yet` })}
+        <a class="mini-all" href="#/${list.value}">All ${list.label.toLowerCase()} ${icon('chevron', 12)}</a>
+      </div>`;
+  }).join('')}
+    </div>`;
 }
+
+function bindRecent(container) {
+  const card = container.querySelector('[data-recent]');
+  if (!card) return;
+  card.querySelectorAll('[data-seg-value]').forEach((button) => {
+    button.addEventListener('click', () => {
+      card.querySelectorAll('[data-seg-value]').forEach((other) => other.setAttribute('aria-pressed', String(other === button)));
+      card.querySelectorAll('[data-recent-list]').forEach((list) => { list.hidden = list.dataset.recentList !== button.dataset.segValue; });
+    });
+  });
+}
+
 
 function renderCharts(data, container) {
   if (!window.Chart) return;
@@ -159,46 +196,6 @@ function renderCharts(data, container) {
       },
     });
     charts.push(trend);
-  }
-
-  const expenseCanvas = container.querySelector('#expense-chart');
-  if (expenseCanvas) {
-    const breakdown = data.expense_breakdown;
-    const donut = new Chart(expenseCanvas, {
-      type: 'doughnut',
-      data: {
-        labels: breakdown.map((item) => item.name),
-        datasets: [{
-          data: breakdown.map((item) => item.amount_cents / 100),
-          backgroundColor: theme.palette.slice(0, breakdown.length),
-          borderColor: theme.surface,
-          borderWidth: 3,
-          hoverOffset: 5,
-        }],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '68%',
-        plugins: {
-          legend: {
-            position: 'bottom',
-            labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 7, boxHeight: 7, padding: 14, font: { size: 11 } },
-          },
-          tooltip: {
-            backgroundColor: theme.tooltip,
-            titleColor: theme.tooltipText,
-            bodyColor: theme.tooltipText,
-            padding: 10,
-            cornerRadius: 8,
-            callbacks: {
-              label: (context) => ` ${context.label}: ${fmtMoney(Math.round(context.parsed * 100))}`,
-            },
-          },
-        },
-      },
-    });
-    charts.push(donut);
   }
 }
 
@@ -289,17 +286,13 @@ function ledgerChecksCard(reconciliation) {
   if (!reconciliation || !Array.isArray(reconciliation.checks)) return '';
   const checks = reconciliation.checks;
   const differences = checks.filter((check) => !check.matched).length;
-  const summary = differences
-    ? `${differences} check${differences === 1 ? '' : 's'} need${differences === 1 ? 's' : ''} attention`
-    : `All ${checks.length} checks match`;
+  // A folded line while every check matches; open with the differences.
   return `
-    <details class="card ledger-checks" style="margin-top:16px" data-ledger-checks ${differences ? 'open' : ''}>
+    <details class="card ledger-checks" data-ledger-checks ${differences ? 'open' : ''}>
       <summary class="card-head">
-        <div class="card-title">
-          <h2>Ledger checks</h2>
-          <p class="${differences ? 'down' : 'up'}">${icon(differences ? 'alert' : 'check', 13)} ${esc(summary)}</p>
-        </div>
-        <span class="card-link">${differences ? 'Hide details' : 'Show details'} ${icon('chevron', 13)}</span>
+        <div class="card-title"><h2>Ledger checks</h2></div>
+        <span class="ledger-state ${differences ? 'down' : 'up'}" data-ledger-state>${icon(differences ? 'alert' : 'check', 13)} ${differences ? `${differences} to fix` : checks.length}</span>
+        ${icon('chevron', 13)}
       </summary>
       <div class="table-wrap">
         <table class="data">
@@ -343,141 +336,19 @@ export async function render(container, { query } = {}) {
     api.get('/reports/reconciliation').catch(() => null),
   ]);
   const month = longMonth(data.as_of);
-  const company = store.settings?.company_name || 'My Company';
 
-  setHeader({
-    title: 'Dashboard',
-    subtitle: `${month} · ${company}`,
-    actions: `
-      <button class="btn btn-secondary" data-action="new-bill">${icon('plus', 16)}<span>New bill</span></button>
-      <button class="btn btn-secondary" data-action="new-visa">${icon('plus', 16)}<span>New visa</span></button>
-      <button class="btn btn-primary" data-action="new-booking">${icon('plus', 16)}<span>New booking</span></button>
-    `,
-  });
+  // One New menu: the same as the sidebar's, shown here on phones, where
+  // the sidebar is folded away.
+  setHeader({ title: 'Dashboard', actions: `<div class="page-new">${newMenuHtml()}</div>` });
+  bindPops(document.getElementById('page-actions'));
 
-  const bookings = data.bookings || { counts: {}, booking_count: 0, sale_cents: 0, cost_cents: 0, margin_cents: 0 };
-  const visas = data.visas || { counts: {}, visa_count: 0, active_count: 0, sale_cents: 0, cost_cents: 0, margin_cents: 0 };
-  const portals = data.portals || { count: 0, active_count: 0, balance_cents: 0, outstanding_ap_cents: 0 };
-  const compliance = data.compliance || { active_count: 0, overdue_count: 0, due_soon_count: 0, attention_count: 0, next_items: [] };
-  const complianceAttention = (compliance.next_items || [])
-    .filter((item) => ['overdue', 'due', 'soon'].includes(item.due_state))
-    .slice(0, 2);
   const isEmpty = data.counts.invoices === 0 && data.counts.bills === 0
     && data.counts.bookings === 0 && (data.counts.visas || 0) === 0;
-  const complianceCallout = compliance.attention_count
-    ? `<a class="callout" href="#/compliance" style="text-decoration:none;color:inherit;border-color:var(--amber-soft)">
-        <div class="callout-icon" style="background:var(--amber-soft);color:var(--amber)">${icon('alert', 20)}</div>
-        <div class="callout-text">
-          <h3>Compliance needs attention</h3>
-          <p>${compliance.overdue_count} overdue · ${compliance.due_soon_count} due soon${complianceAttention.length ? ` · ${complianceAttention.map((item) => esc(item.name)).join(' · ')}` : ''}</p>
-        </div>
-        <div class="callout-actions"><span class="btn btn-secondary btn-sm">Open compliance</span></div>
-      </a>`
-    : '';
-  const overdueAr = data.overdue_ar_cents > 0
-    ? `<span class="down">${fmtMoney(data.overdue_ar_cents, { compact: true })} overdue</span>`
-    : 'All invoices are current';
-
-  const invoicesHtml = data.recent_invoices.length
-    ? data.recent_invoices.map((invoice) => `
-        <a class="mini-row" href="#/invoices/${invoice.id}">
-          ${avatar(invoice.customer_name, 32)}
-          <div class="mini-main">
-            <div class="mini-title">${esc(invoice.customer_name)}</div>
-            <div class="mini-sub">${esc(invoice.number)} · ${esc(invoice.issue_date)}</div>
-          </div>
-          <div class="mini-amount">${fmtMoney(invoice.total_cents)}<small>${statusBadge(invoice.status_display)}</small></div>
-        </a>
-      `).join('')
-    : emptyState({
-      iconName: 'invoice',
-      title: 'No invoices yet',
-      message: 'Create your first invoice and it will appear here.',
-      action: '<button class="btn btn-primary btn-sm" data-action="new-invoice">Create invoice</button>',
-    });
-
-  const billsHtml = data.recent_bills.length
-    ? data.recent_bills.map((bill) => `
-        <a class="mini-row" href="#/bills/${bill.id}">
-          ${avatar(bill.vendor_name, 32)}
-          <div class="mini-main">
-            <div class="mini-title">${esc(bill.vendor_name)}</div>
-            <div class="mini-sub">${esc(bill.number)} · ${esc(bill.bill_date)}</div>
-          </div>
-          <div class="mini-amount">${fmtMoney(bill.total_cents)}<small>${statusBadge(bill.status_display)}</small></div>
-        </a>
-      `).join('')
-    : emptyState({
-      iconName: 'bill',
-      title: 'No bills yet',
-      message: 'Record a supplier bill to track payables.',
-      action: '<button class="btn btn-secondary btn-sm" data-action="new-bill">Record bill</button>',
-    });
-
-  const recentBookings = data.recent_bookings || [];
-  const bookingsHtml = recentBookings.length
-    ? recentBookings.map((booking) => `
-        <a class="mini-row" href="#/bookings/${booking.id}">
-          ${avatar(booking.customer_name, 32)}
-          <div class="mini-main">
-            <div class="mini-title">${esc(booking.customer_name)}</div>
-            <div class="mini-sub">${esc(booking.number)} · ${esc(booking.destination || 'No destination')}</div>
-          </div>
-          <div class="mini-amount">${fmtMoney(booking.sale_total_cents)}<small>${statusBadge(booking.status)}</small></div>
-        </a>
-      `).join('')
-    : emptyState({
-      iconName: 'plane',
-      title: 'No bookings yet',
-      message: 'Create a travel booking to track sale price, supplier cost and gross profit.',
-      action: '<button class="btn btn-primary btn-sm" data-action="new-booking">Create booking</button>',
-    });
-
-  const recentVisas = data.recent_visas || [];
-  const visasHtml = recentVisas.length
-    ? recentVisas.map((visa) => `
-        <a class="mini-row" href="#/visas/${visa.id}">
-          ${avatar(visa.applicant_name || visa.customer_name, 32)}
-          <div class="mini-main">
-            <div class="mini-title">${esc(visa.applicant_name || visa.customer_name)}</div>
-            <div class="mini-sub">${esc(visa.number)} · ${esc(visa.destination_country || 'Visa application')}</div>
-          </div>
-          <div class="mini-amount">${fmtMoney(visa.sale_total_cents)}<small>${statusBadge(visa.status)}</small></div>
-        </a>
-      `).join('')
-    : emptyState({
-      iconName: 'visa',
-      title: 'No visa applications yet',
-      message: 'Create a visa application to track applicants, embassy costs and gross profit.',
-      action: '<button class="btn btn-primary btn-sm" data-action="new-visa">Create visa</button>',
-    });
-
-  const recentTopups = data.recent_topups || [];
-  const topupsHtml = recentTopups.length
-    ? recentTopups.map((topup) => `
-        <a class="mini-row" href="#/portals/${topup.portal_id}">
-          ${avatar(topup.portal_name, 32)}
-          <div class="mini-main">
-            <div class="mini-title">${esc(topup.portal_name)}</div>
-            <div class="mini-sub">${esc(topup.number)} · ${esc(topup.topup_date)}${topup.reference ? ` · ${esc(topup.reference)}` : ''}</div>
-          </div>
-          <div class="mini-amount">${fmtMoney(topup.amount_cents)}<small>top-up</small></div>
-        </a>
-      `).join('')
-    : emptyState({
-      iconName: 'wallet',
-      title: 'No portal top-ups yet',
-      message: 'Top up an airline, agency or visa-agent wallet to track the balance you hold there.',
-      action: '<button class="btn btn-secondary btn-sm" data-action="new-portal">Add a portal</button>',
-    });
 
   const callout = isEmpty ? `
     <div class="callout">
       <div class="callout-icon">${icon('trendUp', 20)}</div>
-      <div class="callout-text">
-        <h3>Welcome to Netfare</h3>
-        <p>Your books are ready. Load a sample business to explore invoices, bills and reports — or start with a blank ledger.</p>
-      </div>
+      <div class="callout-text"><h3>Welcome to Netfare</h3></div>
       <div class="callout-actions">
         <button class="btn btn-secondary btn-sm" data-action="demo">Load sample data</button>
         <button class="btn btn-primary btn-sm" data-action="new-invoice">Create first invoice</button>
@@ -485,107 +356,32 @@ export async function render(container, { query } = {}) {
     </div>
   ` : '';
 
-  const expenseEmpty = data.expense_breakdown.length === 0;
-
   container.innerHTML = `
     ${callout}
     ${isEmpty ? '' : pendingHtml(data.pending)}
-    ${complianceCallout}
-    <div class="kpi-grid">
-      ${kpiCard('Cash in hand', data.cash_only_cents ?? data.cash_cents, `${data.cash_only_cents > 0 ? '<a href="#/banking?new=1">Deposit cash</a> · ' : ''}Cash at bank ${fmtMoney(data.bank_cents ?? 0, { compact: true })}`, 'wallet', 'indigo')}
-      ${kpiCard('Trade receivables', data.ar_outstanding_cents, `${data.ar_count} open invoice${data.ar_count === 1 ? '' : 's'} · ${overdueAr}`, 'invoice', 'blue')}
-      ${kpiCard(`Revenue · ${month.split(' ')[0]}`, data.revenue_mtd_cents, `Profit for the month ${fmtMoney(data.net_income_mtd_cents, { compact: true })}`, 'trendUp', 'green')}
-      ${kpiCard(`Expenses · ${month.split(' ')[0]}`, data.expenses_mtd_cents, `Trade payables ${fmtMoney(data.ap_outstanding_cents, { compact: true })}`, 'cash', 'amber')}
-      ${kpiCard(`Booking gross profit · ${month.split(' ')[0]}`, bookings.margin_cents, `${bookings.booking_count} booking${bookings.booking_count === 1 ? '' : 's'} · sales ${fmtMoney(bookings.sale_cents, { compact: true })}`, 'plane', 'indigo')}
-      ${kpiCard(`Visa gross profit · ${month.split(' ')[0]}`, visas.margin_cents, `${visas.visa_count} application${visas.visa_count === 1 ? '' : 's'} · sales ${fmtMoney(visas.sale_cents, { compact: true })}`, 'visa', 'green')}
-      ${countCard('Visa pipeline', String(visas.active_count || 0), `${visas.counts.issued || 0} issued · ${visas.counts.rejected || 0} rejected`, 'visa', 'amber')}
-      ${kpiCard('Portal wallets', portals.balance_cents, `${portals.active_count} portal${portals.active_count === 1 ? '' : 's'} · ${fmtMoney(portals.outstanding_ap_cents, { compact: true })} payable`, 'wallet', 'green')}
+    <div class="kpi-grid kpi-grid-4">
+      ${kpiCard('Cash', data.cash_cents, '#/banking')}
+      ${kpiCard('To collect', data.ar_outstanding_cents, '#/customer-balances', data.overdue_ar_cents > 0)}
+      ${kpiCard('To pay', data.ap_outstanding_cents, '#/bills', data.overdue_ap_cents > 0)}
+      ${kpiCard(`Profit · ${month.split(' ')[0].slice(0, 3)}`, data.net_income_mtd_cents, '#/reports/income-statement')}
     </div>
 
     ${isEmpty ? '' : ledgerChecksCard(reconciliation)}
 
-    <div class="charts-grid">
-      <div class="card chart-card">
-        <div class="card-head">
-          <div class="card-title">
-            <h2>Revenue &amp; expenses</h2>
-            <p>Last six months</p>
-          </div>
-          <a class="card-link" href="#/reports/income-statement">P&amp;L ${icon('chevron', 13)}</a>
-        </div>
-        <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Monthly revenue and expenses for the last six months"></canvas></div>
-      </div>
-      <div class="card chart-card">
-        <div class="card-head">
-          <div class="card-title">
-            <h2>Expenses by category</h2>
-            <p>${esc(month)}</p>
-          </div>
-        </div>
-        <div class="chart-wrap">
-          ${expenseEmpty
-    ? emptyState({ iconName: 'cash', title: 'No expenses this month', message: 'Record a bill to see your spending breakdown.' })
-    : `<canvas id="expense-chart" role="img" aria-label="Expenses by category for ${esc(month)}"></canvas>`}
-        </div>
-      </div>
-    </div>
-
-    <div class="dash-grid">
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Recent invoices</h2><p>Latest activity from your customers</p></div>
-          <a class="card-link" href="#/invoices">View all ${icon('chevron', 13)}</a>
-        </div>
-        <div class="mini-list">${invoicesHtml}</div>
-      </div>
-      <div class="card">
-        <div class="card-head">
-          <div class="card-title"><h2>Recent bills</h2><p>${fmtMoney(data.ap_outstanding_cents, { compact: true })} outstanding</p></div>
-          <a class="card-link" href="#/bills">View all ${icon('chevron', 13)}</a>
-        </div>
-        <div class="mini-list">${billsHtml}</div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
+    <div class="card chart-card">
       <div class="card-head">
-        <div class="card-title"><h2>Recent bookings</h2><p>${fmtMoney(bookings.margin_cents, { compact: true })} margin this month</p></div>
-        <a class="card-link" href="#/bookings">View all ${icon('chevron', 13)}</a>
+        <div class="card-title"><h2>Revenue &amp; expenses</h2></div>
+        <a class="card-link" href="#/reports/income-statement">P&amp;L ${icon('chevron', 13)}</a>
       </div>
-      <div class="mini-list">${bookingsHtml}</div>
+      <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Monthly revenue and expenses for the last six months"></canvas></div>
     </div>
 
-    <div class="card" style="margin-top:16px">
-      <div class="card-head">
-        <div class="card-title"><h2>Recent visa applications</h2><p>${visas.active_count || 0} in progress · ${visas.counts.issued || 0} issued</p></div>
-        <a class="card-link" href="#/visas">View all ${icon('chevron', 13)}</a>
-      </div>
-      <div class="mini-list">${visasHtml}</div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <div class="card-head">
-        <div class="card-title"><h2>Recent portal top-ups</h2><p>${fmtMoney(portals.balance_cents, { compact: true })} held in wallets</p></div>
-        <a class="card-link" href="#/portals">View all ${icon('chevron', 13)}</a>
-      </div>
-      <div class="mini-list">${topupsHtml}</div>
-    </div>
+    ${recentHtml(data)}
   `;
 
-  document.querySelectorAll('[data-action="new-invoice"]').forEach((button) => {
+  bindRecent(container);
+  container.querySelectorAll('[data-action="new-invoice"]').forEach((button) => {
     button.addEventListener('click', () => { location.hash = '#/invoices?new=1'; });
-  });
-  document.querySelectorAll('[data-action="new-bill"]').forEach((button) => {
-    button.addEventListener('click', () => { location.hash = '#/bills?new=1'; });
-  });
-  document.querySelectorAll('[data-action="new-booking"]').forEach((button) => {
-    button.addEventListener('click', () => { location.hash = '#/bookings?new=1'; });
-  });
-  document.querySelectorAll('[data-action="new-visa"]').forEach((button) => {
-    button.addEventListener('click', () => { location.hash = '#/visas?new=1'; });
-  });
-  document.querySelectorAll('[data-action="new-portal"]').forEach((button) => {
-    button.addEventListener('click', () => { location.hash = '#/portals?new=1'; });
   });
   bindPending(container);
   const demoButton = container.querySelector('[data-action="demo"]');
@@ -594,7 +390,7 @@ export async function render(container, { query } = {}) {
   renderCharts(data, container);
 
   const onThemeChange = () => {
-    if (!container.querySelector('#revenue-chart') && !container.querySelector('#expense-chart')) return;
+    if (!container.querySelector('#revenue-chart')) return;
     destroyCharts();
     renderCharts(data, container);
   };

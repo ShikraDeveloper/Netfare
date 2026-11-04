@@ -281,6 +281,22 @@ export function moreMenuHtml(items = []) {
 }
 
 // The key figures of a booking, visa or invoice, shown above the document.
+// A section folded to one line: its title and a count, opening on click.
+// Folds stack inside a .folds card, one row each.
+export function foldHtml({ key, title, count = null, body, actions = '', open = false }) {
+  return `
+    <details class="fold" data-fold="${esc(key)}"${open ? ' open' : ''}>
+      <summary><span class="fold-title">${esc(title)}</span>${count == null ? '' : `<span class="fold-count">${esc(String(count))}</span>`}${icon('chevron', 14)}</summary>
+      <div class="fold-body">${actions ? `<div class="fold-actions">${actions}</div>` : ''}${body}</div>
+    </details>`;
+}
+
+// A row of buttons where one is chosen, such as Invoices · Bills · Bookings.
+export function segmentedHtml(name, options, selected) {
+  return `<div class="seg" role="group" data-seg="${esc(name)}">${options.map((option) => `
+    <button type="button" class="seg-item" data-seg-value="${esc(option.value)}" aria-pressed="${option.value === selected}"${option.action ? ` data-action="${esc(option.action)}"` : ''}>${esc(option.label)}</button>`).join('')}</div>`;
+}
+
 export function summaryStripHtml(items = []) {
   const list = items.filter(Boolean);
   if (!list.length) return '';
@@ -291,11 +307,12 @@ export function summaryStripHtml(items = []) {
     </div>`).join('')}</div>`;
 }
 
-export function setHeader({ title, subtitle = '', actions = '' }) {
+// badge: HTML shown right after the title, such as a status.
+export function setHeader({ title, subtitle = '', actions = '', badge = '' }) {
   const titleEl = document.getElementById('page-title');
   const subtitleEl = document.getElementById('page-subtitle');
   const actionsEl = document.getElementById('page-actions');
-  if (titleEl) titleEl.textContent = title;
+  if (titleEl) titleEl.innerHTML = `${esc(title)}${badge ? ` <span class="page-title-badge">${badge}</span>` : ''}`;
   if (subtitleEl) subtitleEl.textContent = subtitle;
   if (actionsEl) actionsEl.innerHTML = actions;
   document.title = title ? `${title} · Netfare` : 'Netfare — Invoicing & Books';

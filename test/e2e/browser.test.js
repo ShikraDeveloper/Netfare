@@ -891,6 +891,7 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
   assert.equal(paymentResponse.status, 201);
 
   await openRoute(`/invoices/${invoice.id}`);
+  await page.locator('[data-fold="payments"] > summary').click();
   await page.locator('[data-delete-payment]').first().click();
   const paymentDialog = page.locator('[role="dialog"]');
   await paymentDialog.waitFor();
@@ -987,8 +988,8 @@ test('dashboard ledger checks, settlement attachments and the audit chain page',
   if (reconciliation.all_matched) await card.locator('summary').click();
   assert.equal(await card.locator('tbody tr').count(), 11);
   assert.match(await card.locator('caption').innerText(), /Ledger checks/);
-  const summary = await card.locator('.card-title p').innerText();
-  assert.match(summary, reconciliation.all_matched ? /All 11 checks match/ : /need/);
+  const state = await card.locator('[data-ledger-state]').innerText();
+  assert.match(state, reconciliation.all_matched ? /^\s*11\s*$/ : /to fix/);
 
   const cancellations = await getJson(baseUrl, '/api/cancellations');
   assert.ok(cancellations[0], 'Earlier tests and demo data include a cancellation');
@@ -1169,13 +1170,16 @@ test('an invoice can be marked as for someone else', async () => {
   await openRoute('/invoices?new=1');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
+  // Traveller reads "Same as customer" until a name is typed; then the
+  // traveller's nationality and passport fields appear under More details.
   const nameInput = dialog.locator('#invoice-beneficiary');
-  assert.equal(await nameInput.isVisible(), false, 'person fields are hidden by default');
-  await dialog.locator('#invoice-for-other').check();
-  assert.equal(await nameInput.isVisible(), true);
-  assert.equal(await nameInput.getAttribute('required'), '');
-  await dialog.locator('#invoice-for-other').uncheck();
-  assert.equal(await nameInput.isVisible(), false);
+  assert.equal(await nameInput.getAttribute('placeholder'), 'Same as customer');
+  const passportField = dialog.locator('[data-beneficiary-field]').last();
+  assert.equal(await passportField.getAttribute('hidden'), '');
+  await nameInput.fill('E2E Traveller');
+  assert.equal(await passportField.getAttribute('hidden'), null);
+  await nameInput.fill('');
+  assert.equal(await passportField.getAttribute('hidden'), '');
   await dialog.locator('.modal-head [data-close]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
 
@@ -1223,12 +1227,13 @@ test('the service invoice form offers only service income and points sales to bo
   assert.match((await blocked.json()).error, /Create a booking or visa/);
 
   await openRoute('/invoices');
-  assert.match(await page.locator('#page-actions').innerText(), /New service invoice/);
+  assert.match(await page.locator('#page-actions').innerText(), /New invoice/);
   await openRoute('/invoices?new=1');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
-  assert.match(await dialog.locator('h2').first().innerText(), /New service invoice/);
-  assert.match(await dialog.locator('[data-service-invoice-hint]').innerText(), /no supplier cost/i);
+  assert.match(await dialog.locator('h2').first().innerText(), /New invoice/);
+  assert.equal(await dialog.locator('.modal-head p').count(), 0, 'no subtitle');
+  assert.equal(await dialog.locator('[data-seg="invoice-kind"] [aria-pressed="true"]').innerText(), 'Service');
   const accountCodes = await dialog.locator('.line-account option').evaluateAll(
     (options) => options.map((option) => option.textContent.trim().split(' ')[0]).filter((code) => /^\d+$/.test(code)),
   );
@@ -1236,7 +1241,7 @@ test('the service invoice form offers only service income and points sales to bo
   for (const code of ['4000', '4100', '4320']) assert.ok(!accountCodes.includes(code), `${code} is not offered`);
   assert.equal(accountCodes[0], '4300', 'service charges come first');
 
-  await dialog.locator('[data-service-invoice-hint] a[href="#/bookings?new=1"]').click();
+  await dialog.locator('[data-seg="invoice-kind"] [data-seg-value="booking"]').click();
   await page.waitForFunction(() => document.querySelector('[role="dialog"] h2')?.textContent.includes('New booking'));
   await page.locator('[role="dialog"] .modal-head [data-close]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
@@ -1484,7 +1489,7 @@ test('confirm preview, payment column, amount in words, receipt voucher and shar
   await page.locator('[data-amount-words]').waitFor();
   assert.match(await page.locator('[data-amount-words]').innerText(), /UAE Dirhams Seven Hundred Thirty Only/);
 
-  await page.locator('[data-action="share"]').click();
+  await clickPageAction('[data-action="share"]');
   const share = page.locator('[role="dialog"]');
   await share.waitFor();
   assert.match(await share.locator('#share-message').inputValue(), /Amount due: AED 430\.00/);
@@ -1493,6 +1498,7 @@ test('confirm preview, payment column, amount in words, receipt voucher and shar
   await share.locator('.modal-head [data-close]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
 
+  await page.locator('[data-fold="payments"] > summary').click();
   await page.locator('[data-receipt-link]').first().click();
   await page.locator('[data-receipt]').waitFor();
   const receipt = (await page.locator('[data-receipt]').innerText()).replace(/\s+/g, ' ');
@@ -1917,6 +1923,7 @@ test('bank charges on a payment, a charge added in bank reconciliation, and pett
   await dialog.locator('#bank-charges').fill('15');
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('[data-fold="payments"] > summary').click();
   await page.locator('.payment-item', { hasText: 'Bank kept' }).waitFor();
   const paid = await getJson(baseUrl, `/api/invoices/${invoice.id}`);
   assert.equal(paid.status_display, 'paid');
@@ -2118,9 +2125,11 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     );
     const visible = async (selector) => guestPage.locator(selector).evaluateAll((nodes) => nodes.filter((node) => node.offsetParent).length);
     await guestPage.goto(`${baseUrl}/?staff=0#/dashboard`);
-    await guestPage.locator('#page-actions [data-action="new-visa"]').waitFor({ state: 'attached' });
-    assert.ok(await visible('#page-actions [data-action="new-booking"]') > 0, 'New booking stays');
-    assert.equal(await visible('#page-actions [data-action="new-bill"]'), 0, 'New bill is hidden without Suppliers rights');
+    // The one New menu offers only what this user may open.
+    await guestPage.locator('#side-tools .tn-new-item[href="#/bookings?new=1"]').waitFor({ state: 'attached' });
+    assert.equal(await guestPage.locator('#side-tools .tn-new-item[href="#/bills?new=1"]').count(), 0, 'no New bill without Suppliers rights');
+    assert.deepEqual(await guestPage.locator('[data-recent] [data-seg-value]').evaluateAll((nodes) => nodes.map((node) => node.dataset.segValue)),
+      ['invoices', 'bookings'], 'Recent offers only the lists this user may open');
     await guestPage.goto(`${baseUrl}/?staff=1#/bills`);
     await guestPage.locator('#view .error-state', { hasText: 'You do not have access to this screen' }).waitFor();
     await guestPage.goto(`${baseUrl}/?staff=2#/invoices`);

@@ -36,3 +36,11 @@ if (failed) {
   process.exit(1);
 }
 console.log(`Checked ${files.length} JavaScript files — syntax OK.`);
+
+// Helper text may only go down (DESIGN.md).
+const copy = require('./copy-budget').checkCopyBudget();
+if (!copy.ok) {
+  console.error(`\nMore helper text than allowed. Fix the layout instead (DESIGN.md):\n  ${copy.over.join('\n  ')}\n`);
+  process.exit(1);
+}
+console.log(`Helper text: ${copy.total} (within budget).`);
