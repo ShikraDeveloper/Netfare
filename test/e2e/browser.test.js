@@ -1665,6 +1665,15 @@ test('simplified navigation, Today box, summary strip, More menu and phone layou
   await firstItem.waitFor();
   assert.match(await firstItem.getAttribute('href'), /^#\//);
   assert.match(await firstItem.innerText(), /day|today/);
+
+  // Recent shows one list at a time; the switch changes which.
+  const recent = page.locator('[data-recent]');
+  const shownLists = () => recent.locator('[data-recent-list]').evaluateAll((lists) => lists.filter((list) => list.offsetParent).map((list) => list.dataset.recentList));
+  assert.deepEqual(await shownLists(), ['invoices']);
+  await recent.locator('[data-seg-value="bills"]').click();
+  assert.deepEqual(await shownLists(), ['bills']);
+  assert.equal(await recent.locator('[data-seg-value="bills"]').getAttribute('aria-pressed'), 'true');
+  await recent.locator('[data-seg-value="invoices"]').click();
   await page.evaluate(AXE_SOURCE);
   assert.deepEqual(await page.evaluate(async () => (await window.axe.run(document.querySelector('[data-pending]'), {
     runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },

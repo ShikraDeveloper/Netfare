@@ -808,6 +808,9 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
    Shared components (see DESIGN.md). One look for every screen.
 ------------------------------------------------------------------- */
 
+/* hidden always hides, even on elements a class gives display: flex or grid. */
+[hidden] { display: none !important; }
+
 /* A status right after the page title. */
 .page-title-badge { display: inline-flex; vertical-align: middle; margin-left: 8px; font-size: 0; }
 .page-title-badge .badge { font-size: 11px; }
