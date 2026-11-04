@@ -2290,11 +2290,17 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** the e2e tests were updated for the new places (open the Payments fold, Share via More, the ledger state, the New menu, the Recent switch, the Traveller field). `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Checked in the browser** on demo data: desktop light and dark, phone, no console errors.
 
+### Dashboard: Portal wallets instead of Profit — code commit `41d1e94`
+
+- **Why:** The user checks portal balances several times a day. Asked which dashboard cards to keep, they chose "Profit ki jagah Portal wallets".
+- The four numbers are now Cash, To collect, To pay and **Portal wallets** (the total held with portals; it links to `#/portals`). The month's profit is still in the P&L (Revenue & expenses → P&L).
+- **Tests:** `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK. **Checked** in the preview on sample data.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.8` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.8** is published (recovery key, things pending, created-by footers). Simplify phase 1 is done (`6071fc7`, not released); release it as 1.0.9 when the user asks, then a week in the office, then phase 2 group by group (Sales, Suppliers, Bookings/Visas, Banking, Reports, Settings).
+3. **Release 1.0.8** is published (recovery key, things pending, created-by footers). Simplify phase 1 (with Portal wallets in place of Profit, `41d1e94`) is done (`6071fc7`, not released); release it as 1.0.9 when the user asks, then a week in the office, then phase 2 group by group (Sales, Suppliers, Bookings/Visas, Banking, Reports, Settings).
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
