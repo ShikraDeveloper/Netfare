@@ -1,10 +1,13 @@
 'use strict';
 
-// Sign-in, first-run admin setup, sign-out and changing your own password.
+// Sign-in, first-run admin setup, sign-out, changing your own password and
+// the admin's recovery key.
 
 const router = require('express').Router();
 const db = require('../db');
 const auth = require('../services/auth');
+const { isLoopback } = require('../network');
+const { runWithUser } = require('../request-context');
 
 // Cookies are shared by every port on a host, so the name carries the port:
 // a test copy on another port never signs you out of the real one.
@@ -55,6 +58,49 @@ router.post('/password', (req, res) => {
   const user = auth.userForToken(db, token);
   if (!user) return res.status(401).json({ error: 'Sign in again' });
   res.json({ user: auth.changeOwnPassword(db, user.id, token, req.body) });
+});
+
+// The admin's recovery key. Reset works only at the main computer: the
+// request must come from this computer itself, never the office network.
+router.get('/recovery', (req, res) => {
+  res.json({ main_computer: isLoopback(req.socket.remoteAddress) });
+});
+
+router.post('/recovery/reset', (req, res) => {
+  if (!isLoopback(req.socket.remoteAddress)) {
+    return res.status(403).json({ error: 'Reset the admin password at the main computer' });
+  }
+  const { user, token, recovery_key } = auth.resetWithRecoveryKey(db, req.body);
+  setCookie(res, token);
+  res.json({ user, recovery_key });
+});
+
+function signedInAdmin(req, res) {
+  const user = auth.userForToken(db, readToken(req));
+  if (!user) {
+    res.status(401).json({ error: 'Sign in to continue', code: 'auth_required' });
+    return null;
+  }
+  if (!user.is_admin || user.must_change_password) {
+    res.status(403).json({ error: 'Only the admin can do this' });
+    return null;
+  }
+  return user;
+}
+
+router.get('/recovery-key', (req, res) => {
+  const user = signedInAdmin(req, res);
+  if (user) res.json(auth.recoveryKeyStatus(db, user.id));
+});
+
+router.post('/recovery-key', (req, res) => {
+  const user = signedInAdmin(req, res);
+  if (user) res.json(auth.makeRecoveryKey(db, user.id, req.body));
+});
+
+router.post('/recovery-key/confirm', (req, res) => {
+  const user = signedInAdmin(req, res);
+  if (user) runWithUser(user, () => res.json({ user: auth.confirmRecoveryKey(db, user.id) }));
 });
 
 module.exports = { router, readToken };

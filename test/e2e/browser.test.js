@@ -234,6 +234,15 @@ before(async () => {
     });
     assert.equal(setup.status, 201, 'Admin account should be created');
     sessionCookie = String(setup.headers.get('set-cookie')).split(';')[0];
+    // Save the admin's recovery key now, so the app does not stop to show it.
+    for (const step of ['/api/auth/recovery-key', '/api/auth/recovery-key/confirm']) {
+      const saved = await fetch(`${baseUrl}${step}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
+        body: '{}',
+      });
+      assert.equal(saved.status, 200, `${step} should work`);
+    }
     const demoResponse = await fetch(`${baseUrl}/api/admin/demo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2009,6 +2018,7 @@ test('documents show the agency initial, not a Netfare or old Ledgerly mark', as
 
 test('sign-in: the admin adds a staff user in Settings, who signs in without admin cards', async () => {
   await openRoute('/settings');
+  await page.locator('#recovery-key-status', { hasText: 'Made on' }).waitFor();
   const card = page.locator('#users-card');
   await card.waitFor();
   assert.match(await card.innerText(), /E2E Admin/);
@@ -2058,6 +2068,22 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
       })).violations.map((violation) => violation.id));
       assert.deepEqual(violations, [], `sign-in screen axe (${theme})`);
     }
+    // Forgot password: help for staff and the admin; this is the main
+    // computer, so the reset with the recovery key is offered too.
+    await guestPage.locator('[data-forgot]').click();
+    await guestPage.locator('#auth-title', { hasText: 'Forgot your password?' }).waitFor();
+    await guestPage.locator('[data-reset]').click();
+    await guestPage.locator('#auth-recovery_key').waitFor();
+    await guestPage.evaluate(AXE_SOURCE);
+    assert.deepEqual(await guestPage.evaluate(async () => (await window.axe.run(document, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+    })).violations.map((violation) => violation.id)), [], 'reset screen axe');
+    await guestPage.locator('#auth-recovery_key').fill('NF-0000-0000-0000-0000');
+    await guestPage.locator('#auth-new_password').fill('not-the-one-1');
+    await guestPage.locator('#auth-confirm').fill('not-the-one-1');
+    await guestPage.locator('.auth-submit').click();
+    await guestPage.locator('.auth-error', { hasText: "That recovery key doesn't match" }).waitFor();
+    await guestPage.locator('[data-cancel]').click();
     await guestPage.locator('#auth-username').fill('counter');
     await guestPage.locator('#auth-password').fill('wrong-pass');
     await guestPage.locator('.auth-submit').click();
@@ -2084,6 +2110,7 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     await guestPage.goto(`${baseUrl}/?staff=3#/settings`);
     await guestPage.locator('#company-form').waitFor();
     assert.equal(await guestPage.locator('#users-card').count(), 0, 'no Users card for staff');
+    assert.equal(await guestPage.locator('#recovery-key-card').count(), 0, 'no recovery key card for staff');
     assert.equal(await guestPage.locator('#reset-data').isVisible(), false, 'no Clear all data for staff');
     assert.equal(await guestPage.locator('#company-name').isDisabled(), true, 'company settings are read-only without Edit');
     await guestPage.locator('[data-account="signout"]').click();

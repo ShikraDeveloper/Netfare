@@ -203,6 +203,22 @@ async function changeSetup() {
   app.exit(0);
 }
 
+// Help → Reset admin password. Only the main computer can do it (the server
+// accepts the reset only from this computer), so an office computer just
+// says where to go.
+async function resetAdminPassword() {
+  if (!mainWindow) return;
+  if (!netfareServer || !appOrigin) {
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      message: 'Reset the admin password at the main computer',
+      detail: 'Open Netfare on the computer that keeps the books, choose Help → Reset admin password and enter the recovery key.',
+    });
+    return;
+  }
+  mainWindow.loadURL(`${appOrigin}/?reset=admin`);
+}
+
 function buildMenu() {
   // Hide, Hide Others and Show All exist only on a Mac.
   const macOnly = process.platform === 'darwin'
@@ -227,6 +243,14 @@ function buildMenu() {
       submenu: [{ role: 'reload' }, { type: 'separator' }, { role: 'resetZoom' }, { role: 'zoomIn' }, { role: 'zoomOut' }, { type: 'separator' }, { role: 'togglefullscreen' }],
     },
     { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        { label: 'Reset admin password…', click: resetAdminPassword },
+        { type: 'separator' },
+        { label: 'Netfare on GitHub', click: () => shell.openExternal('https://github.com/ShikraDeveloper/Netfare') },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }

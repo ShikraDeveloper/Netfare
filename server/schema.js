@@ -624,6 +624,10 @@ CREATE TABLE IF NOT EXISTS users (
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
   last_login_at TEXT,
+  recovery_key_hash TEXT,
+  recovery_key_created_at TEXT,
+  recovery_key_confirmed INTEGER NOT NULL DEFAULT 0,
+  recovery_key_uses INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

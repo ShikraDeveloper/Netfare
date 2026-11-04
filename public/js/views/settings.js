@@ -13,6 +13,7 @@ import {
 import { bindUsersCard, usersCardHtml } from './account.js';
 import { bindNetworkCard, networkCardHtml } from './network.js';
 import { bindUpdatesCard, updatesCardHtml } from './updates-card.js';
+import { bindRecoveryKeyCard, recoveryKeyCardHtml } from './recovery-key-card.js';
 import { backupMirrorCardHtml, bindBackupMirrorCard } from './backup-mirror-card.js';
 
 const MONTHS = [
@@ -192,7 +193,7 @@ export async function render(container) {
       </div>
 
       <div class="settings-stack">
-        ${store.user?.is_admin ? usersCardHtml() + networkCardHtml() + updatesCardHtml() : ''}
+        ${store.user?.is_admin ? usersCardHtml() + recoveryKeyCardHtml() + networkCardHtml() + updatesCardHtml() : ''}
         <div class="card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Data &amp; backup</h2><p>Your books live on this computer</p></div>
@@ -326,6 +327,7 @@ export async function render(container) {
 
   if (store.user?.is_admin) {
     bindUsersCard(container);
+    bindRecoveryKeyCard(container);
     bindNetworkCard(container);
     bindUpdatesCard(container);
     bindBackupMirrorCard(container);

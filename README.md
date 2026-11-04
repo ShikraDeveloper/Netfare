@@ -89,7 +89,13 @@ npm run dev
 - Anyone can change their own password with the lock button at the bottom of the sidebar.
 - Passwords are stored as salted scrypt hashes. A session ends after 12 hours without activity. Five wrong passwords lock that username for 5 minutes.
 - The audit log shows who did each action.
-- **Forgot the admin password?** On the main computer, run `npm run reset-admin`. It prints a one-time password, and Netfare asks for a new password at the next sign-in.
+- **Recovery key:** when the admin first signs in, Netfare shows a recovery key once (like `NF-7KQM-4XTA-9PMW-2HRC`). Copy or print it and keep it away from the computer. Only a hash of it is stored. **Settings → Recovery key** shows when it was made and makes a new one (this needs the admin password, and the old key stops working at once).
+- **Forgot the admin password?** On the main computer, open the Netfare app and choose **Help → Reset admin password** (or **Forgot password?** on the sign-in screen). Enter the recovery key and a new password.
+  - This works only on the main computer itself, never from the office network.
+  - Five wrong keys lock the form for 15 minutes.
+  - After a reset you get a new key, other sign-ins end, and the audit log records it.
+  - Staff who forget their password ask the admin, who sets a new one in Settings → Users.
+- **Lost the key as well?** On a source install, run `npm run reset-admin` on the main computer. It prints a one-time password, and Netfare asks for a new password at the next sign-in.
 
 ## Office network (several computers)
 

@@ -714,3 +714,37 @@ test('attachments: PDFs and pictures can be previewed; anything else is only eve
     assert.match(disposition, /^attachment/);
   }
 });
+
+test('recovery key: admin only, and a reset at this computer signs the admin in', async () => {
+  const offered = await postAs(cookie, '/api/auth/recovery-key', {});
+  assert.equal(offered.status, 200);
+  const key = offered.data.recovery_key;
+  assert.match(key, /^NF-/);
+  assert.equal((await postAs(cookie, '/api/auth/recovery-key/confirm', {})).status, 200);
+  const status = await jsonRequest('/api/auth/recovery-key');
+  assert.equal(status.data.exists, true);
+  assert.equal((await postAs(cookie, '/api/auth/recovery-key', {})).status, 400, 'a saved key is replaced only with the password');
+
+  await postAs(cookie, '/api/users', { full_name: 'Key Staff', username: 'keystaff', password: 'key-staff-pass', permissions: {} });
+  const staff = await signIn('keystaff', 'key-staff-pass');
+  assert.equal((await jsonRequest('/api/auth/recovery-key', { headers: { Cookie: staff.cookie } })).status, 403);
+  assert.equal((await postAs(staff.cookie, '/api/auth/recovery-key', {})).status, 403);
+  assert.equal((await jsonRequest('/api/auth/recovery-key', { headers: { Cookie: '' } })).status, 401);
+
+  assert.deepEqual((await jsonRequest('/api/auth/recovery', { headers: { Cookie: '' } })).data, { main_computer: true });
+  const wrong = await postAs('', '/api/auth/recovery/reset', { recovery_key: 'NF-0000-0000-0000-0000', new_password: 'whatever-pass' });
+  assert.equal(wrong.status, 400);
+  const reset = await fetch(`${baseUrl}/api/auth/recovery/reset`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ recovery_key: key, new_password: 'recovered-admin-pass' }),
+  });
+  assert.equal(reset.status, 200);
+  const body = await reset.json();
+  assert.notEqual(body.recovery_key, key);
+  assert.equal(body.user.username, ADMIN.username);
+  assert.equal((await jsonRequest('/api/settings')).status, 401, 'the old admin session has ended');
+  cookie = cookieFrom(reset);
+  assert.equal((await jsonRequest('/api/settings')).status, 200, 'the reset signed the admin in');
+  assert.equal((await signIn(ADMIN.username, 'recovered-admin-pass')).status, 200);
+});

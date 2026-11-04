@@ -230,6 +230,11 @@ for (const table of require('./created-by').CREATED_BY_TABLES) {
 }
 // Each staff user's rights, set by the admin (see server/permissions.js).
 ensureColumn('users', 'permissions', "TEXT NOT NULL DEFAULT '{}'");
+// The admin's recovery key (services/auth.js): a scrypt hash, never the key.
+ensureColumn('users', 'recovery_key_hash', 'TEXT');
+ensureColumn('users', 'recovery_key_created_at', 'TEXT');
+ensureColumn('users', 'recovery_key_confirmed', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('users', 'recovery_key_uses', 'INTEGER NOT NULL DEFAULT 0');
 // Who did it: the logged-in user's name on each audit entry.
 ensureColumn('audit_logs', 'user_name', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('journal_entries', 'reversal_of_id', 'INTEGER');
