@@ -11,9 +11,6 @@
   "public/js/views/backup-mirror-card.js": 3,
   "public/js/views/bank-reconciliation.js": 4,
   "public/js/views/banking.js": 2,
-  "public/js/views/booking-detail.js": 10,
-  "public/js/views/booking-passengers.js": 1,
-  "public/js/views/bookings.js": 2,
   "public/js/views/cancellation-detail.js": 11,
   "public/js/views/cancellation-modal.js": 9,
   "public/js/views/cancellations.js": 1,
@@ -26,7 +23,6 @@
   "public/js/views/credit-detail.js": 9,
   "public/js/views/credits.js": 5,
   "public/js/views/customer-advance-modals.js": 1,
-  "public/js/views/job-modals.js": 5,
   "public/js/views/journal.js": 3,
   "public/js/views/network.js": 3,
   "public/js/views/opening-balances.js": 4,
@@ -42,9 +38,5 @@
   "public/js/views/settlement-queue.js": 1,
   "public/js/views/statement.js": 1,
   "public/js/views/supplier-credits.js": 1,
-  "public/js/views/updates-card.js": 2,
-  "public/js/views/visa-deposit-card.js": 7,
-  "public/js/views/visa-detail.js": 11,
-  "public/js/views/visa-group-form.js": 3,
-  "public/js/views/visas.js": 4
+  "public/js/views/updates-card.js": 2
 }

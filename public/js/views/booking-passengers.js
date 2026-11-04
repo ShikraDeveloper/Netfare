@@ -121,7 +121,6 @@ export function passengerSectionHtml(rows = []) {
         </div>
         <div data-px-rows>${list.map((row) => rowHtml(row)).join('')}</div>
       </div>
-      <div class="hint">One row per passenger. The invoice shows each passenger with the destination. Use <strong>⋯</strong> for ticket no., quantity or accounts.</div>
     </div>
   `;
 }

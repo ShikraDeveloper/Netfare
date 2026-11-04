@@ -740,7 +740,6 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   const customer = dialog.locator('#visa-customer');
   const applicant = dialog.locator('#visa-applicant');
   const other = dialog.locator('#visa-applicant-other');
-  const hint = dialog.locator('#visa-applicant-hint');
   const duration = dialog.locator('#visa-duration');
 
   assert.equal(await duration.getAttribute('type'), 'number');
@@ -753,13 +752,13 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   assert.ok(customerName);
   assert.equal(await applicant.inputValue(), customerName, 'customer mode fills the applicant name');
   assert.equal(await applicant.getAttribute('readonly'), '', 'customer mode keeps the applicant name read-only');
-  assert.match(await hint.innerText(), /customer/i);
+  assert.match(await applicant.getAttribute('placeholder'), /customer/i);
 
   await other.check();
   assert.equal(await applicant.inputValue(), '', 'visitor mode clears the prefilled customer name');
   assert.equal(await applicant.getAttribute('readonly'), null, 'visitor mode allows editing the name');
   assert.equal(await applicant.getAttribute('required'), '', 'visitor mode requires an applicant name');
-  assert.match(await hint.innerText(), /visitor/i);
+  assert.match(await applicant.getAttribute('placeholder'), /visitor/i);
 
   await applicant.fill('Rahul Visitor');
   await other.uncheck();
@@ -1603,14 +1602,14 @@ test('a visa security deposit is taken with the application, shown apart from sa
 
   const card = page.locator('[data-visa-deposits]');
   await card.waitFor();
-  assert.match((await card.innerText()).replace(/\s+/g, ' '), /AED 4,000\.00 still held/);
+  assert.match((await card.innerText()).replace(/\s+/g, ' '), /Still held AED 4,000\.00/);
   await card.locator('[data-deposit-action="refund"]').click();
   const refund = page.locator('[role="dialog"]');
   await refund.waitFor();
   await refund.locator('#dep-amount').fill('1500');
   await refund.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
-  await page.waitForFunction(() => document.querySelector('[data-visa-deposits]')?.innerText.includes('2,500.00 still held'));
+  await page.waitForFunction(() => /still held aed 2,500\.00/i.test((document.querySelector('[data-visa-deposits]')?.innerText || '').replace(/\s+/g, ' ')));
 
   const visaId = Number(await page.evaluate(() => location.hash.split('/').pop()));
   await openRoute('/reports/visa-deposits');
@@ -2129,6 +2128,7 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     // The one New menu offers only what this user may open.
     await guestPage.locator('#side-tools .tn-new-item[href="#/bookings?new=1"]').waitFor({ state: 'attached' });
     assert.equal(await guestPage.locator('#side-tools .tn-new-item[href="#/bills?new=1"]').count(), 0, 'no New bill without Suppliers rights');
+    await guestPage.locator('[data-recent]').waitFor();
     assert.deepEqual(await guestPage.locator('[data-recent] [data-seg-value]').evaluateAll((nodes) => nodes.map((node) => node.dataset.segValue)),
       ['invoices', 'bookings'], 'Recent offers only the lists this user may open');
     await guestPage.goto(`${baseUrl}/?staff=1#/bills`);
@@ -2194,6 +2194,8 @@ test('menu: Settings switches to the top menu, its panels and search work, and b
   await money.locator('.tn-trigger').click();
   for (const theme of ['light', 'dark']) {
     await page.evaluate((name) => { document.documentElement.dataset.theme = name; }, theme);
+    // Let the colour transition finish before checking contrast.
+    await page.waitForTimeout(400);
     await page.evaluate(AXE_SOURCE);
     const violations = await page.evaluate(async () => (await window.axe.run(document.getElementById('top-nav'), {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },

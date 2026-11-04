@@ -33,7 +33,7 @@ const STATUS_HISTORY_EMPTY = 'No status changes recorded yet.';
 function statusHistoryCard(history = []) {
   return `
     <div class="card no-print" style="margin-top:16px" data-status-history>
-      <div class="card-head"><div class="card-title"><h2>Status history</h2><p>When this job changed status</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Status history</h2></div></div>
       <div class="table-wrap">
         <table class="data">
           <caption class="sr-only">Status history</caption>
@@ -95,7 +95,7 @@ export async function render(container, { params } = {}) {
   pageRecord(booking);
   setHeader({
     title: booking.number,
-    subtitle: `${booking.customer_name} · ${booking.destination || 'No destination'} · ${booking.status.charAt(0).toUpperCase()}${booking.status.slice(1)}`,
+    badge: statusBadge(booking.status),
     actions: actions.join('') + moreMenuHtml(menu),
   });
 
@@ -149,7 +149,6 @@ export async function render(container, { params } = {}) {
     : emptyState({
       iconName: 'cash',
       title: 'No payments yet',
-      message: invoice && invoice.balance_cents > 0 ? 'Record a payment or apply an advance to reduce the balance.' : 'Payments will appear here once recorded.',
     });
 
   const billRows = booking.bills.length
@@ -171,7 +170,7 @@ export async function render(container, { params } = {}) {
     ? `
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Cancellation</h2><p>${esc(cancellation.number)} · ${esc(fmtDate(cancellation.cancellation_date))}</p></div>
+          <div class="card-title"><h2>Cancellation ${esc(cancellation.number)}</h2></div>
           <a class="card-link" href="#/cancellations/${cancellation.id}">Open note ${icon('chevron', 12)}</a>
         </div>
         <div class="card-body">
@@ -207,8 +206,6 @@ export async function render(container, { params } = {}) {
 
   container.innerHTML = `
     ${summaryStripHtml([
-      { label: 'Status', html: statusBadge(booking.status) },
-      { label: 'Customer', value: booking.customer_name },
       { label: 'Total', value: fmtMoney(booking.sale_total_cents) },
       { label: 'Paid', value: fmtMoney(booking.amount_paid_cents || 0) },
       { label: 'Balance', value: fmtMoney(booking.balance_cents || 0), tone: booking.balance_cents > 0 && booking.invoice ? 'due' : '' },
@@ -219,7 +216,6 @@ export async function render(container, { params } = {}) {
         <div class="callout-text">
           <h3>Internal notes</h3>
           <p>${esc(booking.notes)}</p>
-          <p class="muted">Staff only · not printed</p>
         </div>
       </div>` : ''}
     <div class="doc-wrap">
@@ -304,7 +300,7 @@ export async function render(container, { params } = {}) {
     <div class="detail-grid no-print">
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer invoice</h2><p>${invoice ? fmtMoney(invoice.balance_cents) + ' outstanding' : 'Created on confirmation'}</p></div>
+          <div class="card-title"><h2>Customer invoice</h2></div>
           ${invoice && invoice.status === 'sent' && invoice.balance_cents > 0 ? `<a class="card-link" href="#/invoices/${invoice.id}">Record payment ${icon('chevron', 12)}</a>` : ''}
         </div>
         <div class="card-body" style="padding:6px 20px">${invoiceCard}</div>
@@ -312,7 +308,7 @@ export async function render(container, { params } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Supplier bills</h2><p>${booking.bills.length} bill${booking.bills.length === 1 ? '' : 's'} · ${fmtMoney(booking.cost_total_cents)} cost</p></div>
+          <div class="card-title"><h2>Supplier bills</h2></div>
         </div>
         <div class="card-body" style="padding:6px 20px">${billRows}</div>
       </div>
@@ -321,7 +317,7 @@ export async function render(container, { params } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer advances</h2><p>${booking.advances.length ? `${booking.advances.length} advance${booking.advances.length === 1 ? '' : 's'}` : 'No advances recorded'}</p></div>
+          <div class="card-title"><h2>Customer advances</h2></div>
           <div style="display:flex;gap:6px">
             ${canApplyAdvance ? `<button class="btn btn-secondary btn-sm" data-action="apply-advance">${icon('check', 14)} Apply</button>` : ''}
             ${!isCancelled ? `<button class="btn btn-primary btn-sm" data-action="record-advance">${icon('plus', 14)} Record</button>` : ''}
@@ -331,14 +327,13 @@ export async function render(container, { params } = {}) {
           ${booking.advances.length ? advanceRows : emptyState({
     iconName: 'wallet',
     title: 'No advances recorded',
-    message: 'Record a deposit if the customer pays before the trip.',
   })}
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Payments received</h2><p>${invoice ? `${fmtMoney(invoice.amount_paid_cents)} received` : 'No invoice yet'}</p></div>
+          <div class="card-title"><h2>Payments received</h2></div>
         </div>
         <div class="card-body" ${booking.payments.length ? 'style="padding:4px 20px"' : ''}>${paymentRows}</div>
       </div>
@@ -442,7 +437,6 @@ export async function render(container, { params } = {}) {
   on('[data-action="record-advance"]', () => {
     openModal({
       title: 'Record customer advance',
-      subtitle: `${booking.number} · ${booking.customer_name}`,
       body: advanceModalBody(booking, 'booking'),
       submitLabel: 'Record advance',
       onMount(overlay) {
@@ -476,7 +470,6 @@ export async function render(container, { params } = {}) {
       const openAdvances = booking.advances.filter((advance) => advance.remaining_cents > 0);
       openModal({
         title: 'Apply advance to invoice',
-        subtitle: `${booking.invoice.number} · ${fmtMoney(booking.invoice.balance_cents)} due`,
         body: applyModalBody(booking, openAdvances),
         submitLabel: 'Apply advance',
         async onSubmit(form) {
@@ -500,7 +493,6 @@ export async function render(container, { params } = {}) {
       if (!advance) return;
       openModal({
         title: `Refund ${advance.number}`,
-        subtitle: `${booking.customer_name} · ${fmtMoney(advance.remaining_cents)} available`,
         body: refundModalBody(advance),
         submitLabel: 'Record refund',
         async onSubmit(form) {

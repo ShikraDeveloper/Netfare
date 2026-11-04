@@ -74,12 +74,11 @@ export function advanceModalBody(job, kind = 'booking') {
   return `
     <div class="form-grid">
       <div class="field">
-        <label for="adv-amount">Advance amount</label>
+        <label for="adv-amount">Amount · ${fmtMoney(job.balance_cents)} due</label>
         <div class="money-input">
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="adv-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(job.balance_cents)}" required>
         </div>
-        <div class="hint">${kind === 'visa' ? 'Application balance' : 'Booking balance'} ${fmtMoney(job.balance_cents)}</div>
       </div>
       <div class="field">
         <label for="adv-date">Date received</label>
@@ -100,9 +99,6 @@ export function advanceModalBody(job, kind = 'booking') {
         <select class="input" id="adv-account" name="deposit_account_id">
           ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
         </select>
-      </div>
-      <div class="field full">
-        <div class="form-note">${kind === 'visa' ? 'Money received before the application is invoiced.' : 'Money received before the trip.'} It is held as a <strong>Contract Liabilities (Customer Advances)</strong> liability until you apply it to an invoice.</div>
       </div>
     </div>
   `;
@@ -125,9 +121,6 @@ export function applyModalBody(job, advances) {
         <label>Invoice</label>
         <input class="input" value="${esc(job.invoice.number)} · ${fmtMoney(job.invoice.balance_cents)} due" disabled>
       </div>
-      <div class="field full">
-        <div class="form-note">Applying the advance reduces the invoice balance and moves the amount from Contract Liabilities (Customer Advances) to Trade Receivables.</div>
-      </div>
     </div>
   `;
 }
@@ -142,7 +135,6 @@ export function refundModalBody(advance) {
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="ref-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(advance.remaining_cents)}" required>
         </div>
-        <div class="hint">${fmtMoney(advance.remaining_cents)} available on ${esc(advance.number)}</div>
       </div>
       <div class="field">
         <label for="ref-date">Refund date</label>
@@ -153,9 +145,6 @@ export function refundModalBody(advance) {
         <select class="input" id="ref-account" name="payment_account_id">
           ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
         </select>
-      </div>
-      <div class="field full">
-        <div class="form-note">Refunding debits Contract Liabilities (Customer Advances) and credits your bank or cash account.</div>
       </div>
     </div>
   `;

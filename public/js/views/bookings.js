@@ -249,7 +249,6 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
       </div>
 
       ${passengerSectionHtml(rows)}
-      ${activePortals().length ? '<div class="field full"><div class="hint">Suppliers marked <strong>wallet</strong> settle from their portal balance when you confirm — the rest stay payable.</div></div>' : ''}
 
       <div class="field full">
         <div class="totals-panel">
@@ -282,7 +281,6 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
 
   const modal = openModal({
     title: isEdit ? `Edit ${booking.number}` : 'New booking',
-    subtitle: isEdit ? 'Draft bookings can be edited until confirmed.' : 'Confirming a booking creates the customer invoice and supplier bills automatically.',
     size: 'modal-xl',
     body,
     submitLabel: isEdit ? 'Save booking' : 'Create booking',
@@ -321,13 +319,10 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
 
 export async function render(container, { query } = {}) {
   const bookings = await api.get('/bookings');
-  const openCount = bookings.filter((b) => b.status === 'confirmed').length;
   const saleTotal = bookings.filter((b) => b.status !== 'cancelled').reduce((sum, b) => sum + b.sale_total_cents, 0);
-  const marginTotal = bookings.filter((b) => b.status !== 'cancelled').reduce((sum, b) => sum + b.margin_cents, 0);
 
   setHeader({
     title: 'Bookings',
-    subtitle: `${bookings.length} booking${bookings.length === 1 ? '' : 's'} · ${openCount} confirmed · ${fmtMoney(marginTotal)} gross profit`,
     actions: `<button class="btn btn-primary" data-action="new-booking">${icon('plus', 16)}<span>New booking</span></button>`,
   });
 
@@ -337,7 +332,6 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'invoice',
     title: 'No bookings yet',
-    message: 'Create a booking with sale and supplier cost items. Confirming it posts the invoice and bills to your ledger.',
     action: '<button class="btn btn-primary" data-action="new-booking">Create your first booking</button>',
   })}
       </div>
@@ -410,7 +404,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="9">${emptyState({
     iconName: 'search',
     title: 'No matching bookings',
-    message: 'Try a different search term, status or date range.',
   })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(bookingRow).join('');

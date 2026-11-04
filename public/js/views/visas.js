@@ -133,7 +133,6 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         <input class="input" id="visa-applicant" name="applicant_name" value="${esc(visa?.applicant_name || '')}"
           placeholder="${applicantIsOther ? 'Enter the visitor’s full name' : 'Select a customer to fill this'}"
           ${applicantIsOther ? 'required' : 'readonly'} autocomplete="off">
-        <div class="hint" id="visa-applicant-hint">${applicantIsOther ? 'Enter the visitor’s full name and passport details below.' : 'Uses the selected customer’s name. Add the passport details below if needed.'}</div>
       </div>
       <div class="field">
         <label for="visa-passport">Passport number</label>
@@ -179,10 +178,9 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
 
       <div class="field full">
         <div class="bk-section-title">
-          <label>Cost items — embassy, typing centre &amp; supplier fees</label>
+          <label>Costs</label>
           <button type="button" class="btn btn-ghost btn-sm" data-add-cost>${icon('plus', 14)} Add cost</button>
         </div>
-        <div class="hint" style="margin:-4px 0 8px">Costs are billed to the supplier when you submit the application. Prepaid portals settle automatically; credit accounts stay payable.</div>
         <div class="bk-wrap">
           <div class="bk-head" data-type="cost">
             <div>Description</div><div>Qty</div><div>Unit cost</div><div>Cost account</div><div>Supplier</div><div>Supplier ref</div><div style="text-align:right">Amount</div><div></div>
@@ -210,8 +208,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
           </div>
           <div class="field">
             <label for="visa-duration">Duration (days)</label>
-            <input class="input" id="visa-duration" name="duration_days" type="number" min="1" max="3650" step="1" value="${esc(visa?.duration_days || '')}" placeholder="e.g. 30">
-            <div class="hint">Leave blank if the stay length is not fixed.</div>
+            <input class="input" id="visa-duration" name="duration_days" type="number" min="1" max="3650" step="1" value="${esc(visa?.duration_days || '')}" placeholder="Not fixed">
           </div>
           <div class="field">
             <label for="visa-reference">Application / embassy ref</label>
@@ -240,9 +237,6 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
 
   const modal = openModal({
     title: isEdit ? `Edit ${visa.number}` : 'New visa application',
-    subtitle: isEdit
-      ? 'Draft applications can be edited until they are submitted.'
-      : 'Submitting creates the customer invoice and supplier bills automatically.',
     size: 'modal-xl',
     body,
     submitLabel: isEdit ? 'Save application' : 'Create application',
@@ -291,7 +285,6 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
       const customerSelect = overlay.querySelector('#visa-customer');
       const applicant = overlay.querySelector('#visa-applicant');
       const otherToggle = overlay.querySelector('#visa-applicant-other');
-      const applicantHint = overlay.querySelector('#visa-applicant-hint');
 
       function customerName() {
         if (!customerSelect || customerSelect.selectedIndex <= 0) return '';
@@ -304,11 +297,6 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         applicant.readOnly = !isOther;
         applicant.required = isOther;
         applicant.placeholder = isOther ? 'Enter the visitor’s full name' : 'Select a customer to fill this';
-        if (applicantHint) {
-          applicantHint.textContent = isOther
-            ? 'Enter the visitor’s full name and passport details below.'
-            : 'Uses the selected customer’s name. Add the passport details below if needed.';
-        }
         if (!isOther) {
           const name = customerName();
           if (name) applicant.value = name;
@@ -343,16 +331,11 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
 
 export async function render(container, { query } = {}) {
   const visas = await api.get('/visas');
-  const activeCount = visas.filter((visa) => ['submitted', 'approved'].includes(visa.status)).length;
-  const issuedCount = visas.filter((visa) => visa.status === 'issued').length;
   const saleTotal = visas.filter((visa) => !['cancelled', 'rejected'].includes(visa.status))
     .reduce((sum, visa) => sum + visa.sale_total_cents, 0);
-  const marginTotal = visas.filter((visa) => !['cancelled', 'rejected'].includes(visa.status))
-    .reduce((sum, visa) => sum + visa.margin_cents, 0);
 
   setHeader({
     title: 'Visas',
-    subtitle: `${visas.length} application${visas.length === 1 ? '' : 's'} · ${activeCount} in progress · ${issuedCount} issued · ${fmtMoney(marginTotal)} gross profit`,
     actions: `<button class="btn btn-primary" data-action="new-visa">${icon('plus', 16)}<span>New visa</span></button>`,
   });
 
@@ -364,7 +347,6 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'visa',
     title: 'No visa applications yet',
-    message: 'Track tourist, visit and business visas with applicant details, embassy costs and gross profit. Submitting posts the invoice and supplier bills.',
     action: '<button class="btn btn-primary" data-action="new-visa">Create your first visa application</button>',
   })}
       </div>
@@ -432,7 +414,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="9">${emptyState({
     iconName: 'search',
     title: 'No matching visa applications',
-    message: 'Try a different search term, status or date range.',
   })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(visaRow).join('');

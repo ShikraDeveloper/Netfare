@@ -126,7 +126,6 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
           </div>
           <div data-va-rows>${applicantRowHtml()}</div>
         </div>
-        <div class="hint">Each applicant becomes a separate application with its own invoice, so one person can be rejected or cancelled without affecting the others. Use <strong>⋯</strong> for nationality, date of birth or accounts.</div>
       </div>
 
       <div class="field full va-deposit-received" data-deposit-received hidden>
@@ -143,7 +142,6 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
               ${optionsHtml(depositAccounts().accounts, { selected: (depositAccounts().accounts.find((a) => a.code === '1000') || depositAccounts().preferred)?.id, placeholder: '', labelKey: (account) => `${account.code} · ${account.name}` })}
             </select>
           </div>
-          <div class="field full"><div class="form-note">Security deposits are not a sale. They are held in <strong>2600 Refundable Security Deposits Held</strong> until refunded, used for an invoice or forfeited.</div></div>
         </div>
       </div>
 
@@ -217,7 +215,6 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
 
   const modal = openModal({
     title: 'New visa application',
-    subtitle: 'Add one or more applicants. Submitting creates each customer invoice and supplier bill automatically.',
     size: 'modal-xl',
     body,
     submitLabel: 'Create application',

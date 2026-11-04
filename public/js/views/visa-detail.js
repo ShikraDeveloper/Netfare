@@ -87,7 +87,7 @@ function groupCard(visa) {
   return `
     <div class="card no-print" style="margin-bottom:16px" data-visa-group>
       <div class="card-head">
-        <div class="card-title"><h2>Group ${esc(group.number)}</h2><p>${group.size} applications created together · each has its own invoice</p></div>
+        <div class="card-title"><h2>Group ${esc(group.number)}</h2></div>
         ${group.draft_count ? `<button class="btn btn-primary btn-sm" data-action="submit-group">${icon('check', 14)} Submit all ${group.draft_count} draft${group.draft_count === 1 ? '' : 's'}</button>` : ''}
       </div>
       <div class="card-body" style="padding:4px 20px">
@@ -104,7 +104,7 @@ function groupCard(visa) {
 function statusHistoryCard(history = []) {
   return `
     <div class="card no-print" style="margin-top:16px" data-status-history>
-      <div class="card-head"><div class="card-title"><h2>Status history</h2><p>When this job changed status</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Status history</h2></div></div>
       <div class="table-wrap">
         <table class="data">
           <caption class="sr-only">Status history</caption>
@@ -168,11 +168,6 @@ export async function render(container, { params } = {}) {
   }
 
   const duration = visaDurationLabel(visa.duration_days);
-  const subtitleParts = [
-    visa.applicant_name || visa.customer_name,
-    visa.destination_country || 'No destination',
-    `${visaTypeLabel(visa.visa_type)} visa${duration ? ` · ${duration}` : ''}`,
-  ];
   menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/visa/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   if (!isCancelled && !isRejected) {
@@ -181,7 +176,7 @@ export async function render(container, { params } = {}) {
   pageRecord(visa);
   setHeader({
     title: visa.number,
-    subtitle: `${subtitleParts.join(' · ')}`,
+    badge: statusBadge(visa.status),
     actions: actions.join('') + moreMenuHtml(menu),
   });
 
@@ -235,7 +230,6 @@ export async function render(container, { params } = {}) {
     : emptyState({
       iconName: 'cash',
       title: 'No payments yet',
-      message: invoice && invoice.balance_cents > 0 ? 'Record a payment or apply an advance to reduce the balance.' : 'Payments will appear here once recorded.',
     });
 
   const billRows = visa.bills.length
@@ -257,7 +251,7 @@ export async function render(container, { params } = {}) {
     ? `
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Cancellation</h2><p>${esc(cancellation.number)} · ${esc(fmtDate(cancellation.cancellation_date))}</p></div>
+          <div class="card-title"><h2>Cancellation ${esc(cancellation.number)}</h2></div>
           <a class="card-link" href="#/cancellations/${cancellation.id}">Open note ${icon('chevron', 12)}</a>
         </div>
         <div class="card-body">
@@ -300,8 +294,6 @@ export async function render(container, { params } = {}) {
 
   container.innerHTML = `
     ${summaryStripHtml([
-      { label: 'Status', html: statusBadge(visa.status) },
-      { label: 'Customer', value: visa.customer_name },
       { label: 'Total', value: fmtMoney(visa.sale_total_cents) },
       { label: 'Paid', value: fmtMoney(visa.amount_paid_cents || 0) },
       { label: 'Balance', value: fmtMoney(visa.balance_cents || 0), tone: visa.balance_cents > 0 && visa.invoice ? 'due' : '' },
@@ -323,7 +315,6 @@ export async function render(container, { params } = {}) {
         <div class="callout-text">
           <h3>Internal notes</h3>
           <p>${esc(visa.notes)}</p>
-          <p class="muted">Staff only · not printed</p>
         </div>
       </div>` : ''}
     <div class="doc-wrap">
@@ -410,7 +401,7 @@ export async function render(container, { params } = {}) {
     <div class="detail-grid no-print">
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer invoice</h2><p>${invoice ? fmtMoney(invoice.balance_cents) + ' outstanding' : 'Created on submission'}</p></div>
+          <div class="card-title"><h2>Customer invoice</h2></div>
           ${invoice && invoice.status === 'sent' && invoice.balance_cents > 0 ? `<a class="card-link" href="#/invoices/${invoice.id}">Record payment ${icon('chevron', 12)}</a>` : ''}
         </div>
         <div class="card-body" style="padding:6px 20px">${invoiceCard}</div>
@@ -418,7 +409,7 @@ export async function render(container, { params } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Supplier bills</h2><p>${visa.bills.length} bill${visa.bills.length === 1 ? '' : 's'} · ${fmtMoney(visa.cost_total_cents)} cost</p></div>
+          <div class="card-title"><h2>Supplier bills</h2></div>
         </div>
         <div class="card-body" style="padding:6px 20px">${billRows}</div>
       </div>
@@ -427,7 +418,7 @@ export async function render(container, { params } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer advances</h2><p>${visa.advances.length ? `${visa.advances.length} advance${visa.advances.length === 1 ? '' : 's'}` : 'No advances recorded'}</p></div>
+          <div class="card-title"><h2>Customer advances</h2></div>
           <div style="display:flex;gap:6px">
             ${canApplyAdvance ? `<button class="btn btn-secondary btn-sm" data-action="apply-advance">${icon('check', 14)} Apply</button>` : ''}
             ${!isCancelled && !isRejected ? `<button class="btn btn-primary btn-sm" data-action="record-advance">${icon('plus', 14)} Record</button>` : ''}
@@ -437,14 +428,13 @@ export async function render(container, { params } = {}) {
           ${visa.advances.length ? advanceRows : emptyState({
     iconName: 'wallet',
     title: 'No advances recorded',
-    message: 'Record a deposit if the customer pays before the application is invoiced.',
   })}
         </div>
       </div>
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Payments received</h2><p>${invoice ? `${fmtMoney(invoice.amount_paid_cents)} received` : 'No invoice yet'}</p></div>
+          <div class="card-title"><h2>Payments received</h2></div>
         </div>
         <div class="card-body" ${visa.payments.length ? 'style="padding:4px 20px"' : ''}>${paymentRows}</div>
       </div>
@@ -604,7 +594,6 @@ export async function render(container, { params } = {}) {
   on('[data-action="record-advance"]', () => {
     openModal({
       title: 'Record customer advance',
-      subtitle: `${visa.number} · ${visa.customer_name}`,
       body: advanceModalBody(visa, 'visa'),
       submitLabel: 'Record advance',
       onMount(overlay) {
@@ -638,7 +627,6 @@ export async function render(container, { params } = {}) {
       const openAdvances = visa.advances.filter((advance) => advance.remaining_cents > 0);
       openModal({
         title: 'Apply advance to invoice',
-        subtitle: `${visa.invoice.number} · ${fmtMoney(visa.invoice.balance_cents)} due`,
         body: applyModalBody(visa, openAdvances),
         submitLabel: 'Apply advance',
         async onSubmit(form) {
@@ -662,7 +650,6 @@ export async function render(container, { params } = {}) {
       if (!advance) return;
       openModal({
         title: `Refund ${advance.number}`,
-        subtitle: `${visa.customer_name} · ${fmtMoney(advance.remaining_cents)} available`,
         body: refundModalBody(advance),
         submitLabel: 'Record refund',
         async onSubmit(form) {

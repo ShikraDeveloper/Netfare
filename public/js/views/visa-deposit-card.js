@@ -50,14 +50,14 @@ function paidFromSelect(id, wallets) {
   </select>`;
 }
 
-function amountField(id, label, cents, hint = '') {
+// note: what is available, shown after the label ("Amount · In hand AED 500").
+function amountField(id, label, cents, note = '') {
   return `
     <div class="field">
-      <label for="${id}">${esc(label)}</label>
+      <label for="${id}">${esc(label)}${note ? ` · ${esc(note)}` : ''}</label>
       <div class="money-input"><span>${esc(currencySymbol())}</span>
         <input class="input" id="${id}" name="amount" type="number" min="0.01" step="0.01" value="${cents ? centsToInput(cents) : ''}" required>
       </div>
-      ${hint ? `<div class="hint">${esc(hint)}</div>` : ''}
     </div>`;
 }
 
@@ -120,7 +120,7 @@ export function depositCardHtml(visa) {
   return `
     <div class="card no-print" data-visa-deposits>
       <div class="card-head">
-        <div class="card-title"><h2>Security deposit</h2><p>${deposits.length ? `${fmtMoney(held)} still held · not a sale` : 'No deposit taken'}</p></div>
+        <div class="card-title"><h2>Security deposit</h2></div>
         ${canCollect ? `<button class="btn btn-primary btn-sm" data-deposit-action="collect">${icon('plus', 14)} Take deposit</button>` : ''}
       </div>
       <div class="card-body" ${deposits.length ? 'style="padding:6px 20px"' : ''}>
@@ -142,14 +142,12 @@ export function bindDepositCard(container, visa, refresh) {
       if (action === 'collect') {
         openModal({
           title: 'Take a security deposit',
-          subtitle: `${visa.number}${visa.applicant_name ? ` · ${visa.applicant_name}` : ''}`,
           body: `<div class="form-grid">
             ${amountField('dep-amount', 'Deposit amount', 0)}
             <div class="field"><label for="dep-date">Date received</label><input class="input" id="dep-date" type="date" value="${todayISO()}" required></div>
             <div class="field"><label for="dep-method">Method</label>${methodSelect('dep-method')}</div>
             <div class="field"><label for="dep-account">Received into</label>${accountSelect('dep-account')}</div>
             <div class="field full"><label for="dep-ref">Reference</label><input class="input" id="dep-ref" autocomplete="off" placeholder="Optional"></div>
-            <div class="field full"><div class="form-note">Not a sale: held in <strong>2600 Refundable Security Deposits Held</strong>.</div></div>
           </div>`,
           submitLabel: 'Record deposit',
           onMount(overlay) {
@@ -177,10 +175,9 @@ export function bindDepositCard(container, visa, refresh) {
             ${amountField('dep-amount', 'Amount', deposit.in_hand_cents, `In hand ${fmtMoney(deposit.in_hand_cents)}`)}
             ${dateField('dep-date', 'Date paid')}
             <div class="field full"><label for="dep-paid-from">Paid from</label>${paidFromSelect('dep-paid-from', wallets)}
-              ${wallets.length ? '<div class="hint">Choose a portal wallet to pay from the balance already with the supplier.</div>' : ''}</div>
+</div>
             <div class="field full"><label for="dep-vendor">Supplier</label><select class="input" id="dep-vendor" required>${optionsHtml(activeVendors(), { placeholder: 'Choose supplier…' })}</select></div>
             <div class="field" data-dep-method><label for="dep-method">Method</label>${methodSelect('dep-method', 'Bank transfer')}</div>
-            <div class="field full"><div class="form-note" data-dep-note>Moves the money to <strong>1460 Refundable Deposits Paid</strong>. The customer is still owed the full deposit.</div></div>
           </div>`,
           submitLabel: 'Record payment',
           onMount(overlay) {
@@ -191,9 +188,8 @@ export function bindDepositCard(container, visa, refresh) {
               overlay.querySelector('[data-dep-method]').hidden = wallet;
               if (wallet) vendor.value = from.selectedOptions[0].dataset.vendor;
               vendor.disabled = wallet;
-              overlay.querySelector('[data-dep-note]').innerHTML = wallet
-                ? 'Paid from the portal wallet: <strong>Dr 1460 Refundable Deposits Paid · Cr 1400 Advances to Suppliers</strong>. The wallet balance goes down; no bank payment.'
-                : 'Moves the money to <strong>1460 Refundable Deposits Paid</strong>. The customer is still owed the full deposit.';
+              // Bank: Dr 1460 Refundable Deposits Paid · Cr bank. Portal wallet:
+              // Dr 1460 · Cr 1400 Advances to Suppliers, with no bank payment.
             };
             from.addEventListener('change', sync);
             sync();
@@ -219,9 +215,9 @@ export function bindDepositCard(container, visa, refresh) {
           title: `Supplier returned ${deposit.number}`,
           body: `<div class="form-grid">
             ${amountField('dep-amount', 'Amount settled by the supplier', deposit.with_supplier_cents, `Supplier holds ${fmtMoney(deposit.with_supplier_cents)}`)}
-            <div class="field"><label for="dep-deduction">Deducted by the supplier</label>
+            <div class="field"><label for="dep-deduction">Supplier deductions (customer pays)</label>
               <div class="money-input"><span>${esc(currencySymbol())}</span><input class="input" id="dep-deduction" type="number" min="0" step="0.01" value="0"></div>
-              <div class="hint">Fines or charges taken out; the customer bears them.</div></div>
+</div>
             ${dateField('dep-date', 'Date returned')}
             <div class="field"><label for="dep-account">Received into</label>${fromWallet
               ? accountSelect('dep-account', false).replace(/ selected(?=>)/g, '').replace('<option value=""', `<option value="wallet" selected>Back to portal wallet${lastPaid.reference ? ` · ${esc(lastPaid.reference)}` : ''}</option><option value=""`)
