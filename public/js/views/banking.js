@@ -50,7 +50,6 @@ function kpi(label, value, meta, iconName, color) {
     <div class="kpi">
       <div class="kpi-top"><span class="kpi-label">${esc(label)}</span><span class="kpi-icon ${color}">${icon(iconName, 16)}</span></div>
       <div class="kpi-value">${esc(value)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
     </div>
   `;
 }
@@ -65,7 +64,6 @@ export async function render(container, { query } = {}) {
 
   setHeader({
     title: 'Banking',
-    subtitle: `Cash in hand ${fmtMoney(balances.cash_balance_cents)} · Bank ${fmtMoney(balances.bank_balance_cents)}`,
     actions: `<button class="btn btn-primary" data-action="new-deposit">${icon('plus', 16)}<span>New cash deposit</span></button>`,
   });
 
@@ -87,7 +85,6 @@ export async function render(container, { query } = {}) {
         ${emptyState({
           iconName: 'cash',
           title: 'No cash deposits yet',
-          message: 'At the end of the day, deposit cash sales from Cash in hand into your bank account. This moves money between accounts and does not change profit.',
           action: '<button class="btn btn-primary" data-action="new-deposit">Deposit cash to bank</button>',
         })}
       </div>
@@ -120,7 +117,6 @@ export async function render(container, { query } = {}) {
       <span class="muted" id="deposit-count" style="font-size:12px"></span>
     </div>
 
-    <div class="stmt-hint no-print">Cash deposits move money from <strong>1000 Cash</strong> to a bank account: Dr Bank / Cr Cash. Cash in hand goes down and bank goes up; profit does not change.</div>
 
     <div class="card">
       <div class="table-wrap">
@@ -165,7 +161,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="8">${emptyState({
         iconName: 'search',
         title: 'No matching deposits',
-        message: 'Try a different search, status or date range.',
       })}</td></tr>`;
       return;
     }

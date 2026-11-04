@@ -85,7 +85,6 @@ function kpi(label, value, meta, iconName, color) {
     <div class="kpi">
       <div class="kpi-top"><span class="kpi-label">${esc(label)}</span><span class="kpi-icon ${color}">${icon(iconName, 16)}</span></div>
       <div class="kpi-value">${esc(value)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
     </div>
   `;
 }
@@ -98,7 +97,6 @@ async function openBatchModal(recurringItems, onSaved) {
   const first = recurringItems[0];
   return openModal({
     title: 'Create post-dated cheques',
-    subtitle: 'Schedule a batch of cheques for office rent or another recurring bill.',
     body: `
       <div class="form-grid">
         <div class="field full">
@@ -110,7 +108,6 @@ async function openBatchModal(recurringItems, onSaved) {
               labelKey: (item) => `${item.name} · ${item.vendor_name || 'No supplier'} · ${fmtMoney(item.amount_cents)}`,
             })}
           </select>
-          <div class="hint">Only active recurring bills with a supplier can have post-dated cheques.</div>
         </div>
         <div class="field">
           <label for="pdc-first">First cheque number</label>
@@ -121,9 +118,8 @@ async function openBatchModal(recurringItems, onSaved) {
           <input class="input" id="pdc-start" name="start_date" type="date" value="${esc(first.next_due_date || todayISO())}" required>
         </div>
         <div class="field">
-          <label for="pdc-count">Number of cheques</label>
+          <label for="pdc-count">Number of cheques (1–60)</label>
           <input class="input" id="pdc-count" name="count" type="number" min="1" max="60" value="12" required>
-          <div class="hint">1–60 cheques. Example: 12 monthly or 4 quarterly.</div>
         </div>
         <div class="field">
           <label for="pdc-amount">Amount per cheque</label>
@@ -158,7 +154,6 @@ async function openBatchModal(recurringItems, onSaved) {
           <textarea class="input" id="pdc-notes" name="notes" rows="2" placeholder="Cheque book, lease year or handover note"></textarea>
         </div>
         <div class="field full">
-          <div class="form-note">These cheques are a <strong>register</strong>; no ledger entry is posted when the batch is created. Recording the cheque payment on the bill posts the entry and can mark the cheque cleared automatically.</div>
         </div>
       </div>
     `,
@@ -206,7 +201,6 @@ async function openEditModal(cheque, onSaved) {
   const linked = Boolean(cheque.bill_payment_id);
   return openModal({
     title: `Edit cheque ${cheque.cheque_number}`,
-    subtitle: `${cheque.vendor_name} · ${cheque.item_name || 'No compliance item'}`,
     body: `
       <div class="form-grid">
         <div class="field">
@@ -278,7 +272,6 @@ export async function render(container, { query } = {}) {
 
   setHeader({
     title: 'Post-dated cheques',
-    subtitle: `${summary.scheduled_count} scheduled · ${summary.upcoming_count} due in 30 days · ${summary.cleared_count} cleared`,
     actions: `
       <a class="btn btn-secondary" href="#/compliance">${icon('check', 16)}<span>Compliance</span></a>
       <button class="btn btn-primary" data-action="new-batch">${icon('plus', 16)}<span>New cheque batch</span></button>
@@ -297,9 +290,6 @@ export async function render(container, { query } = {}) {
         ${emptyState({
           iconName: 'cheque',
           title: 'No post-dated cheques yet',
-          message: recurringItems.length
-            ? 'Create a batch of 12 monthly cheques for office rent or another recurring bill. The register tracks each cheque number, date, bank and clearance status.'
-            : 'Add an active recurring bill under Compliance first, then create a cheque batch here.',
           action: recurringItems.length
             ? '<button class="btn btn-primary" data-action="new-batch">Create 12-cheque batch</button>'
             : '<a class="btn btn-primary" href="#/compliance">Go to Compliance</a>',
@@ -332,7 +322,6 @@ export async function render(container, { query } = {}) {
       <span class="muted" id="cheque-count" style="font-size:12px"></span>
     </div>
 
-    <div class="stmt-hint no-print">This is a cheque register. The ledger posts when you record the cheque payment on the bill; matching cheque number + amount marks the cheque <strong>Cleared</strong> automatically.</div>
 
     <div class="card">
       <div class="table-wrap">
@@ -375,7 +364,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="8">${emptyState({
         iconName: 'search',
         title: 'No matching cheques',
-        message: 'Try a different search, status or cheque date range.',
       })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(rowHtml).join('');

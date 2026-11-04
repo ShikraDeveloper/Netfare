@@ -33,14 +33,14 @@ const SOURCE_LABELS = {
   opening_balance: 'Opening balance',
 };
 
-function moneyField(id, label, value = '', hint = '') {
+// note: shown after the label ("Amount · to the float of AED 500").
+function moneyField(id, label, value = '', note = '') {
   return `
     <div class="field">
-      <label for="${id}">${esc(label)}</label>
+      <label for="${id}">${esc(label)}${note ? ` · ${esc(note)}` : ''}</label>
       <div class="money-input"><span>${esc(currencySymbol())}</span>
         <input class="input" id="${id}" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0.00" value="${esc(value)}" required>
       </div>
-      ${hint ? `<div class="hint">${esc(hint)}</div>` : ''}
     </div>`;
 }
 
@@ -49,14 +49,12 @@ function openTopUp(data, refresh) {
   const preferred = sources.find((account) => account.code === '1010') || sources[0];
   openModal({
     title: 'Top up petty cash',
-    subtitle: `Balance now ${fmtMoney(data.balance_cents)}`,
     body: `<div class="form-grid">
-      ${moneyField('pc-amount', 'Amount', data.top_up_cents ? centsToInput(data.top_up_cents) : '', data.float_cents ? `Brings it back to the float of ${fmtMoney(data.float_cents)}` : '')}
+      ${moneyField('pc-amount', 'Amount', data.top_up_cents ? centsToInput(data.top_up_cents) : '', data.float_cents ? `to the float of ${fmtMoney(data.float_cents)}` : '')}
       <div class="field"><label for="pc-date">Date</label><input class="input" id="pc-date" type="date" value="${todayISO()}" required></div>
       <div class="field full"><label for="pc-from">Taken from</label>
         <select class="input" id="pc-from">${optionsHtml(sources, { selected: preferred?.id, labelKey: (a) => `${a.code} · ${a.name}` })}</select></div>
       <div class="field full"><label for="pc-ref">Reference <span class="muted">(optional)</span></label><input class="input" id="pc-ref" autocomplete="off" placeholder="e.g. ATM withdrawal, cheque no."></div>
-      <div class="field full"><div class="form-note">Moves money into 1020 Petty Cash (Dr Petty Cash · Cr ${esc(preferred ? preferred.name : 'bank')}). It is not an expense; spends are.</div></div>
     </div>`,
     submitLabel: 'Top up',
     async onSubmit(form) {
@@ -77,11 +75,10 @@ function openTopUp(data, refresh) {
 function openCount(data, refresh) {
   openModal({
     title: 'Count petty cash',
-    subtitle: `In the books: ${fmtMoney(data.balance_cents)}`,
     body: `<div class="form-grid">
       ${moneyField('pc-counted', 'Cash counted in the box', '')}
       <div class="field"><label for="pc-count-date">Count date</label><input class="input" id="pc-count-date" type="date" value="${todayISO()}" max="${todayISO()}" required></div>
-      <div class="field full"><div class="form-note" data-count-diff>Enter what is in the box.</div></div>
+      <div class="field full"><div class="form-note" data-count-diff></div></div>
       <div class="field full"><label for="pc-count-notes">Notes <span class="muted">(optional)</span></label><input class="input" id="pc-count-notes" autocomplete="off" placeholder="e.g. counted by Sara"></div>
     </div>`,
     submitLabel: 'Save count',
@@ -116,7 +113,7 @@ function openFloat(data, refresh) {
   openModal({
     title: 'Petty cash float',
     body: `<div class="form-grid">
-      ${moneyField('pc-float', 'Float amount', data.float_cents ? centsToInput(data.float_cents) : '', 'The amount the box is topped back up to. Top up suggests the difference.')}
+      ${moneyField('pc-float', 'Float (topped back up to)', data.float_cents ? centsToInput(data.float_cents) : '')}
     </div>`,
     submitLabel: 'Save float',
     async onSubmit(form) {
@@ -158,7 +155,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
   setHeader({
     title: 'Petty cash',
-    subtitle: `Balance ${fmtMoney(data.balance_cents)}${data.float_cents ? ` · float ${fmtMoney(data.float_cents)}` : ''}`,
     actions: `
       <button class="btn btn-secondary" data-action="pc-count">${icon('check', 15)}<span>Count cash</span></button>
       <button class="btn btn-secondary" data-action="pc-top-up">${icon('plus', 15)}<span>Top up</span></button>
@@ -178,14 +174,14 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
       ${data.float_cents ? '<button type="button" class="btn btn-ghost btn-sm" data-action="pc-float">Change float</button>' : ''}
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-title"><h2>Activity</h2><p>Opening ${fmtMoney(data.opening_cents)} · in ${fmtMoney(data.in_cents)} · out ${fmtMoney(data.out_cents)} · closing ${fmtMoney(data.closing_cents)}</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Activity</h2></div></div>
       ${data.lines.length ? `<div class="table-wrap"><table class="data" data-petty-lines><caption class="sr-only">Petty cash activity</caption>
         <thead><tr><th scope="col">Date</th><th scope="col">Description</th><th scope="col" class="num">In</th><th scope="col" class="num">Out</th><th scope="col" class="num">Balance</th></tr></thead>
         <tbody>${data.lines.map(lineRow).join('')}</tbody></table></div>`
-        : emptyState({ iconName: 'cash', title: 'No petty cash activity in this period', message: 'Top up the box, then record each spend with Record spend.' })}
+        : emptyState({ iconName: 'cash', title: 'No petty cash activity in this period' })}
     </div>
     ${data.counts.length ? `<div class="card" style="margin-top:16px">
-      <div class="card-head"><div class="card-title"><h2>Cash counts</h2><p>A difference is posted to 6900 Other Expenses</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Cash counts</h2></div></div>
       <div class="table-wrap"><table class="data" data-petty-counts><caption class="sr-only">Petty cash counts</caption>
         <thead><tr><th scope="col">Date</th><th scope="col" class="num">Counted</th><th scope="col" class="num">Books</th><th scope="col" class="num">Difference</th><th scope="col">Notes</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
         <tbody>${data.counts.map(countRow).join('')}</tbody></table></div>

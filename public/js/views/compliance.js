@@ -26,7 +26,6 @@ export async function render(container, { query } = {}) {
 
   setHeader({
     title: 'Compliance',
-    subtitle: `${summary.active_count} active · ${summary.overdue_count} overdue · ${summary.due_soon_count} due soon`,
     actions: `
       <a class="btn btn-secondary" href="#/cheques">${icon('cheque', 16)}<span>Cheques</span></a>
       <button class="btn btn-secondary" data-action="run-due">${icon('refresh', 16)}<span>Run due bills</span></button>
@@ -49,7 +48,6 @@ export async function render(container, { query } = {}) {
         ${emptyState({
           iconName: 'check',
           title: 'No compliance items yet',
-          message: 'Track office rent and utilities as recurring bills, and keep corporate tax, licence, lease and insurance deadlines in one calendar.',
           action: `
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
               <button class="btn btn-primary" data-action="new-compliance" data-kind="recurring_bill" data-category="Office rent">${icon('plus', 15)} Add office rent</button>
@@ -154,7 +152,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="7">${emptyState({
         iconName: 'search',
         title: 'No matching compliance items',
-        message: 'Try a different search, type, status or due filter.',
       })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(rowHtml).join('');

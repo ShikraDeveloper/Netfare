@@ -1880,8 +1880,7 @@ test('monthly bank charges in Compliance are recorded as paid bank debits', asyn
   assert.equal(await dialog.locator('#ci-auto-field').isVisible(), false, 'no draft option for a bank debit');
   assert.equal(await dialog.locator('#ci-payment-method').isVisible(), false);
   await dialog.locator('#ci-name').fill('E2E bank maintenance charges');
-  // No supplier needed for money the bank takes itself.
-  assert.match(await dialog.locator('#ci-vendor-label').innerText(), /optional/);
+  // No supplier needed for money the bank takes itself: it saves without one.
   await dialog.locator('#ci-amount').fill('26.25');
   await dialog.locator('#ci-next-due').fill(due);
   await dialog.locator('[data-submit]').click();

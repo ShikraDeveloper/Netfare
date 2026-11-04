@@ -23,7 +23,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
   setHeader({
     title: 'Bank reconciliation',
-    subtitle: `${accounts.length} cash/bank account${accounts.length === 1 ? '' : 's'} · ${fmtMoney(totalBalance)} book balance`,
     actions: accounts.length
       ? `<button class="btn btn-primary" data-action="new-reconciliation">${icon('plus', 15)}<span>Reconcile</span></button>`
       : '',
@@ -33,7 +32,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     container.innerHTML = `<div class="card">${emptyState({
       iconName: 'cash',
       title: 'No bank or cash accounts',
-      message: 'Add an active cash or bank account in the chart of accounts before reconciling.',
       action: '<a class="btn btn-primary" href="#/accounts?new=1">Add account</a>',
     })}</div>`;
     return;
@@ -41,9 +39,9 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
   container.innerHTML = `
     <div class="recon-kpis">
-      <div class="recon-kpi"><span>Book balance</span><strong>${fmtMoney(totalBalance)}</strong><small>Across all cash/bank accounts</small></div>
-      <div class="recon-kpi"><span>Last reconciliation</span><strong>${last ? esc(fmtDate(last.statement_date)) : 'Never'}</strong><small>${last ? `${esc(last.account_name)} · ${esc(last.status)}` : 'Start with your latest bank statement'}</small></div>
-      <div class="recon-kpi"><span>Open differences</span><strong>${rows.filter((row) => row.status === 'difference').length}</strong><small>Reconciliations that still need attention</small></div>
+      <div class="recon-kpi"><span>Book balance</span><strong>${fmtMoney(totalBalance)}</strong></div>
+      <div class="recon-kpi"><span>Last reconciliation</span><strong>${last ? esc(fmtDate(last.statement_date)) : 'Never'}</strong>${last ? `<small>${esc(last.account_name)}</small>` : ''}</div>
+      <div class="recon-kpi"><span>Open differences</span><strong>${rows.filter((row) => row.status === 'difference').length}</strong></div>
     </div>
 
     <div class="toolbar">
@@ -81,7 +79,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
       ` : emptyState({
         iconName: 'check',
         title: 'No reconciliations yet',
-        message: 'Match your bank statement to the ledger. Select the transactions that cleared and compare the closing balance.',
         action: '<button class="btn btn-primary" data-action="new-reconciliation">Start reconciliation</button>',
       })}
     </div>
@@ -123,7 +120,6 @@ function openReconcileModal({ accounts, onSaved }) {
   let workspace = null;
   openModal({
     title: 'Reconcile bank account',
-    subtitle: 'Compare the statement closing balance with cleared ledger transactions.',
     size: 'modal-xl',
     submitLabel: 'Save reconciliation',
     body: `
@@ -243,7 +239,6 @@ function workspaceHtml(workspace) {
         </tbody>
       </table>
     </div>
-    <p class="hint" style="margin:10px 0 0">Only transactions that appear on the bank statement should be ticked.</p>
     <details class="recon-charge" data-recon-charge>
       <summary>${icon('plus', 14)}<span>Add bank charge</span><span class="muted">: on the statement but not in the books</span></summary>
       <div class="recon-charge-form">
@@ -261,7 +256,6 @@ function workspaceHtml(workspace) {
         </div>
         <button type="button" class="btn btn-secondary" data-recon-charge-add>Add and tick</button>
       </div>
-      <p class="hint">Saved as a paid expense to 6700 Bank Charges from this account (Dr 6700 · Cr bank). Undo it from Bills &amp; expenses.</p>
     </details>
   `;
 }

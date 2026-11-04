@@ -57,15 +57,13 @@ function modalBody(item = null) {
         </select>
       </div>
       <div class="field full" data-ci-recurring>
-        <label for="ci-vendor" id="ci-vendor-label">Supplier — who you pay</label>
+        <label for="ci-vendor" id="ci-vendor-label">Supplier</label>
         <select class="input" id="ci-vendor" name="vendor_id">
           ${optionsHtml(vendors, { selected: item?.vendor_id, placeholder: 'Choose a vendor…' })}
         </select>
-        <div class="hint" data-ci-not-debit>Required for recurring bills. Generated draft bills are recorded against this supplier’s payable account.</div>
-        <div class="hint" data-ci-debit>Not needed for a bank debit. Leave it empty and the charges are kept under the bank’s own name.</div>
       </div>
       <div class="field full" data-ci-recurring>
-        <label for="ci-account">Expense account — what the cost is for</label>
+        <label for="ci-account">Expense account</label>
         <select class="input" id="ci-account" name="account_id">
           ${optionsHtml(accounts, {
             selected: item?.account_id,
@@ -73,7 +71,6 @@ function modalBody(item = null) {
             labelKey: (account) => `${account.code} · ${account.name}`,
           })}
         </select>
-        <div class="hint">Examples: 6000 Rent Expense, 6100 Utilities Expense, 6200 Salaries &amp; Wages.</div>
       </div>
       <div class="field">
         <label for="ci-amount" id="ci-amount-label">${kind === 'recurring_bill' ? (item?.variable_amount ? 'Typical amount (optional)' : 'Amount') : 'Fee / estimate (optional)'}</label>
@@ -87,7 +84,6 @@ function modalBody(item = null) {
         <select class="input" id="ci-payment-method" name="payment_method">
           ${PAYMENT_METHODS.map((method) => `<option value="${esc(method)}" ${method === (item?.payment_method || 'Bank transfer') ? 'selected' : ''}>${esc(method)}</option>`).join('')}
         </select>
-        <div class="hint">Default when the generated draft bill is paid. Choose Cheque for office rent paid by cheque.</div>
       </div>
       <div class="field">
         <label for="ci-frequency">Frequency</label>
@@ -100,27 +96,24 @@ function modalBody(item = null) {
         <input class="input" id="ci-next-due" name="next_due_date" type="date" value="${esc(item?.next_due_date || todayISO())}" required>
       </div>
       <div class="field">
-        <label for="ci-end">End date <span class="muted">(optional)</span></label>
+        <label for="ci-end">End date</label>
         <input class="input" id="ci-end" name="end_date" type="date" value="${esc(item?.end_date || '')}">
       </div>
       <div class="field">
-        <label for="ci-reminder">Remind me before</label>
+        <label for="ci-reminder">Remind (days before)</label>
         <input class="input" id="ci-reminder" name="reminder_days" type="number" min="0" max="365" step="1" value="${esc(item?.reminder_days ?? 14)}">
-        <div class="hint">Days before the due date</div>
       </div>
       <div class="field full" data-ci-recurring>
         <label class="checkline" style="display:flex;align-items:center;gap:8px;font-size:13px">
           <input type="checkbox" id="ci-variable" name="variable_amount" ${item?.variable_amount ? 'checked' : ''}>
           <span>Amount varies each period</span>
         </label>
-        <div class="hint">For utilities such as Etihad WE, DEWA or phone bills. The amount above is only an estimate; when you create the bill you’ll enter the actual amount. Auto-draft is disabled.</div>
       </div>
       <div class="field full" data-ci-recurring>
         <label class="checkline" style="display:flex;align-items:center;gap:8px;font-size:13px">
           <input type="checkbox" id="ci-bank-debit" name="bank_debit" ${bankDebit ? 'checked' : ''}>
           <span>The bank takes this amount itself (bank debit)</span>
         </label>
-        <div class="hint">For bank account charges and standing orders. Each period is recorded as <strong>already paid</strong> on its due date, with no draft to approve (Dr expense · Cr bank). If the amount varies, you enter it when it is due.</div>
       </div>
       <div class="field full" data-ci-recurring data-ci-debit>
         <label for="ci-debit-account">Debited from</label>
@@ -133,7 +126,6 @@ function modalBody(item = null) {
           <input type="checkbox" id="ci-auto" name="auto_create_bill" ${item?.auto_create_bill ? 'checked' : ''}>
           <span>Auto-create a draft bill when due</span>
         </label>
-        <div class="hint">Use this for fixed amounts like office rent or salaries. The draft bill can be reviewed before posting.</div>
       </div>
       <div class="field full">
         <label for="ci-notes">Notes</label>
@@ -155,8 +147,6 @@ function syncVariableFields(overlay) {
   }
   const bankDebit = recurring && overlay.querySelector('#ci-bank-debit')?.checked;
   overlay.querySelectorAll('[data-ci-debit]').forEach((el) => { el.hidden = !bankDebit; });
-  const vendorLabel = overlay.querySelector('#ci-vendor-label');
-  if (vendorLabel) vendorLabel.innerHTML = bankDebit ? 'Supplier <span class="muted">(optional)</span>' : 'Supplier — who you pay';
   const vendorEmpty = overlay.querySelector('#ci-vendor option[value=""]');
   if (vendorEmpty) vendorEmpty.textContent = bankDebit ? 'None — the bank itself' : 'Choose a vendor…';
   overlay.querySelectorAll('[data-ci-not-debit]').forEach((el) => { el.hidden = !recurring || bankDebit; });
@@ -199,7 +189,6 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
   const category = seed.category || defaults.category || CATEGORIES[kind]?.[0] || 'Other';
   const modal = openModal({
     title: full ? `Edit ${full.name}` : 'New compliance item',
-    subtitle: full ? `${full.kind_label} · ${full.frequency_label}` : 'Recurring bills, filings and renewals in one place.',
     body: `${modalBody({ ...seed, kind, category })}${full ? recordMetaHtml(full) : ''}`,
     submitLabel: full ? 'Save changes' : 'Add item',
     onMount(overlay) {
@@ -257,9 +246,6 @@ export async function openGenerateBillModal(item, onSaved = null) {
   const bankDebit = Boolean(item.auto_debit_account_id);
   return openModal({
     title: bankDebit ? `Record bank debit — ${item.name}` : `Create draft bill — ${item.name}`,
-    subtitle: item.variable_amount
-      ? `${fmtDate(item.next_due_date)} · enter this period’s actual amount`
-      : `${fmtDate(item.next_due_date)} · review before creating the draft`,
     body: `
       <div class="form-grid">
         <div class="field">
@@ -268,7 +254,6 @@ export async function openGenerateBillModal(item, onSaved = null) {
             <span>${esc(currencySymbol())}</span>
             <input class="input" id="gb-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(item.amount_cents)}" required>
           </div>
-          <div class="hint">${item.variable_amount ? 'Enter the amount from this month’s bill.' : 'Change this if this period’s bill is different.'}</div>
         </div>
         <div class="field">
           <label for="gb-date">${bankDebit ? 'Date debited' : 'Bill date'}</label>
@@ -281,11 +266,6 @@ export async function openGenerateBillModal(item, onSaved = null) {
         <div class="field full">
           <label for="gb-notes">Notes</label>
           <textarea class="input" id="gb-notes" name="notes" rows="2" placeholder="Optional note for this bill"></textarea>
-        </div>
-        <div class="field full">
-          <div class="form-note">${bankDebit
-            ? `Recorded as a <strong>paid bill</strong> from ${esc(item.auto_debit_account_code || '')} ${esc(item.auto_debit_account_name || 'the bank')} on this date (Dr ${esc(item.account_code || 'expense')} · Cr bank).`
-            : 'This creates a <strong>draft bill</strong>; nothing posts to the ledger until you receive it under Bills.'}</div>
         </div>
       </div>
     `,

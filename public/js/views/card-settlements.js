@@ -52,7 +52,6 @@ export async function render(container) {
 
   setHeader({
     title: 'Card settlements',
-    subtitle: `${fmtMoney(data.in_transit_cents)} card and payment link money not yet in the bank`,
   });
 
   container.innerHTML = `
@@ -63,7 +62,7 @@ export async function render(container) {
       { label: 'Fee (selected − received)', html: `<span data-settle-fee>${esc(fmtMoney(0))}</span>` },
     ])}
     <div class="card">
-      <div class="card-head"><div class="card-title"><h2>Waiting to settle</h2><p>Card and payment link receipts in 1030. Tick the ones in the gateway's payout.</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Waiting to settle</h2></div></div>
       ${data.items.length ? `
         <div class="table-wrap"><table class="data" data-settle-items><caption class="sr-only">Card and payment link items waiting to settle</caption>
           <thead><tr><th scope="col"><input type="checkbox" data-settle-all aria-label="Select all items"></th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col" class="num">Amount</th></tr></thead>
@@ -76,12 +75,11 @@ export async function render(container) {
           <div class="field"><label for="settle-bank">Bank account</label><select class="input" id="settle-bank">${optionsHtml(banks, { selected: banks.find((a) => a.code === '1010')?.id, labelKey: (a) => `${a.code} · ${a.name}` })}</select></div>
           <div class="field"><label for="settle-ref">Payout reference <span class="muted">(optional)</span></label><input class="input" id="settle-ref" autocomplete="off"></div>
           <button type="submit" class="btn btn-primary">Record settlement</button>
-          <p class="hint">Posts Dr bank (received) · Dr 6700 Bank Charges (fee) · Cr 1030 Card &amp; Payment Link Clearing (selected).</p>
         </form>`
-        : emptyState({ iconName: 'check', title: 'Nothing waiting', message: 'Card and payment link receipts show here until the gateway pays them into the bank.' })}
+        : emptyState({ iconName: 'check', title: 'Nothing waiting' })}
     </div>
     ${data.settlements.length ? `<div class="card" style="margin-top:16px">
-      <div class="card-head"><div class="card-title"><h2>Settlements</h2><p>Payouts already matched</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Settlements</h2></div></div>
       <div class="table-wrap"><table class="data" data-settlements><caption class="sr-only">Card settlements</caption>
         <thead><tr><th scope="col">Date</th><th scope="col">Bank</th><th scope="col" class="num">Items</th><th scope="col" class="num">Fee</th><th scope="col" class="num">Received</th><th scope="col">Status</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
         <tbody>${data.settlements.map(settlementRow).join('')}</tbody></table></div>

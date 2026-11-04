@@ -35,7 +35,6 @@ export async function openCashDepositModal({ onSaved = null } = {}) {
 
   return openModal({
     title: 'Deposit cash to bank',
-    subtitle: 'Move end-of-day cash into a bank account. This is a transfer, not income or an expense.',
     body: `
       <div class="form-grid">
         <div class="field">
@@ -73,7 +72,6 @@ export async function openCashDepositModal({ onSaved = null } = {}) {
           <div class="hint" id="cash-balance-hint"></div>
         </div>
         <div class="field full">
-          <div class="form-note">This posts <strong>Dr Bank / Cr Cash</strong>. Cash in hand goes down and the bank balance goes up; your profit does not change.</div>
         </div>
       </div>
     `,

@@ -118,7 +118,6 @@ export function kpi(label, value, meta, iconName, color) {
     <div class="kpi">
       <div class="kpi-top"><span class="kpi-label">${esc(label)}</span><span class="kpi-icon ${color}">${icon(iconName, 16)}</span></div>
       <div class="kpi-value">${esc(value)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
     </div>
   `;
 }
