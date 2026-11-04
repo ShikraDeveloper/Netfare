@@ -2028,15 +2028,28 @@ The two hardening notes from the 2026-11-04 security check, done at the user's r
 - **Visual check:** on a throwaway server, a Customers View staff user opened a customer page and saw no Documents card.
 - **Status:** user item 1 is done (1.0.4 update and bell). Item 2, checking the website, waits until the user puts it live.
 
+### Guard against opening the old books; flaky sign-in test fixed — code commits `7961d64`, `12f669b`
+
+Pending items 3 and 4, at the user's request.
+
+- **Old books guard** (`7961d64`, new `server/data-dir.js`): since the desktop app, the real books are in its own folder (`~/Library/Application Support/Netfare/data` on a Mac). Before this, `npm start`, `npm run backup`, `restore` and `reset-admin` still opened `data/` in this repo, the books from before the desktop app. Now one rule picks the folder for all of them (`db.js`, `services/backup.js`, `scripts/backup.js`, `scripts/restore.js`):
+  - `LEDGERLY_DATA_DIR`, when set, always wins (the desktop app and every test set it);
+  - otherwise, if the desktop app's `accounting.db` exists on this computer, they stop with a message naming both folders: "Stopped: your books are in the Netfare desktop app… Use the Netfare app instead";
+  - `NETFARE_USE_REPO_DATA=1` opens the old folder on purpose;
+  - with no desktop books, the old folder is used as before.
+
+  On this Mac the message appears as intended. Checking it only tests whether the file exists; no database is opened. New `test/data-dir.test.js` covers the per-system folders and every branch, using pure checks only.
+- **Flaky sign-in test** (`12f669b`, `test/e2e/browser.test.js`): after the mismatched passwords, the test read `.modal-error` at once. The box is always in the modal (hidden and empty) and gets its text a moment later, so the read sometimes came back empty. It now waits for the visible box with "do not match". The test passed 10/10 runs on its own, and the full browser suite passed twice in a row.
+- **Checks:** `npm run check` 234 files OK, `npm test` 255 passed, `npm run test:e2e` 42 passed (twice).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.4` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.3; release 1.0.4 is the first real test of the bell (red dot within 3 hours or after a restart).
-3. **Release 1.0.5** when the user asks: it brings the customer documents and picker list changes to the desktop app.
+3. **Release 1.0.5** when the user asks: it brings the customer documents and picker list changes (and the old-books guard for npm start) to the desktop app.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
-   - the flaky sign-in browser test;
    - testing "Start from a backup" in the desktop app by hand.
 6. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
