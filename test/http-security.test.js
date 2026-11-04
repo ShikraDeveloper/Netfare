@@ -670,7 +670,19 @@ test('customers keep a nationality and their own documents, behind the customers
   assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`, { headers: { Cookie: outsider.cookie } })).status, 403);
   await postAs(cookie, '/api/users', { full_name: 'Customer Desk', username: 'customer.desk', password: 'customer-desk-1', permissions: { customers: 'view' } });
   const desk = await signIn('customer.desk', 'customer-desk-1');
-  assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`, { headers: { Cookie: desk.cookie } })).status, 200);
+  const viewOnly = await jsonRequest(`/api/attachments/${file.id}/download`, { headers: { Cookie: desk.cookie } });
+  assert.equal(viewOnly.status, 403, 'passport and Emirates ID need Customers Edit, not just View');
+  assert.match(viewOnly.data.error, /Edit rights for Customers/);
+  assert.equal((await jsonRequest(`/api/attachments?entity_type=customer&entity_id=${id}`, { headers: { Cookie: desk.cookie } })).status, 403);
+  await postAs(cookie, '/api/users', { full_name: 'Customer Editor', username: 'customer.editor', password: 'customer-editor-1', permissions: { customers: 'edit' } });
+  const editor = await signIn('customer.editor', 'customer-editor-1');
+  assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`, { headers: { Cookie: editor.cookie } })).status, 200);
+
+  const pickerOnly = await jsonRequest('/api/customers', { headers: { Cookie: outsider.cookie } });
+  const row = pickerOnly.data.find((customer) => customer.id === id);
+  assert.deepEqual(Object.keys(row).sort(), ['id', 'is_active', 'name', 'nationality'], 'staff without Customers rights get picker fields only');
+  const full = (await jsonRequest('/api/customers', { headers: { Cookie: desk.cookie } })).data.find((customer) => customer.id === id);
+  assert.ok('email' in full && 'outstanding_cents' in full, 'Customers View still sees the full list');
 
   assert.equal((await jsonRequest(`/api/customers/${id}`, { method: 'DELETE', headers: { Origin: baseUrl } })).status, 200);
   assert.equal((await jsonRequest(`/api/attachments/${file.id}/download`)).status, 404, 'the documents go with the customer');

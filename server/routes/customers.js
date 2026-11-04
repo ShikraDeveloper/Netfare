@@ -5,6 +5,7 @@ const db = require('../db');
 const { bad, notFound, str, optionalStr, isTruthy } = require('../util');
 const statementService = require('../services/statements');
 const partyOpening = require('../services/party-opening');
+const { canViewArea } = require('../permissions');
 
 function listCustomers() {
   return db.prepare(`
@@ -19,10 +20,15 @@ function listCustomers() {
   `).all();
 }
 
+// Every screen loads this list for its customer pickers. Staff without the
+// Customers right get only what a picker needs, not contact details or notes.
+const PICKER_FIELDS = ['id', 'name', 'is_active', 'nationality'];
+
 router.get('/', (req, res) => {
   const includeInactive = isTruthy(req.query.include_inactive);
-  const rows = listCustomers();
-  res.json(includeInactive ? rows : rows.filter((row) => row.is_active));
+  const rows = listCustomers().filter((row) => includeInactive || row.is_active);
+  if (canViewArea(req.user, 'customers')) return res.json(rows);
+  res.json(rows.map((row) => Object.fromEntries(PICKER_FIELDS.map((key) => [key, row[key]]))));
 });
 
 router.get('/:id/statement', (req, res) => {

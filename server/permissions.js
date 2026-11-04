@@ -130,6 +130,10 @@ function refusal(db, user, req) {
     if (id) entityType = db.prepare('SELECT entity_type FROM attachments WHERE id = ?').get(id)?.entity_type;
     const area = ATTACHMENT_AREAS[entityType];
     if (!area) return 'You do not have access to this file';
+    // A customer's documents (passport, Emirates ID) need Edit, not just View.
+    if (area === 'customers' && !canEdit(permissions, 'customers')) {
+      return 'You need Edit rights for Customers to open customer documents. Ask the admin.';
+    }
     areas = [area];
   } else if (reading && DASHBOARD_READS.has(path)) {
     areas = ['dashboard', 'reports'];
@@ -154,9 +158,15 @@ function refusal(db, user, req) {
   return null;
 }
 
+// True when the user may see an area at all (the admin always may).
+function canViewArea(user, area) {
+  return Boolean(user?.is_admin) || canView(parsePermissions(user?.permissions), area);
+}
+
 module.exports = {
   AREAS,
   AREA_KEYS,
+  canViewArea,
   cleanPermissions,
   parsePermissions,
   refusal,

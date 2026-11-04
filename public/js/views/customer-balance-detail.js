@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { can } from '../store.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
 import {
@@ -110,9 +111,11 @@ function cancellationRows(cancellations) {
 
 export async function render(container, { params } = {}) {
   const id = Number(params?.[0]);
+  // Documents (passport, Emirates ID) are for staff with Customers Edit.
+  const showDocuments = can('customers', 'edit');
   const [data, documents] = await Promise.all([
     api.get(`/customer-balances/${id}`),
-    loadAttachments('customer', id),
+    showDocuments ? loadAttachments('customer', id) : [],
   ]);
   const { customer, summary } = data;
   const creditTotal = summary.unapplied_credit_cents + summary.advance_cents + summary.cancellation_refund_cents;
@@ -211,7 +214,7 @@ export async function render(container, { params } = {}) {
       </div>
     ` : ''}
 
-    ${attachmentSection({ entityType: 'customer', entityId: id, attachments: documents, title: 'Documents', hint: 'Emirates ID, passport and other papers for this customer' })}
+    ${showDocuments ? attachmentSection({ entityType: 'customer', entityId: id, attachments: documents, title: 'Documents', hint: 'Emirates ID, passport and other papers for this customer' }) : ''}
 
     ${data.cancellation_refunds.length ? `
       <div class="card" style="margin-top:16px">
@@ -230,7 +233,7 @@ export async function render(container, { params } = {}) {
   `;
 
   const refresh = () => render(container, { params: [String(id)] });
-  bindAttachmentSection(container, { entityType: 'customer', entityId: id });
+  if (showDocuments) bindAttachmentSection(container, { entityType: 'customer', entityId: id });
   document.querySelector('#page-actions [data-action="record-advance"]')?.addEventListener('click', () => openRecordAdvance(customer, refresh));
   document.querySelector('#page-actions [data-action="receive-payment"]')?.addEventListener('click', () => openReceivePayment(
     customer,
