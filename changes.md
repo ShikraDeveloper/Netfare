@@ -2141,11 +2141,28 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
   Found and fixed: in dark mode an open group's name was too dark to read; and axe flagged two label mismatches (company link, account button).
 
+### Release 1.0.7 — code commit `4ed036c`, tag `v1.0.7`
+
+- Version 1.0.7 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 256 passed.
+- Two note lines: the Side or Top menu choice; search with / and + New.
+- **Release run 41813948174:**
+  - Build (mac) and Build (win) succeeded;
+  - "Publish release" first failed with GitHub API **HTTP 502** while creating the release, with no draft left behind;
+  - after a re-run of only the failed job (`gh run rerun --failed`), it succeeded using the same built artifacts.
+- The assets are:
+  - arm64 dmg, 142 MB;
+  - x64 dmg, 149 MB;
+  - Windows exe, 131 MB;
+  - `latest.json`.
+- The main push also hit one GitHub "Internal Server Error" and went through on retry.
+- **Checked:** 1.0.7 is marked Latest, and `latest.json` reports 1.0.7 (for the first ~30 s the CDN still served 1.0.6).
+- **Not checked:** the released dmgs were not downloaded and verified on this Mac.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.6` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.7` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.7** when the user asks: the menu choice (Side or Top), search and the New menu.
+3. **Release 1.0.7** is published (Side or Top menu, search, New menu).
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
