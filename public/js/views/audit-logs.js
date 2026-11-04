@@ -213,10 +213,6 @@ export async function render(container) {
       ].some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} matching`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} audited action${filtered.length === 1 ? '' : 's'} · All voids, cancellations and deletes`;
-    }
     renderPage();
   }
 

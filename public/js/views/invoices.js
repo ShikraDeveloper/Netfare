@@ -165,16 +165,7 @@ export async function render(container, { query } = {}) {
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
 
-    const filteredOutstanding = filtered
-      .filter((invoice) => !['draft', 'void', 'paid'].includes(invoice.status_display))
-      .reduce((sum, invoice) => sum + invoice.balance_cents, 0);
-    const filteredOpen = filtered
-      .filter((invoice) => !['draft', 'void', 'paid'].includes(invoice.status_display)).length;
     countEl.textContent = `${filtered.length} matching`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} invoice${filtered.length === 1 ? '' : 's'} · ${fmtMoney(filteredOutstanding)} outstanding across ${filteredOpen}`;
-    }
     renderPage();
   }
 

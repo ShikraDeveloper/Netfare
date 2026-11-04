@@ -431,16 +431,9 @@ export async function render(container, { query } = {}) {
     const filteredSales = filtered
       .filter((booking) => booking.status !== 'cancelled')
       .reduce((sum, booking) => sum + booking.sale_total_cents, 0);
-    const filteredMargin = filtered
-      .filter((booking) => booking.status !== 'cancelled')
-      .reduce((sum, booking) => sum + booking.margin_cents, 0);
     const confirmed = filtered.filter((booking) => booking.status === 'confirmed').length;
     countEl.textContent = `${filtered.length} shown`;
     if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} booking${filtered.length === 1 ? '' : 's'} · ${confirmed} confirmed · ${fmtMoney(filteredMargin)} gross profit`;
-    }
     renderPage();
   }
 

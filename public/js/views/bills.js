@@ -166,16 +166,7 @@ export async function render(container, { query } = {}) {
       return [bill.number, bill.vendor_name, bill.vendor_email, bill.notes, bill.status_display]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
-    const filteredOutstanding = filtered
-      .filter((bill) => !['draft', 'void', 'paid'].includes(bill.status_display))
-      .reduce((sum, bill) => sum + bill.balance_cents, 0);
-    const filteredOpen = filtered
-      .filter((bill) => !['draft', 'void', 'paid'].includes(bill.status_display)).length;
     countEl.textContent = `${filtered.length} matching`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} bill${filtered.length === 1 ? '' : 's'} · ${fmtMoney(filteredOutstanding)} payable across ${filteredOpen}`;
-    }
     renderPage();
   }
 

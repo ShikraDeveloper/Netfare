@@ -344,10 +344,6 @@ export async function render(container, { query } = {}) {
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} matching`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} entr${filtered.length === 1 ? 'y' : 'ies'} · Every document posts here`;
-    }
     renderPage();
   }
 

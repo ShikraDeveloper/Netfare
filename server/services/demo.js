@@ -242,7 +242,7 @@ function loadDemo(db) {
         return_date: plan.ret == null ? null : daysAgo(plan.ret),
         destination: plan.destination,
         pnr: plan.pnr,
-        notes: 'Thank you for booking with Skyline Travels.',
+        notes: 'Corporate group: keep the seats together.',
         sale_items: plan.sale.map(([description, quantity, unitPrice, account]) => ({
           description, quantity, unit_price_cents: unitPrice, account_id: account,
         })),
@@ -398,7 +398,7 @@ function loadDemo(db) {
         passport_expiry: plan.expiryDays ? addDays(todayISO(), plan.expiryDays) : null,
         date_of_birth: plan.birthDays ? addDays(todayISO(), -plan.birthDays) : null,
         reference: plan.ref,
-        notes: 'Visa application managed by Skyline Travels.',
+        notes: 'Passport collected at the office.',
         sale_items: plan.sale.map(([description, quantity, unitPrice, account]) => ({
           description, quantity, unit_price_cents: unitPrice, account_id: account,
         })),

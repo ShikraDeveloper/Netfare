@@ -452,17 +452,9 @@ export async function render(container, { query } = {}) {
     const filteredSales = filtered
       .filter((visa) => !['cancelled', 'rejected'].includes(visa.status))
       .reduce((sum, visa) => sum + visa.sale_total_cents, 0);
-    const filteredMargin = filtered
-      .filter((visa) => !['cancelled', 'rejected'].includes(visa.status))
-      .reduce((sum, visa) => sum + visa.margin_cents, 0);
-    const active = filtered.filter((visa) => ['submitted', 'approved'].includes(visa.status)).length;
     const issued = filtered.filter((visa) => visa.status === 'issued').length;
     countEl.textContent = `${filtered.length} shown`;
     if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filtered.length} application${filtered.length === 1 ? '' : 's'} · ${active} in progress · ${issued} issued · ${fmtMoney(filteredMargin)} gross profit`;
-    }
     renderPage();
   }
 

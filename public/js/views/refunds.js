@@ -226,13 +226,7 @@ export async function render(container) {
       ].some((value) => String(value || '').toLowerCase().includes(term));
     });
 
-    const filteredPaid = filtered.filter((refund) => refund.status === 'paid');
-    const filteredTotal = filteredPaid.reduce((sum, refund) => sum + refund.amount_cents, 0);
     countEl.textContent = `${filtered.length} matching`;
-    const subtitleEl = document.getElementById('page-subtitle');
-    if (subtitleEl) {
-      subtitleEl.textContent = `${filteredPaid.length} paid refund${filteredPaid.length === 1 ? '' : 's'} · ${fmtMoney(filteredTotal)} refunded`;
-    }
     renderPage();
   }
 
