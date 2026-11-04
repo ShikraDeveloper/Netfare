@@ -2092,11 +2092,24 @@ The user reported that customer documents upload, but clicking one neither downl
   - new HTTP test for these headers. `npm test` 256 passed, `npm run test:e2e` 42 passed.
 - **Not checked:** the save dialog itself (it is native).
 
+### Release 1.0.6 — code commit `933a38a`, tag `v1.0.6`
+
+- Version 1.0.6 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 256 passed.
+- One note line: attachments open again (viewer for PDFs and pictures, a Download button on every file).
+- The push hit GitHub "Internal Server Error" twice and went through on retry.
+- Release run 41810555654: Build (mac), Build (win) and Publish release all succeeded. The local `gh run watch` exited 1 only because the network dropped while it was polling. The assets are:
+  - arm64 dmg, 142 MB;
+  - x64 dmg, 149 MB;
+  - Windows exe, 131 MB;
+  - `latest.json`.
+- **Checked:** `latest.json` reports 1.0.6.
+- **Not checked:** the released dmgs were not downloaded and verified on this Mac.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.5` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.6` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.6** when the user asks: attachments open and download in the desktop app.
+3. **Release 1.0.6** is published (attachments open and download).
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
