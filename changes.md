@@ -2336,11 +2336,48 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** the e2e tests were updated (customer page title, Record advance via More, open the Advances fold). `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Checked** in the preview on sample data.
 
+### Simplify, phase 2 — Suppliers — code commit `dd04626`
+
+- **Why:** The user said "Yes, Suppliers next". This applies `DESIGN.md` to bills, supplier credits and portals.
+- **Bill page** (made like the invoice page):
+  - the status badge sits by the number, with no subtitle;
+  - one main action (Record payment, or Edit + Receive & post for a draft); Booking/Visa, Print, Delete draft, Supplier credit, Audit chain, All bills and Void are in More;
+  - Payments, Ledger entry, Supplier credits and Attachments fold to one line each;
+  - the payment form has no hints or note.
+- **Bills list / bill form / quick expense:** no subtitles, empty-state text or notes.
+- **Supplier credit page:**
+  - the "Credit summary" and "Credit lines" cards are gone (the document already shows them), and so is the 1450 note;
+  - the document's Bill and For entries link to the bill and the booking, visa or cancellation;
+  - Applied to bills, Cash refunds, Moved to portals and Attachments fold;
+  - Apply to bill is the main action, with the rest in More;
+  - the Apply and Refund popups have no subtitles, notes or hints.
+- **Supplier credits list / form:**
+  - no subtitle, empty-state text, hints or note;
+  - the labels are now Bill ("No bill"), Booking and Visa, without "(optional)".
+- **Portals:**
+  - the list and form have no subtitles or hints, and the vendor search hint shows only search results;
+  - **Credit limit appears only when "Credit account" is chosen**;
+  - "Never store passwords here" stays, because it protects data.
+- **Portal page:**
+  - **Top up** is the main button; Ledger, Reconcile, Print, Edit, Archive/Restore and All portals are in More;
+  - plain numbers (Wallet, Topped up, Used on bookings, Supplier payable; on credit portals Balance due, Billed, Paid and Credit available, shown only with a limit);
+  - no card taglines, empty-state text or period note.
+- **Portal popups:** no subtitles or notes; the amount label shows "Amount · AED X available". The accounting explanations moved into code comments in `portal-detail/modals.js`.
+- **Portal reconcile:**
+  - no intro box, subtitle or card taglines;
+  - the labels are now "Match window (days)" and "Or paste the rows".
+- **Portal ledger:** no subtitle or note; when the ledger does not reconcile, one red line "Review the general journal before closing the period" stays.
+- **copy-budget:** it also counts page notes (`stmt-hint`, `recon-intro`). Helper text 271 → 218, and the budget was lowered.
+- **Tests:**
+  - e2e: Supplier credit is opened via More.
+  - `npm test` 267 passed. `npm run test:e2e` passed 43/43 on the second run; the first run had one dark-mode colour check on the top menu's New button fail mid theme switch. That button was not changed; it passed when the suite was re-run. `npm run check` OK.
+- **Checked** in the preview on sample data: the bill page and folds, the portal page and the New portal form. Pictures were sent to the user.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.9` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales done (`2d5e48b`, not released); next Suppliers, Bookings/Visas, Banking, Reports, Settings, following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
+3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales and Suppliers done (`dd04626`, 2d5e48b`, not released); next Suppliers, Bookings/Visas, Banking, Reports, Settings, following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
