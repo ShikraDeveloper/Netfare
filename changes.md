@@ -2256,11 +2256,45 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - the Help → Reset admin password menu in the built app;
   - a real printout of "Prepared by".
 
+### Simplify, phase 1: dashboard, invoice page, New invoice form — code commit `6071fc7`
+
+- **Why:** The user wants Netfare as simple as Linear or Apple Notes, every change good for UX, DX and AX without breaking anything. Before: 77 hints, 48 form notes, 75 card taglines, 79 page subtitles, 97 modal subtitles and 26 menu descriptions. The plan is pilot → buniyaad → screens group-wise → safai. The before/after mockup of 3 screens was approved ("Start Phase 1").
+- **DESIGN.md** (new): the rules and the shared components, for people and agents. The rules:
+  - no taglines or hints; fix the layout instead;
+  - warnings that protect money stay;
+  - one main action per screen, the rest in More;
+  - detail on demand.
+- **Check:** `scripts/copy-budget.js` counts hints, form notes, card taglines, `subtitle:` and menu `desc:` per browser file.
+  - `npm run check` fails if a file goes over `scripts/copy-budget.json`. Helper text may only go down; lower it with `--write`.
+  - Total went from 310 to 298.
+- **ui.js:** `setHeader({ badge })`, plus the new `foldHtml` (folded section with a count) and `segmentedHtml`. **attachments.js:** `attachmentFoldHtml`.
+- **Dashboard:**
+  - no subtitle, and no page buttons: New is the one menu, shown in the page header on phones only;
+  - 4 numbers (Cash, To collect, To pay, Profit · month), red when part is overdue, each linking to its screen;
+  - ledger checks fold to one line with a ✓ count, open when something differs;
+  - one chart (the expense donut is gone);
+  - one Recent card with an Invoices · Bills · Bookings · Visas switch, offering only lists the user may open;
+  - removed: the compliance callout (the pending list covers it), portal top-ups, and the gross profit and pipeline cards.
+- **Invoice page:**
+  - the status badge sits by the number, with no subtitle;
+  - one main action (Record payment, or Edit + Send & post for a draft); Share, Booking/Visa, Print and Delete draft are in More;
+  - no summary strip;
+  - Payments, Ledger entry and Attachments fold to one line each with a count.
+- **New invoice:**
+  - the title is "New invoice", with no subtitle;
+  - a Service · Booking · Visa switch replaces the long note (Booking and Visa open their forms, hidden without rights);
+  - Traveller ("Same as customer") replaces the checkbox and its paragraph;
+  - customer and date share a row; the button is Create.
+  - The invoices list button is now "New invoice".
+- **Phones:** the 4 numbers stay on one line (they overflowed and split the minus sign).
+- **Tests:** the e2e tests were updated for the new places (open the Payments fold, Share via More, the ledger state, the New menu, the Recent switch, the Traveller field). `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the browser** on demo data: desktop light and dark, phone, no console errors.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.8` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.8** is published (recovery key, things pending, created-by footers). Next: the simplify pilot, with 3 screens (Dashboard, invoice page, New invoice form), a design foundation and `DESIGN.md`; mockup approved in principle, ship as 1.0.9 and try it in the office for a week.
+3. **Release 1.0.8** is published (recovery key, things pending, created-by footers). Simplify phase 1 is done (`6071fc7`, not released); release it as 1.0.9 when the user asks, then a week in the office, then phase 2 group by group (Sales, Suppliers, Bookings/Visas, Banking, Reports, Settings).
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
