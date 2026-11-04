@@ -2105,11 +2105,47 @@ The user reported that customer documents upload, but clicking one neither downl
 - **Checked:** `latest.json` reports 1.0.6.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
+### Top menu option, search and New menu; side menu polished — code commit `1cc24d2`
+
+The user asked about moving the side menu to the top with dropdowns. After three mockups (the third based on NN/g mega-menu research and Xero's navigation) they chose: build it, make Side or Top a choice in Settings, and polish the side menu the same way.
+
+- **Shared menu** (new `public/js/menu.js`):
+  - `MENU_GROUPS` gives each screen an icon and a one-line description, and each group its quick New actions (`?new=1` links, shown only with Edit on that area);
+  - `SECTION_AREAS`, `canOpen` and `visibleGroups()` moved here from `app.js`. Rights still decide every link and action;
+  - "More" is renamed **Bank and books**, Settings is its own group at the bottom, and Money back starts with Customer balances.
+- **Choice** (Settings → Appearance → **Menu**: Side / Top):
+  - saved per device in `netfare.menu`. `theme-boot.js` sets `html.menu-top` before the first paint;
+  - phones (≤900 px) always use the side drawer and tab bar.
+- **Top menu** (`#top-nav`, wide screens):
+  - company and logo, Home, Travel, Sales, Money back, Suppliers, Bank and books, Reports;
+  - groups open **on click** (NN/g: hover menus misfire and shut out keyboard users) into a panel with icon tiles and descriptions, quick New actions, and a **Recent** column of records opened on this device (`netfare.recent`, the last 20);
+  - Escape or a click outside closes the panel, and `aria-expanded` is kept in step;
+  - on the right: Search, + New, the update bell (moved in from the page header), Settings, and an account menu with change password and sign out;
+  - the open screen's group is underlined, and its tile is highlighted.
+- **Search:** "/" (or Ctrl/⌘ K) opens a box that finds screens, New actions, recent records, and customers, suppliers or portals by name (from the already-loaded lists, filtered by rights). Arrow keys and Enter work.
+- **Side menu:** Search and + New at the top, descriptions as tooltips, a rounder active pill, Settings at the bottom.
+- **Tests:**
+  - new browser test: switching to Top hides the sidebar and moves the bell into the top menu;
+  - a panel opens and closes with Escape, and an item navigates and marks its group;
+  - "/" search goes to a customer;
+  - the New menu shows; the top menu passes axe in light and dark;
+  - switching back restores the sidebar and the bell;
+  - the existing tests were updated for the "books" group key and the new item order;
+  - `npm run check` 235 files OK, `npm test` 256 passed, `npm run test:e2e` 43 passed.
+- **Visual check** (throwaway server with sample data, 1440 px and 375 px, light and dark):
+  - the side menu with Search and New;
+  - the top menu with the full-width Customer balances page;
+  - the Travel, Suppliers and Bank and books panels (10 screens in three columns);
+  - search for "rah" found the customer and the supplier;
+  - the phone layout stayed the drawer and tab bar.
+
+  Found and fixed: in dark mode an open group's name was too dark to read; and axe flagged two label mismatches (company link, account button).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.6` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.6** is published (attachments open and download).
+3. **Release 1.0.7** when the user asks: the menu choice (Side or Top), search and the New menu.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
