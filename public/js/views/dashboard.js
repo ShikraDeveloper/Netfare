@@ -7,7 +7,6 @@ import {
   esc,
   fmtMoney,
   icon,
-  longMonth,
   monthLabel,
   segmentedHtml,
   setHeader,
@@ -335,8 +334,6 @@ export async function render(container, { query } = {}) {
     // The checks are advisory; the dashboard still renders if they fail.
     api.get('/reports/reconciliation').catch(() => null),
   ]);
-  const month = longMonth(data.as_of);
-
   // One New menu: the same as the sidebar's, shown here on phones, where
   // the sidebar is folded away.
   setHeader({ title: 'Dashboard', actions: `<div class="page-new">${newMenuHtml()}</div>` });
@@ -363,7 +360,7 @@ export async function render(container, { query } = {}) {
       ${kpiCard('Cash', data.cash_cents, '#/banking')}
       ${kpiCard('To collect', data.ar_outstanding_cents, '#/customer-balances', data.overdue_ar_cents > 0)}
       ${kpiCard('To pay', data.ap_outstanding_cents, '#/bills', data.overdue_ap_cents > 0)}
-      ${kpiCard(`Profit · ${month.split(' ')[0].slice(0, 3)}`, data.net_income_mtd_cents, '#/reports/income-statement')}
+      ${kpiCard('Portal wallets', data.portals?.balance_cents ?? 0, '#/portals')}
     </div>
 
     ${isEmpty ? '' : ledgerChecksCard(reconciliation)}
