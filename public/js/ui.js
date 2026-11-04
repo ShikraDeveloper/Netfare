@@ -281,6 +281,16 @@ export function moreMenuHtml(items = []) {
 }
 
 // The key figures of a booking, visa or invoice, shown above the document.
+// One number with its label; a link when href is given, red when overdue.
+export function numberCardHtml({ label, cents, href = '', overdue = false }) {
+  const tag = href ? 'a' : 'div';
+  return `
+    <${tag} class="kpi kpi-simple${overdue ? ' is-overdue' : ''}"${href ? ` href="${esc(href)}"` : ''}>
+      <span class="kpi-label">${esc(label)}</span>
+      <span class="kpi-value">${fmtMoney(cents)}</span>
+    </${tag}>`;
+}
+
 // A section folded to one line: its title and a count, opening on click.
 // Folds stack inside a .folds card, one row each.
 export function foldHtml({ key, title, count = null, body, actions = '', open = false }) {
@@ -289,6 +299,13 @@ export function foldHtml({ key, title, count = null, body, actions = '', open = 
       <summary><span class="fold-title">${esc(title)}</span>${count == null ? '' : `<span class="fold-count">${esc(String(count))}</span>`}${icon('chevron', 14)}</summary>
       <div class="fold-body">${actions ? `<div class="fold-actions">${actions}</div>` : ''}${body}</div>
     </details>`;
+}
+
+// Folds stacked in one card; empty entries are skipped, and no folds means
+// no card.
+export function foldsHtml(folds) {
+  const shown = folds.filter(Boolean);
+  return shown.length ? `<div class="card folds no-print">${shown.join('')}</div>` : '';
 }
 
 // A row of buttons where one is chosen, such as Invoices · Bills · Bookings.

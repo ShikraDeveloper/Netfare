@@ -3,20 +3,23 @@ import { currencySymbol, esc, toCents, todayISO } from './ui.js';
 
 // "Opening balance" on the new customer, supplier and portal forms, for the
 // admin only. The server turns it into an opening invoice, bill, credit or
-// portal balance (services/party-opening.js).
+// portal balance (services/party-opening.js): "owes us" becomes an opening
+// invoice, credit or portal balance, "we owe" an opening bill or customer
+// credit, and the other side goes to 3900 Opening Balance Equity, never to
+// sales or purchases.
 
 const CHOICES = {
   customer: [
-    ['they_owe', 'Customer owes us', 'Recorded as an opening invoice they can pay.'],
-    ['we_owe', 'We owe the customer', 'Recorded as a customer credit you can apply or refund.'],
+    ['they_owe', 'Customer owes us'],
+    ['we_owe', 'We owe the customer'],
   ],
   vendor: [
-    ['we_owe', 'We owe the supplier', 'Recorded as an opening bill you can pay.'],
-    ['they_owe', 'Supplier owes us', 'Recorded as a supplier credit you can apply to bills or get refunded.'],
+    ['we_owe', 'We owe the supplier'],
+    ['they_owe', 'Supplier owes us'],
   ],
   portal: [
-    ['they_owe', 'Balance held on the portal', 'Added to the portal balance, ready for bookings.'],
-    ['we_owe', 'We owe the supplier', 'Recorded as an opening bill for the portal\'s supplier.'],
+    ['they_owe', 'Balance held on the portal'],
+    ['we_owe', 'We owe the supplier'],
   ],
 };
 
@@ -29,14 +32,14 @@ export function openingFieldsHtml(kind) {
   const choices = CHOICES[kind];
   return `
     <details class="field full opening-fields">
-      <summary>Opening balance <span class="muted">(optional, admin only)</span></summary>
+      <summary>Opening balance</summary>
       <div class="form-grid" style="margin-top:10px">
         <div class="field full">
           <div class="radio-row" role="radiogroup" aria-label="Who owes the opening balance">
-            ${choices.map(([value, label, hint], index) => `
+            ${choices.map(([value, label], index) => `
               <label class="radio-option">
                 <input type="radio" name="opening_direction" value="${value}" ${index === 0 ? 'checked' : ''}>
-                <span><strong>${esc(label)}</strong><span class="hint">${esc(hint)}</span></span>
+                <span><strong>${esc(label)}</strong></span>
               </label>`).join('')}
           </div>
         </div>
@@ -50,9 +53,6 @@ export function openingFieldsHtml(kind) {
         <div class="field">
           <label for="opening-date">As of</label>
           <input class="input" id="opening-date" name="opening_as_of" type="date" value="${todayISO()}">
-        </div>
-        <div class="field full">
-          <div class="hint">The other side goes to 3900 Opening Balance Equity. It is not counted as a sale or a purchase.</div>
         </div>
       </div>
     </details>`;

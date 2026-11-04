@@ -24,9 +24,7 @@ const CONFIG = {
     icon: 'customers',
     addLabel: 'New customer',
     listLabel: 'Invoice',
-    outstandingLabel: 'Outstanding A/R',
     emptyTitle: 'No customers yet',
-    emptyMessage: 'Add the people and companies you invoice. Their contact details will appear on invoices.',
     emptyAction: 'Add your first customer',
     countKey: 'invoice_count',
   },
@@ -37,9 +35,7 @@ const CONFIG = {
     icon: 'vendors',
     addLabel: 'New supplier',
     listLabel: 'Bill',
-    outstandingLabel: 'Outstanding A/P',
     emptyTitle: 'No suppliers yet',
-    emptyMessage: 'Add the suppliers and service providers you pay. Their details will appear on bills.',
     emptyAction: 'Add your first supplier',
     countKey: 'bill_count',
   },
@@ -84,7 +80,6 @@ function partyModal({ party = null, config, onSaved }) {
   const isEdit = Boolean(party);
   openModal({
     title: isEdit ? `Edit ${party.name}` : config.addLabel,
-    subtitle: isEdit ? '' : `Add a ${config.singular} to your books.`,
     body: `
       <div class="form-grid">
         <div class="field full">
@@ -144,12 +139,8 @@ export async function renderPartyView(container, { query = new URLSearchParams()
   const config = CONFIG[kind];
   const parties = await api.get(config.base, { include_inactive: 1 });
 
-  const active = parties.filter((party) => party.is_active);
-  const outstanding = active.reduce((sum, party) => sum + (party.outstanding_cents || 0), 0);
-
   setHeader({
     title: config.title,
-    subtitle: `${active.length} active ${config.singular}${active.length === 1 ? '' : 's'} · ${fmtMoney(outstanding)} ${config.outstandingLabel.toLowerCase()}`,
     actions: `<button class="btn btn-primary" data-action="new-party">${icon('plus', 16)}<span>${config.addLabel}</span></button>`,
   });
 
@@ -159,7 +150,6 @@ export async function renderPartyView(container, { query = new URLSearchParams()
         ${emptyState({
     iconName: config.icon,
     title: config.emptyTitle,
-    message: config.emptyMessage,
     action: `<button class="btn btn-primary" data-action="new-party">${config.emptyAction}</button>`,
   })}
       </div>
@@ -201,7 +191,7 @@ export async function renderPartyView(container, { query = new URLSearchParams()
               <th scope="col">${config.singular === 'customer' ? 'Customer' : 'Supplier'}</th>
               <th scope="col">Phone</th>
               <th scope="col" class="num">${config.listLabel}s</th>
-              <th scope="col" class="num">${config.outstandingLabel}</th>
+              <th scope="col" class="num">Outstanding</th>
               <th scope="col"></th>
             </tr>
           </thead>
@@ -230,7 +220,6 @@ export async function renderPartyView(container, { query = new URLSearchParams()
       body.innerHTML = `<tr><td colspan="5">${emptyState({
     iconName: 'search',
     title: `No matching ${config.singular}s`,
-    message: 'Try a different search term or show archived records.',
   })}</td></tr>`;
     } else {
       body.innerHTML = rows.map((party) => partyRow(party, config)).join('');

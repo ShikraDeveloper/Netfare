@@ -9,6 +9,7 @@ import {
   currencySymbol,
   esc,
   foldHtml,
+  foldsHtml,
   fmtDate,
   fmtMoney,
   fmtNumber,
@@ -156,7 +157,6 @@ function openShareModal(invoice, settings) {
   const hasNumber = Boolean(whatsappNumber(invoice.customer_phone));
   openModal({
     title: `Share ${invoice.number}`,
-    subtitle: 'Opens your own email or WhatsApp with this message. Attach the PDF yourself: Print → Save as PDF.',
     size: 'modal-md',
     hideFooter: true,
     body: `
@@ -168,11 +168,8 @@ function openShareModal(invoice, settings) {
         <a class="btn btn-secondary" data-share="email" target="_blank" rel="noopener">${icon('mail', 15)}<span>Email${invoice.customer_email ? ` ${esc(invoice.customer_email)}` : ''}</span></a>
         <a class="btn btn-secondary" data-share="whatsapp" target="_blank" rel="noopener">${icon('send', 15)}<span>WhatsApp${hasNumber ? ` ${esc(invoice.customer_phone)}` : ''}</span></a>
         <button type="button" class="btn btn-ghost" data-share="copy">Copy text</button>
+        <button type="button" class="btn btn-ghost" data-share="pdf">${icon('print', 15)}<span>PDF</span></button>
       </div>
-      ${!invoice.customer_email || !hasNumber ? `<div class="hint">${[
-        invoice.customer_email ? '' : 'No email saved for this customer: your mail app will ask for the address.',
-        hasNumber ? '' : 'No mobile number saved: WhatsApp will ask you to choose the chat.',
-      ].filter(Boolean).join(' ')}</div>` : ''}
     `,
     onMount(overlay) {
       const text = overlay.querySelector('#share-message');
@@ -184,6 +181,11 @@ function openShareModal(invoice, settings) {
       };
       text.addEventListener('input', update);
       update();
+      // Print → Save as PDF gives the file to attach.
+      overlay.querySelector('[data-share="pdf"]').addEventListener('click', () => {
+        overlay.querySelector('[data-close]').click();
+        setTimeout(() => window.print(), 250);
+      });
       overlay.querySelector('[data-share="copy"]').addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(text.value);
@@ -244,7 +246,6 @@ function paymentModalBody(invoice) {
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="payment-amount" name="amount" type="number" min="0.01" step="0.01" value="${centsToInput(invoice.balance_cents)}" required>
         </div>
-        <div class="hint">Balance due ${fmtMoney(invoice.balance_cents)}</div>
       </div>
       <div class="field">
         <label for="payment-date">Payment date</label>
@@ -266,7 +267,6 @@ function paymentModalBody(invoice) {
       <div class="field" data-cheque-field hidden>
         <label for="cheque-date">Cheque date</label>
         <input class="input" id="cheque-date" name="cheque_date" type="date" value="${todayISO()}">
-        <div class="hint">For tracking; the ledger posts on the payment date.</div>
       </div>
       <div class="field" data-cheque-field hidden>
         <label for="cheque-bank">Bank</label>
@@ -277,9 +277,6 @@ function paymentModalBody(invoice) {
         <select class="input" id="payment-account" name="deposit_account_id">
           ${optionsHtml(accounts, { selected: preferred?.id, placeholder: 'Choose account…', labelKey: (account) => `${account.code} · ${account.name}` })}
         </select>
-      </div>
-      <div class="field full">
-        <div class="form-note">Recording a payment debits your bank or cash account and credits Trade Receivables. The invoice balance updates automatically. Bank charges, if any, are posted separately to 6700 Bank Charges.</div>
       </div>
     </div>
   `;
@@ -491,8 +488,8 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
-    <div class="card folds no-print">
-      ${foldHtml({
+    ${foldsHtml([
+    foldHtml({
     key: 'payments',
     title: 'Payments',
     count: invoice.payments.length + (invoice.credits?.length || 0),
@@ -506,15 +503,15 @@ export async function render(container, { params } = {}) {
                 </div>
               `).join('')}
             </div>` : ''}`,
-  })}
-      ${foldHtml({
+  }),
+    foldHtml({
     key: 'ledger',
     title: 'Ledger entry',
     actions: journal ? `<a class="card-link" href="#/journal?focus=${journal.id}">Open ${icon('chevron', 12)}</a>` : '',
     body: journalHtml,
-  })}
-      ${attachmentFoldHtml({ entityType: 'invoice', entityId: id, attachments })}
-    </div>
+  }),
+    attachmentFoldHtml({ entityType: 'invoice', entityId: id, attachments }),
+  ])}
   `;
 
   bindAttachmentSection(container, { entityType: 'invoice', entityId: id });
@@ -530,13 +527,11 @@ export async function render(container, { params } = {}) {
   document.querySelector('[data-action="share"]')?.addEventListener('click', () => openShareModal(invoice, settings));
   document.querySelector('[data-action="payment-link"]')?.addEventListener('click', () => {
     openModal({
+      // Printed on the invoice and added to the share message; empty removes it.
       title: 'Payment link',
-      subtitle: `${invoice.number} · ${fmtMoney(invoice.balance_cents)} due`,
       body: `<div class="form-grid">
-        <div class="field full"><label for="pay-link">Link from your card gateway</label>
-          <input class="input" id="pay-link" type="url" value="${esc(invoice.payment_link || '')}" placeholder="https://…" autocomplete="off">
-          <div class="hint">Create the link in your gateway (Network International, Telr, Stripe…) for ${esc(fmtMoney(invoice.balance_cents))} and paste it here. It is printed on the invoice and added to the WhatsApp and email message. Leave empty to remove it.</div></div>
-        <div class="field full"><div class="form-note">When the customer pays, record the payment with method <strong>Payment link</strong>. It waits in 1030 Card &amp; Payment Link Clearing until the gateway pays it into the bank (Card settlements).</div></div>
+        <div class="field full"><label for="pay-link">Link for ${esc(fmtMoney(invoice.balance_cents))}</label>
+          <input class="input" id="pay-link" type="url" value="${esc(invoice.payment_link || '')}" placeholder="https://…" autocomplete="off"></div>
       </div>`,
       submitLabel: 'Save link',
       async onSubmit(form) {
@@ -621,7 +616,6 @@ export async function render(container, { params } = {}) {
     button.addEventListener('click', () => {
       openModal({
         title: 'Record payment',
-        subtitle: `${invoice.number} · ${invoice.customer_name}`,
         body: paymentModalBody(invoice),
         submitLabel: 'Record payment',
         onMount(overlay) {

@@ -6,21 +6,9 @@ import {
   esc,
   fmtMoney,
   icon,
+  numberCardHtml,
   setHeader,
 } from '../ui.js';
-
-function summaryCard(label, valueCents, meta, iconName, color) {
-  return `
-    <div class="kpi">
-      <div class="kpi-top">
-        <span class="kpi-label">${esc(label)}</span>
-        <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
-      </div>
-      <div class="kpi-value">${fmtMoney(valueCents)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
-    </div>
-  `;
-}
 
 function netClass(cents) {
   if (cents > 0) return 'amount-due';
@@ -68,11 +56,9 @@ export async function render(container) {
     sum.net += row.net_balance_cents;
     return sum;
   }, { outstanding: 0, overdue: 0, credits: 0, advances: 0, refunds: 0, net: 0 });
-  const creditBalance = totals.credits + totals.advances + totals.refunds;
 
   setHeader({
     title: 'Customer balances',
-    subtitle: `${active.length} active customer${active.length === 1 ? '' : 's'} · ${fmtMoney(totals.outstanding)} due · ${fmtMoney(creditBalance)} available credit`,
     actions: `<a class="btn btn-secondary" href="#/settlement-queue">${icon('clock', 15)}<span>Settlements</span></a>`,
   });
 
@@ -80,7 +66,6 @@ export async function render(container) {
     container.innerHTML = `<div class="card">${emptyState({
       iconName: 'customers',
       title: 'No customers yet',
-      message: 'Add a customer and raise an invoice to see their receivable, credits, advances and cancellation refunds in one place.',
       action: '<a class="btn btn-primary" href="#/customers">Go to customers</a>',
     })}</div>`;
     return;
@@ -88,10 +73,10 @@ export async function render(container) {
 
   container.innerHTML = `
     <div class="kpi-grid">
-      ${summaryCard('A/R due', totals.outstanding, `${fmtMoney(totals.overdue)} overdue`, 'invoice', 'blue')}
-      ${summaryCard('Customer credits', totals.credits, 'Unapplied credit notes', 'wallet', 'amber')}
-      ${summaryCard('Advances & refunds', totals.advances + totals.refunds, `${fmtMoney(totals.advances)} advances · ${fmtMoney(totals.refunds)} refunds`, 'cash', 'indigo')}
-      ${summaryCard('Net position', totals.net, totals.net >= 0 ? 'Customers owe you' : 'You owe customers', 'trendUp', totals.net >= 0 ? 'green' : 'amber')}
+      ${numberCardHtml({ label: 'To collect', cents: totals.outstanding, overdue: totals.overdue > 0 })}
+      ${numberCardHtml({ label: 'Credit', cents: totals.credits + totals.advances })}
+      ${numberCardHtml({ label: 'Refund due', cents: totals.refunds })}
+      ${numberCardHtml({ label: 'Net', cents: totals.net })}
     </div>
 
     <div class="toolbar">
@@ -153,7 +138,6 @@ export async function render(container) {
       : `<tr><td colspan="8">${emptyState({
         iconName: 'search',
         title: 'No matching customers',
-        message: 'Try another search, or turn off the balance and archived filters.',
       })}</td></tr>`;
     countEl.textContent = `${filtered.length} shown`;
     paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });

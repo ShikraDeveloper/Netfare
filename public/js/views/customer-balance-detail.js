@@ -1,31 +1,22 @@
 import { api } from '../api.js';
 import { can } from '../store.js';
-import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
+import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
 import {
   emptyState,
   esc,
   fmtDate,
   fmtMoney,
+  foldHtml,
+  foldsHtml,
   icon,
+  moreMenuHtml,
+  numberCardHtml,
   setHeader,
   statusBadge,
   todayISO,
   pageRecord,
 } from '../ui.js';
-
-function summaryCard(label, valueCents, meta, iconName, color) {
-  return `
-    <div class="kpi">
-      <div class="kpi-top">
-        <span class="kpi-label">${esc(label)}</span>
-        <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
-      </div>
-      <div class="kpi-value">${fmtMoney(valueCents)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
-    </div>
-  `;
-}
 
 function invoiceStatus(invoice) {
   if (invoice.due_date && invoice.due_date < todayISO()) {
@@ -39,7 +30,6 @@ function invoiceRows(invoices) {
     return `<tr><td colspan="7">${emptyState({
       iconName: 'invoice',
       title: 'No open invoices',
-      message: 'Every sent invoice for this customer is fully paid or has been voided.',
     })}</td></tr>`;
   }
   return invoices.map((invoice) => `
@@ -120,53 +110,31 @@ export async function render(container, { params } = {}) {
   ]);
   const { customer, summary } = data;
   const creditTotal = summary.unapplied_credit_cents + summary.advance_cents + summary.cancellation_refund_cents;
-  const netLabel = summary.net_balance_cents > 0
-    ? 'Customer owes'
-    : summary.net_balance_cents < 0
-      ? 'You owe customer'
-      : 'Settled';
-  const netMeta = summary.net_balance_cents > 0
-    ? `${fmtMoney(summary.net_balance_cents)} receivable after available credit`
-    : summary.net_balance_cents < 0
-      ? `${fmtMoney(Math.abs(summary.net_balance_cents))} credit held for the customer`
-      : 'No receivable or credit balance';
-
   pageRecord(customer);
   setHeader({
-    title: `${customer.name} balance`,
-    subtitle: `${[customer.nationality, customer.email || customer.phone].filter(Boolean).join(' · ') || 'Customer account'} · ${summary.open_invoice_count} open invoice${summary.open_invoice_count === 1 ? '' : 's'}`,
+    title: customer.name,
     actions: `
-      <a class="btn btn-ghost" href="#/customer-balances">${icon('chevron', 15)}<span>All balances</span></a>
-      <a class="btn btn-secondary" href="#/customers/${customer.id}/statement">${icon('file', 15)}<span>Statement</span></a>
-      <button class="btn btn-secondary" data-action="record-advance">${icon('plus', 15)}<span>Record advance</span></button>
       <button class="btn btn-primary" data-action="receive-payment">${icon('check', 15)}<span>Receive payment</span></button>
+      ${moreMenuHtml([
+    `<button class="btn btn-ghost" data-action="record-advance">${icon('plus', 15)}<span>Record advance</span></button>`,
+    `<a class="btn btn-ghost" href="#/customers/${customer.id}/statement">${icon('file', 15)}<span>Statement</span></a>`,
+    `<a class="btn btn-ghost" href="#/settlement-queue">${icon('clock', 15)}<span>Settlements</span></a>`,
+    `<a class="btn btn-ghost" href="#/customer-balances"><span>All balances</span></a>`,
+  ])}
     `,
   });
 
   container.innerHTML = `
     <div class="kpi-grid">
-      ${summaryCard('A/R due', summary.outstanding_cents, `${summary.open_invoice_count} open · ${fmtMoney(summary.overdue_cents)} overdue`, 'invoice', 'blue')}
-      ${summaryCard('Available credit', creditTotal, `${fmtMoney(summary.unapplied_credit_cents)} credit notes · ${fmtMoney(summary.advance_cents)} advances`, 'wallet', 'amber')}
-      ${summaryCard('Refund payable', summary.cancellation_refund_cents, `${data.cancellation_refunds.length} cancellation${data.cancellation_refunds.length === 1 ? '' : 's'} awaiting settlement`, 'arrowUp', 'indigo')}
-      ${summaryCard('Net position', summary.net_balance_cents, netMeta, 'trendUp', summary.net_balance_cents > 0 ? 'green' : 'amber')}
+      ${numberCardHtml({ label: 'To collect', cents: summary.outstanding_cents, overdue: summary.overdue_cents > 0 })}
+      ${numberCardHtml({ label: 'Credit', cents: creditTotal - summary.cancellation_refund_cents })}
+      ${numberCardHtml({ label: 'Refund due', cents: summary.cancellation_refund_cents })}
+      ${numberCardHtml({ label: 'Net', cents: summary.net_balance_cents })}
     </div>
-
-    ${creditTotal > 0 ? `
-      <div class="callout no-print">
-        <div class="callout-icon">${icon('wallet', 18)}</div>
-        <div class="callout-text">
-          <h3>${netLabel} ${fmtMoney(Math.abs(summary.net_balance_cents))}</h3>
-          <p>Credits, advances and cancellation refunds are held on this customer account. Use the settlement queue to apply or refund them.</p>
-        </div>
-        <div class="callout-actions">
-          <a class="btn btn-secondary btn-sm" href="#/settlement-queue">Open settlement queue</a>
-        </div>
-      </div>
-    ` : ''}
 
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Open invoices</h2><p>${fmtMoney(summary.outstanding_cents)} receivable · ${fmtMoney(summary.overdue_cents)} overdue</p></div>
+        <div class="card-title"><h2>Open invoices</h2></div>
         <a class="card-link" href="#/invoices">All invoices ${icon('chevron', 12)}</a>
       </div>
       <div class="table-wrap">
@@ -187,51 +155,44 @@ export async function render(container, { params } = {}) {
       </div>
     </div>
 
-    ${data.credits.length ? `
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">
-          <div class="card-title"><h2>Customer credits</h2><p>${fmtMoney(summary.unapplied_credit_cents)} available to apply</p></div>
-          <a class="card-link" href="#/credits">All credit notes ${icon('chevron', 12)}</a>
-        </div>
-        <div class="table-wrap">
+    ${foldsHtml([
+    data.credits.length && foldHtml({
+      key: 'credits',
+      title: 'Credit notes',
+      count: data.credits.length,
+      actions: `<a class="card-link" href="#/credits">All credit notes ${icon('chevron', 12)}</a>`,
+      body: `<div class="table-wrap">
           <table class="data"><caption class="sr-only">Customer credits for ${esc(customer.name)}</caption>
             <thead><tr><th scope="col">Credit</th><th scope="col">Date</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Applied</th><th scope="col" class="num">Remaining</th><th scope="col"></th></tr></thead>
             <tbody>${creditRows(data.credits)}</tbody>
           </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${data.advances.length ? `
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">
-          <div class="card-title"><h2>Customer advances</h2><p>${fmtMoney(summary.advance_cents)} unapplied</p></div>
-        </div>
-        <div class="table-wrap">
+        </div>`,
+    }),
+    data.advances.length && foldHtml({
+      key: 'advances',
+      title: 'Advances',
+      count: data.advances.length,
+      body: `<div class="table-wrap">
           <table class="data"><caption class="sr-only">Customer advances for ${esc(customer.name)}</caption>
             <thead><tr><th scope="col">Advance</th><th scope="col">Job</th><th scope="col" class="num">Received</th><th scope="col" class="num">Applied</th><th scope="col" class="num">Refunded</th><th scope="col" class="num">Remaining</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
             <tbody>${advanceRows(data.advances)}</tbody>
           </table>
-        </div>
-      </div>
-    ` : ''}
-
-    ${showDocuments ? attachmentSection({ entityType: 'customer', entityId: id, attachments: documents, title: 'Documents', hint: 'Emirates ID, passport and other papers for this customer' }) : ''}
-
-    ${data.cancellation_refunds.length ? `
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">
-          <div class="card-title"><h2>Cancellation refunds</h2><p>${fmtMoney(summary.cancellation_refund_cents)} still to refund or credit</p></div>
-          <a class="card-link" href="#/cancellations">All cancellations ${icon('chevron', 12)}</a>
-        </div>
-        <div class="table-wrap">
+        </div>`,
+    }),
+    data.cancellation_refunds.length && foldHtml({
+      key: 'cancellation-refunds',
+      title: 'Cancellation refunds',
+      count: data.cancellation_refunds.length,
+      actions: `<a class="card-link" href="#/cancellations">All cancellations ${icon('chevron', 12)}</a>`,
+      body: `<div class="table-wrap">
           <table class="data"><caption class="sr-only">Cancellation refunds for ${esc(customer.name)}</caption>
             <thead><tr><th scope="col">Cancellation</th><th scope="col">Source</th><th scope="col" class="num">Refund due</th><th scope="col" class="num">Refunded</th><th scope="col" class="num">Credited</th><th scope="col" class="num">Remaining</th><th scope="col"></th></tr></thead>
             <tbody>${cancellationRows(data.cancellation_refunds)}</tbody>
           </table>
-        </div>
-      </div>
-    ` : ''}
+        </div>`,
+    }),
+    showDocuments && attachmentFoldHtml({ entityType: 'customer', entityId: id, attachments: documents, title: 'Documents' }),
+  ])}
   `;
 
   const refresh = () => render(container, { params: [String(id)] });

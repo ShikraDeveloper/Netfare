@@ -16,7 +16,6 @@ export async function render(container, { params } = {}) {
   pageRecord(receipt, { print: true });
   setHeader({
     title: `Receipt ${receipt.number}`,
-    subtitle: `${receipt.customer_name} · ${fmtDate(receipt.advance_date)}`,
     actions: `
       <a class="btn btn-secondary" href="#/customer-balances/${receipt.customer_id}">${icon('wallet', 15)}<span>Customer balance</span></a>
       <button class="btn btn-primary" data-action="print">${icon('print', 15)}<span>Print</span></button>
@@ -44,7 +43,7 @@ export async function render(container, { params } = {}) {
   container.innerHTML = `
     ${isVoid ? `
       <div class="callout no-print" style="border-color:var(--red-soft)">
-        <div class="callout-text"><h3>This receipt was voided</h3><p>It is kept for the record; the money is no longer counted as received.</p></div>
+        <div class="callout-text"><h3>This receipt was voided</h3></div>
       </div>` : ''}
     <div class="doc-wrap">
       <div class="doc doc-receipt" data-receipt>

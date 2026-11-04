@@ -22,7 +22,6 @@ export async function render(container, { params } = {}) {
   pageRecord(receipt, { print: true });
   setHeader({
     title: `Receipt ${receipt.number}`,
-    subtitle: `${receipt.customer_name} · ${fmtDate(receipt.payment_date)}`,
     actions: `
       <a class="btn btn-secondary" href="#/invoices/${receipt.invoice_id}">${icon('invoice', 15)}<span>Invoice ${esc(receipt.invoice_number)}</span></a>
       <button class="btn btn-primary" data-action="print">${icon('print', 15)}<span>Print</span></button>
@@ -43,7 +42,7 @@ export async function render(container, { params } = {}) {
   container.innerHTML = `
     ${isVoid ? `
       <div class="callout no-print" style="border-color:var(--red-soft)">
-        <div class="callout-text"><h3>This payment was voided</h3><p>The receipt is kept for the record; the amount is no longer counted as received.</p></div>
+        <div class="callout-text"><h3>This payment was voided</h3></div>
       </div>` : ''}
     <div class="doc-wrap">
       <div class="doc doc-receipt" data-receipt>

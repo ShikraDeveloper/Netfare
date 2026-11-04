@@ -25,10 +25,10 @@ Simple purpose, simple layout, simple code. Read this before adding or changing 
 | --- | --- |
 | Page title, status and actions | `setHeader({ title, badge, actions })`, with no subtitle |
 | Extra actions | `moreMenuHtml(items)` |
-| A secondary section | `foldHtml({ key, title, count, body, actions })` inside `<div class="card folds">` |
+| A secondary section | `foldHtml({ key, title, count, body, actions })`, stacked with `foldsHtml([...])` |
 | Files on a record | `attachmentFoldHtml(...)` (`attachments.js`) |
 | One choice out of a few | `segmentedHtml(name, options, selected)` |
-| One number | `<a class="kpi kpi-simple">` with a label and a value; add `is-overdue` for red |
+| One number | `numberCardHtml({ label, cents, href, overdue })` in a `.kpi-grid` |
 | Nothing to show | `emptyState({ title })`, with no message |
 | Who made a record | `pageRecord(record)` (detail pages), `recordMetaHtml(record)` (forms) |
 

@@ -467,7 +467,7 @@ test('customer balances and settlement queue stay derived from live documents', 
 
   await openRoute(`/customer-balances/${customer.id}`);
   assert.equal(await page.locator('.kpi').count(), 4);
-  assert.match(await page.locator('#page-title').innerText(), new RegExp(`${customer.name} balance`));
+  assert.equal((await page.locator('#page-title').innerText()).trim(), customer.name);
   assert.ok(await page.locator('table.data caption').count() > 0, 'Balance detail should render tables');
   assertNoConsoleErrors();
 });
@@ -1844,12 +1844,13 @@ test('advances are used on confirm, recorded from the customer page and shown on
 
   // A general advance from the customer balance page.
   await openRoute(`/customer-balances/${customer.id}`);
-  await page.locator('#page-actions [data-action="record-advance"]').click();
+  await clickPageAction('[data-action="record-advance"]');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
   await dialog.locator('#ca-amount').fill('150');
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  await page.locator('[data-fold="advances"] > summary').click();
   await page.locator('[data-advance-apply]').first().waitFor();
 
   await openRoute(`/customers/${customer.id}/statement?to=2026-12-31`);
@@ -2004,7 +2005,7 @@ test('payment link: method sends money to 1030, the link goes on the invoice, an
 
   // Advances follow the method too: a payment link advance waits in 1030.
   await openRoute(`/customer-balances/${customers[0].id}`);
-  await page.locator('#page-actions [data-action="record-advance"]').click();
+  await clickPageAction('[data-action="record-advance"]');
   const advance = page.locator('[role="dialog"]');
   await advance.locator('#ca-method').selectOption('Payment link');
   assert.match(await advance.locator('#ca-account option:checked').innerText(), /^1030/);

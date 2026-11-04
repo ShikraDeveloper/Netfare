@@ -54,14 +54,8 @@ function invoiceRow(invoice) {
 
 export async function render(container, { query } = {}) {
   const invoices = await api.get('/invoices');
-  const outstanding = invoices
-    .filter((invoice) => !['draft', 'void', 'paid'].includes(invoice.status_display))
-    .reduce((sum, invoice) => sum + invoice.balance_cents, 0);
-  const openCount = invoices.filter((invoice) => !['draft', 'void', 'paid'].includes(invoice.status_display)).length;
-
   setHeader({
     title: 'Invoices',
-    subtitle: `${invoices.length} invoice${invoices.length === 1 ? '' : 's'} · ${fmtMoney(outstanding)} outstanding across ${openCount}`,
     actions: `<button class="btn btn-primary" data-action="new-invoice">${icon('plus', 16)}<span>New invoice</span></button>`,
   });
 
@@ -71,8 +65,7 @@ export async function render(container, { query } = {}) {
         ${emptyState({
     iconName: 'invoice',
     title: 'No invoices yet',
-    message: 'Booking and visa invoices appear here automatically. Use a service invoice for income with no supplier cost, such as service fees or commission.',
-    action: '<button class="btn btn-primary" data-action="new-invoice">Create a service invoice</button>',
+    action: '<button class="btn btn-primary" data-action="new-invoice">New invoice</button>',
   })}
       </div>
     `;
@@ -143,7 +136,6 @@ export async function render(container, { query } = {}) {
       body.innerHTML = `<tr><td colspan="7">${emptyState({
         iconName: 'search',
         title: 'No matching invoices',
-        message: 'Try a different search term, status or date range.',
       })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(invoiceRow).join('');

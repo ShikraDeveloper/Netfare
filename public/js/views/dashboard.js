@@ -8,6 +8,7 @@ import {
   fmtMoney,
   icon,
   monthLabel,
+  numberCardHtml,
   segmentedHtml,
   setHeader,
   statusBadge,
@@ -52,16 +53,6 @@ function chartTheme() {
       cssVar('--chart-teal', '#0e7490'),
     ],
   };
-}
-
-// One number per card; a red number means part of it is overdue.
-function kpiCard(label, valueCents, href, overdue = false) {
-  return `
-    <a class="kpi kpi-simple${overdue ? ' is-overdue' : ''}" href="${href}">
-      <span class="kpi-label">${esc(label)}</span>
-      <span class="kpi-value">${chartMoney(valueCents)}</span>
-    </a>
-  `;
 }
 
 // The latest invoices, bills, bookings and visas in one card, one list at a
@@ -357,10 +348,10 @@ export async function render(container, { query } = {}) {
     ${callout}
     ${isEmpty ? '' : pendingHtml(data.pending)}
     <div class="kpi-grid kpi-grid-4">
-      ${kpiCard('Cash', data.cash_cents, '#/banking')}
-      ${kpiCard('To collect', data.ar_outstanding_cents, '#/customer-balances', data.overdue_ar_cents > 0)}
-      ${kpiCard('To pay', data.ap_outstanding_cents, '#/bills', data.overdue_ap_cents > 0)}
-      ${kpiCard('Portal wallets', data.portals?.balance_cents ?? 0, '#/portals')}
+      ${numberCardHtml({ label: 'Cash', cents: data.cash_cents, href: '#/banking' })}
+      ${numberCardHtml({ label: 'To collect', cents: data.ar_outstanding_cents, href: '#/customer-balances', overdue: data.overdue_ar_cents > 0 })}
+      ${numberCardHtml({ label: 'To pay', cents: data.ap_outstanding_cents, href: '#/bills', overdue: data.overdue_ap_cents > 0 })}
+      ${numberCardHtml({ label: 'Portal wallets', cents: data.portals?.balance_cents ?? 0, href: '#/portals' })}
     </div>
 
     ${isEmpty ? '' : ledgerChecksCard(reconciliation)}

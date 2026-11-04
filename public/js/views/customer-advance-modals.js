@@ -18,7 +18,6 @@ function accountOptions(preferCode) {
 export function openRecordAdvance(customer, onDone) {
   openModal({
     title: 'Record customer advance',
-    subtitle: `${customer.name} · money received before an invoice`,
     body: `<div class="form-grid">
       <div class="field">
         <label for="ca-amount">Amount</label>
@@ -28,7 +27,6 @@ export function openRecordAdvance(customer, onDone) {
       <div class="field"><label for="ca-method">Method</label><select class="input" id="ca-method">${METHODS.map((m) => `<option>${m}</option>`).join('')}</select></div>
       <div class="field"><label for="ca-account">Received into</label><select class="input" id="ca-account">${accountOptions('1010')}</select></div>
       <div class="field full"><label for="ca-ref">Reference</label><input class="input" id="ca-ref" autocomplete="off" placeholder="Optional"></div>
-      <div class="field full"><div class="form-note">Held in <strong>2400 Contract Liabilities (Customer Advances)</strong> until it is used for an invoice or refunded. To tie it to a trip, record it on the booking or visa instead; it is then used for that invoice automatically.</div></div>
     </div>`,
     submitLabel: 'Record advance',
     onMount(overlay) {
@@ -62,7 +60,6 @@ export async function openApplyAdvance(advance, customerId, onDone) {
       <div class="field full"><label for="ca-invoice">Invoice</label>
         <select class="input" id="ca-invoice">${invoices.map((invoice) => `<option value="${invoice.id}">${esc(invoice.number)} · ${esc(fmtMoney(invoice.balance_cents))} due</option>`).join('')}</select></div>
       <div class="field"><label for="ca-date">Date</label><input class="input" id="ca-date" type="date" value="${todayISO()}" required></div>
-      <div class="field full"><div class="form-note">Uses up to ${esc(fmtMoney(advance.remaining_cents))}, never more than the invoice balance (Dr 2400 · Cr 1100).</div></div>
     </div>`,
     submitLabel: 'Use advance',
     async onSubmit(form) {
@@ -83,7 +80,6 @@ export function openRefundAdvance(advance, onDone) {
       <div class="field">
         <label for="ca-amount">Refund amount</label>
         <div class="money-input"><span>${esc(currencySymbol())}</span><input class="input" id="ca-amount" type="number" min="0.01" step="0.01" value="${centsToInput(advance.remaining_cents)}" required></div>
-        <div class="hint">Remaining ${esc(fmtMoney(advance.remaining_cents))}</div>
       </div>
       <div class="field"><label for="ca-date">Refund date</label><input class="input" id="ca-date" type="date" value="${todayISO()}" required></div>
       <div class="field"><label for="ca-method">Method</label><select class="input" id="ca-method">${METHODS.map((m) => `<option>${m}</option>`).join('')}</select></div>
@@ -122,7 +118,6 @@ export function openReceivePayment(customer, invoices, onDone) {
   }).join('');
   openModal({
     title: 'Receive payment',
-    subtitle: `${customer.name} · one payment for one or more invoices`,
     size: 'modal-md',
     body: `<div class="form-grid">
       <div class="field">
@@ -140,7 +135,7 @@ export function openReceivePayment(customer, invoices, onDone) {
           <div class="table-wrap"><table class="data compact">
             <thead><tr><th scope="col">Invoice</th><th scope="col" class="num">Due</th><th scope="col" class="num">This payment</th></tr></thead>
             <tbody>${rows}</tbody>
-          </table></div>` : '<div class="muted" style="font-size:13px">No unpaid invoices. The whole amount will be kept as an advance.</div>'}
+          </table></div>` : '<div class="muted" style="font-size:13px">No unpaid invoices: kept as an advance.</div>'}
         <div class="hint" id="rp-left" aria-live="polite"></div>
       </div>
     </div>`,
