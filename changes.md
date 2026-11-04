@@ -16,7 +16,7 @@ This is the running record of changes made to Ledgerly. Start each new session h
 
 ### End-of-day status
 
-- **HEAD:** `4d5e52e Show visa applicant and items on customer statements`
+- **HEAD:** `84a516d Show visa applicant and items on customer statements`
 - **Working tree:** clean
 - **Checks:** `npm run check` passed 138 files; `npm test` passed 66 tests; `npm run test:e2e` passed 14 tests
 - **Live database:** `data/accounting.db` untouched (size `417792`, mtime `2026-10-21 13:09:49`)
@@ -26,16 +26,16 @@ This is the running record of changes made to Ledgerly. Start each new session h
 
 | Time | Commit | Change |
 | --- | --- | --- |
-| 14:51 | `d113299` | Distinguish customer and visitor visa applicants |
-| 16:03 | `4e352b5` | Add cascading void workflows and audit log |
-| 16:20 | `9eca7cb` | Add Visa Agent supplier portal type with safe migration |
-| 16:41 | `612c99a` | Show visitor visa applicant details on invoices |
-| 16:50 | `e6af640` | Add visa duration in days |
-| 17:12 | `1a9b0bf` | Show visa applicant on portal statements |
-| 17:41 | `0048c6e` | Polish customer statements |
-| 18:24 | `4d5e52e` | Show visa applicant and items on customer statements |
+| 14:51 | `ca00c5b` | Distinguish customer and visitor visa applicants |
+| 16:03 | `150de02` | Add cascading void workflows and audit log |
+| 16:20 | `0e87806` | Add Visa Agent supplier portal type with safe migration |
+| 16:41 | `02428d9` | Show visitor visa applicant details on invoices |
+| 16:50 | `ebb1a33` | Add visa duration in days |
+| 17:12 | `c9ab6fc` | Show visa applicant on portal statements |
+| 17:41 | `a1a1e2e` | Polish customer statements |
+| 18:24 | `84a516d` | Show visa applicant and items on customer statements |
 
-### 1. Customer vs visitor visa applicants — `d113299` (14:51)
+### 1. Customer vs visitor visa applicants — `ca00c5b` (14:51)
 
 - Added `visa_applications.applicant_is_customer` with a migration that classifies legacy rows once.
 - Visa editor now has **This visa is for someone else**:
@@ -47,7 +47,7 @@ This is the running record of changes made to Ledgerly. Start each new session h
 
 Key files: `server/schema.js`, `server/migrations.js`, `server/services/visas.js`, `public/js/views/visas.js`.
 
-### 2. Cascading void workflows and audit log — `4e352b5` (16:03)
+### 2. Cascading void workflows and audit log — `150de02` (16:03)
 
 - Every financial void now requires remarks and retains the original record.
 - Voiding a document cascades through linked payments, refunds, credit applications, supplier credits, advances, and journal entries.
@@ -58,7 +58,7 @@ Key files: `server/schema.js`, `server/migrations.js`, `server/services/visas.js
 
 Key files: `server/services/audit.js`, `server/routes/audit-logs.js`, `public/js/views/audit-logs.js`, plus the void service/route changes.
 
-### 3. Visa Agent supplier portal type — `9eca7cb` (16:20)
+### 3. Visa Agent supplier portal type — `0e87806` (16:20)
 
 - Added `visa_agent` to allowed supplier portal types.
 - Added a safe migration that rebuilds the `supplier_portals` table while preserving IDs and wallet references.
@@ -67,7 +67,7 @@ Key files: `server/services/audit.js`, `server/routes/audit-logs.js`, `public/js
 
 Key files: `server/migrations.js`, `server/schema.js`, `server/services/portals/common.js`, `public/js/views/portals.js`.
 
-### 4. Visitor applicant details on invoices — `612c99a` (16:41)
+### 4. Visitor applicant details on invoices — `02428d9` (16:41)
 
 - Invoice detail API now attaches linked visa fields when `visa_id` exists.
 - Visitor visa invoices show a separate **Visa applicant** panel with:
@@ -81,7 +81,7 @@ Key files: `server/migrations.js`, `server/schema.js`, `server/services/portals/
 
 Key files: `server/services/invoices.js`, `public/js/views/invoice-detail.js`, `public/css/styles.css`.
 
-### 5. Visa duration in days — `e6af640` (16:50)
+### 5. Visa duration in days — `ebb1a33` (16:50)
 
 - Added optional `visa_applications.duration_days`.
 - Duration accepts whole days from 1 to 3650; blank/0 means not fixed.
@@ -90,7 +90,7 @@ Key files: `server/services/invoices.js`, `public/js/views/invoice-detail.js`, `
 
 Key files: `server/schema.js`, `server/migrations.js`, `server/services/visas.js`, `public/js/views/visas.js`, `public/js/views/visa-detail.js`.
 
-### 6. Visa applicant on portal statements — `1a9b0bf` (17:12)
+### 6. Visa applicant on portal statements — `c9ab6fc` (17:12)
 
 - Portal lifecycle now joins the linked visa applicant onto wallet settlements and open bills.
 - Portal detail shows `Visa ... · Applicant: ... · nationality · passport` for visa-linked rows.
@@ -98,7 +98,7 @@ Key files: `server/schema.js`, `server/migrations.js`, `server/services/visas.js
 
 Key files: `server/services/portals/lifecycle.js`, `public/js/views/portal-detail.js`.
 
-### 7. Customer statement polish — `0048c6e` (17:41)
+### 7. Customer statement polish — `a1a1e2e` (17:41)
 
 - Added statement KPI cards: opening balance, invoiced, received, and amount due.
 - Added **This month**, **This year**, and **All time** presets with active state.
@@ -109,7 +109,7 @@ Key files: `server/services/portals/lifecycle.js`, `public/js/views/portal-detai
 
 Key files: `public/js/views/statement.js`, `public/css/styles.css`.
 
-### 8. Invoice items + visa applicant on customer statements — `4d5e52e` (18:24)
+### 8. Invoice items + visa applicant on customer statements — `84a516d` (18:24)
 
 - Customer statement service now enriches invoice rows with:
   - `items`: invoice line descriptions, quantity, unit price, and amount
@@ -128,7 +128,7 @@ Key files: `server/services/statements.js`, `public/js/views/statement.js`, `pub
 
 ## Next session
 
-1. Start from `4d5e52e`.
+1. Start from `84a516d`.
 2. Read the latest entry above and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading in this file before committing.
@@ -137,7 +137,7 @@ Key files: `server/services/statements.js`, `public/js/views/statement.js`, `pub
 
 ## 2026-10-24
 
-### Phase 1 — Settlements hub and cross-document clarity — code commit `bd8e02f`
+### Phase 1 — Settlements hub and cross-document clarity — code commit `49b3f93`
 
 - Grouped Cancellations, Refunds, and Credit notes under a new **Settlements** navigation group. The three accounting documents remain separate.
 - Added clearer page titles, settlement/status badges, and source badges:
@@ -166,7 +166,7 @@ Verification:
 
 ### Next session
 
-1. Start from the latest `main`; the Phase 1 code commit is `bd8e02f`.
+1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
 2. Read this entry and run the full check suite.
 3. Use a disposable database for review; never modify live `data/accounting.db`.
 4. Append the next change under a new date heading before committing.
@@ -175,7 +175,7 @@ Verification:
 
 ## 2026-10-26
 
-### Phase 2 — Settlement choice, customer balances, queue and void preview — code commit `368dd4a`
+### Phase 2 — Settlement choice, customer balances, queue and void preview — code commit `5c0afdd`
 
 - Added a post-cancellation settlement choice:
   - Cancelling a booking or visa redirects to `#/cancellations/:id?settle=1`.
@@ -209,7 +209,7 @@ Verification:
 - Unit coverage seeds cancellation refunds, customer credits, advances and supplier credits, then verifies derived balances, queue totals, filters and settlement removal.
 - Tests used disposable `LEDGERLY_DATA_DIR` databases. Live `data/accounting.db` was not modified (size `802816`, mtime `2026-10-24 20:31`).
 
-### Cash refund of unapplied customer credit, and advance refunds on statements — code commit `1f815dc`
+### Cash refund of unapplied customer credit, and advance refunds on statements — code commit `20e89bf`
 
 Closes the gap where an unused customer credit note could only be applied to an invoice. A customer who later wants cash instead of credit can now be paid from the credit note.
 
@@ -240,7 +240,7 @@ Verification:
 - `npm run test:e2e`: 17 tests passed, including the new credit-note refund flow and an axe audit of the credit note detail page in light and dark themes.
 - Migration dry-run on a copy of live `data/accounting.db`: new columns added, `integrity_check` ok, all control-account reconciliations matched, trial balance unchanged (6,450.00 = 6,450.00). The live file itself was not modified (size `802816`).
 
-### Settlements Phase 3 — ledger checks card, settlement attachments, audit chain — code commit `fad4313`
+### Settlements Phase 3 — ledger checks card, settlement attachments, audit chain — code commit `b134564`
 
 Approvals and permissions are deliberately left for the login/users phase, because an approval needs to know who is acting.
 
@@ -285,7 +285,7 @@ Verification:
 - `npm run test:e2e`: 18 tests passed, including a new test for the dashboard card, a cancellation attachment upload shown on the page, and the audit chain opened from the job page. The axe WCAG 2.1 AA audit now also covers the dashboard card and `/audit-chain/booking/:id` in light and dark themes.
 - Migration dry-run on a copy of live `data/accounting.db`: attachments table widened, `integrity_check` ok, no foreign key violations, all eight ledger checks matched on the real data, and the visa audit chain balanced. The live file itself was not modified (size `802816`).
 
-### Booking and visa documents can no longer be voided directly (audit H1–H3) — code commit `ed88c81`
+### Booking and visa documents can no longer be voided directly (audit H1–H3) — code commit `459c1e5`
 
 From the bookings, visas and invoices audit. Voiding these documents on their own bypassed the cancellation workflow: for example, voiding a paid booking invoice reversed the receipt (bank −1,000 with no money returned), left the booking `confirmed` and its supplier bill payable, and kept the margin in reports.
 
@@ -307,7 +307,7 @@ Verification:
 - `npm run test:e2e`: 19 tests passed, including a new browser test: the API returns 400 for a direct void, the booking invoice shows **Cancel booking** instead of Void, and the booking bill's **Supplier credit** button opens the form with the supplier, bill and booking preselected.
 - Live `data/accounting.db` was not modified by the tests. The running app needs a restart to pick up this change.
 
-### Reports use posted documents; internal notes and passport data kept off customer documents (audit M1–M5) — code commit `3fd2de5`
+### Reports use posted documents; internal notes and passport data kept off customer documents (audit M1–M5) — code commit `b125654`
 
 From the bookings, visas and invoices audit.
 
@@ -352,7 +352,7 @@ Verification:
   - the stored-XSS test now looks for the escaped payload in the internal-notes box.
 - Migration dry-run on a copy of live `data/accounting.db`: `invoice_notes` columns added, `integrity_check` ok, 8/8 ledger checks matched, visa invoice shows `•••• 2444` with no full passport or date of birth. The live file was not modified. The running app needs a restart to pick up this change.
 
-### Job rules, status history and shared job code (audit Low items) — code commit `e1400ed`
+### Job rules, status history and shared job code (audit Low items) — code commit `7850ddc`
 
 - **Shared code:** new `server/services/jobs.js` holds booking/visa line validation, posting of the invoice and supplier bills with portal settlement, default due dates and status history. `bookings.js` and `visas.js` use it; about 150 duplicated lines removed.
 - **Dates:**
@@ -369,7 +369,7 @@ Verification: `npm run check` 156 files OK; `npm test` 100 passed (7 new in `tes
 
 ## 2026-10-27
 
-### "This invoice is for someone else" toggle — code commit `205b818`
+### "This invoice is for someone else" toggle — code commit `f3605c7`
 
 Brings the visa applicant toggle to direct invoices, for a customer who pays for another person (traveller, guest or family member).
 
@@ -399,7 +399,7 @@ Verification:
 - `npm run test:e2e`: 22 passed, including a new test: fields hidden by default and shown with a required name when toggled; the printed invoice shows **Service for** with a masked passport and is still billed to the customer; the list shows "For …".
 - Migration dry-run on a copy of live `data/accounting.db`: columns added, integrity ok, 8/8 checks, both existing invoices default to the customer. The live file was not modified; restart needed.
 
-### Service invoices: direct invoices are for income with no supplier cost — code commit `1f5a180`
+### Service invoices: direct invoices are for income with no supplier cost — code commit `477557a`
 
 A direct invoice records only revenue. When it was used for a ticket or visa, the supplier cost never met the sale: the DSR showed 100% margin and booking/visa margin reports missed the sale.
 
@@ -429,7 +429,7 @@ Verification:
 - `npm run test:e2e`: 23 passed, including a new test: the API refuses a ticket line; the button and form read "New service invoice"; the hint shows; 4000/4100/4320 are not offered and 4300 is first; the booking link opens the booking form.
 - No schema change. The live file was not modified; restart needed.
 
-### Basic forms: one row per passenger, visa applicants list, simple service invoice — code commit `1f5a180`
+### Basic forms: one row per passenger, visa applicants list, simple service invoice — code commit `477557a`
 
 The booking, visa and invoice forms asked for every field up front. The new forms keep only what is needed on every job in view and move the rest under **More details** or a row's **⋯**.
 
@@ -481,7 +481,7 @@ Verification:
 - Migration dry-run on a copy of live `data/accounting.db`: all new columns, `visa_groups` and the counter added, integrity ok, existing bookings and visas list normally.
 - Schema change is additive (two columns on each item table, `visa_groups`, `group_id`, one settings counter). The live file was not modified; restart needed.
 
-### Ticket, visa and service invoices print differently — code commit `c276b7d`
+### Ticket, visa and service invoices print differently — code commit `d3b350d`
 
 Ticket and visa sales already made separate invoices, but every invoice printed the same way: the heading said "Invoice", and a ticket invoice showed no PNR, travel dates or ticket numbers.
 
@@ -521,7 +521,7 @@ Verification:
   - the header with seven actions.
 - No schema change. The live file was not modified; restart needed.
 
-### Payment column, confirm preview, amount in words, receipt voucher, share by email/WhatsApp — code commit `f8200a4`
+### Payment column, confirm preview, amount in words, receipt voucher, share by email/WhatsApp — code commit `1673f19`
 
 - **Payment column** on the booking and visa lists:
   - Shows **Paid / Partial / Unpaid / Overdue** from the job's invoice, with "AED … due" under partial, unpaid and overdue.
@@ -568,7 +568,7 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): booking list payment column, confirm preview on a draft booking, invoice amount in words, Share window and receipt voucher.
 - No schema change. The live file was not modified; restart needed.
 
-### Cancelled sales stay on their day in the DSR and statement — code commit `06db786`
+### Cancelled sales stay on their day in the DSR and statement — code commit `d8d99df`
 
 Before this change, cancelling a booking or visa voided its invoice. The DSR and the customer statement then dropped the original sale: a DSR printed for the sale day changed later, and the customer's history vanished. The ledger was already right: the sale was on its day and the reversal on the cancellation date.
 
@@ -606,7 +606,7 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): DSR (12 Oct sale marked Cancelled, 27 Oct cancellation lines) and the Aisha Khan statement (balance 3,080 → 2,590 after the unpaid invoice was reversed).
 - No schema change. The live file was not modified; restart needed.
 
-### New DSR layout: counter-style sections A–H — code commit `d7fd636`
+### New DSR layout: counter-style sections A–H — code commit `e213a1a`
 
 Built from the sample DSR the user shared (Cozmo, 9 Jan): sales lists by type with Cash / Card / Credit columns, a refund list, money paid out, and a cash summary. The staff column and visa security deposit are left out for now; staff needs login (Phase 2).
 
@@ -657,7 +657,7 @@ Verification:
   - Print preview was not checked in a browser.
 - No schema change. The live file was not modified; restart needed.
 
-### Visa security deposit engine — code commit `5374819`
+### Visa security deposit engine — code commit `6373554`
 
 A refundable visa security deposit is the customer's money, not a sale. This adds a full engine for it.
 
@@ -727,9 +727,9 @@ Verification:
 - Migration dry-run on a copy of live `data/accounting.db`: the three accounts were added as system accounts, both tables created, integrity ok, all 10 ledger checks match. The live file was not modified; restart needed.
 - Not done yet: paying a deposit to the supplier from a prepaid portal wallet (cash or bank only for now).
 
-### Audit fixes F1–F12 (OpenCode audit of 2026-10-28) — code commit `ff6dba3`
+### Audit fixes F1–F12 (OpenCode audit of 2026-10-28) — code commit `8995174`
 
-OpenCode ran a full read-only audit at `9a986cd`. All 12 findings were confirmed before fixing: 8 reproduced on a temp database, 4 confirmed in the code.
+OpenCode ran a full read-only audit at `f6db38a`. All 12 findings were confirmed before fixing: 8 reproduced on a temp database, 4 confirmed in the code.
 
 - **F1 (High) — DSR section F was empty on days with no sales.** With no sale invoices, the "exclude this period's sales" filter became `NOT IN (NULL)`, which hides every row. The filter is now added only when there are sales.
 - **F2 (High) — voiding a deposit-funded payment desynced 2600.** `deleteInvoicePayment` now refuses a payment made from a visa deposit, with a message pointing to the deposit card. This also covers voiding the invoice, which voids its payments. The deposit card's "Void latest step" passes `fromDeposit` and still works.
@@ -774,7 +774,7 @@ Verification:
   - Found and fixed while checking: the refund page's remaining refundable amount ignored the part of the deposit used for the invoice.
 - Migration dry-run on a copy of live `data/accounting.db`: the new counter and six indexes were added, integrity ok, all 10 ledger checks match. The live file was not modified; restart needed.
 
-### UI/UX cleanup — simpler navigation, Today box, summary strips, phone layout — code commit `32d54f9`
+### UI/UX cleanup — simpler navigation, Today box, summary strips, phone layout — code commit `03460d2`
 
 The goal was to make the app friendlier for everyday staff work. Accounting, data, reports and printouts do not change.
 
@@ -828,7 +828,7 @@ Verification:
   - at 375px: bookings cards with the tab bar, dashboard Today box, labelled header buttons, invoice page with strip; no horizontal scroll.
 - No schema change. The live file was not modified; restart needed.
 
-### Quiet transitions (patterns adapted from transitions.dev) — code commit `17a0ad3`
+### Quiet transitions (patterns adapted from transitions.dev) — code commit `b25afb6`
 
 The user asked whether to add the transitions.dev library. The decision was to add five subtle effects written in our own CSS, and not to install the library, its CLI, agent skill or Refine tool. Those would bring outside code, an injected script and a sign-in into a local app that runs on live data, and the library's flashy effects (such as blurred number flips) do not suit money. The licence allows using the patterns in our own project.
 
@@ -853,7 +853,7 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data, motion on): new service invoice saved with no customer shakes and outlines the Customer field and shows "Choose a customer".
 - No schema change. The live file was not modified; restart needed.
 
-### Phone menu: "More" turns into "Close" (⋮ → ✕) — code commit `171f853`
+### Phone menu: "More" turns into "Close" (⋮ → ✕) — code commit `5093a78`
 
 The user asked for a hamburger transition. transitions.dev has no dedicated one; the closest is its "Icon swap" pattern.
 
@@ -873,7 +873,7 @@ Verification:
 - Minor note for later: at phone width the scrollable invoice item table (`.doc-items-wrap`) is not keyboard-focusable, which axe flags at 375px. Desktop axe is clean.
 - No schema change. The live file was not modified; restart needed.
 
-### Hamburger ☰ → ✕ at the top of the phone sidebar — code commit `2e40bd5`
+### Hamburger ☰ → ✕ at the top of the phone sidebar — code commit `5a8d57e`
 
 The user wanted the hamburger itself to animate. On phones the header ☰ is covered by the open sidebar, so the hamburger now also appears at the **top-right of the open sidebar**.
 
@@ -892,7 +892,7 @@ Verification:
 - Visual check at 375px on a throwaway server (temp data dir, port 4391, demo data): ✕ in the top-right of the open sidebar next to the Ledgerly brand.
 - No schema change. The live file was not modified; restart needed.
 
-### Desktop hamburger ☰ ↔ ← — code commit `8344b1b`
+### Desktop hamburger ☰ ↔ ← — code commit `cd1d857`
 
 On desktop the ☰ button hides and shows the sidebar, but its icon never changed. The user chose ☰ ↔ ← over ☰ ↔ ✕: the sidebar is open most of the time, and a calm ← reads as "hide sidebar" without an ✕ on every page.
 
@@ -911,7 +911,7 @@ Verification:
 - Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): ← next to the page title with the sidebar open, ☰ with it hidden.
 - No schema change. The live file was not modified; restart needed.
 
-### IFRS wording across reports, accounts and screens — code commit `95165e5`
+### IFRS wording across reports, accounts and screens — code commit `192f7ee`
 
 The user asked for accounting-standard wording. The rule applied: proper IFRS terms in reports and on accounting screens; on staff screens, the same terms kept short. Sources checked: IAS 1 (presentation and line items; IAS 1 allows label changes), IFRS 15 (contract liabilities, refund liabilities, trade receivables, principal vs agent) and the FTA tax invoice / tax credit note rules.
 
@@ -960,7 +960,7 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): the Statement of Profit or Loss with cost of sales and gross profit.
 - No schema change (data only). The live file was not modified; restart needed.
 
-### Reports section simplified — code commit `4d30e9f`
+### Reports section simplified — code commit `a84c7e2`
 
 The reports page had a strip of 10 tabs with accounting names and the same date fields everywhere.
 
@@ -990,7 +990,7 @@ Verification:
 - Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): the reports home, and Booking gross profit with the quick periods.
 - No schema change. The live file was not modified; restart needed.
 
-### Quick expense (paid now) — code commit `8e454ae`
+### Quick expense (paid now) — code commit `0c8c606`
 
 Before this, a small expense already paid took two steps: a bill, then a payment on that bill.
 
@@ -1019,7 +1019,7 @@ Verification:
 - Visual check at 1400px on a throwaway server (temp data dir, port 4391, demo data): the form with its defaults.
 - No schema change. The live file was not modified; restart needed.
 
-### Customer advances: used on confirm, on the statement, recordable from the customer page — code commit `ee22a2d`
+### Customer advances: used on confirm, on the statement, recordable from the customer page — code commit `eda817a`
 
 These are the three gaps from the advance review, plus a fourth found while fixing them.
 
@@ -1049,7 +1049,7 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data): the Record advance button on the customer balance page and the statement.
 - No schema change. The live file was not modified; restart needed.
 
-### Simpler customer statement — code commit `2f59a97`
+### Simpler customer statement — code commit `27b2edb`
 
 The user found the customer statement too complex. On demo data, Aisha Khan's statement was about 1,980px tall for 13 rows. It is now about 1,480px.
 
@@ -1073,7 +1073,7 @@ Verification:
 - Visual check on a throwaway server (temp data dir, port 4391, demo data) at 1400px, 375px (no sideways scroll) and an A4 PDF print.
 - No schema change. The live file was not modified; restart needed.
 
-### Bank Charges account and bank debits in Compliance — code commit `0afceae`
+### Bank Charges account and bank debits in Compliance — code commit `377ebe8`
 
 The user wanted the monthly bank account maintenance charges to be a recurring Compliance item. Before this change a recurring bill always made a draft bill that had to be approved and then paid, even though the bank had already taken the money.
 
@@ -1103,7 +1103,7 @@ Verification:
 - Visual check of the form on a throwaway server (temp data dir, port 4391, demo data) at 1400px.
 - Schema change: one nullable column, added by migration on start. The live file was not modified; restart needed.
 
-### Bank debits need no supplier — code commit `01d8088`
+### Bank debits need no supplier — code commit `1d1ec02`
 
 The user found that the bank charges form still asked for a supplier.
 
@@ -1121,7 +1121,7 @@ Verification:
 - Visual check of the form on a throwaway server (port 4391).
 - No schema change; restart needed.
 
-### Bank charges, petty cash, portal-wallet deposits and two small fixes — code commit `ed5e74f`
+### Bank charges, petty cash, portal-wallet deposits and two small fixes — code commit `660dfd2`
 
 The user picked items 1, 2, 3, 7, 8, 11 and 12 from the pending list.
 
@@ -1168,7 +1168,7 @@ Verification:
 
 ## 2026-10-30
 
-### Card and payment link settlements — code commit `99071f0`
+### Card and payment link settlements — code commit `469e559`
 
 The user asked how card payments, payment links and their charges work. Before this change "Credit card" was only a method label and there was no payment link. Gateway payouts arrive days later, several payments in one batch, less the fee, so they did not match the books. The user asked to build the clearing and settlement flow.
 
@@ -1200,7 +1200,7 @@ Verification:
 - Schema changes: two new tables, `invoices.payment_link`, a settings counter and account 1030 (added on start). Older "Credit card" payments already posted to 1010 are unchanged. The live file was not modified; restart needed.
 - Housekeeping: an empty `test/share-links.test.js` was created by mistake during this work and removed before the commit.
 
-### Code cleanup after the full check — code commit `7c56032`
+### Code cleanup after the full check — code commit `10d1c26`
 
 The user asked for a read-only check of the whole backend and frontend for dead code, dead schema, conflicts and record integrity, then a second, deeper verification of that report, then "Yes, fix them". The live records were already sound (10/10 ledger checks, no unbalanced entries, every document has its entry). This commit removes what the check found.
 
@@ -1231,9 +1231,9 @@ Verification:
 
 ## 2026-10-31
 
-### Fix: Record customer advance on booking and visa pages — code commit `46d02f2`
+### Fix: Record customer advance on booking and visa pages — code commit `d7b4500`
 
-Found by the security audit's wave-3 hunter (as a non-security note). In `99071f0`, `public/js/views/job-modals.js` began using `methodOptionsHtml` and `MONEY_IN_METHODS`, but the import was never added. The edit script anchored on an `api.js` import line, and this file does not have one, so the edit silently did nothing. As a result, "Record customer advance" on booking and visa pages threw a ReferenceError and the form never opened. The live server has had this bug since `99071f0` was deployed. The customer-side advance form was not affected.
+Found by the security audit's wave-3 hunter (as a non-security note). In `469e559`, `public/js/views/job-modals.js` began using `methodOptionsHtml` and `MONEY_IN_METHODS`, but the import was never added. The edit script anchored on an `api.js` import line, and this file does not have one, so the edit silently did nothing. As a result, "Record customer advance" on booking and visa pages threw a ReferenceError and the form never opened. The live server has had this bug since `469e559` was deployed. The customer-side advance form was not affected.
 
 - Added `import { MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js'`.
 - Scanned every file in public/js for names from `payment-methods.js` and `bank-charges.js` that are used without being imported: none remain.
@@ -1241,7 +1241,7 @@ Found by the security audit's wave-3 hunter (as a non-security note). In `99071f
 
 Verification: `npm run check` 193 files OK; `npm test` 186 passed; `npm run test:e2e` 40 passed. Restart needed.
 
-### Rebrand: Ledgerly is now Netfare — code commit `58cc5ff`
+### Rebrand: Ledgerly is now Netfare — code commit `02d783c`
 
 The user named the app **Netfare** and supplied a logo kit at `Netfare/logo/` with its README and concepts. The final concept is Option 2 "Ticket Ledger" (a flight ticket with ledger lines), tagline "Invoicing & Books", described as "a ShikraGroup brand". The kit colours are navy `#0B1B2E`, sky `#4FB3E8`, blue `#2B8FCB` (with light blue `#8FD0F5` on dark backgrounds) and slate `#55657A` / `#9FB0C3`. The logos are outlined SVGs, so no fonts are needed.
 
@@ -1272,13 +1272,13 @@ Verification:
 - Visual check on a throwaway server (port 4391, demo data): the dashboard in light and dark, an invoice (shows "S" for Skyline Travels), and the Settings About card.
 - No schema change. Restart needed.
 
-### Fix: Align the sidebar tagline under the logo — code commit `e03dc09`
+### Fix: Align the sidebar tagline under the logo — code commit `5a31ca1`
 
 - The "INVOICING & BOOKS" tagline under the sidebar logo was wider than the wordmark and started at an odd offset, so it looked out of line. It now starts at the ticket icon's left edge and ends where the "Netfare" wordmark ends, sits closer under the logo, and is slightly smaller (8.5px, 0.3em spacing).
 - Key file: `public/css/styles.css` (`.brand-tagline`).
 - Verification: measured on a throwaway server (port 4391): the tagline runs from 24px to 151.8px against the lockup's 24.5px to 151.6px at desktop width, and it looks right in the phone sidebar. `npm run check` 193 files OK; `npm run test:e2e` 41 passed. CSS only; the live server serves it on refresh, so no restart is needed.
 
-### Fix: Books health — opening 1030 guard, reset leftovers, 1030 ledger check — code commit `48ff903`
+### Fix: Books health — opening 1030 guard, reset leftovers, 1030 ledger check — code commit `4dfcdce`
 
 - **Opening balances and card money:**
   - Changing or voiding opening balances reversed the old entry without the card-settlement guard that every other reversal has.
@@ -1298,7 +1298,7 @@ Verification:
 - On a copy of the latest live backup: 11/11 checks match, and the 1030 check is 0 = 0.
 - Includes a migration that only updates links. Restart needed.
 
-### Security batch (step 1 of the multi-user plan) — code commit `5153a86`
+### Security batch (step 1 of the multi-user plan) — code commit `7cf3026`
 
 These close the security audit (run-1) leads that need no login.
 
@@ -1316,7 +1316,7 @@ These close the security audit (run-1) leads that need no login.
 - **Still open:**
   - Lead 1 (no login): solved by step 2 (login and roles). A separate API key would be readable from the page by any local program.
   - Lead 4 (LAN mode gate): part of step 3.
-  - Lead 6 (opening balances bypassing the card guard): fixed in `48ff903`.
+  - Lead 6 (opening balances bypassing the card guard): fixed in `4dfcdce`.
 
 Key files: `server/security.js`, `server/index.js`, `server/file-safety.js` (new), `server/db.js`, `server/services/backup.js`, `scripts/restore.js`, `public/js/ui.js`, `public/js/views/portal-ledger.js`, `package.json`, `package-lock.json`, `test/http-security.test.js`, `test/hardening.test.js`.
 
@@ -1329,7 +1329,7 @@ Verification:
 
 ## 2026-11-02
 
-### Sign-in, admin setup and staff users (step 2a) — code commit `a0daf49`
+### Sign-in, admin setup and staff users (step 2a) — code commit `9a8424c`
 
 The user asked for no fixed roles: the admin creates each staff login from Settings. Rights per user come in step 2b.
 
@@ -1369,7 +1369,7 @@ Verification:
 - Visual check on a throwaway server (port 4391): setup, dashboard, the Users card, and staff sign-in.
 - Schema change: new `users` and `sessions` tables and the `audit_logs.user_name` column (all additive). Restart needed. After the restart, the live app asks once for the admin account.
 
-### Rights per user (step 2b) — code commit `1c417d3`
+### Rights per user (step 2b) — code commit `18a6146`
 
 - **Rights model** (new `server/permissions.js`): 14 areas. For each one the admin picks No access, View or Edit. Dashboard, Reports and Audit log are view-only. A separate **Void, cancel & delete** tick covers any `DELETE` and any `…/void` or `…/cancel` request, and it also needs Edit for that area. The rights are stored in the new `users.permissions` column (JSON; migration adds it). The admin is never limited.
 - **Server enforcement:** the API guard in `server/routes/index.js` matches each request to an area by its prefix. GET needs View; other methods need Edit (and Void where it applies). It answers 403 with `code: 'no_right'` and a plain message such as "You do not have Edit rights for Invoices, payments & advances. Ask the admin." Unknown prefixes, `/users` and `/admin` are admin-only.
@@ -1403,7 +1403,7 @@ Verification:
   - The admin Rights modal is shown.
 - Schema change: `users.permissions` (additive). Restart needed.
 
-### Office network mode and edit conflicts (step 3) — code commit `23b6b58`
+### Office network mode and edit conflicts (step 3) — code commit `0645388`
 
 - **Office network mode** (new `server/network.js`, admin card in Settings, `GET/PUT /api/admin/network`):
   - **Setting:** "Allow other computers" saves `settings.lan_enabled`, and "Extra names" (for example a Tailscale name) saves `settings.lan_hosts`. Both columns are added by migration. Changes are audited.
@@ -1432,7 +1432,7 @@ Verification:
 - **Not tested from a second computer:** that needs the user's own office network. The live server stays on this computer only until the admin turns the setting on and restarts.
 - Schema change: `settings.lan_enabled`, `settings.lan_hosts`, `customers/vendors/accounts.updated_at` (all additive). Restart needed.
 
-### Desktop app code (step 4, written but not built) — code commit `fc50020`
+### Desktop app code (step 4, written but not built) — code commit `ce0c2e8`
 
 The user chose not to download Electron yet (about 160 MB) and to keep the desktop app's books in the app folder on the internal disk. So the code is written, but the app has not been run.
 
@@ -1473,7 +1473,7 @@ Verification:
 - The setup screen was looked at in the browser pane (design only; the buttons need Electron).
 - No schema change. No restart needed: the server behaves the same when started with `npm start`.
 
-### Desktop app built and tested (step 4) — code commit `7fb4ec9`
+### Desktop app built and tested (step 4) — code commit `a6061c9`
 
 The user approved downloading Electron and electron-builder, then approved upgrading better-sqlite3.
 
@@ -1509,7 +1509,7 @@ Key files: `desktop/package.json`, `desktop/package-lock.json` (new), `desktop/m
 
 (The live server was restarted on better-sqlite3 13.0.3 after this entry: the backup was verified, and the process loads `prebuilds/darwin-arm64.node`.)
 
-### Update notice and one-click download (step 5) — code commit `78a3c2d`
+### Update notice and one-click download (step 5) — code commit `5f6123d`
 
 The user has no Apple Developer account and will not get one. So the desktop app stays unsigned, and macOS asks "Open Anyway" once. An unsigned Mac app cannot replace itself (electron-updater and Squirrel need signing). The user chose "notification + one-click download" instead.
 
@@ -1541,7 +1541,7 @@ Verification:
 - **Visual check on a throwaway server with a local feed (1.1.0):** the admin banner, What's new with the steps, Later hiding it across a reload, and the Updates card.
 - Schema change: `settings.update_feed` (additive). Restart needed.
 
-### Preparing to publish on GitHub — code commit `2b0f99d`
+### Preparing to publish on GitHub — code commit `d2cc6e9`
 
 The user created a public, empty repository: https://github.com/ShikraDeveloper/Netfare (account id 254118030).
 
@@ -1565,7 +1565,7 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 - **First push:** GitHub had made one "Initial commit" (`f4b7163`, a two-line README, author `riskcontrol96@gmail.com`). With the user's OK it was replaced with `git push --force-with-lease=main:f4b7163`; the README content is already covered by ours.
 - **Checked on GitHub:** public; "MIT License" detected; 113 commits, the same as local; no `data/`; `desktop/` holds only source (no `node_modules`, `build` or `dist`).
 
-### Release builds on GitHub Actions (Qadam 4) — code commits `6996d63`, `a94ee37`
+### Release builds on GitHub Actions (Qadam 4) — code commits `2302df7`, `9ec4f82`
 
 - **`.github/workflows/release.yml`:**
   - **Triggers:** a `v*` tag, or a manual run, which builds and tests only.
@@ -1585,8 +1585,8 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   - `NETFARE_UPDATE_FEED` overrides the default; the test servers set it to `off`, so tests never reach the internet.
 - **Workflow permission:** pushing workflow files needed the `workflow` scope (`gh auth refresh -s workflow`). The first device code was never authorized; the second (`79D1-1EC9`) worked.
 - **Trial runs (manual):**
-  - Run 41438222363 (`6996d63`): Mac passed. Windows built the `.exe`, but root `npm ci` had failed on node-gyp. PowerShell carried on, so the smoke test failed on a missing `playwright-core`. That led to `a94ee37`.
-  - Run 41439053865 (`a94ee37`): **Success** on both. The artifacts were netfare-mac (276 MB) and netfare-win (125 MB), and the Windows smoke test passed.
+  - Run 41438222363 (`2302df7`): Mac passed. Windows built the `.exe`, but root `npm ci` had failed on node-gyp. PowerShell carried on, so the smoke test failed on a missing `playwright-core`. That led to `9ec4f82`.
+  - Run 41439053865 (`9ec4f82`): **Success** on both. The artifacts were netfare-mac (276 MB) and netfare-win (125 MB), and the Windows smoke test passed.
   - During the runs `api.github.com` stopped resolving on this network for a few minutes while `github.com` worked. The result was read from the run page.
 - **Local checks:**
   - `npm run check`: 219 files OK.
@@ -1597,7 +1597,7 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 
 ### First public release: Netfare 1.0.0 (2026-11-02)
 
-- **Tag:** with the user's OK, the annotated tag `v1.0.0` was made on `62a801a` with seven note lines (features), and pushed.
+- **Tag:** with the user's OK, the annotated tag `v1.0.0` was made on `0190a32` with seven note lines (features), and pushed.
 - **Release:** run 41439758691: Build (mac), Build (win) and Publish release all succeeded. https://github.com/ShikraDeveloper/Netfare/releases/tag/v1.0.0 holds:
   - `Netfare-mac-arm64.dmg` (142 MB);
   - `Netfare-mac-x64.dmg` (146 MB);
@@ -1609,7 +1609,7 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   - The app's own update check (`server/services/updates.js`, default address, temporary data folder) read it: latest 1.0.0, not newer than the installed 1.0.0, no error.
 - **Not checked yet:** a person installing from the release on a Mac (Open Anyway) and on a Windows PC (SmartScreen → Run anyway).
 
-### Website / landing page (Qadam 5) — code commits `e88b0e5`, `db43ff0`
+### Website / landing page (Qadam 5) — code commits `8dca97f`, `9534076`
 
 - **`website/` (plain HTML, CSS and JS, no build step, 940 KB):**
   - **Hero:** an OS-aware Download button. Mac Apple Silicon or Intel comes from userAgentData architecture or the WebGL renderer; Windows and phones are handled too. It links to the stable `releases/latest/download/` files.
@@ -1619,13 +1619,13 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   - **Look:** brand fonts (Bricolage Grotesque, Quicksand) and colours, light and dark, a phone layout, and a strict meta CSP (fetch only to api.github.com).
   - **Checks:** desktop and phone, light and dark — no horizontal scroll, no script errors, axe WCAG 2.1 AA clean. 16 light-mode contrast issues were fixed by darkening the text accent to `#1a6a9e`.
 - **Hosting:** the user will host the page on their own website, not GitHub Pages.
-  - So the Pages workflow from `e88b0e5` was removed in `db43ff0`.
+  - So the Pages workflow from `8dca97f` was removed in `9534076`.
   - `npm run website:zip` makes `netfare-website.zip` (751 KB, git-ignored).
   - README has the hosting checklist: keep the paths, use https, allow CSP `connect-src` for api.github.com, set `og:image` to a full address.
   - The zip was tested when served from a `/netfare/` sub-folder: no 404s, no errors, fonts load, the live version shows and the Download link is right.
-- **Not pushed yet:** `e88b0e5` and `db43ff0` are local only. The user chose not to publish via Pages, so a push is asked separately.
+- **Not pushed yet:** `8dca97f` and `9534076` are local only. The user chose not to publish via Pages, so a push is asked separately.
 
-(`e88b0e5`, `db43ff0` and `c3cf6ab` were pushed later with the user's OK.)
+(`8dca97f`, `9534076` and `ae3eb84` were pushed later with the user's OK.)
 
 ### Netfare installed on the user's Mac (2026-11-02)
 
@@ -1638,7 +1638,7 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
   3. Downloaded the v1.0.0 `Netfare-mac-arm64.dmg` from GitHub; its SHA-256 matched the release digest.
   4. Copied it with `ditto` to `/Applications/Netfare.app` (arm64) and opened it: health ok, `setup_needed: false`, and the same `accounting.db` is open.
 
-### Mac signing fix and release 1.0.1 — code commit `ed98285`, tag `v1.0.1`
+### Mac signing fix and release 1.0.1 — code commit `7d77bf4`, tag `v1.0.1`
 
 - **Problem:** the installed v1.0.0 failed `codesign --verify` ("code has no resources but signature indicates they must be present"). Only Electron's linker signature on the main binary (identifier "Electron") was present, because `CSC_IDENTITY_AUTO_DISCOVERY=false` skipped bundle signing. A browser-downloaded (quarantined) copy is then reported as **damaged**, without Open Anyway.
 - **Fix:** `desktop/package.json` sets `mac.identity: "-"` (electron-builder 26 ad-hoc signing) and `hardenedRuntime: false`, which electron-builder documents as needed for ad-hoc signing; otherwise library validation rejects Electron's frameworks.
@@ -1652,7 +1652,7 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 
 (The changes.md record above was pushed later with the user's OK. On the user's Mac the 1.0.1 dmg was downloaded in Safari and installed. macOS showed "Apple could not verify Netfare" — not "damaged" — and Open Anyway worked. Netfare 1.0.1 runs from /Applications on the same books.)
 
-### Created by on documents, staff in the DSR — code commit `95dd1e5`
+### Created by on documents, staff in the DSR — code commit `8536b1a`
 
 - **Schema:** `created_by TEXT NOT NULL DEFAULT ''` (the signed-in user's full name) is added by migration to 21 tables: bookings, visa_applications, visa_groups, visa_deposits, invoices, payments, customer_advances, credit_notes, refunds, cancellations, bills, bill_payments, supplier_credit_notes, portal_topups, portal_refunds, portal_credits, cash_deposits, post_dated_cheques, card_settlements, petty_cash_counts and journal_entries.
 - **Stamping:**
@@ -1672,9 +1672,9 @@ The user created a public, empty repository: https://github.com/ShikraDeveloper/
 - **Visual check on a throwaway server (demo data plus 3 bookings by two users):** the booking subtitle reads "… · Confirmed · by Omar Siddiqui"; the DSR shows the "by" lines, Sales by staff (Omar 2 · 4,400.00; Aisha 1 · -2,690.00 net of a demo cancellation), and the Omar filter (2 rows, name in the header). No errors.
 - **Not yet in the desktop app:** the user runs the desktop app (1.0.1), so this reaches them only in a new release (1.0.2). Not pushed yet.
 
-(`95dd1e5` and `03cfbd7` were pushed without a tag at the user's choice, so 1.0.1 is still the latest release.)
+(`8536b1a` and `33fe5c5` were pushed without a tag at the user's choice, so 1.0.1 is still the latest release.)
 
-### Second copy of backups — code commit `20079cb`
+### Second copy of backups — code commit `5b58d60`
 
 Until now every backup sat on the same computer as the books.
 
@@ -1701,7 +1701,7 @@ Until now every backup sat on the same computer as the books.
 
 ### Security audit run-2 (changed code since run-1)
 
-A source-only audit of everything changed since run-1 (`54119c3..233c2c2`), using the Cloudflare security-audit skill. 38 agents ran; nothing was executed and no real data was touched.
+A source-only audit of everything changed since run-1 (`e9124c3..ffc4270`), using the Cloudflare security-audit skill. 38 agents ran; nothing was executed and no real data was touched.
 
 - **Result:** 0 confirmed findings and 9 "needs validation" leads. 7 of the 9 run-1 leads are now fixed in source.
 - **Reports** (outside the repo): `~/security-audit-skill/ledgerly/run-2/REPORT.md` and `NEEDS-VALIDATION.md`.
@@ -1713,7 +1713,7 @@ A source-only audit of everything changed since run-1 (`54119c3..233c2c2`), usin
   - a custom Windows install folder;
   - another user holding port 4173 on a shared PC.
 
-### Staff-rights bypasses closed — code commit `db5a7d4`
+### Staff-rights bypasses closed — code commit `ae295f8`
 
 Fixes the three audit leads that needed no special office setup. Each one let a staff user go beyond the rights the admin gave them.
 
@@ -1737,7 +1737,7 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
 - **Checks:** `npm run check` 225 files OK, `npm test` 234 passed, `npm run test:e2e` 42 passed, all on a temporary data folder.
 - **Not in the desktop app yet:** it needs release 1.0.2. Not pushed yet. (Both commits were pushed later with the user's OK.)
 
-### Release 1.0.2 — code commit `c5cc202`, tag `v1.0.2`
+### Release 1.0.2 — code commit `64b4391`, tag `v1.0.2`
 
 - **Version:** 1.0.2 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm run check` 225 files OK, and `npm test` 234 passed.
 - **What it brings to the desktop app:**
@@ -1754,7 +1754,7 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac this time.
 - **On the user's Mac:** no banner appeared. The user updated to 1.0.2 through Settings → "Check for updates".
 
-### Notification bell for updates — code commit `30c2301`
+### Notification bell for updates — code commit `219733a`
 
 - **Why the banner did not appear:** the app checks once when it opens, and the server kept the answer (and any error) for 24 hours. An app that was already open before 1.0.2 was published kept saying "up to date".
 - **Fix** (`server/services/updates.js`, `public/js/updates.js`):
@@ -1773,7 +1773,7 @@ Fixes the three audit leads that needed no special office setup. Each one let a 
 
 ## 2026-11-04
 
-### Lockout per computer, safer restores, staff settings — code commit `85b3785`
+### Lockout per computer, safer restores, staff settings — code commit `fe4520c`
 
 Three more leads from audit run-2. These ones don't depend on the office setup to be worth fixing.
 
@@ -1808,12 +1808,12 @@ Three more leads from audit run-2. These ones don't depend on the office setup t
   - a custom Windows install folder;
   - port squatting on a shared PC.
 
-### Release 1.0.3 prepared — code commit `67b138e`, tag `v1.0.3` (local only)
+### Release 1.0.3 prepared — code commit `4e464c0`, tag `v1.0.3` (local only)
 
 - Version 1.0.3 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 239 passed.
 - The annotated tag `v1.0.3` has three note lines (the bell; lockout per computer; restore and staff settings). Pushing the tag was held back: the user chose "Push only", so the commits are on GitHub but no release has been built. Pushing the tag starts the release.
 
-### Website address — code commit `91736ee`
+### Website address — code commit `ab39af6`
 
 - The user's site address is **https://shikragroup.com/netfare/**.
 - `website/index.html`:
@@ -1824,7 +1824,7 @@ Three more leads from audit run-2. These ones don't depend on the office setup t
 - `npm run check` OK, `npm test` 239 passed. The About card was checked on a throwaway server. `netfare-website.zip` was rebuilt (19 files).
 - **Not live yet:** on 2026-11-04 every path on shikragroup.com (including `/netfare`) served a parking page that redirects to `/lander`. The user still needs to upload the zip's contents into a `netfare` folder there.
 
-### Bank charges on top-ups, top-ups on credit portals — code commit `aa5615c`
+### Bank charges on top-ups, top-ups on credit portals — code commit `ab1b6df`
 
 The user asked for bank charges on top-ups, and for top-ups on credit-account portals as well. They chose:
 - on a credit portal, a top-up pays the oldest open bills first;
@@ -1854,9 +1854,9 @@ The user asked for bank charges on top-ups, and for top-ups on credit-account po
   - the old test that expected credit portals to refuse top-ups was updated to the new rule;
   - `npm run check` 226 files OK, `npm test` 243 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, a credit portal with bills of 4,000 + 6,000 + 2,000 and a 9,000 top-up with 25 charges. Two bills were paid and the toast said "paid 2 bills". Balance due went to 3,000 and credit available to 47,000. The entry was 1400 Dr 9,000 / bank Cr 9,000 / 6700 Dr 25 / bank Cr 25.
-- **Release note:** the local tag `v1.0.3` points at `67b138e`, before this change. Before releasing, move the tag to the latest commit (`git tag -f -a v1.0.3 …`) so 1.0.3 includes it.
+- **Release note:** the local tag `v1.0.3` points at `4e464c0`, before this change. Before releasing, move the tag to the latest commit (`git tag -f -a v1.0.3 …`) so 1.0.3 includes it.
 
-### Opening balance on new customers, suppliers and portals — code commit `8d40779`
+### Opening balance on new customers, suppliers and portals — code commit `83da538`
 
 The user asked for an opening balance when a portal or supplier is created (admin only), and for customers too. They chose both directions, and an "As of" date that the admin picks.
 
@@ -1887,7 +1887,7 @@ The user asked for an opening balance when a portal or supplier is created (admi
   - `npm run check` 228 files OK, `npm test` 248 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, the customer form showed the folded section, the two choices, the amount and the As of date. A customer with AED 5,000 opening gave invoice INV-2026-0001 (sent, line "Opening balance / 3900"). A supplier with AED 2,500 gave bill BILL-2026-0001 (received). An opening invoice dated in the past shows as Overdue, as an old debt should.
 
-### Receive payment: one payment for several invoices — code commit `502e509`
+### Receive payment: one payment for several invoices — code commit `9a31dd9`
 
 The user asked how a customer's single payment of 700 for two visas (350 + 350) would show. Before this, each invoice had to be paid separately (two bank lines), or the money had to go through a customer advance by hand.
 
@@ -1920,7 +1920,7 @@ The user asked how a customer's single payment of 700 for two visas (350 + 350) 
   - `npm run check` 231 files OK, `npm test` 251 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, a customer with two AED 350 visa invoices. Typing 700 filled 350 + 350. Record payment opened receipt ADV-2026-0001 (AED 700, "UAE Dirhams Seven Hundred Only", both invoices at balance 0). The invoice receipt link redirected to it.
 
-### Customer nationality and documents; nationality type-ahead — code commit `82bb821`
+### Customer nationality and documents; nationality type-ahead — code commit `1ea8c6f`
 
 The user asked for a nationality on customers, documents per customer (Emirates ID, passport…), and nationalities that suggest themselves while typing.
 
@@ -1946,9 +1946,9 @@ The user asked for a nationality on customers, documents per customer (Emirates 
   - the customer form shows Nationality, and typing "Pak" matches "Pakistani" from the 194-item list;
   - a saved customer's balance page shows "Pakistani · 0 open invoices" and the Documents card with Add file.
 
-### Release 1.0.3 — tag `v1.0.3` on `9c5fa81`
+### Release 1.0.3 — tag `v1.0.3` on `a01d313`
 
-- The unpushed local tag `v1.0.3` was moved from `67b138e` to the latest commit `9c5fa81`, so 1.0.3 includes everything since 1.0.2. Its six note lines:
+- The unpushed local tag `v1.0.3` was moved from `4e464c0` to the latest commit `a01d313`, so 1.0.3 includes everything since 1.0.2. Its six note lines:
   - the notification bell;
   - Receive payment;
   - top-up bank charges and credit-portal top-ups;
@@ -1964,14 +1964,14 @@ The user asked for a nationality on customers, documents per customer (Emirates 
 - **Next:** the user's 1.0.2 app has the old update check (once at start, cached 24 hours, no bell). To see 1.0.3 it needs a restart of the app, or Settings → Check for updates. From 1.0.3 on, the bell checks every few hours.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
-### Customers list opens the customer's page — code commit `0d7b772`
+### Customers list opens the customer's page — code commit `fc71065`
 
 - The user, on 1.0.3, could not find Receive payment or the customer documents. Both live on the customer's balance page (`#/customer-balances/:id`), and the Customers list had no link to it, only Statement, Edit, Archive and Delete.
 - `public/js/views/parties.js`: on the Customers list, clicking a customer row (or Enter on the focused row) opens their page. A new Open icon (›, "Open customer: payments and documents") does the same. Suppliers are unchanged.
 - Until the next release, in 1.0.3 the page is reached through Money back → Customer balances → the customer.
 - Checks: `npm test` 252 passed, `npm run test:e2e` 42 passed. On a throwaway server, clicking "Bilal Ahmed" opened the balance page with Receive payment.
 
-### Login lock cannot be dodged by changing address — code commit `b24ba95`
+### Login lock cannot be dodged by changing address — code commit `5fa1bbe`
 
 From the security check of everything since 1.0.2 (user: "jo abi changes kiye hy sub unka bus secuirty check ker lo"). One real weakness was found, plus two hardening notes that are not fixed.
 
@@ -1998,7 +1998,7 @@ From the security check of everything since 1.0.2 (user: "jo abi changes kiye hy
   - staff with bookings/visas Edit can use Receive payment (as with advances before);
   - portals Edit staff can pay supplier bills through a credit-portal top-up (as with wallet settlement before).
 
-### Release 1.0.4 — code commit `c206b53`, tag `v1.0.4`
+### Release 1.0.4 — code commit `24d28d3`, tag `v1.0.4`
 
 - Version 1.0.4 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 253 passed.
 - Two note lines: clicking a customer opens their page; the sign-in lock holds when the address changes.
@@ -2011,7 +2011,7 @@ From the security check of everything since 1.0.2 (user: "jo abi changes kiye hy
 - **First real bell test:** the user's 1.0.3 app has the bell, so a red dot should appear within 3 hours (or at once after restarting the app).
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
-### Customer documents need Edit; customer picker list trimmed — code commit `4ecf5ef`
+### Customer documents need Edit; customer picker list trimmed — code commit `a25a77a`
 
 The two hardening notes from the 2026-11-04 security check, done at the user's request ("3 or 4 kero").
 
@@ -2028,21 +2028,21 @@ The two hardening notes from the 2026-11-04 security check, done at the user's r
 - **Visual check:** on a throwaway server, a Customers View staff user opened a customer page and saw no Documents card.
 - **Status:** user item 1 is done (1.0.4 update and bell). Item 2, checking the website, waits until the user puts it live.
 
-### Guard against opening the old books; flaky sign-in test fixed — code commits `7961d64`, `12f669b`
+### Guard against opening the old books; flaky sign-in test fixed — code commits `28333ea`, `afea7d2`
 
 Pending items 3 and 4, at the user's request.
 
-- **Old books guard** (`7961d64`, new `server/data-dir.js`): since the desktop app, the real books are in its own folder (`~/Library/Application Support/Netfare/data` on a Mac). Before this, `npm start`, `npm run backup`, `restore` and `reset-admin` still opened `data/` in this repo, the books from before the desktop app. Now one rule picks the folder for all of them (`db.js`, `services/backup.js`, `scripts/backup.js`, `scripts/restore.js`):
+- **Old books guard** (`28333ea`, new `server/data-dir.js`): since the desktop app, the real books are in its own folder (`~/Library/Application Support/Netfare/data` on a Mac). Before this, `npm start`, `npm run backup`, `restore` and `reset-admin` still opened `data/` in this repo, the books from before the desktop app. Now one rule picks the folder for all of them (`db.js`, `services/backup.js`, `scripts/backup.js`, `scripts/restore.js`):
   - `LEDGERLY_DATA_DIR`, when set, always wins (the desktop app and every test set it);
   - otherwise, if the desktop app's `accounting.db` exists on this computer, they stop with a message naming both folders: "Stopped: your books are in the Netfare desktop app… Use the Netfare app instead";
   - `NETFARE_USE_REPO_DATA=1` opens the old folder on purpose;
   - with no desktop books, the old folder is used as before.
 
   On this Mac the message appears as intended. Checking it only tests whether the file exists; no database is opened. New `test/data-dir.test.js` covers the per-system folders and every branch, using pure checks only.
-- **Flaky sign-in test** (`12f669b`, `test/e2e/browser.test.js`): after the mismatched passwords, the test read `.modal-error` at once. The box is always in the modal (hidden and empty) and gets its text a moment later, so the read sometimes came back empty. It now waits for the visible box with "do not match". The test passed 10/10 runs on its own, and the full browser suite passed twice in a row.
+- **Flaky sign-in test** (`afea7d2`, `test/e2e/browser.test.js`): after the mismatched passwords, the test read `.modal-error` at once. The box is always in the modal (hidden and empty) and gets its text a moment later, so the read sometimes came back empty. It now waits for the visible box with "do not match". The test passed 10/10 runs on its own, and the full browser suite passed twice in a row.
 - **Checks:** `npm run check` 234 files OK, `npm test` 255 passed, `npm run test:e2e` 42 passed (twice).
 
-### Receipts numbered RCP-… — code commit `daf699c`
+### Receipts numbered RCP-… — code commit `25d9455`
 
 The user approved the optional item after an explanation: Receive payment receipts showed **ADV-…**, because they are stored as customer advances.
 
@@ -2056,7 +2056,7 @@ The user approved the optional item after an explanation: Receive payment receip
   - `npm test` 255 passed, `npm run test:e2e` 42 passed.
 - **Visual check:** on a throwaway server, Settings showed "Receipt prefix: RCP".
 
-### Release 1.0.5 — code commit `588de8d`, tag `v1.0.5`
+### Release 1.0.5 — code commit `2d0cad5`, tag `v1.0.5`
 
 - Version 1.0.5 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 255 passed.
 - Two note lines: RCP receipt numbers; customer documents need Edit, and the trimmed customer list. The old-books guard only matters for `npm start`, so it has no note.
@@ -2068,7 +2068,7 @@ The user approved the optional item after an explanation: Receive payment receip
 - **Checked:** `releases/latest/download/latest.json` reports 1.0.5.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
-### Attachments open and download in the desktop app — code commit `ee35aae`
+### Attachments open and download in the desktop app — code commit `5dc7dd6`
 
 The user reported that customer documents upload, but clicking one neither downloads nor previews it.
 
@@ -2092,7 +2092,7 @@ The user reported that customer documents upload, but clicking one neither downl
   - new HTTP test for these headers. `npm test` 256 passed, `npm run test:e2e` 42 passed.
 - **Not checked:** the save dialog itself (it is native).
 
-### Release 1.0.6 — code commit `933a38a`, tag `v1.0.6`
+### Release 1.0.6 — code commit `08ed768`, tag `v1.0.6`
 
 - Version 1.0.6 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 256 passed.
 - One note line: attachments open again (viewer for PDFs and pictures, a Download button on every file).
@@ -2105,7 +2105,7 @@ The user reported that customer documents upload, but clicking one neither downl
 - **Checked:** `latest.json` reports 1.0.6.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
-### Top menu option, search and New menu; side menu polished — code commit `1cc24d2`
+### Top menu option, search and New menu; side menu polished — code commit `1f1c63d`
 
 The user asked about moving the side menu to the top with dropdowns. After three mockups (the third based on NN/g mega-menu research and Xero's navigation) they chose: build it, make Side or Top a choice in Settings, and polish the side menu the same way.
 
@@ -2141,7 +2141,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
   Found and fixed: in dark mode an open group's name was too dark to read; and axe flagged two label mismatches (company link, account button).
 
-### Release 1.0.7 — code commit `4ed036c`, tag `v1.0.7`
+### Release 1.0.7 — code commit `7326214`, tag `v1.0.7`
 
 - Version 1.0.7 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 256 passed.
 - Two note lines: the Side or Top menu choice; search with / and + New.
@@ -2157,6 +2157,19 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - The main push also hit one GitHub "Internal Server Error" and went through on retry.
 - **Checked:** 1.0.7 is marked Latest, and `latest.json` reports 1.0.7 (for the first ~30 s the CDN still served 1.0.6).
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
+
+### One contributor: history rewritten to ShikraDeveloper
+
+- **Why:** The user wants GitHub Contributors to show only ShikraDeveloper. Claude appeared because 137 commits ended with a `Co-Authored-By: Claude` line, and Shikra-Travel appeared because 111 commits used `shikratravel@gmail.com`.
+- **What changed:**
+  - all 170 commits now have author and committer `ShikraDeveloper <254118030+ShikraDeveloper@users.noreply.github.com>`, with the Claude lines removed (`git filter-branch`);
+  - dates, file contents and tag notes are unchanged; the final tree is identical;
+  - tags `v1.0.0` to `v1.0.7` were moved to the rewritten commits;
+  - every commit hash in this file was swapped for its new hash (116 places);
+  - this repo's git identity is set to ShikraDeveloper, and new commits carry no Claude line.
+- **Push:** main and the tags were force-pushed with the Release workflow disabled, so moving the tags did not rebuild or republish anything; the workflow was then turned back on.
+- **Backup:** a bundle of the old history was kept outside the repo for this session.
+- **Note:** any other clone of the repo must be cloned again. GitHub can take a while to refresh the Contributors list.
 
 ### Next session
 
