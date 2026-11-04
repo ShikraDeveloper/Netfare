@@ -18,7 +18,7 @@ import {
   toast,
   toCents,
   voidDialog,
-  createdByText
+  pageRecord
 } from '../ui.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -178,9 +178,10 @@ export async function render(container, { params } = {}) {
   if (!isCancelled && !isRejected) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
   }
+  pageRecord(visa);
   setHeader({
     title: visa.number,
-    subtitle: `${subtitleParts.join(' · ')}${createdByText(visa)}`,
+    subtitle: `${subtitleParts.join(' · ')}`,
     actions: actions.join('') + moreMenuHtml(menu),
   });
 

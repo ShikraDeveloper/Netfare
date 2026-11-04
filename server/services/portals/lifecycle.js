@@ -1,6 +1,7 @@
 'use strict';
 
 const { bad, notFound, str, optionalStr, cents } = require('../../util');
+const { markCreated } = require('../../created-by');
 const {
   PORTAL_TYPES,
   SETTLEMENTS,
@@ -215,6 +216,7 @@ function createPortal(db, payload) {
       data.credit_limit_cents,
       data.is_active,
     );
+    markCreated(db, 'supplier_portals', info.lastInsertRowid);
     return getPortal(db, Number(info.lastInsertRowid));
   })();
 }

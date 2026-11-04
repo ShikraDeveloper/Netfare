@@ -715,6 +715,40 @@ test('attachments: PDFs and pictures can be previewed; anything else is only eve
   }
 });
 
+test('created by and last changed by: stamped on new and edited records and on uploads', async () => {
+  const created = await postAs(cookie, '/api/customers', { name: 'Stamp Customer' });
+  assert.equal(created.status, 201);
+  assert.equal(created.data.created_by, ADMIN.full_name);
+  assert.equal(created.data.changed_by, '', 'not changed yet');
+  const vendor = await postAs(cookie, '/api/vendors', { name: 'Stamp Supplier' });
+  assert.equal(vendor.data.created_by, ADMIN.full_name);
+
+  await postAs(cookie, '/api/users', { full_name: 'Stamp Editor', username: 'stampeditor', password: 'stamp-editor-pass', permissions: { customers: 'edit' } });
+  const editor = await signIn('stampeditor', 'stamp-editor-pass');
+  const edited = await postAs(editor.cookie, `/api/customers/${created.data.id}`, { name: 'Stamp Customer LLC' }, 'PUT');
+  assert.equal(edited.status, 200);
+  assert.equal(edited.data.changed_by, 'Stamp Editor', 'the reply already carries the stamp');
+  assert.match(edited.data.changed_at, /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/);
+  const balance = await jsonRequest(`/api/customer-balances/${created.data.id}`);
+  assert.equal(balance.data.customer.created_by, ADMIN.full_name);
+  assert.equal(balance.data.customer.changed_by, 'Stamp Editor');
+  assert.equal((await postAs(editor.cookie, `/api/customers/${created.data.id}`, { name: '' }, 'PUT')).status, 400);
+  assert.equal((await jsonRequest(`/api/customer-balances/${created.data.id}`)).data.customer.changed_by, 'Stamp Editor', 'a refused edit stamps nothing');
+
+  const upload = await fetch(`${baseUrl}/api/attachments?entity_type=customer&entity_id=${created.data.id}&filename=id.pdf&type=application/pdf`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/octet-stream', Cookie: editor.cookie },
+    body: Buffer.from('%PDF-1.4 dummy id'),
+  });
+  assert.equal(upload.status, 201);
+  const files = await jsonRequest(`/api/attachments?entity_type=customer&entity_id=${created.data.id}`);
+  assert.equal(files.data[0].uploaded_by, 'Stamp Editor');
+
+  assert.equal((await jsonRequest('/api/settings')).data.print_prepared_by, 1, 'Prepared by prints by default');
+  assert.equal((await postAs(cookie, '/api/settings', { print_prepared_by: false }, 'PUT')).data.print_prepared_by, 0);
+  assert.equal((await postAs(cookie, '/api/settings', { print_prepared_by: true }, 'PUT')).data.print_prepared_by, 1);
+});
+
 test('recovery key: admin only, and a reset at this computer signs the admin in', async () => {
   const offered = await postAs(cookie, '/api/auth/recovery-key', {});
   assert.equal(offered.status, 200);

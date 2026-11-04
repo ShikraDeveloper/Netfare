@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge, createdByText } from '../ui.js';
+import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge, pageRecord } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 
 // Printable receipt for one customer payment shared over several invoices
@@ -13,9 +13,10 @@ export async function render(container, { params } = {}) {
   const isVoid = Boolean(receipt.voided);
   const used = receipt.invoices.reduce((sum, row) => sum + row.amount_cents, 0);
 
+  pageRecord(receipt, { print: true });
   setHeader({
     title: `Receipt ${receipt.number}`,
-    subtitle: `${receipt.customer_name} · ${fmtDate(receipt.advance_date)}${createdByText(receipt)}`,
+    subtitle: `${receipt.customer_name} · ${fmtDate(receipt.advance_date)}`,
     actions: `
       <a class="btn btn-secondary" href="#/customer-balances/${receipt.customer_id}">${icon('wallet', 15)}<span>Customer balance</span></a>
       <button class="btn btn-primary" data-action="print">${icon('print', 15)}<span>Print</span></button>

@@ -104,7 +104,7 @@ function attachmentListHtml(attachments) {
             ${attachment.preview_url
     ? `<a href="${esc(attachment.preview_url)}" target="_blank" rel="noopener" title="Open ${esc(attachment.file_name)}">${esc(attachment.file_name)}</a>`
     : `<a href="${esc(attachment.download_url)}" download="${esc(attachment.file_name)}" title="Download ${esc(attachment.file_name)}">${esc(attachment.file_name)}</a>`}
-            <span>${esc(fileSize(attachment.size_bytes))} · ${esc(fmtDate(String(attachment.created_at).slice(0, 10)))}</span>
+            <span>${esc(fileSize(attachment.size_bytes))} · ${esc(fmtDate(String(attachment.created_at).slice(0, 10)))}${attachment.uploaded_by ? ` · by ${esc(attachment.uploaded_by)}` : ''}</span>
           </div>
           <a class="icon-btn" href="${esc(attachment.download_url)}" download="${esc(attachment.file_name)}" title="Download" aria-label="Download ${esc(attachment.file_name)}">${icon('download', 15)}</a>
           <button class="icon-btn danger" data-delete-attachment="${attachment.id}" title="Remove attachment">${icon('trash', 15)}</button>

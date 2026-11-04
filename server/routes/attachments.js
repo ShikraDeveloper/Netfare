@@ -51,7 +51,7 @@ function canPreview(fileName) {
 function listAttachments(entityType, entityId) {
   const id = assertEntity(entityType, entityId);
   return db.prepare(`
-    SELECT id, entity_type, entity_id, file_name, mime_type, size_bytes, created_at
+    SELECT id, entity_type, entity_id, file_name, mime_type, size_bytes, created_at, uploaded_by
     FROM attachments
     WHERE entity_type = ? AND entity_id = ?
     ORDER BY created_at DESC, id DESC
@@ -76,8 +76,8 @@ router.post('/', express.raw({ type: 'application/octet-stream', limit: '15mb' }
 
   const extension = path.extname(fileName).toLowerCase();
   const info = db.prepare(`
-    INSERT INTO attachments (entity_type, entity_id, file_name, mime_type, size_bytes, storage_name, data)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO attachments (entity_type, entity_id, file_name, mime_type, size_bytes, storage_name, data, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     entityType,
     entityId,
@@ -86,6 +86,7 @@ router.post('/', express.raw({ type: 'application/octet-stream', limit: '15mb' }
     req.body.length,
     `${crypto.randomUUID()}${extension}`,
     req.body,
+    req.user?.full_name || '',
   );
   res.status(201).json({
     id: Number(info.lastInsertRowid),

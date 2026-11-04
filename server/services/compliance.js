@@ -13,6 +13,7 @@ const {
   isTruthy,
 } = require('../util');
 const { isCashAccount } = require('../accounting');
+const { markCreated } = require('../created-by');
 const billService = require('./bills');
 
 const KINDS = ['recurring_bill', 'filing', 'renewal'];
@@ -357,6 +358,7 @@ function createCompliance(db, payload = {}) {
       data.auto_create_bill, data.auto_debit_account_id, data.reminder_days, data.notes,
     );
     const id = Number(info.lastInsertRowid);
+    markCreated(db, 'compliance_items', id);
     db.prepare(`
       INSERT INTO compliance_logs (item_id, action, event_date, detail)
       VALUES (?, 'created', ?, ?)

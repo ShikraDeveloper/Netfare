@@ -5,6 +5,7 @@ const db = require('../db');
 const auth = require('../services/auth');
 const { runWithUser } = require('../request-context');
 const { refusal } = require('../permissions');
+const { CHANGED_BY_TABLES, markChanged } = require('../created-by');
 const { router: authRouter, readToken } = require('./auth');
 
 router.get('/health', (req, res) => {
@@ -37,6 +38,24 @@ router.use((req, res, next) => {
   if (refused) return res.status(403).json({ error: refused, code: 'no_right' });
   req.user = user;
   return runWithUser(user, next);
+});
+
+// A record saved from its form remembers who saved it and when. The stamp is
+// written just before the reply goes out, so the reply already carries it.
+router.put('/:kind/:id', (req, res, next) => {
+  const table = CHANGED_BY_TABLES[req.params.kind];
+  if (!table || !/^\d+$/.test(req.params.id)) return next();
+  const reply = res.json.bind(res);
+  res.json = (body) => {
+    if (res.statusCode < 400) {
+      markChanged(db, table, req.params.id);
+      if (body && typeof body === 'object' && Number(body.id) === Number(req.params.id)) {
+        Object.assign(body, db.prepare(`SELECT changed_by, changed_at FROM ${table} WHERE id = ?`).get(Number(req.params.id)));
+      }
+    }
+    return reply(body);
+  };
+  return next();
 });
 
 // Two people editing the same record: the app sends the version (updated_at)

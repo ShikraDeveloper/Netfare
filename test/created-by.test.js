@@ -43,5 +43,5 @@ test('postings and documents carry the signed-in name; scripts and the demo leav
   assert.equal(db.prepare('SELECT created_by FROM journal_entries WHERE id = ?').get(signedIn).created_by, 'Omar Siddiqui');
   const script = entry();
   assert.equal(db.prepare('SELECT created_by FROM journal_entries WHERE id = ?').get(script).created_by, '');
-  assert.throws(() => markCreated(db, 'customers', 1), /not tracked/, 'only document tables are stamped');
+  assert.throws(() => markCreated(db, 'accounts', 1), /not tracked/, 'only tracked tables are stamped');
 });

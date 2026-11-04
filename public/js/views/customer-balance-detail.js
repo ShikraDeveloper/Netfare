@@ -11,6 +11,7 @@ import {
   setHeader,
   statusBadge,
   todayISO,
+  pageRecord,
 } from '../ui.js';
 
 function summaryCard(label, valueCents, meta, iconName, color) {
@@ -130,6 +131,7 @@ export async function render(container, { params } = {}) {
       ? `${fmtMoney(Math.abs(summary.net_balance_cents))} credit held for the customer`
       : 'No receivable or credit balance';
 
+  pageRecord(customer);
   setHeader({
     title: `${customer.name} balance`,
     subtitle: `${[customer.nationality, customer.email || customer.phone].filter(Boolean).join(' · ') || 'Customer account'} · ${summary.open_invoice_count} open invoice${summary.open_invoice_count === 1 ? '' : 's'}`,

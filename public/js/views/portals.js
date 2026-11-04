@@ -18,6 +18,7 @@ import {
   statusBadge,
   toast,
   toCents,
+  recordMetaHtml,
 } from '../ui.js';
 
 function portalRow(portal) {
@@ -102,6 +103,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
       </div>
       ${isEdit ? '' : openingFieldsHtml('portal')}
     </div>
+    ${isEdit ? recordMetaHtml(portal) : ''}
   `;
 
   return openModal({

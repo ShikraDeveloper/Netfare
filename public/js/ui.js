@@ -572,8 +572,55 @@ export function voidDialog({
 
 // The agency's initial on its own documents (invoices, receipts, statements).
 // " · by Omar Siddiqui" for a page subtitle, when the record knows who made it.
-export function createdByText(record) {
-  return record?.created_by ? ` · by ${record.created_by}` : '';
+// A stored time such as "2026-11-04 11:12:00" (UTC) as local "4 Nov 2026, 3:12 pm".
+export function fmtStamp(value) {
+  if (!value) return '';
+  const date = new Date(`${String(value).replace(' ', 'T')}${/[zZ]|[+-]\d\d:?\d\d$/.test(value) ? '' : 'Z'}`);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })
+    .replace(/\s?(am|pm)$/i, (match) => ` ${match.trim().toLowerCase()}`);
+}
+
+// "Created by Jamal · 4 Nov 2026, 3:12 pm · Last changed by Sara · …", the
+// small line under a record. Older records may have a date but no name.
+export function recordMetaHtml(record) {
+  if (!record) return '';
+  const parts = [];
+  const created = fmtStamp(record.created_at);
+  if (record.created_by || created) {
+    parts.push(`${icon('user', 13)}<span>Created${record.created_by ? ` by ${esc(record.created_by)}` : ''}${created ? ` · ${esc(created)}` : ''}</span>`);
+  }
+  if (record.changed_by) {
+    const changed = fmtStamp(record.changed_at);
+    parts.push(`${icon('edit', 13)}<span>Last changed by ${esc(record.changed_by)}${changed ? ` · ${esc(changed)}` : ''}</span>`);
+  }
+  return parts.length ? `<div class="record-meta" data-record-meta>${parts.map((part) => `<span>${part}</span>`).join('')}</div>` : '';
+}
+
+// The record a detail page shows: its meta line goes at the bottom of the
+// page, and on printed customer documents "Prepared by" and "Received by"
+// (Settings → Print "Prepared by"). It is put back if the page re-renders,
+// and only while the address is still this page's.
+let pageFooter = null;
+let footerWatch = null;
+
+function placePageFooter() {
+  const view = document.getElementById('view');
+  if (!view || !pageFooter || location.hash !== pageFooter.hash || view.querySelector('[data-page-footer]')) return;
+  view.insertAdjacentHTML('beforeend', pageFooter.html);
+}
+
+export function pageRecord(record, { print = false } = {}) {
+  const prepared = print && record?.created_by && store.settings?.print_prepared_by !== 0
+    ? `<div class="prepared-by print-only"><div>Prepared by: ${esc(record.created_by)}</div><div>Received by:</div></div>`
+    : '';
+  const meta = recordMetaHtml(record);
+  pageFooter = meta || prepared ? { hash: location.hash, html: `<div data-page-footer>${meta}${prepared}</div>` } : null;
+  if (!footerWatch && document.getElementById('view')) {
+    footerWatch = new MutationObserver(placePageFooter);
+    footerWatch.observe(document.getElementById('view'), { childList: true });
+  }
+  requestAnimationFrame(placePageFooter);
 }
 
 export function companyMark(company) {

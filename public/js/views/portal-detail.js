@@ -11,6 +11,7 @@ import {
   setHeader,
   statusBadge,
   todayISO,
+  pageRecord,
 } from '../ui.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
@@ -86,6 +87,7 @@ export async function render(container, { params, query } = {}) {
   }
   if (portal.is_active) actions.push(`<button class="btn btn-primary" data-action="topup">${icon('plus', 15)}<span>Top up</span></button>`);
 
+  pageRecord(portal);
   setHeader({
     title: portal.name,
     subtitle: `${portalTypeLabel(portal.portal_type)} · ${portal.vendor_name || 'No supplier linked'}`,

@@ -16,7 +16,7 @@ import {
   toast,
   toCents,
   todayISO,
-  createdByText
+  pageRecord
 } from '../ui.js';
 
 function sourceHref(cancellation) {
@@ -44,9 +44,10 @@ export async function render(container, { params, query } = {}) {
   const href = sourceHref(cancellation);
   const sourceLabel = cancellation.source_type === 'booking' ? 'Booking' : 'Visa application';
 
+  pageRecord(cancellation);
   setHeader({
     title: cancellation.number,
-    subtitle: `${cancellation.customer_name} · ${sourceLabel} ${cancellation.source_number || '—'} · ${fmtDate(cancellation.cancellation_date)}${createdByText(cancellation)}`,
+    subtitle: `${cancellation.customer_name} · ${sourceLabel} ${cancellation.source_number || '—'} · ${fmtDate(cancellation.cancellation_date)}`,
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/cancellation/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="${href}"><span>${sourceLabel}</span></a>

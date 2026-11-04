@@ -11,7 +11,7 @@ import {
   statusBadge,
   toast,
   voidDialog,
-  createdByText
+  pageRecord
 } from '../ui.js';
 
 function sourceInfo(refund, isCustomer) {
@@ -129,9 +129,10 @@ export async function render(container, { params } = {}) {
   }
 
   actions.push(`<a class="btn btn-ghost" href="#/audit-chain/refund/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
+  pageRecord(refund, { print: true });
   setHeader({
     title: refund.number,
-    subtitle: `${refund.party_name} · ${fmtDate(refund.refund_date)}${createdByText(refund)}`,
+    subtitle: `${refund.party_name} · ${fmtDate(refund.refund_date)}`,
     actions: actions.join(''),
   });
 

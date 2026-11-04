@@ -19,7 +19,7 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  createdByText
+  pageRecord
 } from '../ui.js';
 import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
@@ -92,9 +92,10 @@ export async function render(container, { params } = {}) {
   if (!isCancelled) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
   }
+  pageRecord(booking);
   setHeader({
     title: booking.number,
-    subtitle: `${booking.customer_name} · ${booking.destination || 'No destination'} · ${booking.status.charAt(0).toUpperCase()}${booking.status.slice(1)}${createdByText(booking)}`,
+    subtitle: `${booking.customer_name} · ${booking.destination || 'No destination'} · ${booking.status.charAt(0).toUpperCase()}${booking.status.slice(1)}`,
     actions: actions.join('') + moreMenuHtml(menu),
   });
 

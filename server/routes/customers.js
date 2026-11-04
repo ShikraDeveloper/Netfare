@@ -6,6 +6,7 @@ const { bad, notFound, str, optionalStr, isTruthy } = require('../util');
 const statementService = require('../services/statements');
 const partyOpening = require('../services/party-opening');
 const { canViewArea } = require('../permissions');
+const { markCreated } = require('../created-by');
 
 function listCustomers() {
   return db.prepare(`
@@ -51,6 +52,7 @@ router.post('/', (req, res) => {
       optionalStr(body.notes, 'Notes', 1000),
       optionalStr(body.nationality, 'Nationality', 80),
     );
+    markCreated(db, 'customers', info.lastInsertRowid);
     const row = db.prepare('SELECT * FROM customers WHERE id = ?').get(info.lastInsertRowid);
     return { ...row, opening: partyOpening.forCustomer(db, row, body.opening) };
   })();

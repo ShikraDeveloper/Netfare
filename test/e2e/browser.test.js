@@ -1672,6 +1672,10 @@ test('simplified navigation, Today box, summary strip, More menu and phone layou
   await openRoute(`/bookings/${booking.id}`);
   const strip = page.locator('[data-summary-strip]');
   assert.match((await strip.innerText()).replace(/\s+/g, ' '), /Total.*Paid.*Balance.*Gross profit/i);
+  // Who made it: a small line at the bottom of the page.
+  const meta = page.locator('#view [data-record-meta]');
+  await meta.waitFor();
+  assert.match(await meta.innerText(), /Created by .+ · \d{1,2} \w{3} \d{4}/);
   assert.equal(await page.locator('th.acct-col').first().isVisible(), false, 'account codes hidden by default');
   await clickPageAction('[data-action="toggle-accounting"]');
   assert.equal(await page.locator('th.acct-col').first().isVisible(), true);

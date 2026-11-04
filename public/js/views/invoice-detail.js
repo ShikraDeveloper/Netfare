@@ -23,7 +23,7 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  createdByText
+  pageRecord
 } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share-links.js';
@@ -347,9 +347,10 @@ export async function render(container, { params } = {}) {
     menu.push(`<a class="btn btn-danger-ghost" href="#/${jobType === 'booking' ? 'bookings' : 'visas'}/${jobType === 'booking' ? invoice.booking_id : invoice.visa_id}" data-action="cancel-job" title="This invoice belongs to a ${jobType === 'booking' ? 'booking' : 'visa application'}. Cancel the job to reverse it.">${icon('x', 15)}<span>Cancel ${jobType === 'booking' ? 'booking' : 'visa'}</span></a>`);
   }
 
+  pageRecord(invoice, { print: true });
   setHeader({
     title: invoice.number,
-    subtitle: `${invoice.customer_name} · Issued ${fmtDate(invoice.issue_date)}${createdByText(invoice)}`,
+    subtitle: `${invoice.customer_name} · Issued ${fmtDate(invoice.issue_date)}`,
     actions: actions.join('') + moreMenuHtml(menu),
   });
 

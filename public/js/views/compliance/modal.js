@@ -8,6 +8,7 @@ import {
   fmtDate,
   openModal,
   optionsHtml,
+  recordMetaHtml,
   todayISO,
   toast,
   toCents,
@@ -199,7 +200,7 @@ export async function openComplianceModal({ item = null, defaults = {}, onSaved 
   const modal = openModal({
     title: full ? `Edit ${full.name}` : 'New compliance item',
     subtitle: full ? `${full.kind_label} · ${full.frequency_label}` : 'Recurring bills, filings and renewals in one place.',
-    body: modalBody({ ...seed, kind, category }),
+    body: `${modalBody({ ...seed, kind, category })}${full ? recordMetaHtml(full) : ''}`,
     submitLabel: full ? 'Save changes' : 'Add item',
     onMount(overlay) {
       const kindSelect = overlay.querySelector('#ci-kind');

@@ -16,7 +16,7 @@ import {
   todayISO,
   toCents,
   voidDialog,
-  createdByText
+  pageRecord
 } from '../ui.js';
 
 export async function render(container, { params = [] } = {}) {
@@ -29,9 +29,10 @@ export async function render(container, { params = [] } = {}) {
   const canVoid = issued;
   const isCancellation = Boolean(credit.cancellation_id);
 
+  pageRecord(credit, { print: true });
   setHeader({
     title: credit.number,
-    subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}${createdByText(credit)}`,
+    subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}`,
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="#/credits"><span>All credit notes</span></a>

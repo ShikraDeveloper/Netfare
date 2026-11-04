@@ -55,11 +55,13 @@ router.put('/', (req, res) => {
   const receiptPrefix = body.receipt_prefix != null
     ? str(body.receipt_prefix, 'Receipt prefix', { max: 12 }).toUpperCase()
     : (current.receipt_prefix || 'RCP');
+  const printPreparedBy = body.print_prepared_by != null ? (body.print_prepared_by ? 1 : 0) : (current.print_prepared_by ?? 1);
 
   db.prepare(`
     UPDATE settings SET company_name = ?, company_email = ?, company_phone = ?, company_address = ?,
       currency = ?, payment_terms_days = ?, invoice_prefix = ?, bill_prefix = ?,
-      booking_prefix = ?, visa_prefix = ?, topup_prefix = ?, receipt_prefix = ?, fiscal_year_start_month = ?, updated_at = datetime('now')
+      booking_prefix = ?, visa_prefix = ?, topup_prefix = ?, receipt_prefix = ?, fiscal_year_start_month = ?, print_prepared_by = ?,
+      updated_at = datetime('now')
     WHERE id = 1
   `).run(
     companyName,
@@ -75,6 +77,7 @@ router.put('/', (req, res) => {
     topupPrefix,
     receiptPrefix,
     fiscalMonth,
+    printPreparedBy,
   );
 
   res.json(settingsFor(req.user));

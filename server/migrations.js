@@ -228,6 +228,15 @@ ensureColumn('settings', 'lan_hosts', "TEXT NOT NULL DEFAULT ''");
 for (const table of require('./created-by').CREATED_BY_TABLES) {
   ensureColumn(table, 'created_by', "TEXT NOT NULL DEFAULT ''");
 }
+// Who saved the last change from a record's form, and when.
+for (const table of Object.values(require('./created-by').CHANGED_BY_TABLES)) {
+  ensureColumn(table, 'changed_by', "TEXT NOT NULL DEFAULT ''");
+  ensureColumn(table, 'changed_at', 'TEXT');
+}
+// "Prepared by" on printed invoices, receipts, credit notes and refunds.
+ensureColumn('settings', 'print_prepared_by', 'INTEGER NOT NULL DEFAULT 1');
+// Who uploaded each attachment.
+ensureColumn('attachments', 'uploaded_by', "TEXT NOT NULL DEFAULT ''");
 // Each staff user's rights, set by the admin (see server/permissions.js).
 ensureColumn('users', 'permissions', "TEXT NOT NULL DEFAULT '{}'");
 // The admin's recovery key (services/auth.js): a scrypt hash, never the key.

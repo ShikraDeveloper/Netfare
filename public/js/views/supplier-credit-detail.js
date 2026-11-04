@@ -16,7 +16,7 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  createdByText
+  pageRecord
 } from '../ui.js';
 
 export async function render(container, { params } = {}) {
@@ -40,9 +40,10 @@ export async function render(container, { params } = {}) {
         ? `<a href="#/visas/${credit.visa_id}">${esc(credit.visa_number)}</a>`
         : '<span class="muted">No booking, visa or cancellation</span>';
 
+  pageRecord(credit);
   setHeader({
     title: credit.number,
-    subtitle: `${credit.vendor_name} · ${fmtDate(credit.credit_date, { long: true })}${createdByText(credit)}`,
+    subtitle: `${credit.vendor_name} · ${fmtDate(credit.credit_date, { long: true })}`,
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/supplier_credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="#/supplier-credits"><span>All supplier credits</span></a>

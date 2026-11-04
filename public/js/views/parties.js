@@ -12,6 +12,7 @@ import {
   icon,
   openModal,
   setHeader,
+  recordMetaHtml,
   toast,
 } from '../ui.js';
 
@@ -113,6 +114,7 @@ function partyModal({ party = null, config, onSaved }) {
         </div>
         ${isEdit ? '' : openingFieldsHtml(config.singular)}
       </div>
+      ${isEdit ? recordMetaHtml(party) : ''}
     `,
     submitLabel: isEdit ? 'Save changes' : `Add ${config.singular}`,
     async onSubmit(form) {

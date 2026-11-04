@@ -7,6 +7,7 @@ const { notFound, todayISO } = require('../util');
 // advance application or cancellation settlement.
 const balanceSelect = `
   SELECT c.id, c.name, c.email, c.phone, c.address, c.notes, c.nationality, c.is_active,
+    c.created_at, c.created_by, c.changed_by, c.changed_at,
     COALESCE((
       SELECT COUNT(*) FROM invoices i
       WHERE i.customer_id = c.id AND i.status = 'sent'
