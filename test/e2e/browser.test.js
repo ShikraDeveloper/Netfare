@@ -1645,11 +1645,26 @@ test('simplified navigation, Today box, summary strip, More menu and phone layou
   await more.locator('.nav-group-label').click();
   assert.match(await page.locator('#main-nav').innerText(), /Suppliers/);
 
-  // Today box links to the work.
-  const today = page.locator('[data-today]');
-  await today.waitFor();
-  const firstItem = today.locator('[data-today-item]').first();
-  if (await firstItem.count()) assert.match(await firstItem.getAttribute('href'), /^#\//);
+  // "Things pending": one closed line; it opens into groups, a group into
+  // items with their days, each linking to the work.
+  const pending = page.locator('[data-pending]');
+  await pending.waitFor();
+  const bar = pending.locator('[data-pending-toggle]');
+  assert.match(await bar.innerText(), /\d+\s+things? pending/);
+  assert.equal(await pending.locator('#pending-panel').isVisible(), false, 'closed at first');
+  await bar.click();
+  assert.equal(await bar.getAttribute('aria-expanded'), 'true');
+  const group = pending.locator('.pending-group-head').first();
+  await group.click();
+  const firstItem = pending.locator('.pending-items:not([hidden]) .pending-item').first();
+  await firstItem.waitFor();
+  assert.match(await firstItem.getAttribute('href'), /^#\//);
+  assert.match(await firstItem.innerText(), /day|today/);
+  await page.evaluate(AXE_SOURCE);
+  assert.deepEqual(await page.evaluate(async () => (await window.axe.run(document.querySelector('[data-pending]'), {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+  })).violations.map((violation) => violation.id)), [], 'pending reminder axe');
+  await bar.click();
 
   // Detail page: summary strip, account codes hidden until switched on, More menu.
   const bookings = await getJson(baseUrl, '/api/bookings');

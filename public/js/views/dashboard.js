@@ -217,31 +217,72 @@ async function loadSample(container) {
 
 // Control accounts compared with the documents behind them. A difference
 // means something was posted outside its normal document workflow.
-// What needs doing now, each linking to the screen where it is done.
-function todayHtml(todo) {
-  if (!todo) return '';
-  const items = [
-    { key: 'overdue_invoices', label: 'Overdue invoices', hint: 'to collect', href: '#/invoices', tone: 'red' },
-    { key: 'to_settle', label: 'Money to give back', hint: 'refunds and credits', href: '#/settlement-queue', tone: 'amber' },
-    { key: 'deposits_due', label: 'Visa deposits to refund', hint: 'visa cancelled or rejected', href: '#/reports/visa-deposits', tone: 'amber' },
-    { key: 'bills_overdue', label: 'Bills overdue', hint: 'to pay suppliers', href: '#/bills', tone: 'red' },
-    { key: 'recurring_due', label: 'Recurring bills due', hint: 'press Run due bills', href: '#/compliance', tone: 'amber' },
-    { key: 'draft_bookings', label: 'Draft bookings', hint: 'to confirm', href: '#/bookings', tone: 'blue' },
-    { key: 'draft_visas', label: 'Draft visas', hint: 'to submit', href: '#/visas', tone: 'blue' },
-  ];
-  const open = items.filter((item) => todo[item.key]?.count > 0);
-  return `
-    <section class="card today-card" data-today>
-      <div class="card-head">
-        <div class="card-title"><h2>Today</h2><p>${open.length ? 'Things that need your attention' : 'Nothing waiting. All caught up.'}</p></div>
+// "Things pending": one line with the count, opening into groups and then
+// items, each with how many days it has waited (services/reports/pending.js).
+const PENDING_ICONS = {
+  collect: 'invoice', pay: 'bill', card: 'cash', give_back: 'undo', deposits: 'visa', bank: 'bank', drafts: 'edit', compliance: 'clock',
+};
+
+function plural(count, word) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+function ageBadge(item) {
+  if (item.due_in) return `<span class="age age-0">due in ${plural(item.due_in, 'day')}</span>`;
+  const tone = item.days > 30 ? 2 : item.days > 7 ? 1 : 0;
+  return `<span class="age age-${tone}">${item.days ? plural(item.days, 'day') : 'today'}</span>`;
+}
+
+function pendingHtml(pending) {
+  if (!pending) return '';
+  if (!pending.count) {
+    return `
+      <section class="card pending-card" data-pending>
+        <div class="pending-bar is-clear"><span class="pending-count tone-green">${icon('check', 16)}</span>
+          <span class="pending-text"><strong>All caught up</strong><small>Nothing is waiting on anyone</small></span></div>
+      </section>`;
+  }
+  const note = [pending.over_30 ? `${pending.over_30} older than 30 days` : '', pending.oldest_days ? `oldest ${plural(pending.oldest_days, 'day')}` : '']
+    .filter(Boolean).join(' · ');
+  const groups = pending.groups.map((group) => `
+    <div class="pending-group" data-pending-group="${esc(group.key)}">
+      <button type="button" class="pending-group-head" aria-expanded="false" aria-controls="pending-${esc(group.key)}">
+        <span class="pending-icon tone-${esc(group.tone)}">${icon(PENDING_ICONS[group.key] || 'file', 15)}</span>
+        <span class="pending-name">${esc(group.label)}${group.cents ? `<small>${esc(fmtMoney(group.cents))}</small>` : ''}</span>
+        <span class="pending-n">${group.count}</span>
+        ${ageBadge({ days: group.oldest_days })}
+        ${icon('chevron', 14)}
+      </button>
+      <div class="pending-items" id="pending-${esc(group.key)}" hidden>
+        ${group.items.map((item) => `
+          <a class="pending-item" href="${esc(item.href)}">
+            <span>${esc(item.label)}<small>${esc(item.sub)}</small></span>
+            <span class="num">${item.cents ? esc(fmtMoney(item.cents)) : ''}</span>
+            ${ageBadge(item)}
+          </a>`).join('')}
+        <a class="pending-all" href="${esc(group.href)}">${group.count > group.items.length ? `See all ${group.count}` : 'Open'} ${icon('chevron', 12)}</a>
       </div>
-      ${open.length ? `<div class="today-grid">${open.map((item) => `
-        <a class="today-item tone-${item.tone}" href="${item.href}" data-today-item="${item.key}">
-          <strong>${todo[item.key].count}</strong>
-          <span>${esc(item.label)}<small>${todo[item.key].cents ? esc(fmtMoney(todo[item.key].cents)) + ' · ' : ''}${esc(item.hint)}</small></span>
-          ${icon('chevron', 14)}
-        </a>`).join('')}</div>` : ''}
+    </div>`).join('');
+  return `
+    <section class="card pending-card" data-pending>
+      <button type="button" class="pending-bar" aria-expanded="false" aria-controls="pending-panel" data-pending-toggle>
+        <span class="pending-count tone-${pending.over_30 ? 'red' : 'amber'}">${pending.count}</span>
+        <span class="pending-text"><strong>${pending.count === 1 ? 'thing pending' : 'things pending'}</strong>${note ? `<small>${esc(note)}</small>` : ''}</span>
+        ${icon('chevron', 16)}
+      </button>
+      <div class="pending-panel" id="pending-panel" hidden>${groups}</div>
     </section>`;
+}
+
+function bindPending(container) {
+  const toggle = (button) => {
+    const open = button.getAttribute('aria-expanded') !== 'true';
+    button.setAttribute('aria-expanded', String(open));
+    container.querySelector(`#${button.getAttribute('aria-controls')}`).hidden = !open;
+  };
+  container.querySelectorAll('[data-pending-toggle], .pending-group-head').forEach((button) => {
+    button.addEventListener('click', () => toggle(button));
+  });
 }
 
 function ledgerChecksCard(reconciliation) {
@@ -448,7 +489,7 @@ export async function render(container, { query } = {}) {
 
   container.innerHTML = `
     ${callout}
-    ${isEmpty ? '' : todayHtml(data.todo)}
+    ${isEmpty ? '' : pendingHtml(data.pending)}
     ${complianceCallout}
     <div class="kpi-grid">
       ${kpiCard('Cash in hand', data.cash_only_cents ?? data.cash_cents, `${data.cash_only_cents > 0 ? '<a href="#/banking?new=1">Deposit cash</a> · ' : ''}Cash at bank ${fmtMoney(data.bank_cents ?? 0, { compact: true })}`, 'wallet', 'indigo')}
@@ -546,6 +587,7 @@ export async function render(container, { query } = {}) {
   document.querySelectorAll('[data-action="new-portal"]').forEach((button) => {
     button.addEventListener('click', () => { location.hash = '#/portals?new=1'; });
   });
+  bindPending(container);
   const demoButton = container.querySelector('[data-action="demo"]');
   if (demoButton) demoButton.addEventListener('click', () => loadSample(container));
 

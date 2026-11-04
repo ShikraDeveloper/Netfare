@@ -3,6 +3,7 @@
 const router = require('express').Router();
 const db = require('../db');
 const { todayISO, monthRange } = require('../util');
+const { pendingList } = require('../services/reports/pending');
 const reports = require('../services/reports');
 const bookings = require('../services/bookings');
 const visas = require('../services/visas');
@@ -10,7 +11,7 @@ const portals = require('../services/portals');
 const reconciliation = require('../services/reconciliation');
 
 router.get('/dashboard', (req, res) => {
-  res.json(reports.dashboard(db));
+  res.json({ ...reports.dashboard(db), pending: pendingList(db, req.user) });
 });
 
 router.get('/portals', (req, res) => {
