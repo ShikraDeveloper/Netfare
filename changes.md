@@ -2198,11 +2198,32 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked in the browser** on a temp data folder: the key after setup, a new key from Settings, the reset with a lower-case key typed with spaces, the new key after the reset, audit entries, and the dark Forgot box. There were no console errors.
 - **Not checked:** the Help menu inside the built desktop app. It is checked when the next release is installed.
 
+### Dashboard: "things pending" reminder — code commit `72b6107`
+
+- **Why:** The Today box said "Nothing waiting. All caught up." while supplier bills, card money and other items were still open. The user asked for every pending item with its days pending, as one clean line that opens into categories (mockup approved).
+- **What it shows:** one line with the count ("18 things pending"), how many are older than 30 days and the oldest. The count is red when something is over 30 days, otherwise amber; "All caught up" with a green tick when nothing is pending.
+  - Click: the groups open, each with its count, total and oldest age.
+  - Click a group: its oldest 5 items open, each linking to the record, plus "See all N".
+  - Ages are grey for 0–7 days, amber for 8–30 and red for over 30; items not yet due show "due in N days".
+- **Groups** (`server/services/reports/pending.js`, sent with `/api/reports/dashboard` as `pending`):
+  - unpaid invoices and unpaid bills (counted from the due date);
+  - card and payment link money still in 1030;
+  - the settlement queue (refunds, credits, advances);
+  - visa deposits to refund;
+  - cheques dated today or earlier and not cleared, or bounced;
+  - bank accounts not reconciled for over 31 days;
+  - draft bookings, visas and invoices;
+  - Compliance recurring bills due, and renewals or filings inside their reminder days.
+- **Rights:** a staff user sees only the groups of areas they have a right to. Drafts are filtered by item.
+- The old Today grid and its CSS were removed. `todo` stays in the dashboard data.
+- **Tests:** new `test/pending.test.js` (5); the e2e dashboard check opens the line and a group, follows an item's link and runs axe. `npm test` 266 passed, `npm run test:e2e` 43 passed.
+- **Checked in the browser** on demo data in a temp folder, in light and dark: 18 pending, oldest 180 days (the bank never reconciled). There were no console errors.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.7` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.7** is published (Side or Top menu, search, New menu). The recovery key (`03285e3`) is not released yet: release 1.0.8 when the user asks.
+3. **Release 1.0.7** is published (Side or Top menu, search, New menu). The recovery key (`03285e3`) and the things-pending reminder (`72b6107`) are not released yet: release 1.0.8 when the user asks.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
