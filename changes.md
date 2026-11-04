@@ -2427,11 +2427,36 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Helper text 175 → 138.
 - **Checked** in the preview: petty cash and the compliance form; pictures were sent to the user.
 
+### Fix: the dashboard Recent switch showed every list at once — code commit `7734a04`
+
+- **Found by the user** in the preview (they selected the switch: "this may not work proper").
+- **Cause:** `.mini-list` sets `display: flex`, which beats the browser's own rule for the `hidden` attribute, so all four lists stayed on screen and the switch only moved the highlight. The bug was in 1.0.9.
+- **Fix:** a shared `[hidden] { display: none !important; }` in `theme.css`, so `hidden` always hides in every component.
+- **Tests:** the e2e dashboard check now clicks Bills and asserts that only the bills list shows. `npm test` 267 passed, `npm run test:e2e` 43 passed.
+
+### Release 1.0.11 — code commit `cc8d8dd`, tag `v1.0.11` (1.0.10 never published)
+
+- **v1.0.10** (`0928fbd`) was tagged and pushed, but its run 41861361819 waited about 25 minutes for a GitHub Mac machine. It was cancelled before publishing, so the fix above could go out with it; **no 1.0.10 release exists**.
+  - Moving the v1.0.10 tag (delete and re-push) was blocked, because it needs the user's explicit OK. The user chose "Release as 1.0.11".
+  - The v1.0.10 tag stays on GitHub without a release.
+- **1.0.11 contains:** simplify phase 2 (Sales, Suppliers, Bookings/Visas, Banking) and the Recent switch fix. Four note lines.
+- **Version:** 1.0.11 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`.
+  - `isNewer` compares versions as numbers, so 1.0.11 > 1.0.9; this was checked.
+  - `npm test` 267 passed.
+- **Run 41893769288:** Build (mac), Build (win) and Publish release all succeeded.
+- **Assets:**
+  - arm64 dmg, 135 MB;
+  - x64 dmg, 142 MB;
+  - Windows exe, 125 MB;
+  - `latest.json`.
+- **Checked:** 1.0.11 is marked Latest, and `latest.json` reports 1.0.11.
+- **Not checked:** the installers on a real Mac or Windows PC.
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.9` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.11` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales, Suppliers, Bookings/Visas and Banking done (`b94da64`, 72e6cce`, dd04626`, 2d5e48b`, not released); next Reports, Settings, then money back (cancellations, refunds, credit notes), following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
+3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Next: simplify the remaining groups (Reports, Settings, money back: cancellations, refunds, credit notes; books: journal, accounts, opening balances, audit; the menu descriptions), then phase 3 cleanup (one CSS token file, remove unused code). Follow `DESIGN.md` and keep `scripts/copy-budget.json` going down (138 now, 310 at the start).
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
