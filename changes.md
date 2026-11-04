@@ -2452,12 +2452,25 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** 1.0.11 is marked Latest, and `latest.json` reports 1.0.11.
 - **Not checked:** the installers on a real Mac or Windows PC.
 
+### Website live; new screenshots named Shikra Travel — code commit `7fa8daa`
+
+- **Website check** (the user put `shikragroup.com/netfare/` live):
+  - **works:** the page and the version (it reads 1.0.11 from GitHub); the 3 download links resolve to the 1.0.11 installers; images (two lazy-load on scroll); og/share tags with a 1200×630 image; no sideways scroll on a phone; HSTS header; `/netfare` and `www.` both open.
+  - **To fix in Cloudflare** (the user's settings): (1) `http://` is not redirected to `https://`, so turn on SSL/TLS → Edge Certificates → **Always Use HTTPS**; (2) Cloudflare Web Analytics injects a beacon that the page's CSP blocks, with a console error and no counting, so turn Web Analytics off (recommended), or allow it in the CSP and re-upload.
+- **Screenshots** (the user asked for new ones and "skyline name ki jaga shikra travel use kero"):
+  - new `scripts/website-screens.js` (`npm run website:screens`) takes invoices, booking, daily sales report (last month) and the rights checklist at 1440×900 JPEG;
+  - the shots come from a temp copy with the demo loaded, the company renamed **Shikra Travel** with no email or phone (Dubai address only), and a staff user "Sara Counter".
+- **Sample data:** the booking and visa notes no longer say "Skyline Travels" ("Corporate group: keep the seats together." / "Passport collected at the office."). The demo company itself is still Skyline Travels.
+- **Fix found while checking the shots:** the invoices, bills, bookings, visas, refunds, journal and audit-log lists wrote their old "N invoices · AED … outstanding" line back into the subtitle on every filter. Those lines and the totals they used are removed.
+- **Website zip:** `netfare-website.zip` was rebuilt (566 KB) for the user to upload to `shikragroup.com/netfare/`. The DSR title and the rights popup still have a subtitle; they belong to the Reports and Settings groups, which are not simplified yet.
+- **Tests:** `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.11` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
 3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Next: simplify the remaining groups (Reports, Settings, money back: cancellations, refunds, credit notes; books: journal, accounts, opening balances, audit; the menu descriptions), then phase 3 cleanup (one CSS token file, remove unused code). Follow `DESIGN.md` and keep `scripts/copy-budget.json` going down (138 now, 310 at the start).
-4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
+4. **Website:** live at `shikragroup.com/netfare/`. The user uploads the new zip (fresh screenshots) and fixes two Cloudflare settings: Always Use HTTPS, and turn Web Analytics off. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
