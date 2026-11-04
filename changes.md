@@ -2309,11 +2309,38 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** 1.0.9 is marked Latest, and `latest.json` reports 1.0.9.
 - **Not checked:** the installers on a real Mac or Windows PC.
 
+### Simplify, phase 2 — Sales — code commit `2d5e48b`
+
+- **Why:** The user said "phase 2"; this is the first group, Sales, done to `DESIGN.md`.
+- **Invoices list:** no subtitle; empty states are a title only (the button reads "New invoice").
+- **Invoice popups:**
+  - Share: no subtitle or hint, and a new **PDF** button (it closes the popup and prints, so the file can be saved and attached).
+  - Record payment: no "Balance due" hint, no cheque-date hint, no accounting note.
+  - Payment link: no subtitle or notes; the label reads "Link for AED X".
+- **Customers / Suppliers lists** (shared `parties.js`):
+  - no subtitle or empty-state text;
+  - the "Outstanding A/R/A/P" column is now "Outstanding";
+  - the add form has no subtitle.
+- **Customer page:**
+  - the title is the customer's name, with no subtitle;
+  - **Receive payment** is the main button; Record advance, Statement, Settlements and All balances are in More;
+  - four numbers (To collect, red when overdue; Credit; Refund due; Net); the credit callout is gone;
+  - Credit notes, Advances, Cancellation refunds and Documents fold to one line each with a count.
+- **Customer balances list:** no subtitle; four plain numbers.
+- **Advance / Use advance / Refund advance / Receive payment forms and receipts:** no subtitles, notes or "remaining" hints. Voided receipts keep only the heading.
+- **Labels instead of hints:**
+  - the bank charges field reads **Bank kept** (money received), **Bank charge** (money paid) or Bank charges (refunds);
+  - the opening balance choices have no hints, and the 3900 note is moved to a code comment.
+- **ui.js:** `numberCardHtml` and `foldsHtml`, now used by the dashboard, the invoice page and the customer page. `DESIGN.md` was updated.
+- **Helper text:** 298 → 271; `scripts/copy-budget.json` was lowered.
+- **Tests:** the e2e tests were updated (customer page title, Record advance via More, open the Advances fold). `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked** in the preview on sample data.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.9` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group (Sales, Suppliers, Bookings/Visas, Banking, Reports, Settings), following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
+3. **Release 1.0.9** is published (simplify phase 1: dashboard, invoice page, New invoice form; Portal wallets card). Next: a week of office use, then simplify phase 2 group by group: Sales done (`2d5e48b`, not released); next Suppliers, Bookings/Visas, Banking, Reports, Settings, following `DESIGN.md` and keeping `scripts/copy-budget.json` going down.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
