@@ -2068,11 +2068,35 @@ The user approved the optional item after an explanation: Receive payment receip
 - **Checked:** `releases/latest/download/latest.json` reports 1.0.5.
 - **Not checked:** the released dmgs were not downloaded and verified on this Mac.
 
+### Attachments open and download in the desktop app — code commit `ee35aae`
+
+The user reported that customer documents upload, but clicking one neither downloads nor previews it.
+
+- **Cause:** the file name was a `target="_blank"` link to `/api/attachments/:id/download`. In the desktop app, `setWindowOpenHandler` denies every new window at Netfare's own address (it keeps the window on Netfare), so the click did nothing. This affected **every** attachment (customers, invoices, bills, bookings, visas…), not only customer documents. A normal browser was fine.
+- **Server** (`server/routes/attachments.js`):
+  - `?inline=1` serves PDF, PNG, JPEG, WebP and GIF with `Content-Disposition: inline`, and the Content-Type comes from the file name;
+  - list rows carry `preview_url` for those files;
+  - every saved (not previewed) file is now sent as `application/octet-stream`. Before, it used the type the uploader sent, which is untrusted.
+- **Screen** (`public/js/attachments.js`):
+  - a PDF or picture name opens the preview;
+  - other names download;
+  - every row has a Download icon (`<a download>`).
+- **Desktop** (`desktop/main.js`):
+  - a same-origin `/api/attachments/:id/download?inline=1` opens in a small viewer window: contextIsolation, sandbox, no Node, `plugins` on for the PDF viewer, no navigation, no new windows. It shares the sign-in;
+  - every other same-origin window is still refused;
+  - downloads ask where to save, starting in Downloads.
+- **Checked:**
+  - in a real Electron window (a throwaway script with playwright `_electron`, temp user data, `NETFARE_APP_DIR` = this repo): the PNG and the PDF each opened a viewer, and the main window stayed on Netfare;
+  - Download fired `will-download` and the PDF was saved;
+  - a `.txt` uploaded as `text/html` came back as octet-stream and attachment, even with `?inline=1`;
+  - new HTTP test for these headers. `npm test` 256 passed, `npm run test:e2e` 42 passed.
+- **Not checked:** the save dialog itself (it is native).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.5` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.5** is published.
+3. **Release 1.0.6** when the user asks: attachments open and download in the desktop app.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
