@@ -2219,11 +2219,32 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** new `test/pending.test.js` (5); the e2e dashboard check opens the line and a group, follows an item's link and runs axe. `npm test` 266 passed, `npm run test:e2e` 43 passed.
 - **Checked in the browser** on demo data in a temp folder, in light and dark: 18 pending, oldest 180 days (the bank never reconciled). There were no console errors.
 
+### Created by / last changed by on every record; "Prepared by" on prints — code commit `b38bf71`
+
+- **Why:** The user wants a small line under everything created (customers, suppliers, invoices, bills and so on) saying who made it, and the same on documents (mockup approved). The user didn't choose whether "Prepared by" prints by default, so it is **on**.
+- **What shows:**
+  - **Detail pages** (invoice, bill, booking, visa, receipt, customer receipt, credit note, supplier credit, refund, cancellation, portal, customer balance): a line at the bottom saying "Created by Jamal · 4 Nov 2026, 3:12 pm · Last changed by Sara · …", in local time. The old "· by Name" in the page subtitle is gone.
+    - `ui.js` `pageRecord()` places the line; it is put back if the page re-renders, and only while the address is still that page's.
+  - **Edit forms** for customers, suppliers, portals and Compliance items show the same line.
+  - **Uploaded files** show "… · by Sara".
+  - **Printed invoice, receipt, customer receipt, credit note and refund** end with "Prepared by: Name" and a "Received by:" signature line. The screen line is hidden in print.
+    - Settings → Invoicing defaults → **Print "Prepared by"**, a new column `settings.print_prepared_by`, default 1.
+- **Server:**
+  - `created_by` is now also kept for `customers`, `vendors`, `supplier_portals` and `compliance_items`.
+  - New `changed_by` and `changed_at` columns on the ten versioned tables (`CHANGED_BY_TABLES` in `server/created-by.js`), stamped in `routes/index.js` on a successful `PUT /:kind/:id`, so the reply already carries them. A refused edit stamps nothing.
+  - New column `attachments.uploaded_by`.
+  - The customer balance page now returns `created_*` and `changed_*`.
+- **Older records** keep a blank name and show only the date. Demo customers and suppliers are inserted directly, so they show only the date.
+- **Phone fix:** a later `max-width: 900px` rule set the page's bottom padding to 44px, so the end of every page sat behind the bottom tab bar. It is 96px again.
+- **Tests:** a new HTTP test (stamps, a refused edit, uploader, the print setting), an e2e check of the footer on a booking page, and `created-by.test.js` updated, because customers are now tracked on purpose. `npm test` 267 passed, `npm run test:e2e` 43 passed.
+- **Checked in the browser** on a temp folder: the invoice footer with the Prepared by block in the page, the customer page and form after an edit, no stale footer after leaving a page, and no console errors.
+- **Not checked:** an actual printout or PDF.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.7` exist. The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.7** is published (Side or Top menu, search, New menu). The recovery key (`03285e3`) and the things-pending reminder (`72b6107`) are not released yet: release 1.0.8 when the user asks.
+3. **Release 1.0.7** is published (Side or Top menu, search, New menu). The recovery key (`03285e3`) the things-pending reminder (`72b6107`) and created-by footers (`b38bf71`) are not released yet: release 1.0.8 when the user asks.
 4. **Website:** the user uploads `netfare-website.zip` into `shikragroup.com/netfare/` (the domain currently shows a parking page). Then check the page, the download buttons and the share preview.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
