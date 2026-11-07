@@ -5,7 +5,6 @@ const {
   notFound,
   optionalStr,
   num,
-  cents,
   dateISO,
   isTruthy,
 } = require('../util');
@@ -59,7 +58,7 @@ function passportWarning(visa) {
 }
 
 function serializeVisa(row) {
-  const visa = jobs.jobPaymentStatus(row, ['cancelled', 'rejected']);
+  const visa = jobs.jobPaymentStatus(row, ['cancelled']);
   return {
     ...visa,
     margin_cents: visa.sale_total_cents - visa.cost_total_cents,
@@ -424,25 +423,7 @@ function issueVisa(db, id) {
 // nothing); the rest of the invoice is kept as charges, so an unpaid customer
 // still owes it and a paid one gets back only what is entered.
 function rejectVisa(db, id, payload = {}) {
-  const visa = db.prepare('SELECT status, invoice_id FROM visa_applications WHERE id = ?').get(Number(id));
-  if (!visa) throw notFound('Visa application not found');
-  if (!['submitted', 'approved'].includes(visa.status)) {
-    throw bad('Only submitted or approved applications can be rejected');
-  }
-  let rejectPayload = payload;
-  if (payload.refund_to_customer_cents !== undefined) {
-    const invoice = visa.invoice_id ? db.prepare('SELECT total_cents FROM invoices WHERE id = ?').get(visa.invoice_id) : null;
-    const total = invoice ? invoice.total_cents : 0;
-    const refund = cents(payload.refund_to_customer_cents, 'Refund to customer', { min: 0 });
-    if (refund > total) throw bad(`Refund to customer cannot be more than the invoice total of ${(total / 100).toFixed(2)}`);
-    rejectPayload = { ...payload, customer_charges_cents: total - refund };
-  }
-  cancellationService.cancelSource(db, {
-    sourceType: 'visa',
-    sourceId: id,
-    payload: rejectPayload,
-    finalStatus: 'rejected',
-  });
+  cancellationService.rejectVisa(db, id, payload);
   return getVisa(db, id);
 }
 

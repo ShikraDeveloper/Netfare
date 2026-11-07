@@ -73,7 +73,7 @@ test('an unpaid invoice past its due date is overdue, and a cancelled booking ha
   assert.equal(statusOf(late.id).payment_status, null);
 });
 
-test('visas show the same payment status; rejected ones have none', () => {
+test('visas show the same payment status; a rejected one keeps its invoice', () => {
   const visa = visaService.createVisa(db, {
     customer_id: customerId,
     application_date: '2026-09-01',
@@ -85,8 +85,8 @@ test('visas show the same payment status; rejected ones have none', () => {
   const submitted = visaService.submitVisa(db, visa.id);
   pay(submitted.invoice_id, 10_000);
   assert.equal(find().payment_status, 'partial');
-  visaService.rejectVisa(db, visa.id, { reason: 'Refused', rejection_date: '2026-09-15' });
-  assert.equal(find().payment_status, null);
+  visaService.rejectVisa(db, visa.id, { reason: 'Refused', cancellation_date: '2026-09-15' });
+  assert.equal(find().payment_status, 'partial', 'the customer still owes the rest');
 });
 
 test('a receipt voucher carries the payment, invoice, job and customer details', () => {

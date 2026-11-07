@@ -82,6 +82,15 @@ export function cancellationModalBody(job, { isReject = false } = {}) {
       </div>
       <div class="field full">
         <div class="form-note" data-cancel-summary>
+          ${isReject ? `
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;margin-bottom:8px">
+            <span>Invoice${job.invoice?.number ? ` ${esc(job.invoice.number)}` : ''} stays</span><strong>${fmtMoney(total)}</strong>
+            <span>Paid by the customer</span><strong data-summary-received>${fmtMoney(0)}</strong>
+            <span>Customer still owes</span><strong data-summary-shortfall>${fmtMoney(0)}</strong>
+            <span>To pay back to the customer</span><strong data-summary-refund>${fmtMoney(0)}</strong>
+            <span>Refund from suppliers</span><strong data-summary-credits>${fmtMoney(0)}</strong>
+            <span>Retained supplier cost</span><strong data-summary-retained>${fmtMoney(0)}</strong>
+          </div>` : `
           <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 16px;margin-bottom:8px">
             <span>Money held from customer</span><strong data-summary-received>${fmtMoney(0)}</strong>
             <span>${isReject ? 'Kept by us' : 'Cancellation charges'}</span><strong data-summary-charges>${fmtMoney(0)}</strong>
@@ -89,7 +98,7 @@ export function cancellationModalBody(job, { isReject = false } = {}) {
             <span>${isReject ? 'Customer still owes' : 'Cancellation invoice (shortfall)'}</span><strong data-summary-shortfall>${fmtMoney(0)}</strong>
             <span>${isReject ? 'Refund from suppliers' : 'Supplier credits'}</span><strong data-summary-credits>${fmtMoney(0)}</strong>
             <span>Retained supplier cost</span><strong data-summary-retained>${fmtMoney(0)}</strong>
-          </div>
+          </div>`}
           <div class="hint" data-summary-note></div>
         </div>
       </div>
@@ -117,8 +126,7 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
       const charges = overlay.querySelector('[data-charges]');
       const refundInput = overlay.querySelector('[data-refund]');
       const invoiceTotal = Number(job.invoice?.total_cents || 0);
-      // A rejection keeps whatever is not refunded.
-      const chargesNow = () => (isReject ? Math.max(0, invoiceTotal - toCents(refundInput?.value || 0)) : toCents(charges?.value || 0));
+      const chargesNow = () => toCents(charges?.value || 0);
       const creditInputs = [...overlay.querySelectorAll('[data-credit-input]')];
       const summaryReceived = overlay.querySelector('[data-summary-received]');
       const summaryCharges = overlay.querySelector('[data-summary-charges]');
@@ -133,7 +141,27 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
         .filter((bill) => bill.status === 'received')
         .reduce((sum, bill) => sum + Number(bill.supplier_credit_available_cents ?? bill.total_cents ?? 0), 0);
 
+      // The invoice stays: the refund is a credit note that first lowers what
+      // is still owed on it; anything beyond that is paid back.
+      const openCents = hasPostedInvoice
+        ? Math.max(0, invoiceTotal - receivedCents - Number(job.invoice.credit_applied_cents || 0))
+        : 0;
+      function syncReject() {
+        const refund = toCents(refundInput?.value || 0);
+        const creditCents = creditInputs.reduce((sum, input) => sum + toCents(input.value || 0), 0);
+        summaryReceived.textContent = fmtMoney(receivedCents);
+        summaryShortfall.textContent = fmtMoney(Math.max(0, openCents - refund));
+        summaryRefund.textContent = fmtMoney(Math.max(0, refund - openCents));
+        summaryCredits.textContent = fmtMoney(creditCents);
+        summaryRetained.textContent = fmtMoney(Math.max(0, availableSupplierCost - creditCents));
+        summaryNote.textContent = refund > 0 ? `A credit note of ${fmtMoney(refund)} is issued on the invoice.` : '';
+      }
+
       function syncSummary() {
+        if (isReject) {
+          syncReject();
+          return;
+        }
         const chargeCents = chargesNow();
         const creditCents = creditInputs.reduce((sum, input) => sum + toCents(input.value || 0), 0);
         const refundDue = hasPostedInvoice ? Math.max(0, receivedCents - chargeCents) : 0;
@@ -149,9 +177,7 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
           if (!hasPostedInvoice) {
             summaryNote.textContent = 'Draft job: nothing has been posted to the ledger. Cancelling will only change the job status.';
           } else if (shortfall > 0) {
-            summaryNote.textContent = isReject
-              ? `The customer still owes ${fmtMoney(shortfall)}; an invoice is issued for it.`
-              : `Charges exceed money held by ${fmtMoney(shortfall)}. A cancellation invoice will be issued for the shortfall.`;
+            summaryNote.textContent = `Charges exceed money held by ${fmtMoney(shortfall)}. A cancellation invoice will be issued for the shortfall.`;
           } else if (refundDue > 0) {
             summaryNote.textContent = 'Refund due will be held in 2500 Refund Liabilities. You can pay it or convert it to customer credit after posting.';
           } else {
@@ -205,7 +231,7 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
       });
       if (saved?.cancellation) {
         const cancellation = saved.cancellation;
-        toast(cancellation.refund_remaining_cents > 0
+        toast(isReject ? `${cancellation.number} recorded` : cancellation.refund_remaining_cents > 0
           ? `${cancellation.number} recorded · ${fmtMoney(cancellation.refund_remaining_cents)} refundable to the customer`
           : `${cancellation.number} recorded`);
       } else {

@@ -45,7 +45,7 @@ function statusSteps(visa) {
         <div>
           <strong>${rejected ? 'Application rejected' : 'Application cancelled'}</strong>
           <p>${visa.cancellation
-    ? `Cancellation ${escapeHtml(visa.cancellation.number)} was recorded. Receipts and supplier payments stay in the ledger, and any refund or supplier credit is tracked on the cancellation note.`
+    ? `<a href="#/cancellations/${visa.cancellation.id}">${rejected ? 'Rejection' : 'Cancellation'} ${escapeHtml(visa.cancellation.number)}</a>${visa.cancellation.keeps_invoice ? ' · the invoice stays' : ''}`
     : 'The customer invoice and supplier bills were reversed under the earlier cancellation logic.'}</p>
         </div>
       </div>
@@ -565,7 +565,7 @@ export async function render(container, { params } = {}) {
         action: 'reject',
         onDone: (saved) => {
           if (saved?.cancellation) {
-            location.hash = `#/cancellations/${saved.cancellation.id}?settle=1`;
+            location.hash = `#/cancellations/${saved.cancellation.id}`;
             return;
           }
           refresh();

@@ -1,7 +1,8 @@
 'use strict';
 
-// A visa rejected by immigration: the fees are kept unless the agency gives
-// some back, and money the supplier returns later can be passed on.
+// A visa rejected by immigration: the invoice and the sale stay. What the
+// agency gives back is a credit note on that invoice, and money the supplier
+// returns later can be passed on the same way.
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -18,6 +19,8 @@ const invoices = require('../server/services/invoices');
 const bills = require('../server/services/bills');
 const cancellations = require('../server/services/cancellations');
 const reconciliation = require('../server/services/reconciliation');
+const credits = require('../server/services/credits');
+const statements = require('../server/services/statements');
 
 after(() => {
   try { db.close(); } catch { /* ignore */ }
@@ -56,34 +59,67 @@ function submittedVisa(name, paid) {
 function noteFor(visaId) {
   return db.prepare("SELECT id FROM cancellations WHERE source_type = 'visa' AND source_id = ?").get(visaId).id;
 }
+const invoiceOf = (visaId) => db.prepare(
+  'SELECT i.* FROM invoices i JOIN visa_applications v ON v.invoice_id = i.id WHERE v.id = ?',
+).get(visaId);
+const creditLeft = (customer) => db.prepare(`
+  SELECT COALESCE(SUM(amount_cents - applied_cents - refunded_cents), 0) AS n
+  FROM credit_notes WHERE customer_id = ? AND status = 'issued'
+`).get(customer).n;
 
-test('rejected and paid: by default nothing goes back, the fees are kept', () => {
-  const { visa } = submittedVisa('Kept All', 50_000);
-  const kept = -balance('4330');
-  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 0 });
+test('rejected and paid: the invoice and the sale stay, nothing goes back by default', () => {
+  const { visa, customer } = submittedVisa('Kept All', 50_000);
+  const sales = -balance('4320');
+  const fees = -balance('4330');
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', reason: 'Refused by immigration' });
+  const invoice = invoiceOf(visa.id);
+  assert.equal(invoice.status, 'sent', 'the invoice is not voided');
+  assert.equal(invoice.total_cents, 50_000);
+  assert.equal(-balance('4320'), sales, 'visa sales are unchanged');
+  assert.equal(-balance('4330'), fees, 'nothing is moved to cancellation income');
   const note = cancellations.getCancellation(db, noteFor(visa.id));
-  assert.equal(note.refund_due_cents, 0);
+  assert.equal(note.keeps_invoice, true);
   assert.equal(note.customer_charges_cents, 50_000);
-  assert.equal(-balance('4330') - kept, 50_000);
+  assert.equal(note.refund_due_cents, 0);
+  assert.equal(note.cancellation_invoice_id, null, 'no extra invoice');
+  assert.equal(creditLeft(customer), 0);
   assert.equal(db.prepare('SELECT status FROM visa_applications WHERE id = ?').get(visa.id).status, 'rejected');
 });
 
-test('rejected and paid: the refund entered is what the customer gets back', () => {
-  const { visa } = submittedVisa('Part Back', 50_000);
+test('rejected and paid: the refund is a credit note the customer can be paid from', () => {
+  const { visa, customer } = submittedVisa('Part Back', 50_000);
+  const sales = -balance('4320');
   visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 20_000 });
   const note = cancellations.getCancellation(db, noteFor(visa.id));
-  assert.equal(note.refund_due_cents, 20_000);
   assert.equal(note.customer_charges_cents, 30_000);
+  assert.equal(note.customer_credited_cents, 20_000);
+  assert.equal(note.refund_remaining_cents, 0);
+  assert.equal(sales - -balance('4320'), 20_000, 'the sale is lower by the refund');
+  assert.equal(invoiceOf(visa.id).status, 'sent');
+  assert.equal(creditLeft(customer), 20_000, 'held as customer credit, ready to pay back');
+  const [credit] = note.credits;
+  credits.refundCredit(db, credit.id, { refund_date: '2026-11-06', account_id: account('1000') });
+  assert.equal(creditLeft(customer), 0);
 });
 
-test('rejected and not paid: the customer still owes the fees', () => {
+test('rejected and not paid: the same invoice stays open, less any refund', () => {
   const { visa, customer } = submittedVisa('Unpaid', 0);
-  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 0 });
-  const owed = db.prepare(`
-    SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS n
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 10_000 });
+  const open = db.prepare(`
+    SELECT COUNT(*) AS n, COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS owed
     FROM invoices WHERE customer_id = ? AND status = 'sent'
-  `).get(customer).n;
-  assert.equal(owed, 50_000, 'an invoice for the fees replaces the voided one');
+  `).get(customer);
+  assert.equal(open.n, 1, 'one invoice, no charges invoice');
+  assert.equal(open.owed, 40_000);
+  assert.equal(creditLeft(customer), 0, 'the credit went on the invoice');
+});
+
+test('the customer statement shows the invoice once, not reversed', () => {
+  const { visa, customer } = submittedVisa('Statement', 50_000);
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 0 });
+  const rows = statements.customerStatement(db, customer, { from: '2026-01-01', to: '2026-12-31' }).transactions;
+  assert.deepEqual(rows.map((row) => row.kind), ['invoice', 'payment']);
+  assert.ok(!/cancelled/.test(rows[0].description));
 });
 
 test('a refund to the customer cannot be more than the invoice', () => {
@@ -92,11 +128,11 @@ test('a refund to the customer cannot be more than the invoice', () => {
 });
 
 test('immigration refunds later: the cost drops and part can go to the customer', () => {
-  const { visa, bill } = submittedVisa('Later Refund', 50_000);
+  const { visa, bill, customer } = submittedVisa('Later Refund', 50_000);
   bills.recordBillPayment(db, bill.id, {
     amount_cents: 35_000, payment_date: '2026-11-02', method: 'Bank transfer', payment_account_id: account('1010'),
   });
-  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 0 });
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05' });
   const id = noteFor(visa.id);
   const cost = balance('5120');
   const bank = balance('1010');
@@ -110,13 +146,25 @@ test('immigration refunds later: the cost drops and part can go to the customer'
   });
   assert.equal(cost - balance('5120'), 20_000, 'the immigration cost is lower');
   assert.equal(balance('1010') - bank, 20_000, 'the money came into the bank');
-  assert.equal(note.refund_due_cents, 15_000);
-  assert.equal(note.refund_remaining_cents, 15_000, 'payable from the note like any refund');
   assert.equal(note.customer_charges_cents, 35_000);
+  assert.equal(note.customer_credited_cents, 15_000);
+  assert.equal(creditLeft(customer), 15_000, 'a credit note the customer can be paid from');
+  assert.equal(invoiceOf(visa.id).status, 'sent');
 
   assert.throws(() => cancellations.recordSupplierRefund(db, id, {
     bill_id: bill.id, amount_cents: 20_000, date: '2026-11-21',
   }), /cannot exceed the available bill amount/);
+});
+
+test('rejected and not paid: a later supplier refund passed on lowers what they owe', () => {
+  const { visa, customer, bill } = submittedVisa('Unpaid Later', 0);
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05' });
+  cancellations.recordSupplierRefund(db, noteFor(visa.id), {
+    bill_id: bill.id, amount_cents: 10_000, date: '2026-11-10', pass_to_customer_cents: 10_000,
+  });
+  const inv = invoiceOf(visa.id);
+  assert.equal(inv.total_cents - inv.amount_paid_cents - inv.credit_applied_cents, 40_000);
+  assert.equal(creditLeft(customer), 0);
 });
 
 test('the books balance and every ledger check matches', () => {

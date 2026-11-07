@@ -27,7 +27,7 @@ function customerTransactions(db, customerId) {
   const rows = db.prepare(`
     SELECT 'invoice' AS kind, i.id, i.number AS reference, i.issue_date AS date,
            i.due_date, i.total_cents AS amount_cents, i.status,
-           '' AS method, COALESCE((SELECT x.number FROM cancellations x WHERE x.invoice_id = i.id), '') AS related,
+           '' AS method, COALESCE((SELECT x.number FROM cancellations x WHERE x.invoice_id = i.id AND i.status = 'void'), '') AS related,
            i.cancellation_id AS charge_of
     FROM invoices i
     WHERE i.customer_id = ? AND ${ON_STATEMENT}
@@ -47,11 +47,16 @@ function customerTransactions(db, customerId) {
     FROM cancellations x
     LEFT JOIN invoices i ON i.id = x.invoice_id
     WHERE x.customer_id = ? AND MIN(x.received_cents, x.customer_charges_cents) > 0
+      -- A rejected visa keeps its invoice: nothing was reversed, so nothing is charged again.
+      AND (i.id IS NULL OR i.status = 'void')
     UNION ALL
     SELECT 'cancellation_credit', cn.id, cn.number, cn.credit_date, NULL, cn.amount_cents, 'issued', '', x.number, NULL
     FROM credit_notes cn
     JOIN cancellations x ON x.id = cn.cancellation_id
+    LEFT JOIN invoices xi ON xi.id = x.invoice_id
     WHERE cn.customer_id = ? AND cn.status = 'issued'
+      -- Credit notes of a rejected visa are applied to its invoice like any credit.
+      AND (xi.id IS NULL OR xi.status = 'void')
     UNION ALL
     SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, x.number, NULL
     FROM refunds r
