@@ -2514,11 +2514,43 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Nothing visible changed:** `npm run website:screens` before and after gave byte-identical invoices, booking and rights pictures; the DSR differs only in its "printed" time. The repo keeps the earlier pictures.
 - **Tests:** `npm test` 267 passed, `npm run test:e2e` 43 passed (axe light/dark included), `npm run check` OK.
 
+### Release 1.0.12 — code commit `beae103`, tag `v1.0.12`
+
+- **What's in it:** simplify phase 2 (the rest: reports, money back, books, settings, menu) and phase 3 cleanup. Four note lines.
+- Version 1.0.12 is set in `package.json`, the root of `package-lock.json`, and `desktop/package.json`. `npm test` 267 passed.
+- **Run 42380191308:** Build (mac), Build (win) and Publish release all succeeded.
+- **Assets:**
+  - arm64 dmg, 135 MB;
+  - x64 dmg, 142 MB;
+  - Windows exe, 125 MB;
+  - `latest.json`.
+- **Checked:** 1.0.12 is marked Latest, and `latest.json` reports 1.0.12.
+- **Not checked:** the installers on a real Mac or Windows PC. Windows still needs signing (Smart App Control; see Next session).
+
+### Visa rejection review (no code change yet)
+
+- **Why:** The user asked to check the Reject flow: a rejection by immigration is not a cancellation, and sometimes money comes back, sometimes not.
+- **How it works:** `rejectVisa` runs the cancellation flow with status `rejected`.
+  - The whole invoice is voided.
+  - Money received moves to 2500 Refund Liabilities.
+  - "Cancellation charges" move what is kept to 4330.
+  - Supplier credits per bill reduce 5120.
+- **Tried on a temp database** (sale 400 + fee 100, cost 350):
+  - (A) paid in full with the defaults: a full 500 refund becomes due;
+  - (B) charges 500: nothing is refunded, 500 goes to 4330 and the cost stays;
+  - (C) as B with an immigration refund of 200: the cost drops to 150;
+  - (D) unpaid with the defaults: the customer's 500 debt is cleared.
+- **Gaps put to the user:**
+  1. The default refunds everything or clears the debt; for a rejection it should start from "refund to customer = 0".
+  2. The wording says cancellation; it should read rejection.
+  3. No clean path when the immigration refund arrives weeks later and should go to the customer.
+  4. The kept fees show as Cancellation Fee Income, not visa sales (left as is unless the user wants it changed).
+
 ### Next session
 
-1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.11` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
+1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Simplify phase 2 is complete (`2f79d71`, not released; helper text 41, from 310). Phase 3 cleanup is done too (`639d7f2`). Next: release (1.0.12) when the user asks. Follow `DESIGN.md` for new screens.
+3. **Release 1.0.12** is published (all simplify phases done). Open: the user decides which visa-rejection fixes to make (see the visa rejection review).
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
