@@ -190,7 +190,7 @@ document.getElementById('skip-link')?.addEventListener('click', (event) => {
 
 function navItemsHtml(group) {
   return group.items.map((item) => `
-    <a class="nav-item" href="${item.href}" data-section="${item.section}" title="${esc(item.desc)}">
+    <a class="nav-item" href="${item.href}" data-section="${item.section}" title="${esc(item.label)}">
       ${icon(item.icon, 17)}
       <span>${esc(item.label)}</span>
     </a>

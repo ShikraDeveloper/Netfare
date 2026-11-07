@@ -103,7 +103,6 @@ export async function render(container) {
 
   setHeader({
     title: 'Audit log',
-    subtitle: `${response.total ?? entries.length} recorded action${(response.total ?? entries.length) === 1 ? '' : 's'} · Void, cancel and delete history`,
   });
 
   if (!entries.length) {
@@ -112,7 +111,6 @@ export async function render(container) {
         ${emptyState({
     iconName: 'file',
     title: 'No audit entries yet',
-    message: 'Voiding or cancelling a document records what happened, when it happened and the mandatory remarks here.',
   })}
       </div>
     `;
@@ -180,7 +178,6 @@ export async function render(container) {
       : `<tr><td colspan="5">${emptyState({
         iconName: 'search',
         title: 'No matching audit entries',
-        message: 'Try a different search term, action, document type or date range.',
       })}</td></tr>`;
     paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
     bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {

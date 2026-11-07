@@ -14,7 +14,7 @@ export function visaDeposits(data) {
     return `
       <div class="report-card">
         ${reportHeader('Visa Security Deposits', `${title} · as of ${fmtDate(data.as_of, { long: true })}`, company)}
-        ${emptyState({ iconName: 'visa', title: 'No deposits to show', message: 'Take a security deposit on a visa application to see it here.' })}
+        ${emptyState({ iconName: 'visa', title: 'No deposits to show' })}
       </div>`;
   }
   const t = data.totals;

@@ -37,11 +37,9 @@ function sourceSummary(source) {
   `;
 }
 
-function refundNote(type) {
-  return type === 'customer'
-    ? 'This posts a debit to Trade Receivables and a credit to the bank or cash account. The invoice balance increases by the refund.'
-    : 'This posts a debit to the bank or cash account and a credit to 1450 Supplier Credits. A supplier credit note is created and the original bill stays settled; it is not reopened.';
-}
+// A customer refund posts Dr Trade Receivables · Cr bank (the invoice balance
+// goes back up). A supplier refund posts Dr bank · Cr 1450 Supplier Credits
+// and makes a supplier credit note; the bill stays settled.
 
 function bodyHtml({ type, source, allowTypeChange }) {
   const accounts = cashAccounts().sort((a, b) => (b.is_cash - a.is_cash) || a.code.localeCompare(b.code));
@@ -64,11 +62,11 @@ function bodyHtml({ type, source, allowTypeChange }) {
         <div class="field full">
           <label for="refund-source-search">Original payment</label>
           <input class="input" id="refund-source-search" type="search" placeholder="Search invoice/bill, customer or payment number…" autocomplete="off" disabled>
-          <div class="hint" id="refund-source-search-hint">Type to narrow the list, then choose the payment below.</div>
+          <div class="hint" id="refund-source-search-hint" aria-live="polite"></div>
           <select class="input" id="refund-source" aria-label="Matching payments" disabled style="margin-top:8px">
             <option>Loading refundable payments…</option>
           </select>
-          <div class="hint" id="refund-source-hint">Choose the payment this refund belongs to.</div>
+          <div class="hint" id="refund-source-hint"></div>
         </div>
       `}
       <div class="field">
@@ -77,7 +75,7 @@ function bodyHtml({ type, source, allowTypeChange }) {
           <span>${esc(currencySymbol())}</span>
           <input class="input" id="refund-amount" name="amount" type="number" min="0.01" step="0.01" value="${source ? centsToInput(source.refundable_cents) : ''}" required>
         </div>
-        <div class="hint" id="refund-available">${source ? `Available ${fmtMoney(source.refundable_cents)}` : 'Choose a payment to see the available amount.'}</div>
+        <div class="hint" id="refund-available">${source ? `Available ${fmtMoney(source.refundable_cents)}` : ''}</div>
       </div>
       <div class="field">
         <label for="refund-date">Refund date</label>
@@ -108,14 +106,6 @@ function bodyHtml({ type, source, allowTypeChange }) {
         <label for="refund-notes">Notes</label>
         <textarea class="input" id="refund-notes" name="notes" rows="2" placeholder="Reason for the refund, cancellation reference, or internal note"></textarea>
       </div>
-      <div class="field full">
-        <div class="form-note">
-          <strong>Payment refunds only.</strong> This form refunds an invoice or bill payment. Cancellation refunds and advance refunds are recorded from their own source screens so the correct balance is reduced.
-        </div>
-      </div>
-      <div class="field full">
-        <div class="form-note" id="refund-note">${refundNote(type)}</div>
-      </div>
     </div>
   `;
 }
@@ -141,9 +131,6 @@ export function openRefundModal({
     title: fixed
       ? (type === 'customer' ? 'Refund customer payment' : 'Record supplier refund')
       : 'New refund',
-    subtitle: fixed
-      ? `${source.document_number} · ${source.party_name}`
-      : 'Refund a customer payment or record money returned by a supplier.',
     body: bodyHtml({ type, source, allowTypeChange }),
     submitLabel: type === 'customer' ? 'Refund payment' : 'Record refund',
     onMount(overlay) {
@@ -151,7 +138,6 @@ export function openRefundModal({
       const method = overlay.querySelector('#refund-method');
       const account = overlay.querySelector('#refund-account');
       const available = overlay.querySelector('#refund-available');
-      const note = overlay.querySelector('#refund-note');
       const amountLabel = overlay.querySelector('#refund-amount-label');
       const accountLabel = overlay.querySelector('#refund-account-label');
       const sourceSelect = overlay.querySelector('#refund-source');
@@ -188,7 +174,6 @@ export function openRefundModal({
         currentType = nextType;
         if (amountLabel) amountLabel.textContent = nextType === 'customer' ? 'Refund amount' : 'Amount received back';
         if (accountLabel) accountLabel.textContent = nextType === 'customer' ? 'Refund from' : 'Deposit to';
-        if (note) note.textContent = refundNote(nextType);
         if (submit) submit.textContent = nextType === 'customer' ? 'Refund payment' : 'Record refund';
       }
 

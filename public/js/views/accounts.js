@@ -64,7 +64,6 @@ function accountModal({ account = null, onSaved }) {
   const isSystem = Boolean(account?.is_system);
   openModal({
     title: isEdit ? `Edit ${account.name}` : 'New account',
-    subtitle: isEdit ? '' : 'Add a line to your chart of accounts.',
     body: `
       <div class="form-grid">
         <div class="field">
@@ -106,9 +105,6 @@ function accountModal({ account = null, onSaved }) {
             </label>
           </div>
         ` : ''}
-        <div class="field full">
-          <div class="form-note">Debits and credits post directly to this account. Balances shown use the account’s natural side (assets and expenses increase with debits, everything else with credits).</div>
-        </div>
       </div>
     `,
     submitLabel: isEdit ? 'Save account' : 'Add account',
@@ -147,7 +143,6 @@ export async function render(container, { query } = {}) {
 
   setHeader({
     title: 'Chart of accounts',
-    subtitle: `${activeAccounts.length} active accounts · Your ledger’s building blocks`,
     actions: `<button class="btn btn-primary" data-action="new-account">${icon('plus', 16)}<span>New account</span></button>`,
   });
 
@@ -197,8 +192,7 @@ export async function render(container, { query } = {}) {
       card.innerHTML = emptyState({
         iconName: 'search',
         title: 'No matching accounts',
-        message: 'Try a different search or show archived accounts.',
-      });
+        });
       return;
     }
 

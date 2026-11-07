@@ -113,7 +113,7 @@ export async function render(container, { params } = {}) {
     ${chain.truncated ? '<div class="callout"><div class="callout-text"><p>This chain is very large; only the first 400 linked documents are shown.</p></div></div>' : ''}
 
     <div class="card" style="margin-top:16px">
-      <div class="card-head"><div class="card-title"><h2>Linked documents</h2><p>Everything connected to ${esc(root.type_label.toLowerCase())} ${esc(root.number || '')}</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Linked documents</h2></div></div>
       <div class="table-wrap" tabindex="0" aria-label="Linked documents">
         <table class="data">
           <caption class="sr-only">Linked documents in this audit chain</caption>
@@ -127,7 +127,7 @@ export async function render(container, { params } = {}) {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-head"><div class="card-title"><h2>Timeline</h2><p>Status changes, journal postings, reversals and void remarks in date order</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Timeline</h2></div></div>
       <div class="table-wrap" tabindex="0" aria-label="Audit timeline">
         <table class="data">
           <caption class="sr-only">Audit timeline of postings, reversals and voids</caption>
@@ -145,7 +145,7 @@ export async function render(container, { params } = {}) {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <div class="card-head"><div class="card-title"><h2>Net ledger effect</h2><p>What this whole chain leaves in each account after reversals</p></div></div>
+      <div class="card-head"><div class="card-title"><h2>Net ledger effect</h2></div></div>
       <div class="table-wrap" tabindex="0" aria-label="Net ledger effect">
         <table class="data">
           <caption class="sr-only">Net ledger effect by account</caption>

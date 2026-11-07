@@ -35,7 +35,7 @@ export function backupMirrorCardHtml() {
   return `
     <div class="card" id="mirror-card">
       <div class="card-head">
-        <div class="card-title"><h2>Second copy of backups</h2><p>Keep every backup in a second place too</p></div>
+        <div class="card-title"><h2>Second copy of backups</h2></div>
       </div>
       <form id="mirror-form" class="settings-form" novalidate>
         <div class="card-body">
@@ -46,14 +46,9 @@ export function backupMirrorCardHtml() {
           </div>
           <div class="field" id="mirror-other" hidden style="margin-top:10px">
             <label for="mirror-path">Folder</label>
-            <input class="input" id="mirror-path" name="path" autocomplete="off" spellcheck="false" placeholder="/Volumes/Backup or D:\\" aria-describedby="mirror-path-hint">
-            <div class="hint" id="mirror-path-hint">The full path of a folder this computer can write to.</div>
+            <input class="input" id="mirror-path" name="path" autocomplete="off" spellcheck="false" placeholder="/Volumes/Backup or D:\\">
           </div>
-          <div class="form-note" style="margin-top:12px">
-            Netfare puts the copies in a <strong>Netfare backups</strong> folder there, after every automatic and manual backup, and keeps the newest 30.
-            A cloud folder (iCloud Drive, Google Drive, OneDrive, Dropbox) is safest, because it leaves the building. If a USB drive is unplugged, the backup is still made here and copied when the drive is back.
-            To restore, stop Netfare and run <code>npm run restore</code> with a file from that folder, or choose <em>Start from a backup</em> in the desktop app on a new computer.
-          </div>
+          <div class="form-note" style="margin-top:12px">A cloud folder (iCloud Drive, Google Drive, OneDrive, Dropbox) is safest: it leaves the building.</div>
         </div>
         <div class="settings-actions">
           <button class="btn btn-ghost" type="button" id="mirror-copy">Copy now</button>

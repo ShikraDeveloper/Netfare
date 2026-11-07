@@ -11,7 +11,6 @@ export function bookingMargin(data) {
         ${emptyState({
     iconName: 'plane',
     title: 'No bookings in this period',
-    message: 'Create a travel booking to track sale price, supplier cost and gross profit.',
   })}
       </div>
     `;
@@ -72,7 +71,6 @@ export function visaMargin(data) {
         ${emptyState({
     iconName: 'visa',
     title: 'No visa applications in this period',
-    message: 'Create a visa application to track sale price, supplier cost and gross profit. Rejected and cancelled applications are excluded.',
   })}
       </div>
     `;

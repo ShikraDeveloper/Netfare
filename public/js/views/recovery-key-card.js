@@ -16,13 +16,11 @@ export function recoveryKeyCardHtml() {
   return `
     <div class="card" id="recovery-key-card">
       <div class="card-head">
-        <div class="card-title"><h2>Recovery key</h2><p>Resets a forgotten admin password at the main computer</p></div>
+        <div class="card-title"><h2>Recovery key</h2></div>
         <button type="button" class="btn btn-secondary btn-sm" id="recovery-key-new">${icon('refresh', 15)} Make a new key</button>
       </div>
       <div class="card-body">
         <div id="recovery-key-status"><p class="muted">Loading…</p></div>
-        <p class="hint">Lost the key, or someone saw it? Make a new one: the old key stops working at once.
-          Every reset and new key is written to the audit log.</p>
       </div>
     </div>`;
 }

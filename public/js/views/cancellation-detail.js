@@ -47,7 +47,6 @@ export async function render(container, { params, query } = {}) {
   pageRecord(cancellation);
   setHeader({
     title: cancellation.number,
-    subtitle: `${cancellation.customer_name} · ${sourceLabel} ${cancellation.source_number || '—'} · ${fmtDate(cancellation.cancellation_date)}`,
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/cancellation/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="${href}"><span>${sourceLabel}</span></a>
@@ -70,8 +69,7 @@ export async function render(container, { params, query } = {}) {
       `).join('')
     : `<tr><td colspan="6">${emptyState({
     iconName: 'bill',
-    title: 'No supplier credit',
-    message: 'The supplier cost was retained in full for this cancellation.',
+    title: 'Supplier cost kept in full',
   })}</td></tr>`;
 
   const refundRows = cancellation.refunds.length
@@ -104,7 +102,6 @@ export async function render(container, { params, query } = {}) {
         <div class="callout-icon">${icon('wallet', 18)}</div>
         <div class="callout-text">
           <h3>Choose how to settle ${fmtMoney(remaining)}</h3>
-          <p>The cancellation is recorded and the money is held in <strong>2500 Refund Liabilities</strong>. Pay it back to the customer, convert it to a customer credit, or leave it open and decide later.</p>
         </div>
         <div class="callout-actions">
           <button class="btn btn-primary" data-choice="refund">${icon('arrowUp', 15)}<span>Pay refund</span></button>
@@ -185,7 +182,7 @@ export async function render(container, { params, query } = {}) {
     <div class="detail-grid no-print">
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer settlement</h2><p>${remaining > 0 ? `${fmtMoney(remaining)} still refundable` : 'Fully settled'} ${remaining > 0 ? '<span class="badge badge-partial">Refund due</span>' : '<span class="badge badge-paid">Settled</span>'}</p></div>
+          <div class="card-title"><h2>Customer settlement</h2></div>
           ${canSettle ? `<button class="btn btn-primary btn-sm" data-action="refund">${icon('arrowUp', 14)} Pay refund</button>` : ''}
           ${canSettle ? `<button class="btn btn-ghost btn-sm" data-action="settlement-options">${icon('wallet', 14)} Settlement options</button>` : ''}
         </div>
@@ -204,7 +201,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Supplier credits</h2><p>${fmtMoney(cancellation.supplier_credit_total_cents)} credited · unused stays in 1450</p></div>
+          <div class="card-title"><h2>Supplier credits</h2></div>
         </div>
         <div class="table-wrap" tabindex="0" aria-label="Supplier credits from this cancellation">
           <table class="data"><caption class="sr-only">Supplier credits from this cancellation</caption>
@@ -216,7 +213,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Refunds paid</h2><p>${cancellation.refunds.length} refund${cancellation.refunds.length === 1 ? '' : 's'}</p></div>
+          <div class="card-title"><h2>Refunds paid</h2></div>
         </div>
         <div class="table-wrap" tabindex="0" aria-label="Refunds for this cancellation">
           <table class="data"><caption class="sr-only">Refunds for this cancellation</caption>
@@ -228,7 +225,7 @@ export async function render(container, { params, query } = {}) {
 
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Customer credits</h2><p>Refund converted to 2450</p></div>
+          <div class="card-title"><h2>Customer credits</h2></div>
         </div>
         <div class="table-wrap" tabindex="0" aria-label="Credits created from this cancellation">
           <table class="data"><caption class="sr-only">Credits created from this cancellation</caption>
@@ -284,17 +281,15 @@ export async function render(container, { params, query } = {}) {
     const preferred = accounts.find((account) => account.code === '1010') || accounts[0];
     openModal({
       title: `Pay refund for ${cancellation.number}`,
-      subtitle: `${cancellation.customer_name} · ${fmtMoney(maximum)} available`,
       submitLabel: 'Record refund',
       body: `
         <div class="form-grid">
           <div class="field">
-            <label for="cancel-refund-amount">Refund amount</label>
+            <label for="cancel-refund-amount">Refund amount · ${fmtMoney(maximum)} available</label>
             <div class="money-input"><span>AED</span>
               <input class="input" id="cancel-refund-amount" name="amount" type="number" min="0.01" step="0.01"
                 max="${centsToInput(maximum)}" value="${centsToInput(maximum)}" required inputmode="decimal">
             </div>
-            <div class="hint">Available ${fmtMoney(maximum)}</div>
           </div>
           <div class="field">
             <label for="cancel-refund-date">Refund date</label>
@@ -315,9 +310,6 @@ export async function render(container, { params, query } = {}) {
             <select class="input" id="cancel-refund-account" name="account_id" required>
               ${optionsHtml(accounts, { selected: preferred.id, placeholder: 'Choose bank or cash account…', labelKey: (account) => `${account.code} · ${account.name}` })}
             </select>
-          </div>
-          <div class="field full">
-            <div class="form-note">This debits 2500 Refund Liabilities and credits the bank or cash account. The cancellation and original receipts stay intact.</div>
           </div>
         </div>
       `,
@@ -343,17 +335,15 @@ export async function render(container, { params, query } = {}) {
   function openConvert(maximum) {
     openModal({
       title: `Convert refund to credit`,
-      subtitle: `${cancellation.customer_name} · ${fmtMoney(maximum)} available`,
       submitLabel: 'Create customer credit',
       body: `
         <div class="form-grid">
           <div class="field">
-            <label for="cancel-credit-amount">Credit amount</label>
+            <label for="cancel-credit-amount">Credit amount · ${fmtMoney(maximum)} available</label>
             <div class="money-input"><span>AED</span>
               <input class="input" id="cancel-credit-amount" name="amount" type="number" min="0.01" step="0.01"
                 max="${centsToInput(maximum)}" value="${centsToInput(maximum)}" required inputmode="decimal">
             </div>
-            <div class="hint">Available ${fmtMoney(maximum)}</div>
           </div>
           <div class="field">
             <label for="cancel-credit-date">Credit date</label>
@@ -362,9 +352,6 @@ export async function render(container, { params, query } = {}) {
           <div class="field full">
             <label for="cancel-credit-notes">Notes</label>
             <textarea class="input" id="cancel-credit-notes" name="notes" rows="2" placeholder="Internal note for the customer credit"></textarea>
-          </div>
-          <div class="field full">
-            <div class="form-note">This moves the amount from 2500 Refund Liabilities to 2450 Customer Credits. The customer can then use it against a future invoice.</div>
           </div>
         </div>
       `,

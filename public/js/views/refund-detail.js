@@ -132,14 +132,14 @@ export async function render(container, { params } = {}) {
   pageRecord(refund, { print: true });
   setHeader({
     title: refund.number,
-    subtitle: `${refund.party_name} · ${fmtDate(refund.refund_date)}`,
+    badge: statusBadge(refund.status),
     actions: actions.join(''),
   });
 
   const details = `
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Refund details</h2><p>${esc(refund.method || 'Refund')}</p></div>
+        <div class="card-title"><h2>Refund details</h2></div>
         ${statusBadge(refund.status)}
       </div>
       <div class="card-body">
@@ -232,7 +232,7 @@ export async function render(container, { params } = {}) {
       ${details}
       <div class="card">
         <div class="card-head">
-          <div class="card-title"><h2>Ledger entry</h2><p>${refund.journal_entry ? `Posted ${esc(fmtDate(refund.journal_entry.entry_date))}` : 'Not posted'}</p></div>
+          <div class="card-title"><h2>Ledger entry</h2></div>
           ${refund.journal_entry ? `<a class="card-link" href="#/journal?focus=${refund.journal_entry.id}">Open ${icon('chevron', 12)}</a>` : ''}
         </div>
         <div class="card-body">

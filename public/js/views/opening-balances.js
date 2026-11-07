@@ -55,9 +55,7 @@ export async function render(container) {
 
   setHeader({
     title: 'Opening balances',
-    subtitle: data.entry_id
-      ? `Saved on ${esc(data.entry_date)} · journal entry #${data.entry_id}`
-      : 'Enter the balances you want to carry into Netfare',
+    badge: data.entry_id ? '<span class="badge badge-paid">Saved</span>' : '',
     actions: `
       ${data.entry_id ? `<button class="btn btn-ghost" data-action="clear-opening">${icon('trash', 15)}<span>Clear</span></button>` : ''}
       <button class="btn btn-primary" data-action="save-opening">${icon('check', 15)}<span>Save opening balances</span></button>
@@ -67,33 +65,27 @@ export async function render(container) {
   container.innerHTML = `
     <div class="card">
       <div class="card-head">
-        <div class="card-title"><h2>Starting position</h2><p>One balanced journal entry dated before your first live transaction.</p></div>
+        <div class="card-title"><h2>Starting position</h2></div>
       </div>
       <div class="card-body">
         <div class="form-grid">
           <div class="field">
-            <label for="opening-date">Opening date</label>
+            <label for="opening-date">Opening date (the day before you started)</label>
             <input class="input" id="opening-date" type="date" value="${esc(openingDate)}" required>
-            <div class="hint">Use the day before you started using Netfare for live transactions.</div>
           </div>
           <div class="field">
             <label>Balancing account</label>
             <div class="readonly-box">
               <strong>${esc(data.equity_account?.code || '3900')} ${esc(data.equity_account?.name || 'Opening Balance Equity')}</strong>
-              <span>The difference between debits and credits posts here automatically.</span>
             </div>
           </div>
-        </div>
-        <div class="callout" style="margin-top:18px">
-          ${icon('check', 18)}
-          <div class="callout-text"><h3>One clean opening entry</h3><p>Enter account debits and credits only. Later business postings continue automatically.</p></div>
         </div>
       </div>
     </div>
 
     <div class="card" style="margin-top:16px">
       <div class="card-head">
-        <div class="card-title"><h2>Balance sheet accounts</h2><p>Enter each account once as either a debit or a credit.</p></div>
+        <div class="card-title"><h2>Balance sheet accounts</h2></div>
       </div>
       <div class="table-wrap">
         <table class="data opening-table"><caption class="sr-only">Opening balances</caption>

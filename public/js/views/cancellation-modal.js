@@ -19,14 +19,13 @@ function billCreditRow(bill) {
       </div>
       <div class="form-grid" style="margin-top:6px">
         <div class="field full">
-          <label for="cancel-credit-${bill.id}">Creditable / refundable supplier amount</label>
+          <label for="cancel-credit-${bill.id}">Supplier credit · up to ${fmtMoney(available)}</label>
           <div class="money-input">
             <span>AED</span>
             <input class="input" id="cancel-credit-${bill.id}" name="credit_${bill.id}" type="number"
               min="0" max="${centsToInput(available)}" step="0.01"
               value="0.00" data-credit-input="${bill.id}" inputmode="decimal">
           </div>
-          <div class="hint">0 to ${fmtMoney(available)}. The supplier credit is applied to this bill first; any unused amount stays as supplier credit.</div>
         </div>
       </div>
     </div>
@@ -48,7 +47,6 @@ export function cancellationModalBody(job) {
           <input class="input" id="cancel-charges" name="customer_charges" type="number" min="0" step="0.01"
             value="0.00" data-charges inputmode="decimal">
         </div>
-        <div class="hint">Recognised in 4330. If charges exceed money held, a cancellation invoice is created for the shortfall.</div>
       </div>
       <div class="field full">
         <label for="cancel-reason">Reason</label>
@@ -60,20 +58,15 @@ export function cancellationModalBody(job) {
       </div>
       <div class="field full">
         <div class="form-note">
-          <strong>Cancel is for a customer cancellation</strong> (for a mistake, void instead). <strong>This cannot be undone.</strong> Recording a cancellation creates a permanent cancellation note,
-          voids the customer invoice and keeps every receipt intact. Check the date, charges and supplier credit
-          amounts before saving.
+          <strong>This cannot be undone.</strong> For a mistake, void instead.
         </div>
       </div>
       <div class="field full">
         <label>Supplier bills</label>
         ${bills.length
     ? `${bills.map(billCreditRow).join('')}
-             <div class="form-note">
-               <strong>Supplier costs</strong><br>
-               Any amount you leave at zero keeps the supplier cost in the profit and loss account. Credited amounts reduce the cost and create supplier credit notes with the same cancellation date.
-             </div>`
-    : '<div class="form-note">No received supplier bills are linked to this job. Nothing will be credited to a supplier.</div>'}
+`
+    : '<div class="muted">No supplier bills to credit.</div>'}
       </div>
       <div class="field full">
         <div class="form-note" data-cancel-summary>
@@ -104,7 +97,6 @@ export function openCancellationModal({ job, sourceType, action = 'cancel', onDo
 
   return openModal({
     title,
-    subtitle: `${job.number} · ${job.customer_name}`,
     size: 'modal-lg',
     body: cancellationModalBody(job),
     submitLabel,

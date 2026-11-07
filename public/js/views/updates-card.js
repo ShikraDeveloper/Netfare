@@ -20,7 +20,7 @@ export function updatesCardHtml() {
   return `
     <div class="card" id="updates-card">
       <div class="card-head">
-        <div class="card-title"><h2>Updates</h2><p>Be told when a new version of Netfare is out</p></div>
+        <div class="card-title"><h2>Updates</h2></div>
       </div>
       <form id="updates-form" class="settings-form" novalidate>
         <div class="card-body">
@@ -35,8 +35,7 @@ export function updatesCardHtml() {
           <div class="field" style="margin-top:12px">
             <label for="update-feed">Update address (optional)</label>
             <input class="input" id="update-feed" name="feed_url" type="url" autocomplete="off" spellcheck="false"
-              placeholder="Blank: Netfare releases on GitHub" aria-describedby="update-feed-hint">
-            <div class="hint" id="update-feed-hint">Leave blank to use Netfare's own releases on GitHub. Only change it if your agency publishes Netfare somewhere else.</div>
+              placeholder="Blank: Netfare releases on GitHub">
           </div>
           <details class="update-howto" style="margin-top:12px">
             <summary>How updating works</summary>

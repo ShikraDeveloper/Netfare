@@ -40,7 +40,6 @@ export async function render(container) {
 
   setHeader({
     title: 'Settings',
-    subtitle: 'Appearance, company profile, invoice defaults and data management',
     actions: '',
   });
 
@@ -52,7 +51,7 @@ export async function render(container) {
       <div class="settings-stack">
         <div class="card appearance-card">
           <div class="card-head">
-            <div class="card-title"><h2>Appearance</h2><p>Choose how Netfare looks on this device</p></div>
+            <div class="card-title"><h2>Appearance</h2></div>
           </div>
           <div class="card-body">
             <div class="theme-picker" role="group" aria-label="Theme">
@@ -67,7 +66,6 @@ export async function render(container) {
                 </span>
                 <span class="theme-option-copy">
                   <strong>${icon('sun', 14)} Light</strong>
-                  <small>Cream, navy &amp; gold</small>
                 </span>
                 <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
               </button>
@@ -82,12 +80,10 @@ export async function render(container) {
                 </span>
                 <span class="theme-option-copy">
                   <strong>${icon('moon', 14)} Dark</strong>
-                  <small>Deep navy &amp; gold</small>
                 </span>
                 <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
               </button>
             </div>
-            <div class="theme-note">${icon('print', 14)} Theme is saved on this device. Printing always uses light paper.</div>
             <div class="menu-picker-label">Menu</div>
             <div class="theme-picker menu-picker" role="group" aria-label="Menu position">
               ${[['side', 'sidebar', 'Side', 'Menu down the left'], ['top', 'topbar', 'Top', 'Menu across the top, more room for pages']].map(([value, iconName, label, hint]) => `
@@ -96,17 +92,16 @@ export async function render(container) {
                   <span class="sw-side"></span>
                   <span class="sw-main"><span class="sw-line gold"></span><span class="sw-card"></span><span class="sw-line"></span></span>
                 </span>
-                <span class="theme-option-copy"><strong>${icon(iconName, 14)} ${label}</strong><small>${hint}</small></span>
+                <span class="theme-option-copy"><strong>${icon(iconName, 14)} ${label}</strong></span>
                 <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
               </button>`).join('')}
             </div>
-            <div class="theme-note">${icon('layout', 14)} Saved on this device. Phones always use the side menu. Press / anywhere to search.</div>
           </div>
         </div>
 
         <div class="card">
           <div class="card-head">
-            <div class="card-title"><h2>Company profile</h2><p>Shown on your invoices and bills</p></div>
+            <div class="card-title"><h2>Company profile</h2></div>
           </div>
           <form id="company-form" class="settings-form" novalidate>
             <div class="card-body">
@@ -137,7 +132,7 @@ export async function render(container) {
 
         <div class="card">
           <div class="card-head">
-            <div class="card-title"><h2>Invoicing &amp; ledger defaults</h2><p>Applied to new documents</p></div>
+            <div class="card-title"><h2>Invoicing &amp; ledger defaults</h2></div>
           </div>
           <form id="defaults-form" class="settings-form" novalidate>
             <div class="card-body">
@@ -152,7 +147,6 @@ export async function render(container) {
                 <div class="field">
                   <label for="terms-days">Payment terms (days)</label>
                   <input class="input" id="terms-days" name="payment_terms_days" type="number" min="0" max="365" step="1" value="${esc(settings.payment_terms_days)}">
-                  <div class="hint">Used to pre-fill due dates.</div>
                 </div>
                 <div class="field">
                   <label for="fiscal-month">Fiscal year starts</label>
@@ -186,9 +180,6 @@ export async function render(container) {
                     <span><strong>Print "Prepared by"</strong> on invoices, receipts, credit notes and refunds, with a line for the customer to sign as "Received by".</span>
                   </label>
                 </div>
-                <div class="field full">
-                  <div class="form-note">Document numbers look like <strong>${esc(settings.invoice_prefix)}-${new Date().getFullYear()}-0001</strong>, bookings like <strong>${esc(settings.booking_prefix || 'BK')}-${new Date().getFullYear()}-0001</strong>, visas like <strong>${esc(settings.visa_prefix || 'VIS')}-${new Date().getFullYear()}-0001</strong>, receipts like <strong>${esc(settings.receipt_prefix || 'RCP')}-${new Date().getFullYear()}-0001</strong> and refunds like <strong>REF-${new Date().getFullYear()}-0001</strong>. Changing a prefix only affects new documents.</div>
-                </div>
               </div>
             </div>
             <div class="settings-actions">
@@ -202,7 +193,7 @@ export async function render(container) {
         ${store.user?.is_admin ? usersCardHtml() + recoveryKeyCardHtml() + networkCardHtml() + updatesCardHtml() : ''}
         <div class="card admin-only">
           <div class="card-head">
-            <div class="card-title"><h2>Data &amp; backup</h2><p>Your books live on this computer</p></div>
+            <div class="card-title"><h2>Data &amp; backup</h2></div>
           </div>
           <div class="card-body">
             <div class="danger-row" style="border-color:var(--border)">
@@ -236,7 +227,7 @@ export async function render(container) {
               </div>
               <button class="btn btn-secondary btn-sm" id="load-demo">${icon('refresh', 15)} Load</button>
             </div>
-            <div class="form-note" style="margin-top:10px">Local backups are stored under <strong>data/backups</strong>. The app also creates a safety backup before Clear all data and Load sample data.</div>
+            <div class="form-note" style="margin-top:10px">A safety backup is made before Clear all data and Load sample data.</div>
           </div>
         </div>
 
@@ -259,7 +250,7 @@ export async function render(container) {
 
         <div class="card">
           <div class="card-head">
-            <div class="card-title"><h2>About Netfare</h2><p>Invoicing &amp; books for non-IATA travel agencies · a ShikraGroup brand</p></div>
+            <div class="card-title"><h2>About Netfare</h2></div>
           </div>
           <div class="card-body">
             <img class="about-logo about-logo-light" src="/brand/netfare-logo.svg" alt="Netfare — Invoicing &amp; Books" width="276" height="96">
@@ -271,9 +262,6 @@ export async function render(container) {
               <div><span>Currency</span><strong>AED</strong></div>
               <div><span>Server</span><strong>127.0.0.1</strong></div>
               <div><span>Website</span><strong><a href="https://shikragroup.com/netfare/" target="_blank" rel="noopener">shikragroup.com/netfare</a></strong></div>
-            </div>
-            <div class="form-note" style="margin-top:16px">
-              Every invoice, bill and payment posts a balanced journal entry. Reports are calculated directly from the general ledger.
             </div>
           </div>
         </div>

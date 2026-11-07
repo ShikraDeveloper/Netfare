@@ -389,7 +389,6 @@ export function dailySales(data) {
         ${emptyState({
     iconName: 'invoice',
     title: 'No sales in this period',
-    message: 'Send an invoice, confirm a booking or submit a visa application to see the daily sales report.',
   })}
       </div>
     `;

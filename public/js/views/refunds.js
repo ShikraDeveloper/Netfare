@@ -98,7 +98,6 @@ export async function render(container) {
 
   setHeader({
     title: 'Customer & supplier refunds',
-    subtitle: `${paid.length} paid refund${paid.length === 1 ? '' : 's'} · ${fmtMoney(refundedTotal)} refunded`,
     actions: `<button class="btn btn-primary" data-action="new-refund">${icon('plus', 16)}<span>New refund</span></button>`,
   });
 
@@ -119,7 +118,6 @@ export async function render(container) {
         ${emptyState({
           iconName: 'arrowUp',
           title: 'No refunds yet',
-          message: 'Refund a customer payment from an invoice, or record money returned by a supplier from a bill. Cancellation and advance refunds are recorded from their own source screens so the correct balance is reduced.',
           action: '<button class="btn btn-primary" data-action="new-refund">Record your first refund</button>',
         })}
       </div>
@@ -147,9 +145,6 @@ export async function render(container) {
       ${dateRangeHtml({ label: 'Refund date' })}
       <div class="spacer"></div>
       <span class="muted" id="refund-count" style="font-size:12px"></span>
-    </div>
-    <div class="form-note" style="margin-bottom:12px">
-      <strong>Payment refunds only.</strong> Cancellation refunds are recorded from the cancellation note, and advance refunds from the advance screen. Use those source screens so the correct balance is reduced.
     </div>
     <div class="card">
       <div class="table-wrap">
@@ -191,7 +186,6 @@ export async function render(container) {
       body.innerHTML = `<tr><td colspan="6">${emptyState({
         iconName: 'search',
         title: 'No matching refunds',
-        message: 'Try a different search term, type, status or date range.',
       })}</td></tr>`;
     } else {
       body.innerHTML = rows.map(refundRow).join('');

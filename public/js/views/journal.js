@@ -152,7 +152,6 @@ function openNewEntryModal(onSaved) {
 
   openModal({
     title: 'New journal entry',
-    subtitle: 'Post a balanced entry directly to your general ledger.',
     size: 'modal-xl',
     body: `
       <div class="form-grid">
@@ -268,7 +267,6 @@ export async function render(container, { query } = {}) {
   const entries = await api.get('/journal-entries');
   setHeader({
     title: 'General journal',
-    subtitle: `${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} · Every document posts here`,
     actions: `<button class="btn btn-primary" data-action="new-entry">${icon('plus', 16)}<span>New journal entry</span></button>`,
   });
 

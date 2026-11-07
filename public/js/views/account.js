@@ -153,7 +153,7 @@ export function usersCardHtml() {
   return `
     <div class="card" id="users-card">
       <div class="card-head">
-        <div class="card-title"><h2>Users &amp; logins</h2><p>Each person on your staff signs in with their own username</p></div>
+        <div class="card-title"><h2>Users &amp; logins</h2></div>
         <button type="button" class="btn btn-secondary btn-sm" id="user-new">${icon('plus', 15)} New user</button>
       </div>
       <div class="table-wrap">
@@ -163,7 +163,6 @@ export function usersCardHtml() {
         </table>
       </div>
       <div class="card-body">
-        <div class="form-note">Each user sees only the screens you give them. View lets them look; Edit lets them add and change; Void, cancel &amp; delete is a separate right. Bookings and visas also show their invoices, portals and journal postings. Users, backups, restore and Clear all data always stay with the admin. Disabled users cannot sign in, and their past entries keep their name.</div>
       </div>
     </div>`;
 }
@@ -185,8 +184,7 @@ export function bindUsersCard(container) {
     await loadRightAreas();
     openModal({
       title: 'New user',
-      subtitle: 'Give these details to the staff member. They can change the password later.',
-      size: 'modal-lg',
+        size: 'modal-lg',
       onMount: bindRights,
       body: `
         <div class="form-grid">
@@ -224,8 +222,7 @@ export function bindUsersCard(container) {
       await loadRightAreas();
       openModal({
         title: `Rights for ${user.full_name}`,
-        subtitle: 'Changes apply to their next click; they stay signed in.',
-        size: 'modal-lg',
+            size: 'modal-lg',
         onMount: bindRights,
         body: rightsHtml(user.permissions || {}),
         submitLabel: 'Save rights',

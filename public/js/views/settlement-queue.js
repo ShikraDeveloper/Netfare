@@ -38,7 +38,6 @@ function summaryCard(label, valueCents, meta, iconName, color) {
         <span class="kpi-icon ${color}">${icon(iconName, 17)}</span>
       </div>
       <div class="kpi-value">${fmtMoney(valueCents)}</div>
-      <div class="kpi-meta">${esc(meta)}</div>
     </div>
   `;
 }
@@ -73,7 +72,6 @@ export async function render(container) {
 
   setHeader({
     title: 'Settlements',
-    subtitle: `${totals.count} open settlement${totals.count === 1 ? '' : 's'} · ${fmtMoney(totals.amount_cents)} to apply or refund`,
     actions: `<a class="btn btn-secondary" href="#/customer-balances">${icon('customers', 15)}<span>Customer balances</span></a>`,
   });
 
@@ -133,7 +131,6 @@ export async function render(container) {
       : `<tr><td colspan="7">${emptyState({
         iconName: 'check',
         title: 'Nothing to settle',
-        message: 'Cancellation refunds, unapplied customer credits, customer advances and supplier credits will appear here.',
       })}</td></tr>`;
     countEl.textContent = `${filtered.length} shown`;
   }

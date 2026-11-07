@@ -225,7 +225,6 @@ export async function render(container, { params = [], query = new URLSearchPara
 
   setHeader({
     title: `${data.party.name} statement`,
-    subtitle: `${partyLabel} statement · ${periodLabel(data.from, data.to)}`,
     actions: `
       <a class="btn btn-ghost" href="#/${routeBase}">${icon('chevron', 15)}<span>All ${routeBase}</span></a>
       <button class="btn btn-primary" data-action="print-statement">${icon('print', 15)}<span>Print</span></button>

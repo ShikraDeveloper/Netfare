@@ -52,14 +52,12 @@ export async function render(container) {
 
   setHeader({
     title: 'Cancellations & settlements',
-    subtitle: `${cancellations.length} cancellation${cancellations.length === 1 ? '' : 's'} · ${refundDueCount} with refund due · ${fmtMoney(refundRemaining)} refundable · ${fmtMoney(supplierCredits)} supplier credit`,
   });
 
   if (!cancellations.length) {
     container.innerHTML = `<div class="card">${emptyState({
       iconName: 'x',
       title: 'No cancellations yet',
-      message: 'Cancel a booking or visa application to record cancellation charges, refunds and supplier credits without deleting receipts or supplier payments.',
     })}</div>`;
     return;
   }
@@ -120,7 +118,6 @@ export async function render(container) {
     body.innerHTML = rows.length ? rows.map(cancellationRow).join('') : `<tr><td colspan="9">${emptyState({
       iconName: 'search',
       title: 'No matching cancellations',
-      message: 'Try another search, source or date range.',
     })}</td></tr>`;
     if (countEl) countEl.textContent = `${filtered.length} cancellation${filtered.length === 1 ? '' : 's'}`;
     paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });

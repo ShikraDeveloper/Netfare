@@ -19,7 +19,7 @@ export function networkCardHtml() {
   return `
     <div class="card" id="network-card">
       <div class="card-head">
-        <div class="card-title"><h2>Office network</h2><p>Let other computers in your office open Netfare</p></div>
+        <div class="card-title"><h2>Office network</h2></div>
       </div>
       <form id="network-form" class="settings-form" novalidate>
         <div class="card-body">
@@ -29,15 +29,12 @@ export function networkCardHtml() {
             <span><strong>Allow other computers</strong> on the office network or Tailscale. Everyone still signs in with their own user. Computers on the internet are always refused.</span>
           </label>
           <div class="field" style="margin-top:12px">
-            <label for="network-hosts">Extra names (optional)</label>
+            <label for="network-hosts">Extra names (Tailscale)</label>
             <input class="input" id="network-hosts" name="lan_hosts" autocomplete="off" autocapitalize="none" spellcheck="false"
-              placeholder="office-mac.tail1234.ts.net" aria-describedby="network-hosts-hint">
-            <div class="hint" id="network-hosts-hint">A Tailscale name for this computer, if staff use it. Separate several names with spaces.</div>
+              placeholder="office-mac.tail1234.ts.net">
           </div>
           <div class="form-note" style="margin-top:12px">
-            Turning this on or off takes effect after Netfare restarts. The first time, the Mac may ask to allow incoming connections for "node": choose Allow.
-            On office Wi-Fi the connection is not encrypted; staff working from home should use Tailscale, which is.
-            This computer must stay on and awake while others use Netfare.
+            Takes effect after Netfare restarts. Office Wi-Fi is not encrypted: staff working from home should use Tailscale.
           </div>
         </div>
         <div class="settings-actions">

@@ -524,7 +524,6 @@ test('cancelling a paid booking offers refund, credit or defer settlement', asyn
   await choice.waitFor();
   const choiceText = await choice.innerText();
   assert.match(choiceText, /Choose how to settle/i);
-  assert.match(choiceText, /2500 Refund Liabilities/i);
   assert.equal(await choice.locator('[data-choice="refund"]').count(), 1);
   assert.equal(await choice.locator('[data-choice="credit"]').count(), 1);
   assert.equal(await choice.locator('[data-choice="defer"]').count(), 1);
@@ -951,7 +950,7 @@ test('an unapplied customer credit can be refunded in cash from the credit note'
   await page.locator('#page-actions [data-action="refund-credit"]').click();
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
-  assert.match(await dialog.innerText(), /2450 Customer Credits/);
+  assert.match(await dialog.innerText(), /Amount paid · AED\s[\d,.]+ available/);
   await dialog.locator('#cn-refund-amount').fill('100.00');
   await dialog.locator('#cn-refund-reference').fill('E2E-CN-REFUND');
   await dialog.locator('[data-submit]').click();
@@ -2173,7 +2172,7 @@ test('menu: Settings switches to the top menu, its panels and search work, and b
   const panel = money.locator('.tn-panel');
   await panel.waitFor();
   assert.equal(await money.locator('.tn-trigger').getAttribute('aria-expanded'), 'true');
-  assert.match(await panel.innerText(), /Customer balances[\s\S]*Who owes what/);
+  assert.match(await panel.innerText(), /Customer balances/);
   await page.keyboard.press('Escape');
   await panel.waitFor({ state: 'hidden' });
   await money.locator('.tn-trigger').click();

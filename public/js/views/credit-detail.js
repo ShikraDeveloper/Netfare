@@ -32,7 +32,7 @@ export async function render(container, { params = [] } = {}) {
   pageRecord(credit, { print: true });
   setHeader({
     title: credit.number,
-    subtitle: `${credit.customer_name} · ${fmtDate(credit.credit_date, { long: true })}`,
+    badge: statusBadge(credit.status_display || credit.status),
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/credit/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="#/credits"><span>All credit notes</span></a>
@@ -58,7 +58,7 @@ export async function render(container, { params = [] } = {}) {
 
     <div class="detail-grid">
       <div class="card">
-        <div class="card-head"><div class="card-title"><h2>Customer</h2><p>Credit issued to</p></div></div>
+        <div class="card-head"><div class="card-title"><h2>Customer</h2></div></div>
         <div class="card-body">
           <div class="detail-list">
             <div><span>Name</span><strong>${esc(credit.customer_name)}</strong></div>
@@ -69,7 +69,7 @@ export async function render(container, { params = [] } = {}) {
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><div class="card-title"><h2>Ledger details</h2><p>Automatic postings</p></div>${credit.journal_entry_id ? `<a class="card-link" href="#/journal?focus=${credit.journal_entry_id}">Open ${icon('chevron', 12)}</a>` : ''}</div>
+        <div class="card-head"><div class="card-title"><h2>Ledger details</h2></div>${credit.journal_entry_id ? `<a class="card-link" href="#/journal?focus=${credit.journal_entry_id}">Open ${icon('chevron', 12)}</a>` : ''}</div>
         <div class="card-body">
           <div class="detail-list">
             <div>
@@ -93,7 +93,7 @@ export async function render(container, { params = [] } = {}) {
 
     <div class="card" style="margin-top:16px" data-applications-card>
       <div class="card-head">
-        <div class="card-title"><h2>Applications</h2><p>${applications.length ? `${fmtMoney(credit.applied_cents)} applied to invoices` : 'No invoices have used this credit yet'}</p></div>
+        <div class="card-title"><h2>Applications</h2></div>
         ${canApply ? `<button class="btn btn-secondary btn-sm" data-action="apply-credit">${icon('plus', 14)} Apply</button>` : ''}
       </div>
       ${applications.length ? `
@@ -122,7 +122,7 @@ export async function render(container, { params = [] } = {}) {
 
     <div class="card" style="margin-top:16px">
       <div class="card-head">
-        <div class="card-title"><h2>Cash refunds</h2><p>${refunds.length ? `${fmtMoney(refundedCents)} paid back to the customer` : 'No cash has been refunded from this credit'}</p></div>
+        <div class="card-title"><h2>Cash refunds</h2></div>
         ${canRefund ? `<button class="btn btn-secondary btn-sm" data-action="refund-credit">${icon('arrowUp', 14)} Refund</button>` : ''}
       </div>
       <div class="table-wrap">
@@ -246,7 +246,6 @@ async function openApplyModal(credit, onSaved) {
   const maxAmount = Math.min(credit.remaining_cents, invoices[0].balance_cents);
   openModal({
     title: 'Apply customer credit',
-    subtitle: `${credit.number} · ${fmtMoney(credit.remaining_cents)} remaining`,
     submitLabel: 'Apply credit',
     body: `
       <div class="form-grid">
@@ -298,17 +297,15 @@ function openRefundModal(credit, onSaved) {
   const preferred = accounts.find((account) => account.code === '1010') || accounts[0];
   openModal({
     title: `Cash refund of ${credit.number}`,
-    subtitle: `${credit.customer_name} · ${fmtMoney(credit.remaining_cents)} available`,
     submitLabel: 'Record refund',
     body: `
       <div class="form-grid">
         <div class="field">
-          <label for="cn-refund-amount">Amount paid</label>
+          <label for="cn-refund-amount">Amount paid · ${fmtMoney(credit.remaining_cents)} available</label>
           <div class="money-input"><span>AED</span>
             <input class="input" id="cn-refund-amount" name="amount" type="number" min="0.01" step="0.01"
               max="${centsToInput(credit.remaining_cents)}" value="${centsToInput(credit.remaining_cents)}" required inputmode="decimal">
           </div>
-          <div class="hint">Available ${fmtMoney(credit.remaining_cents)}</div>
         </div>
         <div class="field">
           <label for="cn-refund-date">Refund date</label>
@@ -329,9 +326,6 @@ function openRefundModal(credit, onSaved) {
           <select class="input" id="cn-refund-account" name="account_id" required>
             ${optionsHtml(accounts, { selected: preferred.id, placeholder: 'Choose bank or cash account…', labelKey: (account) => `${account.code} · ${account.name}` })}
           </select>
-        </div>
-        <div class="field full">
-          <div class="form-note">This debits 2450 Customer Credits and credits the bank or cash account. Revenue is not changed again.</div>
         </div>
       </div>
     `,

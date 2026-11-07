@@ -51,7 +51,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
   setHeader({
     title: 'Credit notes & customer credits',
-    subtitle: `${issued.length} open · ${fmtMoney(remaining)} unapplied customer credit`,
     actions: `<button class="btn btn-primary" data-action="new-credit">${icon('plus', 15)}<span>New credit note</span></button>`,
   });
 
@@ -60,7 +59,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     body = `<div class="card">${emptyState({
       iconName: 'invoice',
       title: 'No credit notes yet',
-      message: 'Issue a standalone credit note for a revenue adjustment, or use Convert to credit on a cancellation note to move a cancellation refund into customer credit.',
       action: '<button class="btn btn-primary" data-action="new-credit">Create credit note</button>',
     })}</div>`;
   } else {
@@ -120,7 +118,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
         <td class="num ${credit.remaining_cents ? 'amount-due' : 'muted'}">${fmtMoney(credit.remaining_cents)}</td>
         <td>${creditStatusBadge(credit)}</td>
       </tr>
-    `).join('') : `<tr><td colspan="7">${emptyState({ iconName: 'search', title: 'No matching credit notes', message: 'Try a different search term.' })}</td></tr>`;
+    `).join('') : `<tr><td colspan="7">${emptyState({ iconName: 'search', title: 'No matching credit notes' })}</td></tr>`;
     paginationEl.innerHTML = paginationHtml({ total: filtered.length, page, pageSize });
     bindPagination(paginationEl.querySelector('[data-pagination]'), ({ page: nextPage, pageSize: nextSize }) => {
       page = nextPage;
@@ -180,7 +178,6 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 function openCreditModal({ customers, revenueAccounts, openCancellationsByCustomer = new Map(), customerId = null, onSaved }) {
   openModal({
     title: 'New credit note',
-    subtitle: 'Issue a customer credit and post it to the ledger.',
     submitLabel: 'Issue credit note',
     body: `
       <div class="form-grid">
@@ -207,11 +204,10 @@ function openCreditModal({ customers, revenueAccounts, openCancellationsByCustom
           <select class="input" id="credit-revenue" name="revenue_account_id" required>
             ${revenueAccounts.map((account) => `<option value="${account.id}" ${account.code === '4000' ? 'selected' : ''}>${esc(account.code)} ${esc(account.name)}</option>`).join('')}
           </select>
-          <div class="hint">This account is debited, reducing the related revenue.</div>
         </div>
         <div class="field full">
           <div class="form-note">
-            <strong>Standalone credit note:</strong> this debits revenue and credits 2450 Customer Credits. If you are converting a cancellation refund, use <strong>Convert to credit</strong> on the cancellation note instead — that moves 2500 to 2450 without touching revenue again.
+            Converting a cancellation refund? Use <strong>Convert to credit</strong> on the cancellation note instead, so revenue is not reduced twice.
           </div>
         </div>
         <div class="field full">

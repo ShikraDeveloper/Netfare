@@ -12,7 +12,7 @@ export const MENU_GROUPS = [
     label: 'Home',
     icon: 'home',
     items: [
-      { section: 'dashboard', href: '#/dashboard', icon: 'dashboard', label: 'Dashboard', desc: 'Today at a glance' },
+      { section: 'dashboard', href: '#/dashboard', icon: 'dashboard', label: 'Dashboard', keywords: 'Today at a glance' },
     ],
   },
   {
@@ -20,8 +20,8 @@ export const MENU_GROUPS = [
     label: 'Travel',
     icon: 'plane',
     items: [
-      { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings', desc: 'Tickets, hotels and packages' },
-      { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas', desc: 'Applications, groups and deposits' },
+      { section: 'bookings', href: '#/bookings', icon: 'plane', label: 'Bookings', keywords: 'Tickets, hotels and packages' },
+      { section: 'visas', href: '#/visas', icon: 'visa', label: 'Visas', keywords: 'Applications, groups and deposits' },
     ],
     actions: [
       { label: 'New booking', href: '#/bookings?new=1', area: 'bookings' },
@@ -33,8 +33,8 @@ export const MENU_GROUPS = [
     label: 'Sales',
     icon: 'invoice',
     items: [
-      { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices', desc: 'Service invoices and payments' },
-      { section: 'customers', href: '#/customers', icon: 'customers', label: 'Customers', desc: 'Contacts, documents, nationality' },
+      { section: 'invoices', href: '#/invoices', icon: 'invoice', label: 'Invoices', keywords: 'Service invoices and payments' },
+      { section: 'customers', href: '#/customers', icon: 'customers', label: 'Customers', keywords: 'Contacts, documents, nationality' },
     ],
     actions: [
       { label: 'New invoice', href: '#/invoices?new=1', area: 'sales' },
@@ -46,11 +46,11 @@ export const MENU_GROUPS = [
     label: 'Money back',
     icon: 'undo',
     items: [
-      { section: 'customer-balances', href: '#/customer-balances', icon: 'wallet', label: 'Customer balances', desc: 'Who owes what · Receive payment' },
-      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'Settlements', desc: 'Refunds and credits waiting' },
-      { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations', desc: 'Cancelled bookings and visas' },
-      { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds', desc: 'Money paid back to customers' },
-      { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes', desc: 'Credit kept for customers' },
+      { section: 'customer-balances', href: '#/customer-balances', icon: 'wallet', label: 'Customer balances', keywords: 'Who owes what · Receive payment' },
+      { section: 'settlement-queue', href: '#/settlement-queue', icon: 'clock', label: 'Settlements', keywords: 'Refunds and credits waiting' },
+      { section: 'cancellations', href: '#/cancellations', icon: 'x', label: 'Cancellations', keywords: 'Cancelled bookings and visas' },
+      { section: 'refunds', href: '#/refunds', icon: 'arrowUp', label: 'Refunds', keywords: 'Money paid back to customers' },
+      { section: 'credits', href: '#/credits', icon: 'invoice', label: 'Credit notes', keywords: 'Credit kept for customers' },
     ],
     actions: [
       { label: 'New credit note', href: '#/credits?new=1', area: 'refunds' },
@@ -61,10 +61,10 @@ export const MENU_GROUPS = [
     label: 'Suppliers',
     icon: 'truck',
     items: [
-      { section: 'vendors', href: '#/vendors', icon: 'vendors', label: 'Suppliers', desc: 'Airlines, consolidators, agents' },
-      { section: 'bills', href: '#/bills', icon: 'bill', label: 'Bills & expenses', desc: 'What you owe and pay' },
-      { section: 'supplier-credits', href: '#/supplier-credits', icon: 'bill', label: 'Supplier credits', desc: 'Credit held with suppliers' },
-      { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets', desc: 'Top-ups and credit accounts' },
+      { section: 'vendors', href: '#/vendors', icon: 'vendors', label: 'Suppliers', keywords: 'Airlines, consolidators, agents' },
+      { section: 'bills', href: '#/bills', icon: 'bill', label: 'Bills & expenses', keywords: 'What you owe and pay' },
+      { section: 'supplier-credits', href: '#/supplier-credits', icon: 'bill', label: 'Supplier credits', keywords: 'Credit held with suppliers' },
+      { section: 'portals', href: '#/portals', icon: 'wallet', label: 'Portals & wallets', keywords: 'Top-ups and credit accounts' },
     ],
     actions: [
       { label: 'New bill', href: '#/bills?new=1', area: 'suppliers' },
@@ -79,16 +79,16 @@ export const MENU_GROUPS = [
     collapsed: true,
     columns: 3,
     items: [
-      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking', desc: 'Cash and bank' },
-      { section: 'petty-cash', href: '#/petty-cash', icon: 'wallet', label: 'Petty cash', desc: 'Float and counts' },
-      { section: 'card-settlements', href: '#/card-settlements', icon: 'cash', label: 'Card settlements', desc: 'Gateway payouts' },
-      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation', desc: 'Match bank statements' },
-      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques', desc: 'Post-dated cheques' },
-      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance', desc: 'Due dates and fees' },
-      { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal', desc: 'Manual entries' },
-      { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances', desc: 'Starting figures' },
-      { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts', desc: 'All accounts' },
-      { section: 'audit-logs', href: '#/audit-logs', icon: 'shield', label: 'Audit log', desc: 'Who did what' },
+      { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking', keywords: 'Cash and bank' },
+      { section: 'petty-cash', href: '#/petty-cash', icon: 'wallet', label: 'Petty cash', keywords: 'Float and counts' },
+      { section: 'card-settlements', href: '#/card-settlements', icon: 'cash', label: 'Card settlements', keywords: 'Gateway payouts' },
+      { section: 'bank-reconciliation', href: '#/bank-reconciliation', icon: 'check', label: 'Bank reconciliation', keywords: 'Match bank statements' },
+      { section: 'cheques', href: '#/cheques', icon: 'cheque', label: 'Cheques', keywords: 'Post-dated cheques' },
+      { section: 'compliance', href: '#/compliance', icon: 'check', label: 'Compliance', keywords: 'Due dates and fees' },
+      { section: 'journal', href: '#/journal', icon: 'journal', label: 'Journal', keywords: 'Manual entries' },
+      { section: 'opening-balances', href: '#/opening-balances', icon: 'journal', label: 'Opening balances', keywords: 'Starting figures' },
+      { section: 'accounts', href: '#/accounts', icon: 'accounts', label: 'Chart of accounts', keywords: 'All accounts' },
+      { section: 'audit-logs', href: '#/audit-logs', icon: 'shield', label: 'Audit log', keywords: 'Who did what' },
     ],
     actions: [
       { label: 'New journal entry', href: '#/journal?new=1', area: 'books' },
@@ -99,7 +99,7 @@ export const MENU_GROUPS = [
     label: 'Reports',
     icon: 'reports',
     items: [
-      { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports', desc: 'Profit, balance sheet, DSR, aging' },
+      { section: 'reports', href: '#/reports', icon: 'reports', label: 'Reports', keywords: 'Profit, balance sheet, DSR, aging' },
     ],
   },
   {
@@ -108,7 +108,7 @@ export const MENU_GROUPS = [
     icon: 'settings',
     sideOnly: true,
     items: [
-      { section: 'settings', href: '#/settings', icon: 'settings', label: 'Settings', desc: 'Company, users, backups' },
+      { section: 'settings', href: '#/settings', icon: 'settings', label: 'Settings', keywords: 'Company, users, backups' },
     ],
   },
 ];
@@ -209,7 +209,7 @@ function panelItemHtml(item) {
   return `
     <a class="tn-item" href="${item.href}" data-section="${item.section}">
       <span class="tn-item-icon">${icon(item.icon, 16)}</span>
-      <span class="tn-item-text"><strong>${esc(item.label)}</strong><small>${esc(item.desc)}</small></span>
+      <span class="tn-item-text"><strong>${esc(item.label)}</strong></span>
     </a>`;
 }
 
@@ -365,7 +365,8 @@ export function markTopNav(section) {
 function searchSources() {
   const rows = [];
   for (const group of visibleGroups()) {
-    for (const item of group.items) rows.push({ kind: 'Screen', label: item.label, sub: item.desc, href: item.href, icon: item.icon });
+    // keywords are not shown; they let a search for "gateway" find Card settlements.
+    for (const item of group.items) rows.push({ kind: 'Screen', label: item.label, sub: '', terms: item.keywords, href: item.href, icon: item.icon });
     for (const action of group.actions) rows.push({ kind: 'Create', label: action.label, sub: group.label, href: action.href, icon: 'plus' });
   }
   for (const row of recentFor(null, 8)) rows.push({ kind: 'Recent', label: row.title, sub: '', href: row.hash, icon: 'clock' });
@@ -421,7 +422,7 @@ export function openSearch() {
   const paint = () => {
     const term = input.value.trim().toLowerCase();
     results = (term
-      ? sources.filter((row) => `${row.label} ${row.sub} ${row.kind}`.toLowerCase().includes(term))
+      ? sources.filter((row) => `${row.label} ${row.sub} ${row.kind} ${row.terms || ''}`.toLowerCase().includes(term))
       : sources.filter((row) => row.kind !== 'Customer' && row.kind !== 'Supplier' && row.kind !== 'Portal')
     ).slice(0, 12);
     cursor = Math.min(cursor, Math.max(0, results.length - 1));
