@@ -424,6 +424,13 @@ function voidCredit(db, creditId, payload = {}) {
     db.prepare(`
       UPDATE credit_notes SET status = 'void', void_entry_id = ?, applied_cents = 0, refunded_cents = 0 WHERE id = ?
     `).run(voidEntryId, credit.id);
+    // A refund given on a rejected visa (whose invoice stays) is kept again.
+    if (credit.cancellation_id) {
+      db.prepare(`
+        UPDATE cancellations SET customer_charges_cents = customer_charges_cents + ?
+        WHERE id = ? AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = cancellations.invoice_id AND i.status = 'sent')
+      `).run(credit.amount_cents, credit.cancellation_id);
+    }
     audit.record(db, {
       entity_type: 'credit_note',
       entity_id: credit.id,

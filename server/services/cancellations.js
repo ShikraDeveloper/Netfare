@@ -30,7 +30,7 @@ const SOURCE_TABLES = {
 const cancellationSelect = `
   SELECT cc.*, c.name AS customer_name, c.email AS customer_email,
          c.phone AS customer_phone, c.address AS customer_address,
-         i.number AS invoice_number, i.status AS invoice_status, ci.number AS cancellation_invoice_number,
+         i.number AS invoice_number, i.status AS invoice_status, i.amount_paid_cents AS invoice_paid_cents, ci.number AS cancellation_invoice_number,
          bk.number AS booking_number, bk.status AS booking_status,
          vi.number AS visa_number, vi.status AS visa_status
   FROM cancellations cc
@@ -537,8 +537,9 @@ function convertCancellationToCredit(db, id, payload = {}) {
 // cancelled or rejected, often weeks later. It becomes a supplier credit on
 // the bill (lowering the cost); if the money already came in, it is recorded
 // as received into that account. Part of it can be passed on to the customer:
-// that part moves from the charges kept (4330) to the refund due (2500), and
-// is then paid or converted from the note like any other refund.
+// on a rejection that keeps its invoice, as a credit note on that invoice; on
+// a cancellation, moved from the charges kept (4330) to the refund due (2500)
+// and paid or converted from the note like any other refund.
 function recordSupplierRefund(db, id, payload = {}) {
   return db.transaction(() => {
     const cancellation = getCancellation(db, id);

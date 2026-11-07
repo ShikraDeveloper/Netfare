@@ -21,6 +21,9 @@ const cancellations = require('../server/services/cancellations');
 const reconciliation = require('../server/services/reconciliation');
 const credits = require('../server/services/credits');
 const statements = require('../server/services/statements');
+const { dailySales } = require('../server/services/reports/daily-sales');
+const { listSettlementQueue } = require('../server/services/settlement-queue');
+const { getCustomerBalance } = require('../server/services/customer-balances');
 
 after(() => {
   try { db.close(); } catch { /* ignore */ }
@@ -172,6 +175,72 @@ test('rejected and not paid: a later supplier refund passed on lowers what they 
   const inv = invoiceOf(visa.id);
   assert.equal(inv.total_cents - inv.amount_paid_cents - inv.credit_applied_cents, 40_000);
   assert.equal(creditLeft(customer), 0);
+});
+
+test('daily sales: the invoice stays open and the rejection line carries only the refund', () => {
+  const { visa, bill } = submittedVisa('Dsr Unpaid', 0);
+  visas.rejectVisa(db, visa.id, {
+    cancellation_date: '2026-11-05', refund_to_customer_cents: 10_000,
+    supplier_credits: [{ bill_id: bill.id, amount_cents: 5_000 }],
+  });
+  const report = dailySales(db, '2026-11-01', '2026-11-30');
+  const rows = report.days.flatMap((day) => day.rows).filter((row) => row.reference === visa.number);
+  const sale = rows.find((row) => !row.is_cancellation);
+  const rejection = rows.find((row) => row.is_cancellation);
+  assert.equal(sale.status_display === 'cancelled', false);
+  assert.equal(sale.cancelled_by, null);
+  assert.equal(sale.balance_cents, 40_000, 'the customer still owes 400');
+  assert.match(rejection.particulars, /^Rejection /);
+  assert.equal(rejection.sale_cents, -10_000);
+  assert.equal(rejection.cost_cents, -5_000);
+  assert.equal(rejection.paid_cents, 0, 'no money moved');
+  assert.equal(rejection.balance_cents, 0);
+  const net = rows.reduce((sum, row) => ({ sale: sum.sale + row.sale_cents, margin: sum.margin + row.margin_cents }), { sale: 0, margin: 0 });
+  assert.deepEqual(net, { sale: 40_000, margin: 40_000 - 30_000 }, 'kept 400, cost 350 − 50');
+});
+
+test('paid in part, refund above what is owed: the rest is credit to pay out', () => {
+  const { visa, customer } = submittedVisa('Part Paid', 30_000);
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 40_000 });
+  const invoice = invoiceOf(visa.id);
+  assert.equal(invoice.total_cents - invoice.amount_paid_cents - invoice.credit_applied_cents, 0);
+  assert.equal(creditLeft(customer), 20_000, 'paid 300, kept 100: 200 to give back');
+  const queue = listSettlementQueue(db, { party_id: customer }).items;
+  assert.deepEqual(queue.map((row) => [row.type, row.remaining_cents]), [['customer_credit', 20_000]], 'it shows in the settlement queue');
+  const balance = getCustomerBalance(db, customer).summary;
+  assert.equal(balance.unapplied_credit_cents, 20_000);
+  assert.equal(balance.cancellation_refund_cents, 0, 'not counted twice');
+});
+
+test('a payment after the rejection shows on the note', () => {
+  const { visa } = submittedVisa('Pays Later', 0);
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05' });
+  invoices.recordInvoicePayment(db, invoiceOf(visa.id).id, {
+    amount_cents: 50_000, payment_date: '2026-11-06', method: 'Cash', deposit_account_id: account('1000'),
+  });
+  const note = cancellations.getCancellation(db, noteFor(visa.id));
+  assert.equal(note.invoice_paid_cents, 50_000);
+  assert.equal(invoiceOf(visa.id).status, 'sent');
+});
+
+test('voiding the refund credit note keeps the fees again', () => {
+  const { visa, customer } = submittedVisa('Void Credit', 0);
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05', refund_to_customer_cents: 10_000 });
+  const [credit] = cancellations.getCancellation(db, noteFor(visa.id)).credits;
+  credits.voidCredit(db, credit.id, { remarks: 'Entered by mistake' });
+  const note = cancellations.getCancellation(db, noteFor(visa.id));
+  assert.equal(note.customer_charges_cents, 50_000);
+  assert.equal(note.refund_remaining_cents, 0);
+  const invoice = invoiceOf(visa.id);
+  assert.equal(invoice.total_cents - invoice.amount_paid_cents - invoice.credit_applied_cents, 50_000);
+  assert.equal(visas.getVisa(db, visa.id).result.sale_cents, 50_000);
+  assert.equal(creditLeft(customer), 0);
+});
+
+test('the visa invoice of a rejection cannot be voided directly', () => {
+  const { visa } = submittedVisa('No Void', 0);
+  visas.rejectVisa(db, visa.id, { cancellation_date: '2026-11-05' });
+  assert.throws(() => invoices.voidInvoice(db, invoiceOf(visa.id).id, { remarks: 'x' }), /belongs to a visa application/);
 });
 
 test('the books balance and every ledger check matches', () => {

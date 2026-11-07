@@ -57,6 +57,13 @@ function defaultAccounts() {
   return { saleAccountId, costAccountId };
 }
 
+// What a visa sold for: after a rejection or cancellation, what was kept.
+// Cancelled visas with no note had everything reversed.
+function saleOf(visa) {
+  if (visa.result) return visa.result.sale_cents;
+  return ['cancelled', 'rejected'].includes(visa.status) ? 0 : visa.sale_total_cents;
+}
+
 function visaRow(visa) {
   const marginClass = visa.margin_cents >= 0 ? 'margin-positive' : 'margin-negative';
   const destination = [
@@ -331,8 +338,7 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
 
 export async function render(container, { query } = {}) {
   const visas = await api.get('/visas');
-  const saleTotal = visas.filter((visa) => !['cancelled', 'rejected'].includes(visa.status))
-    .reduce((sum, visa) => sum + visa.sale_total_cents, 0);
+  const saleTotal = visas.reduce((sum, visa) => sum + saleOf(visa), 0);
 
   setHeader({
     title: 'Visas',
@@ -449,9 +455,7 @@ export async function render(container, { query } = {}) {
         visa.status,
       ].some((value) => String(value || '').toLowerCase().includes(term));
     });
-    const filteredSales = filtered
-      .filter((visa) => !['cancelled', 'rejected'].includes(visa.status))
-      .reduce((sum, visa) => sum + visa.sale_total_cents, 0);
+    const filteredSales = filtered.reduce((sum, visa) => sum + saleOf(visa), 0);
     const issued = filtered.filter((visa) => visa.status === 'issued').length;
     countEl.textContent = `${filtered.length} shown`;
     if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;

@@ -204,7 +204,7 @@ export async function render(container, { params, query } = {}) {
           ${keeps ? `
           <div class="detail-list">
             <div><span>Invoice</span><strong><a href="#/invoices/${cancellation.invoice_id}">${esc(cancellation.invoice_number || '')}</a></strong></div>
-            <div><span>Paid by the customer</span><strong>${fmtMoney(cancellation.received_cents)}</strong></div>
+            <div><span>Paid by the customer</span><strong>${fmtMoney(cancellation.invoice_paid_cents)}</strong></div>
             <div><span>Refund to customer</span><strong>${fmtMoney(cancellation.customer_credited_cents)}</strong></div>
             <div><span>Kept by us</span><strong>${fmtMoney(cancellation.customer_charges_cents)}</strong></div>
           </div>

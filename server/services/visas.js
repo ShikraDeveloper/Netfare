@@ -418,10 +418,9 @@ function issueVisa(db, id) {
   })();
 }
 
-// A rejection by immigration is not the customer cancelling: fees are
-// usually kept. The form asks what goes back to the customer (default
-// nothing); the rest of the invoice is kept as charges, so an unpaid customer
-// still owes it and a paid one gets back only what is entered.
+// A rejection by immigration is not the customer cancelling: the invoice
+// stays and what goes back to the customer is a credit note on it
+// (see cancellations.rejectVisa).
 function rejectVisa(db, id, payload = {}) {
   cancellationService.rejectVisa(db, id, payload);
   return getVisa(db, id);
