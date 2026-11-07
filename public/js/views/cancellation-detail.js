@@ -43,14 +43,18 @@ export async function render(container, { params, query } = {}) {
   const showSettlementChoice = canSettle && query?.get('settle') === '1';
   const href = sourceHref(cancellation);
   const sourceLabel = cancellation.source_type === 'booking' ? 'Booking' : 'Visa application';
+  // A visa rejected by immigration uses the same note, worded as a rejection.
+  const isRejected = cancellation.source_type === 'visa' && cancellation.visa_status === 'rejected';
 
   pageRecord(cancellation);
   setHeader({
     title: cancellation.number,
+    badge: statusBadge(isRejected ? 'rejected' : 'cancelled'),
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/cancellation/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="${href}"><span>${sourceLabel}</span></a>
-      <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print cancellation note</span></button>
+      <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>
+      <button class="btn btn-secondary" data-action="supplier-refund">${icon('arrowUp', 15)}<span>Supplier refund</span></button>
       ${canSettle ? `<button class="btn btn-primary" data-action="refund">${icon('arrowUp', 15)}<span>Pay refund</span></button>` : ''}
       ${canSettle ? `<button class="btn btn-secondary" data-action="convert">${icon('invoice', 15)}<span>Convert to credit</span></button>` : ''}
     `,
@@ -121,11 +125,11 @@ export async function render(container, { params, query } = {}) {
             </div>
           </div>
           <div class="doc-meta">
-            <div class="doc-kind">Cancellation note</div>
+            <div class="doc-kind">${isRejected ? 'Rejection note' : 'Cancellation note'}</div>
             <div class="doc-number">${esc(cancellation.number)}</div>
             <div class="doc-status">${statusLabel(cancellation)}</div>
             <dl class="doc-meta-grid">
-              <dt>Cancellation date</dt><dd>${esc(fmtDate(cancellation.cancellation_date))}</dd>
+              <dt>${isRejected ? 'Rejection date' : 'Cancellation date'}</dt><dd>${esc(fmtDate(cancellation.cancellation_date))}</dd>
               <dt>${sourceLabel}</dt><dd>${esc(cancellation.source_number || '—')}</dd>
               <dt>Original invoice</dt><dd>${cancellation.invoice_id
                 ? `<a href="#/invoices/${cancellation.invoice_id}">${esc(cancellation.invoice_number || 'Open invoice')}</a>`
@@ -142,7 +146,7 @@ export async function render(container, { params, query } = {}) {
             <div class="doc-party-detail">${esc([cancellation.customer_address, cancellation.customer_email, cancellation.customer_phone].filter(Boolean).join('\n'))}</div>
           </div>
           <div>
-            <div class="doc-label">Cancellation</div>
+            <div class="doc-label">${isRejected ? 'Reason' : 'Cancellation'}</div>
             <div class="doc-terms">${esc(cancellation.reason || `Cancellation of ${sourceLabel.toLowerCase()} ${cancellation.source_number || ''}.`)}${cancellation.notes ? esc(`\n${cancellation.notes}`) : ''}</div>
           </div>
         </div>
@@ -156,21 +160,18 @@ export async function render(container, { params, query } = {}) {
               </tr>
             </thead>
             <tbody>
-              <tr><td>Cancellation charges to customer</td><td class="num amount">${fmtMoney(cancellation.customer_charges_cents)}</td></tr>
+              <tr><td>${isRejected ? 'Kept by us' : 'Cancellation charges to customer'}</td><td class="num amount">${fmtMoney(cancellation.customer_charges_cents)}</td></tr>
               <tr><td>Money held from the customer</td><td class="num amount">${fmtMoney(cancellation.received_cents)}</td></tr>
-              <tr><td>Supplier credit recorded</td><td class="num amount">${fmtMoney(cancellation.supplier_credit_total_cents)}</td></tr>
+              <tr><td>${isRejected ? 'Refund from suppliers' : 'Supplier credit recorded'}</td><td class="num amount">${fmtMoney(cancellation.supplier_credit_total_cents)}</td></tr>
             </tbody>
           </table>
         </div>
 
         <div class="doc-total-area">
-          <div class="doc-notes">
-            <strong>How this was recorded</strong>
-            Receipts and supplier payments remain in the ledger. The original customer invoice was voided, cancellation charges were recognised in 4330 Cancellation Fee Income, and any unused supplier cost remains in profit and loss. The refund due below is held in 2500 Refund Liabilities until it is paid or converted to customer credit.
-          </div>
+          <div class="doc-notes"></div>
           <div class="doc-totals">
-            <div class="totals-row"><span>Charges to customer</span><span>${fmtMoney(cancellation.customer_charges_cents)}</span></div>
-            <div class="totals-row"><span>Refund due at cancellation</span><span>${fmtMoney(cancellation.refund_due_cents)}</span></div>
+            <div class="totals-row"><span>${isRejected ? 'Kept by us' : 'Charges to customer'}</span><span>${fmtMoney(cancellation.customer_charges_cents)}</span></div>
+            <div class="totals-row"><span>Refund due</span><span>${fmtMoney(cancellation.refund_due_cents)}</span></div>
             <div class="totals-row"><span>Refunded</span><span>${fmtMoney(cancellation.customer_refunded_cents)}</span></div>
             <div class="totals-row"><span>Converted to credit</span><span>${fmtMoney(cancellation.customer_credited_cents)}</span></div>
             <div class="totals-row total"><span>Refund remaining</span><span>${fmtMoney(remaining)}</span></div>
@@ -366,6 +367,74 @@ export async function render(container, { params, query } = {}) {
         history.replaceState(null, '', `#/cancellations/${id}${stillOpen ? '?settle=1' : ''}`);
         toast(`Customer credit created · ${fmtMoney(saved.refund_remaining_cents)} refund remaining`);
         refresh(stillOpen);
+      },
+    });
+  }
+
+  document.querySelector('[data-action="supplier-refund"]')?.addEventListener('click', openSupplierRefund);
+
+  // Money the supplier (immigration, an airline) gives back later. Part of it
+  // can go to the customer, up to what was kept from their money.
+  async function openSupplierRefund() {
+    const job = await api.get(`/${cancellation.source_type === 'booking' ? 'bookings' : 'visas'}/${cancellation.source_id}`);
+    const bills = (job.bills || []).filter((bill) => bill.status === 'received');
+    if (!bills.length) {
+      toast('This job has no supplier bill to refund', 'error');
+      return;
+    }
+    const accounts = cashAccounts().sort((a, b) => (b.is_cash - a.is_cash) || a.code.localeCompare(b.code));
+    const preferred = accounts.find((account) => account.code === '1010') || accounts[0];
+    const keptFromHeld = Math.min(Number(cancellation.received_cents || 0), Number(cancellation.customer_charges_cents || 0));
+    openModal({
+      title: 'Supplier refund',
+      submitLabel: 'Record refund',
+      body: `
+        <div class="form-grid">
+          <div class="field full">
+            <label for="sr-bill">Bill</label>
+            <select class="input" id="sr-bill" name="bill_id" required>
+              ${bills.map((bill) => `<option value="${bill.id}">${esc(bill.number)} · ${esc(bill.vendor_name || '')} · ${fmtMoney(bill.total_cents)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="sr-amount">Amount the supplier gave back</label>
+            <div class="money-input"><span>AED</span>
+              <input class="input" id="sr-amount" name="amount" type="number" min="0.01" step="0.01" required inputmode="decimal">
+            </div>
+          </div>
+          <div class="field">
+            <label for="sr-date">Date</label>
+            <input class="input" id="sr-date" name="date" type="date" value="${todayISO()}" required>
+          </div>
+          <div class="field full">
+            <label for="sr-account">Received into</label>
+            <select class="input" id="sr-account" name="account_id">
+              <option value="">Not received yet: keep as credit with the supplier</option>
+              ${accounts.map((account) => `<option value="${account.id}" ${account.id === preferred?.id ? 'selected' : ''}>${esc(account.code)} · ${esc(account.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field full">
+            <label for="sr-customer">Give to the customer${keptFromHeld ? ` · up to ${fmtMoney(keptFromHeld)}` : ''}</label>
+            <div class="money-input"><span>AED</span>
+              <input class="input" id="sr-customer" name="pass_to_customer" type="number" min="0" step="0.01" value="0.00" max="${centsToInput(keptFromHeld)}"
+                ${keptFromHeld ? '' : 'disabled'} inputmode="decimal">
+            </div>
+          </div>
+        </div>
+      `,
+      async onSubmit(form) {
+        const values = new FormData(form);
+        const saved = await api.post(`/cancellations/${cancellation.id}/supplier-refund`, {
+          bill_id: Number(values.get('bill_id')),
+          amount_cents: toCents(values.get('amount')),
+          date: values.get('date'),
+          account_id: values.get('account_id') ? Number(values.get('account_id')) : null,
+          pass_to_customer_cents: toCents(values.get('pass_to_customer') || 0),
+        });
+        const due = Number(saved.refund_remaining_cents) > 0;
+        toast(due ? `Supplier refund recorded · ${fmtMoney(saved.refund_remaining_cents)} to give the customer` : 'Supplier refund recorded');
+        history.replaceState(null, '', `#/cancellations/${id}${due ? '?settle=1' : ''}`);
+        refresh(due);
       },
     });
   }

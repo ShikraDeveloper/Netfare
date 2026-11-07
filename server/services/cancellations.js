@@ -445,7 +445,93 @@ function convertCancellationToCredit(db, id, payload = {}) {
   })();
 }
 
+// Money a supplier (immigration, an airline) gives back after the job was
+// cancelled or rejected, often weeks later. It becomes a supplier credit on
+// the bill (lowering the cost); if the money already came in, it is recorded
+// as received into that account. Part of it can be passed on to the customer:
+// that part moves from the charges kept (4330) to the refund due (2500), and
+// is then paid or converted from the note like any other refund.
+function recordSupplierRefund(db, id, payload = {}) {
+  return db.transaction(() => {
+    const cancellation = getCancellation(db, id);
+    const sourceKey = cancellation.source_type === 'booking' ? 'booking_id' : 'visa_id';
+    const bill = db.prepare(`SELECT * FROM bills WHERE id = ? AND ${sourceKey} = ?`).get(Number(payload.bill_id), cancellation.source_id);
+    if (!bill) throw bad('Choose a supplier bill of this job');
+    const [credit] = normalizeSupplierCredits(db, cancellation.source_type, cancellation.source_id, [
+      { bill_id: bill.id, amount_cents: payload.amount_cents },
+    ]);
+    if (!credit) throw bad('Enter the amount the supplier gave back');
+    const amount = credit.amount_cents;
+    const date = dateISO(payload.date || todayISO(), 'Date');
+    if (date < cancellation.cancellation_date) throw bad('The date cannot be before the cancellation date');
+    const passOn = cents(payload.pass_to_customer_cents ?? 0, 'Amount for the customer', { min: 0 });
+    if (passOn > amount) throw bad('The customer cannot get more than the supplier gave back');
+    const keptFromHeld = Math.min(cancellation.received_cents, cancellation.customer_charges_cents);
+    if (passOn > keptFromHeld) {
+      throw bad(`Only ${(keptFromHeld / 100).toFixed(2)} was kept from the customer's money, so no more can go back to them`);
+    }
+    let account = null;
+    if (payload.account_id) {
+      account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.account_id));
+      if (!account || !account.is_active || !isCashAccount(account)) throw bad('Choose an active bank or cash account');
+    }
+
+    const creditId = supplierCreditService.createSupplierCreditForCancellation(db, {
+      vendor_id: bill.vendor_id,
+      bill_id: bill.id,
+      booking_id: cancellation.source_type === 'booking' ? cancellation.source_id : null,
+      visa_id: cancellation.source_type === 'visa' ? cancellation.source_id : null,
+      cancellation_id: cancellation.id,
+      credit_date: date,
+      amount_cents: amount,
+      notes: optionalStr(payload.notes, 'Notes', 1000) || `${cancellation.number} — refund from the supplier on bill ${bill.number}`,
+    });
+    // Whatever the credit did not clear on the bill (or move to a prepaid
+    // portal) came in as money.
+    const left = supplierCreditService.getSupplierCredit(db, creditId).remaining_cents;
+    if (account && left > 0) {
+      supplierCreditService.refundSupplierCredit(db, creditId, {
+        amount_cents: left,
+        refund_date: date,
+        account_id: account.id,
+        method: optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
+        reference: optionalStr(payload.reference, 'Reference', 200),
+      });
+    }
+
+    if (passOn > 0) {
+      const refundPayable = systemAccount(db, '2500', 'Refund Liabilities');
+      const cancellationIncome = systemAccount(db, '4330', 'Cancellation Fee Income');
+      postEntry(db, {
+        entry_date: date,
+        memo: `${cancellation.number} — supplier refund passed on to the customer`,
+        reference: cancellation.number,
+        source_type: 'cancellation_charge',
+        source_id: cancellation.id,
+        lines: [
+          { account_id: cancellationIncome.id, debit_cents: passOn, credit_cents: 0, description: cancellation.number },
+          { account_id: refundPayable.id, debit_cents: 0, credit_cents: passOn, description: cancellation.number },
+        ],
+      });
+    }
+    db.prepare(`
+      UPDATE cancellations SET supplier_credit_total_cents = supplier_credit_total_cents + ?,
+        customer_charges_cents = customer_charges_cents - ?, refund_due_cents = refund_due_cents + ? WHERE id = ?
+    `).run(amount, passOn, passOn, cancellation.id);
+    audit.record(db, {
+      entity_type: 'cancellation',
+      entity_id: cancellation.id,
+      entity_number: cancellation.number,
+      action: 'supplier_refund',
+      remarks: `${(amount / 100).toFixed(2)} back from the supplier on ${bill.number}${passOn ? `; ${(passOn / 100).toFixed(2)} to the customer` : ''}`,
+      amount_cents: amount,
+    });
+    return getCancellation(db, cancellation.id);
+  })();
+}
+
 module.exports = {
+  recordSupplierRefund,
   cancelSource,
   getCancellation,
   getCancellationForSource,
