@@ -143,7 +143,11 @@ export async function render(container, { params } = {}) {
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const marginClass = visa.margin_cents >= 0 ? 'margin-positive' : 'margin-negative';
-  const marginPercent = visa.sale_total_cents ? (visa.margin_cents / visa.sale_total_cents) * 100 : 0;
+  // After a rejection or cancellation the profit is what was kept less the
+  // cost left after supplier refunds.
+  const result = visa.result || null;
+  const saleForMargin = result ? result.sale_cents : visa.sale_total_cents;
+  const marginPercent = saleForMargin ? (visa.margin_cents / saleForMargin) * 100 : 0;
 
   const actions = [];
   const menu = [
@@ -389,7 +393,9 @@ export async function render(container, { params } = {}) {
           <div class="doc-notes"></div>
           <div class="doc-totals">
             <div class="totals-row"><span>Total sale</span><span>${fmtMoney(visa.sale_total_cents)}</span></div>
+            ${result && result.sale_cents !== visa.sale_total_cents ? `<div class="totals-row" data-result-sale><span>Sale after refund to customer</span><span>${fmtMoney(result.sale_cents)}</span></div>` : ''}
             <div class="totals-row"><span>Total cost</span><span>${fmtMoney(visa.cost_total_cents)}</span></div>
+            ${result && result.cost_cents !== visa.cost_total_cents ? `<div class="totals-row" data-result-cost><span>Cost after supplier refund</span><span>${fmtMoney(result.cost_cents)}</span></div>` : ''}
             <div class="totals-row total"><span>Gross profit</span><span class="${marginClass}">${fmtMoney(visa.margin_cents)}</span></div>
             <div class="totals-row"><span class="muted">Gross margin</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
             <div class="totals-row balance"><span>Customer balance</span><span>${fmtMoney(visa.balance_cents)}</span></div>

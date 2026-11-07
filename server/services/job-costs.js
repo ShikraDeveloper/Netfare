@@ -73,6 +73,23 @@ function cancellationMap(db, sourceType) {
   return map;
 }
 
+// After a cancellation or rejection a job is worth what was kept, less what
+// the supplier still costs: the figures the profit report uses. Adds them as
+// `result` and makes `margin_cents` the real profit; the sale and cost lines
+// stay as typed.
+function withSettledResult(db, sourceType, jobs) {
+  const notes = cancellationMap(db, sourceType);
+  if (!jobs.some((job) => notes.has(job.id))) return jobs;
+  const costs = jobCostMap(db, sourceType);
+  return jobs.map((job) => {
+    const note = notes.get(job.id);
+    if (!note) return job;
+    const sale = note.customer_charges_cents;
+    const cost = costs.get(job.id) || 0;
+    return { ...job, result: { sale_cents: sale, cost_cents: cost, margin_cents: sale - cost }, margin_cents: sale - cost };
+  });
+}
+
 // Returns the jobs that belong in margin reporting, each with sale, cost and
 // margin taken from the ledger documents. Jobs left out are dropped.
 function valueJobs(db, sourceType, jobs) {
@@ -114,6 +131,7 @@ function valueJobs(db, sourceType, jobs) {
 }
 
 module.exports = {
+  withSettledResult,
   jobCostMap,
   jobCostCents,
   valueJobs,

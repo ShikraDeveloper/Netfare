@@ -200,7 +200,7 @@ function getVisa(db, id) {
     ? visa.invoice.balance_cents
     : (visa.status === 'draft' ? visa.sale_total_cents : 0);
 
-  return serializeVisa(visa);
+  return jobCosts.withSettledResult(db, 'visa', [serializeVisa(visa)])[0];
 }
 
 function listVisas(db, { status, search, from, to } = {}) {
@@ -222,7 +222,7 @@ function listVisas(db, { status, search, from, to } = {}) {
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${visaSelect} ${where} ORDER BY v.application_date DESC, v.id DESC`).all(...params);
-  const serialized = rows.map(serializeVisa);
+  const serialized = jobCosts.withSettledResult(db, 'visa', rows.map(serializeVisa));
   if (!status || status === 'all') return serialized;
   return serialized.filter((row) => row.status === status);
 }

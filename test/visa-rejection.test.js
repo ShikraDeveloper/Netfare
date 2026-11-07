@@ -151,6 +151,13 @@ test('immigration refunds later: the cost drops and part can go to the customer'
   assert.equal(creditLeft(customer), 15_000, 'a credit note the customer can be paid from');
   assert.equal(invoiceOf(visa.id).status, 'sent');
 
+  // Kept 500 − 150 = 350; cost 350 − 200 = 150; profit 200 on the page and the list.
+  const shown = visas.getVisa(db, visa.id);
+  assert.deepEqual(shown.result, { sale_cents: 35_000, cost_cents: 15_000, margin_cents: 20_000 });
+  assert.equal(shown.margin_cents, 20_000);
+  assert.equal(shown.sale_total_cents, 50_000, 'the sale lines stay as typed');
+  assert.equal(visas.listVisas(db, {}).find((row) => row.id === visa.id).margin_cents, 20_000);
+
   assert.throws(() => cancellations.recordSupplierRefund(db, id, {
     bill_id: bill.id, amount_cents: 20_000, date: '2026-11-21',
   }), /cannot exceed the available bill amount/);
