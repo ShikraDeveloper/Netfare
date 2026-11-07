@@ -2608,11 +2608,45 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked** in the demo: VIS-2026-0006 shows gross profit 450 on the page and the list.
 - **Not done:** cancelled bookings still show the typed figures on the booking list and page; their profit report is right.
 
+### Deep review of the visa rejection work — code commit `8d125a5`
+
+- **Why:** The user asked for a deep check that everything done for visa rejection and refunds is correct.
+- **Reviewed:** the whole diff since v1.0.12, with every place that reads cancellations:
+  - statements, customer balances, the settlement queue, the ledger checks;
+  - job profit, the daily sales report, the pending list;
+  - the invoice void guard and the credit note void.
+- **Found and fixed:**
+  1. **Daily sales:** the invoice of a rejection that keeps it was shown as "cancelled" with balance 0. The rejection line also showed money going out (−paid) that never moved. Now the invoice stays open with its real balance; the "Rejection CNC-…" line has the refund (−sale), the supplier refund (−cost) and paid 0. The day's net is unchanged.
+  2. **Voiding a refund credit note** left the note's "kept by us" too low, so the profit was too low. `voidCredit` now adds the amount back when the note's invoice is still sent.
+  3. **Rejection note "Paid by the customer"** was a snapshot from the rejection date; it now reads the invoice (`invoice_paid_cents`).
+  4. **Visa list "Sales" total** left rejected visas out; it now counts what was kept (`saleOf`).
+  5. Stale comments in `visas.rejectVisa` and `recordSupplierRefund` were updated.
+- **Checked and correct:**
+  - the ledger and every ledger check;
+  - refund remaining (0) and the 2500 check;
+  - the customer statement;
+  - the customer balance (credit counted once);
+  - the settlement queue (the credit shows to pay out);
+  - the profit report;
+  - the visa invoice cannot be voided directly;
+  - old rejections (void invoice) keep the old view.
+- **Known, left as is:**
+  - The refund credit note books against the invoice's largest sale line (usually 4320 Visa sales). If the refund is bigger than that line, the split between 4320 and the service fee account is off; the total is right.
+  - The settlement queue and customer balance say "From cancellation CNC-…" for a rejection's credit.
+- **Tests:** 5 new tests in `test/visa-rejection.test.js` (13 in all):
+  - daily sales;
+  - partly paid with a refund above what is owed;
+  - payment after rejection;
+  - void of the credit note;
+  - invoice void blocked.
+
+  `npm test` 280 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Daily sales was checked on the demo for VIS-2026-0006 (sale 1,000 · rejection −200 / −250 · net profit 450).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 (`386a19d`) "rejection keeps the invoice" (`558f7ab`) and real visa profit (`d8c1c64`) are done but not released; next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 (`386a19d`) "rejection keeps the invoice" (`558f7ab`) real visa profit (`d8c1c64`) and the review fixes (`8d125a5`) are done but not released; next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
