@@ -2502,11 +2502,23 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** three e2e checks were updated (settlement choice without the 2500 line, the top-menu panel without descriptions, the credit refund label with "available"). `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Checked** in the preview: Reports home and Settings.
 
+### Simplify, phase 3 — cleanup — code commit `639d7f2`
+
+- **Why:** The user said "Next kero" after phase 2. This is the cleanup step of the simplify plan, done before release.
+- **One token file:** `styles.css` had a `:root` block of 28 tokens that `theme.css` (loaded after it) defined again, so it never applied. It is removed, and the three motion tokens (`--t-fast`, `--t-base`, `--t-ease-out`) moved into `theme.css`. Every token now lives in `theme.css`, and `styles.css` holds only layout and components. `DESIGN.md` was updated.
+- **Unused CSS:**
+  - a one-off script found rules whose every selector names a class no browser file mentions, counting classes built from a prefix at run time (`badge-${…}`) as used;
+  - 15 rules were removed, among them `.charts-grid`, `.dash-grid`, `.stmt-hint`, `.recon-intro*`, `.quick-stat`, `.form-section-title`, `.tabs`, `.daily-summary .summary-tile .sub`, `.theme-note`, and the report day head/total rows;
+  - section comments were kept, and a second run finds 0. CSS is 2,560 lines (2,614 before).
+- **Unused code:** `longMonth` (ui.js), `chartMoney` (dashboard) and `activePortals` (store) are removed, along with four unused imports (bookings, accounts, portal-reconcile, compliance/modal).
+- **Nothing visible changed:** `npm run website:screens` before and after gave byte-identical invoices, booking and rights pictures; the DSR differs only in its "printed" time. The repo keeps the earlier pictures.
+- **Tests:** `npm test` 267 passed, `npm run test:e2e` 43 passed (axe light/dark included), `npm run check` OK.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.11` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Simplify phase 2 is complete (`2f79d71`, not released; helper text 41, from 310). Next: phase 3 cleanup (one CSS token file, remove unused CSS and code), then release. Follow `DESIGN.md`.
+3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Simplify phase 2 is complete (`2f79d71`, not released; helper text 41, from 310). Phase 3 cleanup is done too (`639d7f2`). Next: release (1.0.12) when the user asks. Follow `DESIGN.md` for new screens.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
