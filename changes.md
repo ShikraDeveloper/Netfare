@@ -2472,11 +2472,41 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - `netfare-website.zip` was rebuilt. It only goes live if the user uploads it; the live site keeps the old pictures by choice.
 - **Website status:** HTTPS redirect (301) ✓ and no Cloudflare analytics beacon ✓; both were checked on 2026-11-05.
 
+### Simplify, phase 2 — the rest (reports, money back, books, settings, menu) — code commit `2f79d71`
+
+- **Why:** The user said "Simplify ka baqi kaam". This finishes phase 2 across every remaining screen.
+- **Reports:** the 10 report descriptions are gone from the home cards and report pages, along with the subtitles and the empty-state text in margins, DSR and portal wallets.
+- **Money back:**
+  - removed: the subtitles, card taglines, list empty-state text and Dr/Cr notes in cancellations, refunds and credit notes; the "Payment refunds only" note on the Refunds list;
+  - "Available AED X" hints moved into the amount label;
+  - refund and credit note pages show a status badge;
+  - **kept**: the cancellation's "This cannot be undone. For a mistake, void instead." and its live money summary, and the credit note line "Converting a cancellation refund? Use Convert to credit…" (so revenue is not reduced twice);
+  - the cancellation supplier field reads "Supplier credit · up to AED X"; its empty state reads "Supplier cost kept in full";
+  - refund accounting notes moved into code comments; the refund search hint stays because it is a live result count.
+- **Books:**
+  - journal, accounts, audit log and audit chain: no subtitles, taglines or notes;
+  - opening balances: a **Saved** badge replaces the subtitle; the date label is "Opening date (the day before you started)"; the intro callout and notes are gone, and the live debit/credit difference line stays.
+- **Settings:**
+  - no page subtitle, card taglines (Danger zone keeps "These actions cannot be undone"), payment-terms hint, document-number note or About note;
+  - the appearance options lose their captions and the two "saved on this device" notes;
+  - users: the rights note and two modal subtitles are gone; the password and username rules stay, and so do the sign-out warnings;
+  - office network: "Extra names (Tailscale)", and the note cut to "Takes effect after Netfare restarts. Office Wi-Fi is not encrypted: staff working from home should use Tailscale.";
+  - backups: the note cut to "A cloud folder … is safest: it leaves the building."; updates and recovery key lose their hints and taglines;
+  - the backup safety note now reads "A safety backup is made before Clear all data and Load sample data." (`data/backups` was wrong for the desktop app).
+- **Menu:**
+  - the 26 item descriptions are no longer shown in the top menu panels; they are renamed `keywords` and kept for search (a search for "gateway" still finds Card settlements);
+  - the sidebar tooltip shows the item name.
+- **Statement / settlement queue:** no subtitles or number captions. The printed customer statement keeps "not part of the amount due above" (a money note for the customer).
+- **copy-budget** also counts `theme-note`. Helper text **138 → 41** (310 at the start of the simplify work).
+- **Website:** screenshots retaken (no subtitles on the DSR or rights popup) and the zip rebuilt. The live site keeps the user's chosen pictures until they upload.
+- **Tests:** three e2e checks were updated (settlement choice without the 2500 line, the top-menu panel without descriptions, the credit refund label with "available"). `npm test` 267 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked** in the preview: Reports home and Settings.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.11` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Next: simplify the remaining groups (Reports, Settings, money back: cancellations, refunds, credit notes; books: journal, accounts, opening balances, audit; the menu descriptions), then phase 3 cleanup (one CSS token file, remove unused code). Follow `DESIGN.md` and keep `scripts/copy-budget.json` going down (138 now, 310 at the start).
+3. **Release 1.0.11** is published (simplify phase 1 and phase 2 Sales, Suppliers, Bookings/Visas, Banking; Recent switch fix). Simplify phase 2 is complete (`2f79d71`, not released; helper text 41, from 310). Next: phase 3 cleanup (one CSS token file, remove unused CSS and code), then release. Follow `DESIGN.md`.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
