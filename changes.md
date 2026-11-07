@@ -2546,11 +2546,32 @@ The user asked about moving the side menu to the top with dropdowns. After three
   3. No clean path when the immigration refund arrives weeks later and should go to the customer.
   4. The kept fees show as Cancellation Fee Income, not visa sales (left as is unless the user wants it changed).
 
+### Visa rejection fixes 1–3 — code commit `386a19d`
+
+- **Why:** The user chose "Fix 1, 2, 3" after the visa rejection review.
+- **1. Safe default:**
+  - Reject asks **"Refund to customer · up to AED X"** with a default of 0. `rejectVisa` accepts `refund_to_customer_cents`, checks that it is at most the invoice total, and passes `customer_charges_cents = total − refund` to the cancellation flow.
+  - A paid customer gets back only what is entered. An unpaid customer still owes the fees: a charges invoice replaces the voided one.
+  - Old API calls with `customer_charges_cents` work as before.
+- **2. Rejection wording:**
+  - the form says Rejection date, Kept by us, Customer still owes, and "Refund from the supplier · up to X"; the reason placeholder is "e.g. Rejected by immigration";
+  - the note for a rejected visa shows a **Rejected** badge, "Rejection note", Rejection date, Reason, "Kept by us" and "Refund from suppliers";
+  - cancellations keep their wording;
+  - the "How this was recorded" accounting paragraph is gone from every note.
+- **3. Later supplier refund:** a new **Supplier refund** button on cancellation and rejection notes (`POST /api/cancellations/:id/supplier-refund`, `recordSupplierRefund`). It takes the job's bill, amount, date, "Received into" (a bank or cash account, or "Not received yet: keep as credit with the supplier") and "Give to the customer".
+  - It creates a supplier credit on the bill (lowering cost 5120). It clears an unpaid bill first, or moves to a prepaid portal.
+  - What is left comes into the chosen account (Dr bank · Cr 1450).
+  - The customer part, up to what was kept from the customer's money, moves 4330 → 2500 and raises the refund due, which is paid or converted from the note as usual.
+  - The bill's creditable limit still applies. An audit entry is recorded.
+- **Tests:** new `test/visa-rejection.test.js` (6): kept by default, partial refund, unpaid still owes, refund cap, later refund with a pass-through (cost −200, bank +200, refund due 150, over-limit refused), books balanced and every ledger check matched. `npm test` 273 passed, `npm run test:e2e` 43 passed.
+- **Checked** in the preview: the reject form (0 default, the live summary), a rejection, the note with its rejection wording, and a supplier refund of 200.
+- **Not done:** when the customer paid nothing, "Give to the customer" is off. Lowering what they still owe would need a credit note.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Open: the user decides which visa-rejection fixes to make (see the visa rejection review).
+3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 are done (`386a19d`, not released).
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
