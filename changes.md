@@ -2597,11 +2597,22 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - a paid visa rejected with a refund of 300: the invoice stays sent and a 300 credit note is issued;
   - a later supplier refund of 200 with 100 to the customer: a second credit note, refund due stays 0.
 
+### Real profit on the visa list and page — code commit `d8c1c64`
+
+- **Why:** In the demo, the user rejected VIS-2026-0006 (sale 1,000, cost 600), recorded a supplier refund of 250 and gave 200 to the client. The Visa profit report showed 450 (+50), but the visa list and page still showed 400.
+- **Change:** `jobCosts.withSettledResult` adds `result` (kept sale, cost after supplier credits, profit), the figures the profit report uses. It also sets `margin_cents` for any visa with a rejection or cancellation note. `listVisas` and `getVisa` use it.
+  - The list shows the kept sale, the cost and the profit.
+  - The page adds "Sale after refund to customer" and "Cost after supplier refund" under the typed totals. Gross profit and margin use the real figures.
+  - The typed sale and cost lines are unchanged.
+- **Tests:** a profit check was added to `test/visa-rejection.test.js` (kept 350, cost 150, profit 200). `npm test` 275 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked** in the demo: VIS-2026-0006 shows gross profit 450 on the page and the list.
+- **Not done:** cancelled bookings still show the typed figures on the booking list and page; their profit report is right.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 (`386a19d`) and "rejection keeps the invoice" (`558f7ab`) are done but not released; next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 (`386a19d`) "rejection keeps the invoice" (`558f7ab`) and real visa profit (`d8c1c64`) are done but not released; next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
