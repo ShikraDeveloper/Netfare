@@ -2567,11 +2567,41 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked** in the preview: the reject form (0 default, the live summary), a rejection, the note with its rejection wording, and a supplier refund of 200.
 - **Not done:** when the customer paid nothing, "Give to the customer" is off. Lowering what they still owe would need a credit note.
 
+### Visa rejection keeps the invoice — code commit `558f7ab`
+
+- **Why:** The user asked whether a visa rejection should void the invoice, and agreed it should not. A rejection by immigration is a service that was performed; only a cancellation should reverse the sale.
+- **New flow** (`cancellations.rejectVisa`, called by `visas.rejectVisa`):
+  - the invoice stays `sent`, and the sale stays in 4320/4300 (nothing moves to 4330);
+  - there is no charges invoice; an unpaid customer still owes the same invoice;
+  - the rejection note (a `cancellations` row) records the date, reason, money received, "kept by us" and supplier refunds, with `refund_due_cents` 0;
+  - **Refund to customer** (default 0) becomes a credit note on the invoice (`credits.createCreditForRejection`, Dr the invoice's main sale account · Cr 2450). It is applied first to what is still owed; any part already paid stays as customer credit, refunded from the credit note;
+  - supplier refunds at rejection time and later (**Supplier refund**) lower the cost as before. The part given to the customer is another credit note, capped at what was kept (paid or not).
+- **Old records:** cancellations, and rejections made before this change (their invoice is void), work as before. `keeps_invoice` on a note tells them apart (its invoice is still `sent`). A visa with no open invoice falls back to the cancellation flow.
+- **Other changes:**
+  - Statements show the invoice once: no "cancelled by", charges or cancellation-credit rows for a rejection whose invoice stays.
+  - A rejected visa shows its payment status again (it can still be owed money).
+  - The visa page links to the rejection note.
+  - The reject form shows: invoice stays, paid, customer still owes, to pay back, refund from suppliers, retained cost.
+  - The rejection note shows the invoice, the refund to the customer (credit note), refund from suppliers and "Kept by us", with a Credit notes card; the Refunds paid card and charges invoice are hidden.
+- **Tests:** `test/visa-rejection.test.js` was rewritten (8 tests):
+  - the invoice and sale stay;
+  - a refund becomes a credit note and is then paid out;
+  - unpaid: one invoice, less the refund;
+  - the statement shows the invoice once;
+  - the refund cap;
+  - a later supplier refund passed on (paid, and unpaid);
+  - all ledger checks match.
+
+  `collections.test.js` now expects a partly paid rejected visa to stay "partial". `npm test` 275 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in a temp preview:**
+  - a paid visa rejected with a refund of 300: the invoice stays sent and a 300 credit note is issued;
+  - a later supplier refund of 200 with 100 to the customer: a second credit note, refund due stays 0.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 are done (`386a19d`, not released).
+3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 (`386a19d`) and "rejection keeps the invoice" (`558f7ab`) are done but not released; next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
