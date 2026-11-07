@@ -24,10 +24,6 @@ function destroyCharts() {
   charts = [];
 }
 
-function chartMoney(valueCents, compact = false) {
-  return fmtMoney(valueCents, { compact });
-}
-
 function cssVar(name, fallback) {
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   return value || fallback;

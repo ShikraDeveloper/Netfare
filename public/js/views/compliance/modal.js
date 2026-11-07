@@ -5,7 +5,6 @@ import {
   centsToInput,
   currencySymbol,
   esc,
-  fmtDate,
   openModal,
   optionsHtml,
   recordMetaHtml,

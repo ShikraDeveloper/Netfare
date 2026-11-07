@@ -2,7 +2,6 @@ import { api } from '../api.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   activeCustomers,
-  activePortals,
   activeVendors,
   purchaseAccounts,
   portalForVendorId,

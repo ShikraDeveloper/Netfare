@@ -146,11 +146,6 @@ export function monthLabel(ym) {
   return date.toLocaleDateString(undefined, { month: 'short' });
 }
 
-export function longMonth(iso = todayISO()) {
-  const date = new Date(`${iso.slice(0, 7)}-01T00:00:00`);
-  return date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-}
-
 const STATUS_LABELS = {
   draft: 'Draft',
   sent: 'Sent',

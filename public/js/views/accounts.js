@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { refreshMeta, store } from '../store.js';
+import { refreshMeta } from '../store.js';
 import {
   confirmDialog,
   emptyState,

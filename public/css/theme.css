@@ -74,6 +74,10 @@
   --font: "Quicksand", ui-rounded, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: "Bricolage Grotesque", "Quicksand", ui-rounded, ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Motion: short and quiet (styles.css, Motion). */
+  --t-fast: 160ms;
+  --t-base: 220ms;
+  --t-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html[data-theme="dark"] {
@@ -296,7 +300,6 @@ html[data-theme="dark"] .auth-logo-dark { display: block; }
 }
 .callout-text h3 { font-family: var(--font-display); font-weight: 700; }
 
-.quick-stat { background: var(--surface-2); border-color: var(--border); }
 .mini-row { border-bottom-color: var(--border); }
 .mini-row:hover { background: var(--surface-2); }
 .mini-sub { color: var(--muted); }
@@ -335,7 +338,6 @@ html[data-theme="dark"] select.input {
 }
 .field label { color: var(--text-soft); }
 .form-note { background: var(--surface-2); border-color: var(--border); }
-.form-section-title { border-top-color: var(--border); color: var(--muted-2); }
 .checkbox-row input { accent-color: var(--primary); }
 
 .line-items-wrap { border-color: var(--border); }
@@ -369,7 +371,6 @@ html[data-theme="dark"] .toast-success .icon { color: #1c7a5a; }
 html[data-theme="dark"] .toast-error .icon { color: #c0392b; }
 
 /* ---------- Tabs ---------- */
-.tabs { border-bottom-color: var(--border); }
 .tab { color: var(--muted); }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--primary); border-color: var(--accent); }
@@ -426,13 +427,10 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 .report-row.total { border-top-color: var(--border); }
 .report-table th { border-bottom-color: var(--border); color: var(--muted); }
 .report-table td { border-bottom-color: var(--border); }
-.report-table tr.report-day-head td { background: var(--surface-2); border-color: var(--border); }
-.report-table tr.report-day-total td { background: var(--surface-2); border-bottom-color: var(--border); }
 .report-net { background: var(--primary-soft); color: var(--primary-dark); }
 .report-net.negative { background: var(--red-soft); color: var(--red); }
 .report-balance-note { color: var(--muted); }
 .summary-tile span { color: var(--muted-2); }
-.daily-summary .summary-tile .sub { color: var(--muted); }
 
 /* ---------- Settings ---------- */
 .settings-actions { background: var(--surface-2); border-top-color: var(--border); }
@@ -543,16 +541,6 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
   border-color: var(--accent);
   color: var(--accent-ink);
 }
-.theme-note {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 14px;
-  font-size: 11.5px;
-  color: var(--muted);
-  line-height: 1.45;
-}
-.theme-note .icon { color: var(--accent); flex: none; }
 
 /* ---------- Ledger / reconciliation ---------- */
 .ledger-detail, .ledger-row.is-open { background: var(--surface-2); }

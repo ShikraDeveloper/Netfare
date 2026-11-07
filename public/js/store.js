@@ -75,10 +75,6 @@ export function activeVendors() {
   return store.vendors.filter((vendor) => vendor.is_active);
 }
 
-export function activePortals() {
-  return store.portals.filter((portal) => portal.is_active);
-}
-
 export function portalForVendorId(vendorId) {
   return store.portals.find((portal) => portal.vendor_id === Number(vendorId) && portal.is_active) || null;
 }

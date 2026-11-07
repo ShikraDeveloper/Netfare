@@ -34,8 +34,10 @@ Simple purpose, simple layout, simple code. Read this before adding or changing 
 
 ## Tokens
 
-Colours, radius and shadows are CSS variables in `public/css/theme.css` (light and dark). Use `var(--text)`, `var(--muted)`, `var(--surface)`, `var(--border)`, `var(--red)` and so on; never a raw colour. The older `:root` block in `styles.css` is a fallback that `theme.css` overrides.
+Every token lives in `public/css/theme.css`: colours (light and dark), radius, shadows, font and motion. Use `var(--text)`, `var(--muted)`, `var(--surface)`, `var(--border)`, `var(--red)` and so on; never a raw colour. `styles.css` holds only layout and components.
 
 ## Done so far
 
-Phase 1, 2026-11-04: the Dashboard, the invoice page and the New invoice form. The other screens follow group by group.
+- Phase 1, 2026-11-04: the Dashboard, the invoice page and the New invoice form.
+- Phase 2, 2026-11-04 to 11-07: every other screen, group by group (helper text 310 → 41).
+- Phase 3, 2026-11-07: one token file, unused CSS rules, functions and imports removed.

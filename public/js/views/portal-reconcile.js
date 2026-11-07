@@ -5,7 +5,6 @@ import {
   fmtDate,
   fmtMoney,
   icon,
-  portalTypeLabel,
   setHeader,
   todayISO,
   toast,
