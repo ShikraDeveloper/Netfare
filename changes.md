@@ -2525,3 +2525,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
    - testing the installers by hand on Mac and Windows;
    - testing "Start from a backup" in the desktop app by hand.
 6. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
+7. **Windows signing (the user decides later):** On a real Windows PC (2026-11-07) the user found that Smart App Control blocks the unsigned Netfare installer; after turning it off, the app works, but the installer shows "Unknown publisher".
+   - **Options:** (a) the Microsoft Store, which is free for individuals (ID and selfie check), MSIX signed by Microsoft, with no SAC block or warning; (b) a paid OV code-signing certificate (Sectigo, SSL.com, Certum, about US$100–400 a year) with cloud signing in the release workflow; (c) leave it unsigned, which is not advised.
+   - Azure Artifact Signing is not open to individuals in the UAE.
+   - The user was advised not to turn SAC off on other office PCs: KB5127648 (October 2026) can grey out turning it back on.
