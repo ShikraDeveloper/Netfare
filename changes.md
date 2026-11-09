@@ -2679,11 +2679,37 @@ The user asked about moving the side menu to the top with dropdowns. After three
   `npm test` 279 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Checked in a fresh demo:** VIS-2026-0006 was rejected (date and reason), refunded 200 to the customer (owed 1,000 → 800) and refunded 250 by the supplier (bill due 600 → 350). The visa page, the list, the Visa gross profit report and daily sales all show sale 800, cost 350 and profit 450.
 
+### Receive a supplier refund from the statement — code commit `cf1373f`
+
+- **Why:** The user said supplier refunds usually come through the supplier's statement or portal, and asked for a button there to take the money into a bank or cash account, with a bank charges field (mockup approved with that change).
+- **Supplier statement:**
+  - When the supplier holds credit for us, the header shows **"Receive refund · AED X"**.
+  - The form asks for the amount (up to the credit, filled in), the date, "Received into" and **Bank charges**, and shows "X lands in the account".
+  - `supplierCredits.receiveVendorRefund` (`POST /api/vendors/:id/receive-refund`) refunds the oldest open supplier credits first. The bank charges go on the largest part.
+- **Bank charges:** `refundSupplierCredit` now takes `bank_charges_cents` and posts Dr 6700 · Cr the bank in the same entry, stored on the refund, so a void reverses both. The visa Supplier refund form has the field too.
+- **Statement rows:**
+  - The supplier statement now shows each supplier credit when it is issued (less any part moved to a prepaid portal wallet), instead of when it is applied to a bill.
+  - It also shows each refund received from a credit.
+  - The balance is the net position; a negative closing reads "Credit with supplier". The note under the table reads "Credit with supplier: X". Same-day rows run bill, payment, credit, refund.
+- **Portals:** unchanged; the portal page already has Withdraw for wallet money.
+- **Tests:**
+  - visa supplier refund with bank charges: bank +95, 6700 +5;
+  - receive refund across two credits with charges of 3: bank +197, 6700 +3;
+  - the statement before and after (closing −250 → −50, row order);
+  - over-limit refused.
+
+  `npm test` 281 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo:**
+  - paid Dubai Visa Services bill BILL-2026-0012 (610);
+  - recorded a 250 supplier refund on VIS-2026-0003, kept as credit;
+  - the statement showed "Receive refund · AED 250.00"; it was received into 1010 with 5 bank charges ("AED 245.00 lands in the account");
+  - the button went away, 6700 rose by 5, and the rows run credit, then refund.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) and Receive refund on the supplier statement (`cf1373f`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
