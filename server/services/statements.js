@@ -28,37 +28,37 @@ function customerTransactions(db, customerId) {
     SELECT 'invoice' AS kind, i.id, i.number AS reference, i.issue_date AS date,
            i.due_date, i.total_cents AS amount_cents, i.status,
            '' AS method, COALESCE((SELECT x.number FROM cancellations x WHERE x.invoice_id = i.id), '') AS related,
-           i.cancellation_id AS charge_of
+           i.cancellation_id AS charge_of, i.created_at AS created_at
     FROM invoices i
     WHERE i.customer_id = ? AND ${ON_STATEMENT}
     UNION ALL
-    SELECT 'payment', p.id, p.number, p.payment_date, NULL, p.amount_cents, 'paid', p.method, i.number, NULL
+    SELECT 'payment', p.id, p.number, p.payment_date, NULL, p.amount_cents, 'paid', p.method, i.number, NULL, p.created_at AS created_at
     FROM payments p
     JOIN invoices i ON i.id = p.invoice_id
     WHERE p.customer_id = ? AND ${ON_STATEMENT} AND p.status = 'posted'
     UNION ALL
-    SELECT 'cancellation', x.id, x.number, x.cancellation_date, NULL, i.total_cents, 'cancelled', '', i.number, NULL
+    SELECT 'cancellation', x.id, x.number, x.cancellation_date, NULL, i.total_cents, 'cancelled', '', i.number, NULL, x.created_at AS created_at
     FROM cancellations x
     JOIN invoices i ON i.id = x.invoice_id
     WHERE x.customer_id = ? AND i.status = 'void'
     UNION ALL
     SELECT 'cancellation_charge', x.id, x.number, x.cancellation_date, NULL,
-           MIN(x.received_cents, x.customer_charges_cents), 'charged', '', COALESCE(i.number, ''), NULL
+           MIN(x.received_cents, x.customer_charges_cents), 'charged', '', COALESCE(i.number, ''), NULL, x.created_at AS created_at
     FROM cancellations x
     LEFT JOIN invoices i ON i.id = x.invoice_id
     WHERE x.customer_id = ? AND MIN(x.received_cents, x.customer_charges_cents) > 0
     UNION ALL
-    SELECT 'cancellation_credit', cn.id, cn.number, cn.credit_date, NULL, cn.amount_cents, 'issued', '', x.number, NULL
+    SELECT 'cancellation_credit', cn.id, cn.number, cn.credit_date, NULL, cn.amount_cents, 'issued', '', x.number, NULL, cn.created_at AS created_at
     FROM credit_notes cn
     JOIN cancellations x ON x.id = cn.cancellation_id
     WHERE cn.customer_id = ? AND cn.status = 'issued'
     UNION ALL
-    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, x.number, NULL
+    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, x.number, NULL, r.created_at AS created_at
     FROM refunds r
     JOIN cancellations x ON x.id = r.cancellation_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
     UNION ALL
-    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(i.number, ''), NULL
+    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(i.number, ''), NULL, r.created_at AS created_at
     FROM refunds r
     LEFT JOIN invoices i ON i.id = r.invoice_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
@@ -66,15 +66,13 @@ function customerTransactions(db, customerId) {
       -- Visa deposit refunds belong to the separate deposit section.
       AND r.deposit_id IS NULL
     UNION ALL
-    SELECT 'credit', ca.id, cn.number, ca.applied_date, NULL, ca.amount_cents, 'applied', 'Credit note', i.number, NULL
+    SELECT 'credit', ca.id, cn.number, ca.applied_date, NULL, ca.amount_cents, 'applied', 'Credit note', i.number, NULL, ca.created_at AS created_at
     FROM credit_applications ca
     JOIN credit_notes cn ON cn.id = ca.credit_note_id
     JOIN invoices i ON i.id = ca.invoice_id
     WHERE cn.customer_id = ? AND cn.status = 'issued'
   `).all(customerId, customerId, customerId, customerId, customerId, customerId, customerId, customerId)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
-      || rank(a) - rank(b)
-      || a.id - b.id)
+    .sort((a, b) => byDateThenEntry(a, b) || rank(a) - rank(b) || a.id - b.id)
     .map((row) => {
     if (row.kind === 'invoice') {
       return {
@@ -193,22 +191,31 @@ function customerTransactions(db, customerId) {
     : row);
 }
 
+// Statement lines run by date, then by when each was entered (created_at is
+// the entry time), so a day reads in the order the work was done.
+function byDateThenEntry(a, b) {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  const x = a.created_at || '';
+  const y = b.created_at || '';
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+
 const VENDOR_KIND_ORDER = { bill: 1, payment: 2, supplier_credit: 3, credit_refund: 4, refund: 5 };
 
 function vendorTransactions(db, vendorId) {
   return db.prepare(`
     SELECT 'bill' AS kind, b.id, b.number AS reference, b.bill_date AS date,
            b.due_date, b.total_cents AS amount_cents, b.status,
-           '' AS method, '' AS related
+           '' AS method, '' AS related, b.created_at AS created_at
     FROM bills b
     WHERE b.vendor_id = ? AND b.status = 'received'
     UNION ALL
-    SELECT 'payment', p.id, p.number, p.payment_date, NULL, p.amount_cents, 'paid', p.method, b.number
+    SELECT 'payment', p.id, p.number, p.payment_date, NULL, p.amount_cents, 'paid', p.method, b.number, p.created_at AS created_at
     FROM bill_payments p
     JOIN bills b ON b.id = p.bill_id
     WHERE p.vendor_id = ? AND b.status <> 'void' AND p.status = 'posted'
     UNION ALL
-    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(b.number, '')
+    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(b.number, ''), r.created_at AS created_at
     FROM refunds r
     LEFT JOIN bills b ON b.id = r.bill_id
     WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
@@ -218,20 +225,20 @@ function vendorTransactions(db, vendorId) {
     -- (once bills are clear) is money the supplier holds for us. The part
     -- moved to a prepaid portal wallet shows on the portal instead.
     SELECT 'supplier_credit', scn.id, scn.number, scn.credit_date, NULL,
-           scn.amount_cents - scn.portal_settled_cents, 'issued', 'Supplier credit', COALESCE(b.number, '')
+           scn.amount_cents - scn.portal_settled_cents, 'issued', 'Supplier credit', COALESCE(b.number, ''), scn.created_at AS created_at
     FROM supplier_credit_notes scn
     LEFT JOIN bills b ON b.id = scn.bill_id
     WHERE scn.vendor_id = ? AND scn.status = 'issued' AND scn.amount_cents > scn.portal_settled_cents
     UNION ALL
     -- Credit the supplier paid back to us.
-    SELECT 'credit_refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, scn.number
+    SELECT 'credit_refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, scn.number, r.created_at AS created_at
     FROM refunds r
     JOIN supplier_credit_notes scn ON scn.id = r.supplier_credit_note_id
     WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
   `).all(vendorId, vendorId, vendorId, vendorId, vendorId)
-    // Same-day order: the bill, our payment, the supplier's credit, then the
-    // money it paid back.
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+    // Same day: in the order they were entered (then bill, payment, credit,
+    // refund when entered in the same second).
+    .sort((a, b) => byDateThenEntry(a, b)
       || (VENDOR_KIND_ORDER[a.kind] || 9) - (VENDOR_KIND_ORDER[b.kind] || 9)
       || a.id - b.id)
     .map((row) => {
@@ -281,7 +288,7 @@ function vendorTransactions(db, vendorId) {
 // supplier does not change what the customer is owed; a supplier deduction does.
 function customerDeposits(db, customerId, range) {
   const rows = db.prepare(`
-    SELECT e.id, e.event_type, e.event_date AS date, e.amount_cents, e.deduction_cents, e.forfeit_to, e.notes,
+    SELECT e.id, e.event_type, e.event_date AS date, e.created_at, e.amount_cents, e.deduction_cents, e.forfeit_to, e.notes,
            d.number AS reference, v.number AS visa_number, v.applicant_name, i.number AS invoice_number
     FROM visa_deposit_events e
     JOIN visa_deposits d ON d.id = e.deposit_id
@@ -319,6 +326,7 @@ function customerAdvances(db, customerId, range) {
     ...db.prepare(`
       SELECT 'received' AS event_type, a.id, a.number AS reference, a.advance_date AS date, a.amount_cents,
              b.number AS booking_number, v.number AS visa_number, '' AS invoice_number
+, a.created_at AS created_at
       FROM customer_advances a
       LEFT JOIN bookings b ON b.id = a.booking_id
       LEFT JOIN visa_applications v ON v.id = a.visa_id
@@ -327,6 +335,7 @@ function customerAdvances(db, customerId, range) {
     ...db.prepare(`
       SELECT 'applied' AS event_type, p.id, a.number AS reference, p.payment_date AS date, p.amount_cents,
              '' AS booking_number, '' AS visa_number, i.number AS invoice_number
+, p.created_at AS created_at
       FROM payments p
       JOIN customer_advances a ON a.id = p.advance_id
       JOIN invoices i ON i.id = p.invoice_id
@@ -335,6 +344,7 @@ function customerAdvances(db, customerId, range) {
     ...db.prepare(`
       SELECT 'refunded' AS event_type, r.id, a.number AS reference, r.refund_date AS date, r.amount_cents,
              '' AS booking_number, '' AS visa_number, '' AS invoice_number
+, r.created_at AS created_at
       FROM refunds r
       JOIN customer_advances a ON a.id = r.advance_id
       WHERE a.customer_id = ? AND a.voided_at IS NULL AND r.status = 'paid'
@@ -342,7 +352,7 @@ function customerAdvances(db, customerId, range) {
   ];
   if (!rows.length) return null;
   const order = { received: 1, applied: 2, refunded: 3 };
-  rows.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : order[a.event_type] - order[b.event_type] || a.id - b.id));
+  rows.sort((a, b) => byDateThenEntry(a, b) || order[a.event_type] - order[b.event_type] || a.id - b.id);
   const described = rows.map((row) => {
     if (row.event_type === 'received') {
       const job = row.booking_number ? ` · booking ${row.booking_number}` : row.visa_number ? ` · visa ${row.visa_number}` : '';

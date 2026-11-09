@@ -14,6 +14,7 @@ import {
   pageRecord,
   moreMenuHtml,
   numberCardHtml,
+  entryTimeHtml,
 } from '../ui.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
@@ -100,6 +101,7 @@ export async function render(container, { params, query } = {}) {
   const movements = [
     ...portal.topups.map((topup) => ({
       date: topup.topup_date,
+      created_at: topup.created_at || '',
       order: 0,
       ref: topup.number,
       label: `Top-up ${topup.number}`,
@@ -112,6 +114,7 @@ export async function render(container, { params, query } = {}) {
     })),
     ...portal.credits.map((credit) => ({
       date: credit.credit_date,
+      created_at: credit.created_at || '',
       order: 1,
       ref: credit.number,
       label: `Supplier credit${credit.supplier_credit_number ? ` ${credit.supplier_credit_number}` : ''}`,
@@ -127,6 +130,7 @@ export async function render(container, { params, query } = {}) {
     })),
     ...portal.refunds.map((refund) => ({
       date: refund.refund_date,
+      created_at: refund.created_at || '',
       order: 2,
       ref: '',
       label: 'Withdrawal to bank',
@@ -139,6 +143,7 @@ export async function render(container, { params, query } = {}) {
     })),
     ...portal.settlements.map((settlement) => ({
       date: settlement.payment_date,
+      created_at: settlement.created_at || '',
       order: 3,
       ref: settlement.number,
       label: `${settlement.bill_number} · ${settlement.vendor_name}`,
@@ -160,7 +165,9 @@ export async function render(container, { params, query } = {}) {
       visa_passport_number: settlement.visa_passport_number,
     })),
   ].sort((a, b) => {
+    // By date, then by when each was entered.
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
     return a.order - b.order;
   });
 
@@ -210,7 +217,7 @@ export async function render(container, { params, query } = {}) {
   const statementRows = periodRows.length
     ? periodRows.map((row) => `
         <tr>
-          <td class="nowrap">${esc(fmtDate(row.date))}</td>
+          <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
           <td class="ref">${esc(row.ref || '—')}</td>
           <td>
             <div>${esc(row.label)}</div>

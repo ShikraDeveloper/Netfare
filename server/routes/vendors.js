@@ -6,6 +6,7 @@ const { bad, notFound, str, optionalStr, isTruthy } = require('../util');
 const statementService = require('../services/statements');
 const partyOpening = require('../services/party-opening');
 const { markCreated } = require('../created-by');
+const { assignPartyNumber } = require('../party-numbers');
 
 function listVendors() {
   return db.prepare(`
@@ -51,6 +52,7 @@ router.post('/', (req, res) => {
       optionalStr(body.notes, 'Notes', 1000),
     );
     markCreated(db, 'vendors', info.lastInsertRowid);
+    assignPartyNumber(db, 'vendors', info.lastInsertRowid);
     const row = db.prepare('SELECT * FROM vendors WHERE id = ?').get(info.lastInsertRowid);
     return { ...row, opening: partyOpening.forVendor(db, row, body.opening) };
   })();

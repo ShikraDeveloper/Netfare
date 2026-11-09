@@ -10,6 +10,7 @@ import {
   icon,
   inDateRange,
   setHeader,
+  fmtEntryTime,
 } from '../ui.js';
 
 function settlementBadge(cancellation) {
@@ -27,7 +28,7 @@ function cancellationRow(cancellation) {
     <tr class="clickable" data-id="${cancellation.id}" tabindex="0">
       <td>
         <div class="cell-main">${esc(cancellation.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(cancellation.cancellation_date))}</div>
+        <div class="cell-sub">${esc([fmtDate(cancellation.cancellation_date), fmtEntryTime(cancellation.cancellation_date, cancellation.created_at)].filter(Boolean).join(' · '))}</div>
       </td>
       <td>
         <div class="cell-main">${esc(cancellation.customer_name)}</div>

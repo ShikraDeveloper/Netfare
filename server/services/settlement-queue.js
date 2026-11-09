@@ -37,7 +37,7 @@ function ageDays(date) {
 
 function cancellationRefunds(db) {
   return db.prepare(`
-    SELECT cc.id, cc.number, cc.cancellation_date AS date, cc.source_type, cc.source_id,
+    SELECT cc.id, cc.number, cc.cancellation_date AS date, cc.created_at, cc.source_type, cc.source_id,
            cc.customer_id AS party_id, c.name AS party_name,
            MAX(0, cc.refund_due_cents
              - COALESCE((
@@ -70,7 +70,7 @@ function cancellationRefunds(db) {
 
 function customerCredits(db) {
   return db.prepare(`
-    SELECT cn.id, cn.number, cn.credit_date AS date, cn.customer_id AS party_id,
+    SELECT cn.id, cn.number, cn.credit_date AS date, cn.created_at, cn.customer_id AS party_id,
            c.name AS party_name, cn.cancellation_id, cc.number AS cancellation_number,
            (cn.amount_cents - cn.applied_cents - cn.refunded_cents) AS remaining_cents
     FROM credit_notes cn
@@ -92,7 +92,7 @@ function customerCredits(db) {
 
 function customerAdvances(db) {
   return db.prepare(`
-    SELECT a.id, a.number, a.advance_date AS date, a.customer_id AS party_id,
+    SELECT a.id, a.number, a.advance_date AS date, a.created_at, a.customer_id AS party_id,
            c.name AS party_name, a.booking_id, a.visa_id,
            b.number AS booking_number, v.number AS visa_number,
            (a.amount_cents - a.applied_cents - a.refunded_cents) AS remaining_cents
@@ -126,7 +126,7 @@ function customerAdvances(db) {
 
 function supplierCredits(db) {
   return db.prepare(`
-    SELECT scn.id, scn.number, scn.credit_date AS date, scn.vendor_id AS party_id,
+    SELECT scn.id, scn.number, scn.credit_date AS date, scn.created_at, scn.vendor_id AS party_id,
            v.name AS party_name, scn.bill_id, b.number AS bill_number,
            (scn.amount_cents - scn.applied_cents - scn.refunded_cents - scn.portal_settled_cents) AS remaining_cents
     FROM supplier_credit_notes scn
@@ -171,7 +171,9 @@ function listSettlementQueue(db, { type, search, party_id } = {}) {
     return [row.number, row.party_name, row.detail, row.type_label]
       .some((value) => String(value || '').toLowerCase().includes(term));
   }).sort((a, b) => {
+    // Oldest first: by date, then by when each was entered.
     if (a.date !== b.date) return String(a.date).localeCompare(String(b.date));
+    if ((a.created_at || '') !== (b.created_at || '')) return (a.created_at || '') < (b.created_at || '') ? -1 : 1;
     return TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type);
   });
 

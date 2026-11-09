@@ -11,6 +11,7 @@ import {
   inDateRange,
   setHeader,
   statusBadge,
+  fmtEntryTime,
 } from '../ui.js';
 import { openRefundModal } from './refund-modal.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -64,7 +65,7 @@ function refundRow(refund) {
     <tr class="clickable" data-id="${refund.id}" tabindex="0">
       <td>
         <div class="cell-main nowrap">${esc(refund.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(refund.refund_date))}</div>
+        <div class="cell-sub">${esc([fmtDate(refund.refund_date), fmtEntryTime(refund.refund_date, refund.created_at)].filter(Boolean).join(' · '))}</div>
         <div style="margin-top:4px">${typeBadge(refund.refund_type)}</div>
       </td>
       <td>

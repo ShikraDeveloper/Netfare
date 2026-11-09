@@ -12,6 +12,7 @@ import {
   statusBadge,
   toast,
   voidDialog,
+  entryTimeHtml,
 } from '../ui.js';
 import { openCashDepositModal } from './cash-deposit.js';
 
@@ -19,7 +20,7 @@ function rowHtml(deposit) {
   return `
     <tr data-id="${deposit.id}">
       <td>
-        <div class="cell-main nowrap">${esc(fmtDate(deposit.deposit_date))}</div>
+        <div class="cell-main nowrap">${esc(fmtDate(deposit.deposit_date))}</div>${entryTimeHtml(deposit.deposit_date, deposit.created_at)}
         <div class="cell-sub">${esc(deposit.number)}</div>
       </td>
       <td>

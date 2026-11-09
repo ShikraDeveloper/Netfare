@@ -18,6 +18,7 @@ import {
   todayISO,
   toast,
   toCents,
+  fmtEntryTime,
 } from '../ui.js';
 
 function creditRow(credit) {
@@ -25,7 +26,7 @@ function creditRow(credit) {
     <tr class="clickable" data-id="${credit.id}" tabindex="0">
       <td>
         <div class="cell-main">${esc(credit.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(credit.credit_date))}</div>
+        <div class="cell-sub">${esc([fmtDate(credit.credit_date), fmtEntryTime(credit.credit_date, credit.created_at)].filter(Boolean).join(' · '))}</div>
       </td>
       <td>${esc(credit.vendor_name)}</td>
       <td>

@@ -14,6 +14,7 @@ import {
   toast,
   toCents,
   todayISO,
+  entryTimeHtml,
 } from '../ui.js';
 
 const CUSTOMER_TITLES = {
@@ -68,7 +69,7 @@ function heldSectionHtml(held, { title, attr, note }) {
           ${held.opening_held_cents ? `<tr><td></td><td></td><td>Held at start</td><td></td><td></td><td class="num">${fmtMoney(held.opening_held_cents)}</td></tr>` : ''}
           ${held.transactions.map((row) => `
             <tr>
-              <td class="nowrap">${esc(fmtDate(row.date))}</td>
+              <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
               <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
               <td>${esc(row.description)}</td>
               <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '<span class="statement-zero">—</span>'}</td>
@@ -269,6 +270,7 @@ export async function render(container, { params = [], query = new URLSearchPara
         <div>
           <div class="statement-label">${partyLabel}</div>
           <strong>${esc(data.party.name)}</strong>
+          ${data.party.number ? `<p class="statement-contact">${partyLabel} no. ${esc(data.party.number)}</p>` : ''}
           ${data.party.address ? `<p class="statement-address">${esc(data.party.address)}</p>` : ''}
           ${data.party.email || data.party.phone ? `<p class="statement-contact">${esc([data.party.phone, data.party.email].filter(Boolean).join(' · '))}</p>` : ''}
         </div>
@@ -319,7 +321,7 @@ export async function render(container, { params = [], query = new URLSearchPara
               const extra = transactionExtraHtml(row);
               return `
                 <tr>
-                  <td class="nowrap">${esc(fmtDate(row.date))}</td>
+                  <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
                   <td>
                     <div class="statement-desc">

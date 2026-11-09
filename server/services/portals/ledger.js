@@ -106,6 +106,7 @@ function creditPortalLedger(db, portal, options = {}) {
       key: `bill-${bill.id}`,
       kind: 'bill',
       date: bill.bill_date,
+      created_at: bill.created_at || '',
       order: 0,
       reference: bill.number,
       description: bill.notes || 'Supplier bill',
@@ -121,6 +122,7 @@ function creditPortalLedger(db, portal, options = {}) {
       key: `billpay-${payment.id}`,
       kind: 'bill_payment',
       date: payment.payment_date,
+      created_at: payment.created_at || '',
       order: 1,
       reference: payment.number,
       description: `Payment · ${payment.method}`,
@@ -136,6 +138,7 @@ function creditPortalLedger(db, portal, options = {}) {
       key: `supplier-refund-${refund.id}`,
       kind: 'supplier_refund',
       date: refund.refund_date,
+      created_at: refund.created_at || '',
       order: 2,
       reference: refund.number,
       description: `Supplier refund · ${refund.method}`,
@@ -151,6 +154,7 @@ function creditPortalLedger(db, portal, options = {}) {
       key: `supplier-credit-app-${application.id}`,
       kind: 'supplier_credit_applied',
       date: application.applied_date,
+      created_at: application.created_at || '',
       order: 3,
       reference: application.credit_number,
       description: `Supplier credit applied · Bill ${application.bill_number}`,
@@ -166,6 +170,7 @@ function creditPortalLedger(db, portal, options = {}) {
       key: `supplier-credit-${credit.id}`,
       kind: 'supplier_credit',
       date: credit.credit_date,
+      created_at: credit.created_at || '',
       order: 4,
       reference: credit.number,
       description: 'Supplier credit issued',
@@ -177,7 +182,10 @@ function creditPortalLedger(db, portal, options = {}) {
       lines: linesByEntry.get(credit.journal_entry_id) || [],
     })),
   ].sort((a, b) => {
+    // By date, then by when each was entered, so a day reads in the order
+    // the work was done (a top-up, a bill paid from it, another top-up).
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
     if (a.order !== b.order) return a.order - b.order;
     return a.source_id - b.source_id;
   });
@@ -316,6 +324,7 @@ function portalLedger(db, portalId, options = {}) {
       key: `topup-${topup.id}`,
       kind: 'topup',
       date: topup.topup_date,
+      created_at: topup.created_at || '',
       order: 0,
       reference: topup.number,
       description: `Top-up · ${topup.method}`,
@@ -329,6 +338,7 @@ function portalLedger(db, portalId, options = {}) {
       key: `portal-credit-${credit.id}`,
       kind: 'portal_credit',
       date: credit.credit_date,
+      created_at: credit.created_at || '',
       order: 0,
       reference: credit.number,
       description: 'Supplier credit added to wallet',
@@ -342,6 +352,7 @@ function portalLedger(db, portalId, options = {}) {
       key: `refund-${refund.id}`,
       kind: 'refund',
       date: refund.refund_date,
+      created_at: refund.created_at || '',
       order: 1,
       reference: refund.reference || '—',
       description: `Withdrawal · ${refund.method}`,
@@ -355,6 +366,7 @@ function portalLedger(db, portalId, options = {}) {
       key: `settle-${settlement.id}`,
       kind: 'settlement',
       date: settlement.payment_date,
+      created_at: settlement.created_at || '',
       order: 2,
       reference: settlement.number,
       description: `Bill ${settlement.bill_number} settled`,
@@ -373,6 +385,7 @@ function portalLedger(db, portalId, options = {}) {
         key: `deposit-${event.id}`,
         kind: event.event_type === 'to_supplier' ? 'deposit_paid' : 'deposit_returned',
         date: event.event_date,
+        created_at: event.created_at || '',
         order: 2,
         reference: event.deposit_number,
         description: event.event_type === 'to_supplier' ? `Visa deposit ${event.deposit_number} paid` : `Visa deposit ${event.deposit_number} returned`,
@@ -385,7 +398,10 @@ function portalLedger(db, portalId, options = {}) {
       };
     }),
   ].sort((a, b) => {
+    // By date, then by when each was entered, so a day reads in the order
+    // the work was done (a top-up, a bill paid from it, another top-up).
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    if (a.created_at !== b.created_at) return a.created_at < b.created_at ? -1 : 1;
     if (a.order !== b.order) return a.order - b.order;
     return a.source_id - b.source_id;
   });

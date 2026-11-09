@@ -782,6 +782,9 @@ body.modal-open { overflow: hidden; }
 .settlement-choice .callout-actions { align-items: center; }
 
 /* ---------- Toast ---------- */
+/* A customer or supplier number beside the page title. */
+.page-title-number { font-size: 13px; font-weight: 500; color: var(--muted); letter-spacing: 0.01em; }
+
 /* Reminders: the list, the dashboard card and the alert when one is due. */
 .reminder-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); }
 .reminder-row:last-child { border-bottom: 0; }

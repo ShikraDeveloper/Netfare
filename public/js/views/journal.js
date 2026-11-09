@@ -20,12 +20,13 @@ import {
   toast,
   toCents,
   voidDialog,
+  entryTimeHtml,
 } from '../ui.js';
 
 function entryRow(entry) {
   return `
     <tr class="clickable" data-id="${entry.id}" tabindex="0">
-      <td class="nowrap">${esc(fmtDate(entry.entry_date))}</td>
+      <td class="nowrap">${esc(fmtDate(entry.entry_date))}${entryTimeHtml(entry.entry_date, entry.created_at)}</td>
       <td>
         <div class="cell-main">${esc(entry.memo || '(no memo)')} ${entry.voided_at ? statusBadge('void') : ''}</div>
         <div class="cell-sub">Entry #${entry.id}${entry.reference ? ` · ${esc(entry.reference)}` : ''}</div>

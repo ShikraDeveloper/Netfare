@@ -245,7 +245,7 @@ export async function render(container, { params } = {}) {
           <div>
             <div class="doc-label">Supplier</div>
             <div class="doc-party-name">${esc(bill.vendor_name)}</div>
-            <div class="doc-party-detail">${esc([bill.vendor_address, bill.vendor_email, bill.vendor_phone].filter(Boolean).join('\n'))}</div>
+            <div class="doc-party-detail">${esc([bill.vendor_number ? `Supplier no. ${bill.vendor_number}` : '', bill.vendor_address, bill.vendor_email, bill.vendor_phone].filter(Boolean).join('\n'))}</div>
           </div>
           <div>
             <div class="doc-label">Notes</div>

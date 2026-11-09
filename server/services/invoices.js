@@ -28,7 +28,7 @@ const audit = require('./audit');
 
 const invoiceSelect = `
   SELECT i.*, c.name AS customer_name, c.email AS customer_email, c.address AS customer_address,
-         c.phone AS customer_phone
+         c.phone AS customer_phone, c.number AS customer_number
   FROM invoices i
   JOIN customers c ON c.id = i.customer_id
 `;

@@ -19,6 +19,7 @@ import {
   statusBadge,
   todayISO,
   toast,
+  fmtEntryTime,
 } from '../ui.js';
 import { costRow, mountBookingLines, saleRow } from './bookings.js';
 import { openVisaGroupModal } from './visa-group-form.js';
@@ -76,7 +77,7 @@ function visaRow(visa) {
     <tr class="clickable" data-id="${visa.id}">
       <td>
         <div class="cell-main">${esc(visa.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(visa.application_date))}${visa.reference ? ` · ${esc(visa.reference)}` : ''}</div>
+        <div class="cell-sub">${esc([fmtDate(visa.application_date), fmtEntryTime(visa.application_date, visa.created_at)].filter(Boolean).join(' · '))}${visa.reference ? ` · ${esc(visa.reference)}` : ''}</div>
         ${visa.group_number ? `<div class="cell-sub"><span class="group-chip" title="Created together with ${visa.group_size - 1} other application${visa.group_size === 2 ? '' : 's'}">${esc(visa.group_number)} · ${visa.group_size}</span></div>` : ''}
       </td>
       <td>

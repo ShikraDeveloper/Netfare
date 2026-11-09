@@ -30,6 +30,7 @@ import {
   todayISO,
   toast,
   toCents,
+  fmtEntryTime,
 } from '../ui.js';
 
 const STATUS_OPTIONS = ['draft', 'confirmed', 'travelled', 'cancelled'];
@@ -46,7 +47,7 @@ function bookingRow(booking) {
     <tr class="clickable" data-id="${booking.id}">
       <td>
         <div class="cell-main">${esc(booking.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(booking.booking_date))}${booking.pnr ? ` · ${esc(booking.pnr)}` : ''}</div>
+        <div class="cell-sub">${esc([fmtDate(booking.booking_date), fmtEntryTime(booking.booking_date, booking.created_at)].filter(Boolean).join(' · '))}${booking.pnr ? ` · ${esc(booking.pnr)}` : ''}</div>
       </td>
       <td>
         <div class="party-cell">

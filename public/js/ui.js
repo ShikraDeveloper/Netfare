@@ -140,6 +140,27 @@ export function fmtDate(iso, { short = false, long = false } = {}) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+// When a record was entered (created_at, stored in UTC) as a short note under
+// its date: "14:32" when entered on that date, "added 9 Nov, 14:32" when it
+// was entered later (a back-dated entry), '' when unknown.
+export function fmtEntryTime(docDate, createdAt) {
+  if (!createdAt) return '';
+  const text = String(createdAt);
+  const at = new Date(text.includes('T') ? text : `${text.replace(' ', 'T')}Z`);
+  if (Number.isNaN(at.getTime())) return '';
+  const pad = (value) => String(value).padStart(2, '0');
+  const day = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+  const time = `${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  if (!docDate || String(docDate).slice(0, 10) === day) return time;
+  return `added ${fmtDate(day, { short: true })}, ${time}`;
+}
+
+// The entry time as an extra line under a date cell.
+export function entryTimeHtml(docDate, createdAt) {
+  const text = fmtEntryTime(docDate, createdAt);
+  return text ? `<div class="cell-sub entry-time">${esc(text)}</div>` : '';
+}
+
 export function monthLabel(ym) {
   const [y, m] = ym.split('-').map(Number);
   const date = new Date(y, m - 1, 1);

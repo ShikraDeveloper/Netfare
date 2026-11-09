@@ -32,7 +32,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   }
 
   const invoices = db.prepare(`
-    SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
+    SELECT i.id, i.number, i.issue_date, i.created_at, i.status, i.subtotal_cents,
            i.total_cents, i.amount_paid_cents, i.credit_applied_cents, i.booking_id, i.visa_id,
            c.name AS customer_name,
            b.number AS booking_number, b.destination,
@@ -120,6 +120,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
       id: row.id,
       number: row.number,
       issue_date: row.issue_date,
+      created_at: row.created_at,
       customer_name: row.customer_name,
       kind,
       reference: row.booking_number || row.visa_number || null,
@@ -165,6 +166,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
         ? db.prepare('SELECT number FROM invoices WHERE id = ?').get(row.cancellation_invoice_id)?.number || null
         : null,
       issue_date: row.cancellation_date,
+      created_at: row.created_at,
       customer_name: row.customer_name,
       kind: row.source_type,
       reference: row.source_type === 'booking' ? row.booking_number : row.visa_number,
@@ -199,6 +201,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     id: row.id,
     number: row.number,
     issue_date: row.date,
+    created_at: row.created_at,
     customer_name: row.customer_name,
     kind,
     reference: row.job_number,
@@ -220,7 +223,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   });
   for (const [kind, table] of [['booking', 'bookings'], ['visa', 'visa_applications']]) {
     for (const row of db.prepare(`
-      SELECT cn.id, cn.number, cn.credit_date AS date, cn.amount_cents, cn.created_by AS staff,
+      SELECT cn.id, cn.number, cn.credit_date AS date, cn.created_at, cn.amount_cents, cn.created_by AS staff,
              c.name AS customer_name, j.id AS job_id, j.number AS job_number
       FROM credit_notes cn
       JOIN ${table} j ON j.id = cn.${kind}_id
@@ -230,7 +233,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
       allItems.push(refundLine(row, kind, { sale: -row.amount_cents, label: 'Refund to customer', href: `#/credits/${row.id}` }));
     }
     for (const row of db.prepare(`
-      SELECT scn.id, scn.number, scn.credit_date AS date, scn.amount_cents, scn.created_by AS staff,
+      SELECT scn.id, scn.number, scn.credit_date AS date, scn.created_at, scn.amount_cents, scn.created_by AS staff,
              c.name AS customer_name, j.id AS job_id, j.number AS job_number
       FROM supplier_credit_notes scn
       LEFT JOIN bills b ON b.id = scn.bill_id
@@ -258,8 +261,10 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   const staffFilter = String(staff || '').trim();
   const items = staffFilter ? allItems.filter((item) => item.staff === staffFilter) : allItems;
 
+  // By date, then by when each was entered.
   items.sort((a, b) => {
     if (a.issue_date !== b.issue_date) return a.issue_date < b.issue_date ? -1 : 1;
+    if ((a.created_at || '') !== (b.created_at || '')) return (a.created_at || '') < (b.created_at || '') ? -1 : 1;
     if (a.is_cancellation !== b.is_cancellation) return a.is_cancellation ? 1 : -1;
     return a.id - b.id;
   });

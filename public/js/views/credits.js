@@ -14,6 +14,7 @@ import {
   toast,
   todayISO,
   toCents,
+  entryTimeHtml,
 } from '../ui.js';
 
 function creditSourceBadge(credit) {
@@ -112,7 +113,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
       <tr class="clickable" data-id="${credit.id}" tabindex="0">
         <td><div class="cell-main">${esc(credit.number)}</div><div class="cell-sub">${creditSourceBadge(credit)} <span class="muted">${esc(credit.revenue_account_name)}</span></div></td>
         <td>${esc(credit.customer_name)}</td>
-        <td class="nowrap">${esc(fmtDate(credit.credit_date))}</td>
+        <td class="nowrap">${esc(fmtDate(credit.credit_date))}${entryTimeHtml(credit.credit_date, credit.created_at)}</td>
         <td class="num">${fmtMoney(credit.amount_cents)}</td>
         <td class="num">${fmtMoney(credit.applied_cents)}</td>
         <td class="num ${credit.remaining_cents ? 'amount-due' : 'muted'}">${fmtMoney(credit.remaining_cents)}</td>

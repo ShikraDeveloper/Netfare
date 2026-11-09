@@ -21,6 +21,7 @@ import {
   statusBadge,
   todayISO,
   toast,
+  fmtEntryTime,
 } from '../ui.js';
 
 function invoiceRow(invoice) {
@@ -28,7 +29,7 @@ function invoiceRow(invoice) {
     <tr class="clickable" data-id="${invoice.id}" tabindex="0">
       <td>
         <div class="cell-main">${esc(invoice.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(invoice.issue_date))}</div>
+        <div class="cell-sub">${esc([fmtDate(invoice.issue_date), fmtEntryTime(invoice.issue_date, invoice.created_at)].filter(Boolean).join(' · '))}</div>
       </td>
       <td>
         <div class="party-cell">

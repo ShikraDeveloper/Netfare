@@ -467,5 +467,11 @@ db.prepare("UPDATE accounts SET name = 'Tour & Package Sales' WHERE code = '4100
 db.prepare("UPDATE accounts SET name = 'Cost of Sales – Air Tickets' WHERE code = '5000' AND name IN ('Cost of Goods Sold', 'Air Ticket Cost')").run();
 db.prepare("UPDATE accounts SET is_system = 1 WHERE code = '1400' AND is_system = 0").run();
 
+// Customer and supplier numbers (CUS-0001, SUP-0001): see party-numbers.js.
+for (const table of ['customers', 'vendors']) {
+  ensureColumn(table, 'number', "TEXT NOT NULL DEFAULT ''");
+  db.exec(`DROP TRIGGER IF EXISTS ${table}_number; CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_number ON ${table}(number) WHERE number <> '';`);
+}
+require('./party-numbers').numberMissing(db);
 
 };

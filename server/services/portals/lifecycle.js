@@ -64,7 +64,7 @@ function getPortal(db, id) {
   `).all(id);
 
   result.settlements = db.prepare(`
-    SELECT bp.id, bp.number, bp.payment_date, bp.amount_cents, bp.reference, bp.status,
+    SELECT bp.id, bp.number, bp.payment_date, bp.created_at, bp.amount_cents, bp.reference, bp.status,
            bp.journal_entry_id,
            b.id AS bill_id, b.number AS bill_number, b.total_cents AS bill_total_cents,
            b.status AS bill_status, b.booking_id AS booking_id, b.visa_id AS visa_id,

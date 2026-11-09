@@ -56,7 +56,7 @@ function partyRow(party, config) {
           ${avatar(party.name, 34)}
           <div class="party-info">
             <div class="cell-main">${esc(party.name)} ${party.is_active ? '' : '<span class="chip chip-archived">Archived</span>'}</div>
-            <div class="cell-sub">${esc(party.email || 'No email')}</div>
+            <div class="cell-sub">${esc([party.number, party.email || 'No email'].filter(Boolean).join(' · '))}</div>
           </div>
         </div>
       </td>
@@ -239,7 +239,7 @@ export async function renderPartyView(container, { query = new URLSearchParams()
     filtered = parties.filter((party) => {
       if (!showArchived && !party.is_active) return false;
       if (!term) return true;
-      return [party.name, party.email, party.phone, party.notes].some((value) => String(value || '').toLowerCase().includes(term));
+      return [party.number, party.name, party.email, party.phone, party.notes].some((value) => String(value || '').toLowerCase().includes(term));
     });
     countEl.textContent = `${filtered.length} shown`;
     renderPage();

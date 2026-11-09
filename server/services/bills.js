@@ -23,12 +23,13 @@ const {
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const { markCreated } = require('../created-by');
+const { assignPartyNumber } = require('../party-numbers');
 const chequeService = require('./cheques');
 const audit = require('./audit');
 
 const billSelect = `
   SELECT b.*, v.name AS vendor_name, v.email AS vendor_email, v.address AS vendor_address,
-         v.phone AS vendor_phone, p.name AS portal_name
+         v.phone AS vendor_phone, v.number AS vendor_number, p.name AS portal_name
   FROM bills b
   JOIN vendors v ON v.id = b.vendor_id
   LEFT JOIN supplier_portals p ON p.id = b.portal_id
@@ -515,6 +516,7 @@ function sundryVendor(db) {
   }
   const id = Number(db.prepare('INSERT INTO vendors (name, notes) VALUES (?, ?)')
     .run(SUNDRY_VENDOR, 'Used for quick expenses paid without a named supplier.').lastInsertRowid);
+  assignPartyNumber(db, 'vendors', id);
   return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
 }
 
@@ -529,6 +531,7 @@ function bankDebitVendor(db, account) {
   }
   const id = Number(db.prepare('INSERT INTO vendors (name, notes) VALUES (?, ?)')
     .run(name, `Charges the bank debits from ${account.code} ${account.name} itself.`).lastInsertRowid);
+  assignPartyNumber(db, 'vendors', id);
   return db.prepare('SELECT * FROM vendors WHERE id = ?').get(id);
 }
 

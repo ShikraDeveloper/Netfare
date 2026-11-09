@@ -114,7 +114,7 @@ function dsrSections(db, start, end, items) {
 
   // Security deposits received in the period, by visa.
   const depositRows = db.prepare(`
-    SELECT d.id, d.number, d.visa_id, d.customer_id, e.event_date AS date, e.amount_cents, e.method,
+    SELECT d.id, d.number, d.visa_id, d.customer_id, e.event_date AS date, e.created_at, e.amount_cents, e.method,
            c.name AS customer_name, v.number AS visa_number, v.applicant_name
     FROM visa_deposit_events e
     JOIN visa_deposits d ON d.id = e.deposit_id
@@ -191,7 +191,7 @@ function dsrSections(db, start, end, items) {
   const cancellations = items.filter((item) => item.is_cancellation);
 
   const refunds = db.prepare(`
-    SELECT r.id, r.number, r.refund_date AS date, r.amount_cents, r.method,
+    SELECT r.id, r.number, r.refund_date AS date, r.created_at, r.amount_cents, r.method,
            c.name AS customer_name,
            x.number AS cancellation_number, i.number AS invoice_number,
            a.number AS advance_number, cn.number AS credit_number, dp.number AS deposit_number
@@ -218,7 +218,7 @@ function dsrSections(db, start, end, items) {
   // Money received in the period that is not a sale of the period.
   const collections = [
     ...db.prepare(`
-      SELECT p.id, p.number, p.payment_date AS date, p.amount_cents, p.method,
+      SELECT p.id, p.number, p.payment_date AS date, p.created_at, p.amount_cents, p.method,
              c.name AS customer_name, i.number AS invoice_number, i.issue_date AS invoice_date
       FROM payments p
       JOIN invoices i ON i.id = p.invoice_id
@@ -230,7 +230,7 @@ function dsrSections(db, start, end, items) {
       ...row, kind: 'payment', against: `Invoice ${row.invoice_number} · ${row.invoice_date}`,
     })),
     ...db.prepare(`
-      SELECT a.id, a.number, a.advance_date AS date, a.amount_cents, a.method,
+      SELECT a.id, a.number, a.advance_date AS date, a.created_at, a.amount_cents, a.method,
              c.name AS customer_name, b.number AS booking_number, v.number AS visa_number
       FROM customer_advances a
       JOIN customers c ON c.id = a.customer_id
@@ -244,7 +244,9 @@ function dsrSections(db, start, end, items) {
       ...row, kind: 'deposit', against: `Visa deposit · ${row.visa_number}${row.applicant_name ? ` (${row.applicant_name})` : ''}`,
     })),
   ].map((row) => ({ ...row, mode: modeOf(row.method) }))
+    // By date, then by when each was entered.
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+      || ((a.created_at || '') < (b.created_at || '') ? -1 : (a.created_at || '') > (b.created_at || '') ? 1 : 0)
       || (a.kind === b.kind ? a.id - b.id : a.kind === 'payment' ? -1 : b.kind === 'payment' ? 1 : a.kind.localeCompare(b.kind)));
 
   // Cash (1000) and bank (1010) movements from the ledger, by what caused them.

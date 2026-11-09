@@ -20,6 +20,7 @@ import {
   statusBadge,
   todayISO,
   toast,
+  fmtEntryTime,
 } from '../ui.js';
 
 function billRow(bill) {
@@ -27,7 +28,7 @@ function billRow(bill) {
     <tr class="clickable" data-id="${bill.id}" tabindex="0">
       <td>
         <div class="cell-main">${esc(bill.number)}</div>
-        <div class="cell-sub">${esc(fmtDate(bill.bill_date))}</div>
+        <div class="cell-sub">${esc([fmtDate(bill.bill_date), fmtEntryTime(bill.bill_date, bill.created_at)].filter(Boolean).join(' · '))}</div>
       </td>
       <td>
         <div class="party-cell">

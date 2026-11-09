@@ -6,8 +6,11 @@ const { notFound, todayISO } = require('../util');
 // cached, so the page always agrees with the ledger after a refund, credit,
 // advance application or cancellation settlement.
 const balanceSelect = `
-  SELECT c.id, c.name, c.email, c.phone, c.address, c.notes, c.nationality, c.is_active,
+  SELECT c.id, c.number, c.name, c.email, c.phone, c.address, c.notes, c.nationality, c.is_active,
     c.created_at, c.created_by, c.changed_by, c.changed_at,
+    (SELECT MIN(i.due_date) FROM invoices i
+     WHERE i.customer_id = c.id AND i.status = 'sent'
+       AND (i.total_cents - i.amount_paid_cents - i.credit_applied_cents) > 0) AS oldest_due_date,
     COALESCE((
       SELECT COUNT(*) FROM invoices i
       WHERE i.customer_id = c.id AND i.status = 'sent'
@@ -70,6 +73,13 @@ function listCustomerBalances(db, { search, include_inactive, only_with_balance 
   const term = String(search || '').trim().toLowerCase();
   const withInactive = include_inactive === true || include_inactive === '1' || include_inactive === 'true';
   const withBalance = only_with_balance === true || only_with_balance === '1' || only_with_balance === 'true';
+  // Who owes the longest first (oldest unpaid due date, then the larger
+  // amount); then customers we owe money to; then everyone else by name.
+  const group = (row) => (row.outstanding_cents > 0 ? 0 : row.credit_balance_cents > 0 ? 1 : 2);
+  rows.sort((a, b) => group(a) - group(b)
+    || (group(a) === 0 ? String(a.oldest_due_date).localeCompare(String(b.oldest_due_date)) || b.outstanding_cents - a.outstanding_cents : 0)
+    || (group(a) === 1 ? b.credit_balance_cents - a.credit_balance_cents : 0)
+    || String(a.name).localeCompare(String(b.name)));
   return rows.filter((row) => {
     if (!withInactive && !row.is_active) return false;
     if (withBalance

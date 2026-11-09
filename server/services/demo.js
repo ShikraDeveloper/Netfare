@@ -1,6 +1,7 @@
 'use strict';
 
 const { bad, addDays, todayISO } = require('../util');
+const { assignPartyNumber } = require('../party-numbers');
 const { postEntry } = require('../accounting');
 const invoiceService = require('./invoices');
 const billService = require('./bills');
@@ -75,6 +76,7 @@ function loadDemo(db) {
     for (const row of customerRows) {
       const info = insertCustomer.run(...row);
       customers[row[0]] = Number(info.lastInsertRowid);
+      assignPartyNumber(db, 'customers', info.lastInsertRowid);
     }
 
     const insertVendor = db.prepare('INSERT INTO vendors (name, email, phone, address) VALUES (?, ?, ?, ?)');
@@ -89,6 +91,7 @@ function loadDemo(db) {
     for (const row of vendorRows) {
       const info = insertVendor.run(...row);
       vendors[row[0]] = Number(info.lastInsertRowid);
+      assignPartyNumber(db, 'vendors', info.lastInsertRowid);
     }
 
     const bank = accountId(db, '1010');

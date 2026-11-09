@@ -113,6 +113,7 @@ export async function render(container, { params } = {}) {
   pageRecord(customer);
   setHeader({
     title: customer.name,
+    badge: customer.number ? `<span class="page-title-number">${esc(customer.number)}</span>` : '',
     actions: `
       <button class="btn btn-primary" data-action="receive-payment">${icon('check', 15)}<span>Receive payment</span></button>
       ${moreMenuHtml([

@@ -10,6 +10,7 @@ import {
   setHeader,
   statusBadge,
   todayISO,
+  entryTimeHtml,
 } from '../ui.js';
 
 function periodText(from, to) {
@@ -36,7 +37,7 @@ function ledgerRow(row) {
   const hasLines = row.lines.length > 0;
   return `
     <tr class="ledger-row" data-row="${esc(row.key)}">
-      <td class="nowrap">${esc(fmtDate(row.date))}</td>
+      <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
       <td class="ref">${esc(row.reference)}</td>
       <td>
         <div>${esc(row.description)}</div>

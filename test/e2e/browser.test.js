@@ -467,7 +467,9 @@ test('customer balances and settlement queue stay derived from live documents', 
 
   await openRoute(`/customer-balances/${customer.id}`);
   assert.equal(await page.locator('.kpi').count(), 4);
-  assert.equal((await page.locator('#page-title').innerText()).trim(), customer.name);
+  const title = (await page.locator('#page-title').innerText()).trim();
+  assert.ok(title.startsWith(customer.name), title);
+  assert.match(title, /CUS-\d{4}$/, 'the customer number sits beside the name');
   assert.ok(await page.locator('table.data caption').count() > 0, 'Balance detail should render tables');
   assertNoConsoleErrors();
 });
