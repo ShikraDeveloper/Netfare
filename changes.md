@@ -2769,11 +2769,29 @@ The user asked about moving the side menu to the top with dropdowns. After three
   `npm test` 283 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Checked in the demo:** on cancelled BK-2026-0007, a supplier refund of 300 went "off the bill" (the bill was unpaid), today's DSR showed "Refund from supplier", and the card showed only Supplier refund.
 
+### Release 1.0.13 — `bbb4d21`, tag `v1.0.13`
+
+- **Why:** The user said "Push and release 1.0.13".
+- **Version:** 1.0.13 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`. The commit is `bbb4d21 Version 1.0.13`, with an annotated tag `v1.0.13` whose four lines are the release notes:
+  - visa rejection is simpler;
+  - the Refunds card on visas and bookings;
+  - Receive refund on the supplier statement with bank charges;
+  - daily sales dated refunds and the real profit.
+- **Pushed:** `main` and `v1.0.13` on the first try.
+- **Release run** 42613677630 succeeded in about 3 minutes.
+- **Assets:**
+  - Netfare-mac-arm64.dmg, 135 MB;
+  - Netfare-mac-x64.dmg, 141 MB;
+  - Netfare-windows-x64.exe, 124 MB;
+  - `latest.json`.
+- **Checked:** the release is not a draft, and `releases/latest` is v1.0.13. `latest.json` reports version 1.0.13, released 2026-11-09, with the four notes.
+- **Not checked:** the installers on a real Mac or Windows PC. Windows is still unsigned (Smart App Control; see Next session).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) Receive refund on the supplier statement (`cf1373f`) supplier refunds staying with the supplier (`611a1d4`) dated refunds in daily sales (`240318e`) and the Refunds card on bookings (`86e3420`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
+3. **Release 1.0.13** is published (2026-11-09): simple visa rejection, the Refunds card on visas and bookings, Receive refund on the supplier statement, and dated refunds in daily sales. Nothing is waiting to be released.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
