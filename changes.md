@@ -2787,11 +2787,23 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** the release is not a draft, and `releases/latest` is v1.0.13. `latest.json` reports version 1.0.13, released 2026-11-09, with the four notes.
 - **Not checked:** the installers on a real Mac or Windows PC. Windows is still unsigned (Smart App Control; see Next session).
 
+### Dashboard: chart and Recent side by side — code commit `5909ea2`
+
+- **Why:** The user found the Revenue and expenses chart too wide and asked to put the Recent card beside it.
+- **Change:**
+  - The chart and Recent sit in one `.dash-row` (`1.6fr` and `1fr`, gap 16). The chart card stretches to the row's height.
+  - Below 1100px the row becomes one column; at 375px both cards are full width with no sideways scroll.
+  - The chart uses `cubicInterpolationMode: 'monotone'` instead of `tension: 0.35`, so the line no longer dips below zero between July (0) and the months around it.
+  - The axis labels are one short style through `axisMoney` (AED 0, AED 5K, AED 10K, AED 15K), at most 6 ticks.
+- **Note:** a negative tick still shows when a month really is negative. In the demo, November's expenses are −45 because supplier refunds exceeded bills that month.
+- **Checked:** the demo at 1188px (both cards 449px tall) and at 375px. `npm test` 283 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.13** is published (2026-11-09): simple visa rejection, the Refunds card on visas and bookings, Receive refund on the supplier statement, and dated refunds in daily sales. Nothing is waiting to be released.
+3. **Release 1.0.13** is published (2026-11-09): simple visa rejection, the Refunds card on visas and bookings, Receive refund on the supplier statement, and dated refunds in daily sales. Not released yet: dashboard chart and Recent side by side (`5909ea2`).
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
