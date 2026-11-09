@@ -17,7 +17,7 @@ const db = require('../server/db');
 const visas = require('../server/services/visas');
 const invoices = require('../server/services/invoices');
 const bills = require('../server/services/bills');
-const visaRefunds = require('../server/services/visa-refunds');
+const jobRefunds = require('../server/services/job-refunds');
 const reconciliation = require('../server/services/reconciliation');
 const credits = require('../server/services/credits');
 const supplierCredits = require('../server/services/supplier-credits');
@@ -93,7 +93,7 @@ test('refund to a paid customer: paid back from the bank in one step', () => {
   const { visa, customer } = submittedVisa('Paid Back', 50_000);
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
   const cash = balance('1000');
-  const credit = visaRefunds.refundCustomer(db, visa.id, { amount_cents: 20_000, date: '2026-11-06', account_id: account('1000') });
+  const credit = jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 20_000, date: '2026-11-06', account_id: account('1000') });
   assert.equal(credit.amount_cents, 20_000);
   assert.equal(cash - balance('1000'), 20_000, 'paid out');
   assert.equal(creditLeft(customer), 0);
@@ -105,7 +105,7 @@ test('refund to a paid customer: paid back from the bank in one step', () => {
 
 test('refund kept as credit when no account is chosen', () => {
   const { visa, customer } = submittedVisa('Kept Credit', 50_000);
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 10_000, date: '2026-11-06' });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 10_000, date: '2026-11-06' });
   assert.equal(creditLeft(customer), 10_000);
   const queue = listSettlementQueue(db, { party_id: customer }).items;
   assert.deepEqual(queue.map((row) => [row.type, row.remaining_cents]), [['customer_credit', 10_000]]);
@@ -115,7 +115,7 @@ test('refund to an unpaid customer lowers what they owe; no money moves', () => 
   const { visa, customer } = submittedVisa('Unpaid', 0);
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
   const cash = balance('1000');
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 10_000, date: '2026-11-06', account_id: account('1000') });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 10_000, date: '2026-11-06', account_id: account('1000') });
   assert.equal(owed(visa.id), 40_000);
   assert.equal(balance('1000'), cash);
   assert.equal(creditLeft(customer), 0);
@@ -124,15 +124,15 @@ test('refund to an unpaid customer lowers what they owe; no money moves', () => 
 test('part paid: the refund clears what is owed first, the rest is paid back', () => {
   const { visa } = submittedVisa('Part Paid', 30_000);
   const cash = balance('1000');
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 40_000, date: '2026-11-06', account_id: account('1000') });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 40_000, date: '2026-11-06', account_id: account('1000') });
   assert.equal(owed(visa.id), 0);
   assert.equal(cash - balance('1000'), 20_000, 'paid 300, kept 100: 200 back');
 });
 
 test('refunds cannot exceed the invoice in total', () => {
   const { visa } = submittedVisa('Too Much', 50_000);
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 30_000, date: '2026-11-06' });
-  assert.throws(() => visaRefunds.refundCustomer(db, visa.id, { amount_cents: 20_001, date: '2026-11-06' }), /cannot be more than 200.00/);
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 30_000, date: '2026-11-06' });
+  assert.throws(() => jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 20_001, date: '2026-11-06' }), /cannot be more than 200.00/);
 });
 
 test('supplier refund: the cost drops and the money stays with the supplier until received', () => {
@@ -143,27 +143,27 @@ test('supplier refund: the cost drops and the money stays with the supplier unti
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
   const cost = balance('5120');
   const bank = balance('1010');
-  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 25_000, date: '2026-11-20', account_id: account('1010') });
+  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 25_000, date: '2026-11-20', account_id: account('1010') });
   assert.equal(cost - balance('5120'), 25_000);
   assert.equal(balance('1010'), bank, 'an account given by an old caller is ignored: nothing comes in yet');
   const [held] = visas.getVisa(db, visa.id).supplier_refunds;
   assert.equal(held.held_cents, 25_000, 'held with the supplier');
   supplierCredits.receiveVendorRefund(db, bill.vendor_id, { amount_cents: 25_000, date: '2026-11-20', account_id: account('1010') });
   assert.equal(balance('1010') - bank, 25_000, 'received when the supplier pays it out');
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 20_000, date: '2026-11-21', account_id: account('1010') });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 20_000, date: '2026-11-21', account_id: account('1010') });
   // Sale 500 − 200 = 300; cost 350 − 250 = 100; profit 200 (it was 150).
   const shown = visas.getVisa(db, visa.id);
   assert.deepEqual(shown.result, { sale_cents: 30_000, cost_cents: 10_000, margin_cents: 20_000 });
   assert.equal(visas.listVisas(db, {}).find((row) => row.id === visa.id).margin_cents, 20_000);
   const report = jobCosts.valueJobs(db, 'visa', [db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(visa.id)]);
   assert.equal(report[0].margin_cents, 20_000, 'the profit report agrees');
-  assert.throws(() => visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-22' }), /exceed the bill total/);
+  assert.throws(() => jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-22' }), /exceed the bill total/);
 });
 
 test('supplier refund on an unpaid bill lowers what we owe them', () => {
   const { visa, bill } = submittedVisa('Bill Unpaid', 0);
   const bank = balance('1010');
-  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 10_000, date: '2026-11-20', account_id: account('1010') });
+  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 10_000, date: '2026-11-20', account_id: account('1010') });
   const fresh = db.prepare('SELECT * FROM bills WHERE id = ?').get(bill.id);
   assert.equal(fresh.total_cents - fresh.amount_paid_cents - fresh.credit_applied_cents, 25_000);
   assert.equal(balance('1010'), bank, 'no money came in');
@@ -172,8 +172,8 @@ test('supplier refund on an unpaid bill lowers what we owe them', () => {
 test('daily sales: the sale stays on its day; refunds are lines on their own dates', () => {
   const { visa, bill } = submittedVisa('Dsr', 0);
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 10_000, date: '2026-11-06' });
-  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 5_000, date: '2026-11-08' });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 10_000, date: '2026-11-06' });
+  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 5_000, date: '2026-11-08' });
   const rows = (from, to) => dailySales(db, from, to).days.flatMap((day) => day.rows).filter((item) => item.reference === visa.number);
   const sale = rows('2026-11-01', '2026-11-01');
   assert.deepEqual(sale.map((row) => [row.sale_cents, row.cost_cents, row.balance_cents]), [[50_000, 35_000, 40_000]], 'the sale day is unchanged');
@@ -193,7 +193,7 @@ test('daily sales: the sale stays on its day; refunds are lines on their own dat
 test('the statement shows the invoice once and the refund as a credit', () => {
   const { visa, customer } = submittedVisa('Statement', 0);
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
-  visaRefunds.refundCustomer(db, visa.id, { amount_cents: 10_000, date: '2026-11-06' });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 10_000, date: '2026-11-06' });
   const rows = statements.customerStatement(db, customer, { from: '2026-01-01', to: '2026-12-31' }).transactions;
   assert.deepEqual(rows.map((row) => row.kind), ['invoice', 'credit']);
   assert.equal(rows.at(-1).balance_cents, 40_000);
@@ -201,7 +201,7 @@ test('the statement shows the invoice once and the refund as a credit', () => {
 
 test('voiding a refund credit note puts the sale and what is owed back', () => {
   const { visa } = submittedVisa('Void Credit', 0);
-  const credit = visaRefunds.refundCustomer(db, visa.id, { amount_cents: 10_000, date: '2026-11-06' });
+  const credit = jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 10_000, date: '2026-11-06' });
   credits.voidCredit(db, credit.id, { remarks: 'Entered by mistake' });
   assert.equal(owed(visa.id), 50_000);
   assert.equal(visas.getVisa(db, visa.id).margin_cents, 15_000);
@@ -213,8 +213,8 @@ test('receive refund from the supplier statement: oldest credits first, with ban
   bills.recordBillPayment(db, bill.id, {
     amount_cents: 35_000, payment_date: '2026-11-02', method: 'Bank transfer', payment_account_id: account('1010'),
   });
-  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 10_000, date: '2026-11-10' });
-  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-11' });
+  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 10_000, date: '2026-11-10' });
+  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-11' });
   let statement = statements.vendorStatement(db, vendor, { from: '2026-01-01', to: '2026-12-31' });
   assert.equal(statement.unapplied_supplier_credits_cents, 25_000);
   assert.equal(statement.closing_balance_cents, -25_000, 'the supplier holds 250 for us');

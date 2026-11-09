@@ -3,7 +3,7 @@
 const router = require('express').Router();
 const db = require('../db');
 const service = require('../services/visas');
-const visaRefunds = require('../services/visa-refunds');
+const jobRefunds = require('../services/job-refunds');
 
 router.get('/', (req, res) => {
   res.json(service.listVisas(db, req.query));
@@ -50,11 +50,11 @@ router.post('/:id/reject', (req, res) => {
 });
 
 router.post('/:id/refund-customer', (req, res) => {
-  res.status(201).json(visaRefunds.refundCustomer(db, Number(req.params.id), req.body || {}));
+  res.status(201).json(jobRefunds.refundCustomer(db, 'visa', Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/supplier-refund', (req, res) => {
-  res.status(201).json(visaRefunds.supplierRefund(db, Number(req.params.id), req.body || {}));
+  res.status(201).json(jobRefunds.supplierRefund(db, 'visa', Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/cancel', (req, res) => {

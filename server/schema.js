@@ -340,6 +340,7 @@ CREATE TABLE IF NOT EXISTS credit_notes (
   revenue_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
   cancellation_id INTEGER,
   visa_id INTEGER,
+  booking_id INTEGER,
   notes TEXT NOT NULL DEFAULT '',
   journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
   void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,

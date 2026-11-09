@@ -113,11 +113,17 @@ test('M3: margin and DSR use posted bills less supplier credits, not the draft c
   assert.equal(row.cost_total_cents, 60_000, '800 billed − 150 − 50 credited');
   assert.equal(row.margin_cents, 40_000);
 
-  const dsrRow = dailySales.dailySales(db, FROM, TO).days
+  // In daily sales the sale keeps the cost of its day; each supplier credit
+  // is its own line on its date, and the period nets to the same margin.
+  const dsrRows = dailySales.dailySales(db, FROM, TO).days
     .flatMap((day) => day.rows)
-    .find((item) => item.id === booking.invoice_id);
-  assert.equal(dsrRow.cost_cents, 60_000);
-  assert.equal(dsrRow.margin_cents, 40_000);
+    .filter((item) => item.kind === 'booking' && item.reference_id === booking.id);
+  const dsrSale = dsrRows.find((item) => !item.is_cancellation);
+  assert.equal(dsrSale.cost_cents, 80_000);
+  assert.deepEqual(dsrRows.filter((item) => item.is_refund).map((item) => [item.issue_date, item.cost_cents]),
+    [['2026-05-15', -15_000], ['2026-05-16', -5_000]]);
+  assert.equal(dsrRows.reduce((sum, item) => sum + item.cost_cents, 0), 60_000);
+  assert.equal(dsrRows.reduce((sum, item) => sum + item.margin_cents, 0), 40_000);
 
   // Voiding a credit puts the cost back.
   const credit = db.prepare('SELECT id FROM supplier_credit_notes WHERE bill_id = ?').get(bill.id);

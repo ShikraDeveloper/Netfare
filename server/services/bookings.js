@@ -12,6 +12,7 @@ const { markCreated } = require('../created-by');
 const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
 const jobCosts = require('./job-costs');
+const jobRefunds = require('./job-refunds');
 
 const bookingSelect = `
   SELECT b.*, c.name AS customer_name, c.email AS customer_email,
@@ -98,6 +99,7 @@ function getBooking(db, id) {
   }));
   booking.cancellation = cancellationService.getCancellationForSource(db, 'booking', id);
   booking.status_history = jobs.statusHistory(db, 'booking', id);
+  Object.assign(booking, jobRefunds.refundLists(db, 'booking', id));
 
   booking.payments = booking.invoice
     ? db.prepare(`
@@ -139,7 +141,7 @@ function getBooking(db, id) {
   booking.amount_paid_cents = booking.invoice ? booking.invoice.amount_paid_cents : 0;
   booking.balance_cents = booking.invoice ? booking.invoice.balance_cents : booking.sale_total_cents;
 
-  return serializeBooking(booking);
+  return jobCosts.withActualResult(db, 'booking', [serializeBooking(booking)])[0];
 }
 
 function listBookings(db, { status, search, from, to } = {}) {
@@ -161,7 +163,7 @@ function listBookings(db, { status, search, from, to } = {}) {
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${bookingSelect} ${where} ORDER BY b.booking_date DESC, b.id DESC`).all(...params);
-  const serialized = rows.map(serializeBooking);
+  const serialized = jobCosts.withActualResult(db, 'booking', rows.map(serializeBooking));
   if (!status || status === 'all') return serialized;
   return serialized.filter((row) => row.status === status);
 }

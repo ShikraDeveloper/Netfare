@@ -7,7 +7,7 @@
 // Drafts have posted nothing and stay out of margin reporting. Jobs cancelled
 // before cancellation notes existed had every document reversed, so they are
 // excluded too. Cancelled jobs with a note show their charges and retained cost.
-// Refunds to the customer on a visa (credit notes) lower its sale.
+// Refunds to the customer on a booking or visa (credit notes) lower its sale.
 
 const COLUMNS = { booking: 'booking_id', visa: 'visa_id' };
 
@@ -74,15 +74,14 @@ function cancellationMap(db, sourceType) {
   return map;
 }
 
-// Refunds given to the customer on each visa (credit notes linked to it).
-// Bookings have none.
+// Refunds given to the customer on each job (credit notes linked to it).
 function customerRefundMap(db, sourceType) {
+  const column = columnFor(sourceType);
   const map = new Map();
-  if (sourceType !== 'visa') return map;
   for (const row of db.prepare(`
-    SELECT visa_id, SUM(amount_cents) AS total FROM credit_notes
-    WHERE visa_id IS NOT NULL AND status = 'issued' GROUP BY visa_id
-  `).all()) map.set(row.visa_id, row.total);
+    SELECT ${column} AS job_id, SUM(amount_cents) AS total FROM credit_notes
+    WHERE ${column} IS NOT NULL AND status = 'issued' GROUP BY ${column}
+  `).all()) map.set(row.job_id, row.total);
   return map;
 }
 

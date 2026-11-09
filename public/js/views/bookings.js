@@ -34,6 +34,12 @@ import {
 
 const STATUS_OPTIONS = ['draft', 'confirmed', 'travelled', 'cancelled'];
 
+// What a booking sold for, less refunds; after a cancellation, what was kept.
+function saleOf(booking) {
+  if (booking.result) return booking.result.sale_cents;
+  return booking.status === 'cancelled' ? 0 : booking.sale_total_cents;
+}
+
 function bookingRow(booking) {
   const marginClass = booking.margin_cents >= 0 ? 'margin-positive' : 'margin-negative';
   return `
@@ -55,8 +61,8 @@ function bookingRow(booking) {
       <td class="nowrap">${booking.travel_date ? esc(fmtDate(booking.travel_date)) : '—'}</td>
       <td>${statusBadge(booking.status)}</td>
       <td data-payment-status>${paymentBadge(booking)}</td>
-      <td class="num">${fmtMoney(booking.sale_total_cents)}</td>
-      <td class="num">${fmtMoney(booking.cost_total_cents)}</td>
+      <td class="num">${fmtMoney(booking.result ? booking.result.sale_cents : booking.sale_total_cents)}</td>
+      <td class="num">${fmtMoney(booking.result ? booking.result.cost_cents : booking.cost_total_cents)}</td>
       <td class="num ${marginClass}">${fmtMoney(booking.margin_cents)}</td>
       <td class="right muted">${icon('chevron', 16)}</td>
     </tr>
@@ -318,7 +324,7 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
 
 export async function render(container, { query } = {}) {
   const bookings = await api.get('/bookings');
-  const saleTotal = bookings.filter((b) => b.status !== 'cancelled').reduce((sum, b) => sum + b.sale_total_cents, 0);
+  const saleTotal = bookings.reduce((sum, b) => sum + saleOf(b), 0);
 
   setHeader({
     title: 'Bookings',
@@ -427,9 +433,7 @@ export async function render(container, { query } = {}) {
       return [booking.number, booking.customer_name, booking.destination, booking.pnr, booking.status, booking.passenger_names]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
-    const filteredSales = filtered
-      .filter((booking) => booking.status !== 'cancelled')
-      .reduce((sum, booking) => sum + booking.sale_total_cents, 0);
+    const filteredSales = filtered.reduce((sum, booking) => sum + saleOf(booking), 0);
     const confirmed = filtered.filter((booking) => booking.status === 'confirmed').length;
     countEl.textContent = `${filtered.length} shown`;
     if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;

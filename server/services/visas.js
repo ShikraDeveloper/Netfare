@@ -15,6 +15,7 @@ const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
 const jobCosts = require('./job-costs');
 const audit = require('./audit');
+const jobRefunds = require('./job-refunds');
 
 const VISA_TYPES = ['tourist', 'visit', 'business', 'transit', 'student', 'work', 'other'];
 const OPEN_STATUSES = ['draft', 'submitted', 'approved'];
@@ -156,21 +157,7 @@ function getVisa(db, id) {
       : 0,
   }));
   visa.cancellation = cancellationService.getCancellationForSource(db, 'visa', id);
-  visa.customer_refunds = db.prepare(`
-    SELECT cn.id, cn.number, cn.credit_date AS date, cn.amount_cents, cn.applied_cents, cn.refunded_cents,
-           (cn.amount_cents - cn.applied_cents - cn.refunded_cents) AS remaining_cents
-    FROM credit_notes cn WHERE cn.visa_id = ? AND cn.status = 'issued' ORDER BY cn.credit_date, cn.id
-  `).all(id);
-  visa.supplier_refunds = db.prepare(`
-    SELECT scn.id, scn.number, scn.credit_date AS date, scn.amount_cents, b.number AS bill_number, vd.name AS vendor_name,
-           scn.applied_cents, scn.portal_settled_cents, scn.refunded_cents,
-           (scn.amount_cents - scn.applied_cents - scn.portal_settled_cents - scn.refunded_cents) AS held_cents
-    FROM supplier_credit_notes scn
-    LEFT JOIN bills b ON b.id = scn.bill_id
-    LEFT JOIN vendors vd ON vd.id = scn.vendor_id
-    WHERE scn.visa_id = ? AND scn.cancellation_id IS NULL AND scn.status = 'issued'
-    ORDER BY scn.credit_date, scn.id
-  `).all(id);
+  Object.assign(visa, jobRefunds.refundLists(db, 'visa', id));
   visa.status_history = jobs.statusHistory(db, 'visa', id);
   visa.group = visa.group_id ? groupSummary(db, visa.group_id) : null;
   visa.deposits = require('./visa-deposits').listDeposits(db, { visa_id: visa.id });
@@ -438,7 +425,7 @@ function issueVisa(db, id) {
 // Rejected by immigration: the work was done, so the invoice, the sale and
 // what the customer owes stay. Only the status changes, with the date and
 // reason. Money given back or received is recorded separately
-// (visa-refunds.js: refundCustomer, supplierRefund).
+// (job-refunds.js: refundCustomer, supplierRefund).
 function rejectVisa(db, id, payload = {}) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(Number(id));

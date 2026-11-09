@@ -24,6 +24,7 @@ import {
 import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
+import { bindRefunds, refundsCardHtml } from './job-refunds.js';
 
 import { advanceModalBody, applyModalBody, depositAccounts, postingPreview, refundModalBody } from './job-modals.js';
 
@@ -68,7 +69,11 @@ export async function render(container, { params } = {}) {
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const marginClass = booking.margin_cents >= 0 ? 'margin-positive' : 'margin-negative';
-  const marginPercent = booking.sale_total_cents ? (booking.margin_cents / booking.sale_total_cents) * 100 : 0;
+  // After refunds or a cancellation the profit is the kept sale less the cost
+  // left after supplier refunds.
+  const result = booking.result || null;
+  const saleForMargin = result ? result.sale_cents : booking.sale_total_cents;
+  const marginPercent = saleForMargin ? (booking.margin_cents / saleForMargin) * 100 : 0;
 
   const actions = [];
   const menu = [
@@ -166,6 +171,7 @@ export async function render(container, { params } = {}) {
     : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'Supplier bills are created automatically when you confirm this booking.' : 'No supplier bills linked.'}</div>`;
 
   const cancellation = booking.cancellation;
+  const refundsCard = booking.status === 'draft' ? '' : refundsCardHtml(booking);
   const cancellationCard = cancellation
     ? `
       <div class="card">
@@ -288,7 +294,9 @@ export async function render(container, { params } = {}) {
           <div class="doc-notes"></div>
           <div class="doc-totals">
             <div class="totals-row"><span>Total sale</span><span>${fmtMoney(booking.sale_total_cents)}</span></div>
+            ${result && result.sale_cents !== booking.sale_total_cents ? `<div class="totals-row" data-result-sale><span>${booking.cancellation ? 'Sale after cancellation' : 'Sale after refund to customer'}</span><span>${fmtMoney(result.sale_cents)}</span></div>` : ''}
             <div class="totals-row"><span>Total cost</span><span>${fmtMoney(booking.cost_total_cents)}</span></div>
+            ${result && result.cost_cents !== booking.cost_total_cents ? `<div class="totals-row" data-result-cost><span>Cost after supplier refund</span><span>${fmtMoney(result.cost_cents)}</span></div>` : ''}
             <div class="totals-row total"><span>Gross profit</span><span class="${marginClass}">${fmtMoney(booking.margin_cents)}</span></div>
             <div class="totals-row"><span class="muted">Gross margin</span><span class="muted">${marginPercent.toFixed(1)}%</span></div>
             <div class="totals-row balance"><span>Customer balance</span><span>${fmtMoney(booking.balance_cents)}</span></div>
@@ -314,6 +322,7 @@ export async function render(container, { params } = {}) {
       </div>
 
       ${cancellationCard}
+      ${refundsCard}
 
       <div class="card">
         <div class="card-head">
@@ -344,6 +353,7 @@ export async function render(container, { params } = {}) {
   `;
 
   bindAttachmentSection(container, { entityType: 'booking', entityId: id });
+  bindRefunds(container, booking, 'booking', () => render(container, { params: [String(id)] }));
 
   function refresh() {
     return render(container, { params: [String(id)] });

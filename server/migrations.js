@@ -188,8 +188,9 @@ ensureColumn('refunds', 'supplier_credit_note_id', 'INTEGER');
 ensureColumn('refunds', 'advance_id', 'INTEGER');
 ensureColumn('refunds', 'credit_note_id', 'INTEGER');
 ensureColumn('credit_notes', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0');
-// A refund given to the customer on a visa (for example after a rejection).
+// A refund given to the customer on a visa or booking (job-refunds.js).
 ensureColumn('credit_notes', 'visa_id', 'INTEGER');
+ensureColumn('credit_notes', 'booking_id', 'INTEGER');
 ensureColumn('compliance_items', 'anchor_date', 'TEXT');
 ensureColumn('compliance_items', 'period_index', 'INTEGER NOT NULL DEFAULT 0');
 // Set when the bank takes the amount itself (account charges): each period's
