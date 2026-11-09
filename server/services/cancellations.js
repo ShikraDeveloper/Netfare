@@ -186,11 +186,11 @@ function normalizeSupplierCredits(db, sourceType, sourceId, values) {
   return result;
 }
 
-function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = {}) {
+function cancelSource(db, { sourceType, sourceId, payload = {} } = {}) {
   if (!['booking', 'visa'].includes(sourceType)) throw bad('Cancellation source must be a booking or visa application');
   return db.transaction(() => {
     const source = sourceRow(db, sourceType, sourceId);
-    const expected = sourceType === 'booking' ? 'cancelled' : (finalStatus || 'cancelled');
+    const expected = 'cancelled';
     if (source.status === 'cancelled' || (sourceType === 'visa' && source.status === 'rejected')) {
       throw bad(sourceType === 'booking' ? 'Booking is already cancelled' : 'Visa application is already cancelled or rejected');
     }

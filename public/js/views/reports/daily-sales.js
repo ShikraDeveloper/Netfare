@@ -202,7 +202,7 @@ function cancellationTables(cancellations, refunds) {
   const cancelBody = cancellations.length ? cancellations.map((row) => `
       <tr class="dsr-cancellation-row">
         <td class="nowrap">${esc(fmtDate(row.issue_date))}</td>
-        <td class="nowrap"><a href="#/cancellations/${row.cancellation_id}">${esc(row.number)}</a>
+        <td class="nowrap"><a href="${row.href || `#/cancellations/${row.cancellation_id}`}">${esc(row.number)}</a>${row.is_refund ? `<div class="cell-sub">${esc(row.particulars.split(' · ')[0])}</div>` : ''}
           <div class="cell-sub"><a href="#/${row.kind === 'booking' ? 'bookings' : 'visas'}/${row.reference_id}">${esc(row.reference || '')}</a>${row.charges_invoice_number ? ` · <a href="#/invoices/${row.charges_invoice_id}">${esc(row.charges_invoice_number)}</a>` : ''}</div>${staffLine(row)}</td>
         <td>${esc(row.customer_name)}</td>
         <td class="num">${amt(-row.reversed_sale_cents)}</td>
@@ -210,7 +210,7 @@ function cancellationTables(cancellations, refunds) {
         <td class="num">${amt(row.supplier_credits_cents)}</td>
         <td class="num"><strong>${amt(row.sale_cents, { blank: false })}</strong></td>
         <td class="num dsr-profit ${row.margin_cents >= 0 ? 'margin-positive' : 'margin-negative'}">${amt(row.margin_cents, { blank: false })}</td>
-      </tr>`).join('') : emptyRow(8, 'No cancellations in this period.');
+      </tr>`).join('') : emptyRow(8, 'No cancellations or refunds in this period.');
   const refundBody = refunds.length ? refunds.map((row) => `
       <tr>
         <td class="nowrap">${esc(fmtDate(row.date))}</td>
@@ -223,13 +223,13 @@ function cancellationTables(cancellations, refunds) {
   return `
     <table class="report-table dsr-table" data-dsr-table="cancellations"><caption class="sr-only">Cancellations</caption>
       <thead><tr>
-        <th scope="col">Date</th><th scope="col">Cancellation</th><th scope="col">Customer</th>
+        <th scope="col">Date</th><th scope="col">Cancellation or refund</th><th scope="col">Customer</th>
         <th scope="col" class="num">Sale reversed</th><th scope="col" class="num">Charges kept</th>
         <th scope="col" class="num">Supplier credit</th><th scope="col" class="num">Net sale</th><th scope="col" class="num dsr-profit">Gross profit</th>
       </tr></thead>
       <tbody>${cancelBody}</tbody>
       <tfoot><tr>
-        <td colspan="3">Total · ${cancellations.length} cancellation${cancellations.length === 1 ? '' : 's'}</td>
+        <td colspan="3">Total · ${cancellations.length}</td>
         <td class="num">${amt(-sumOf(cancellations, (r) => r.reversed_sale_cents), { blank: false })}</td>
         <td class="num">${amt(sumOf(cancellations, (r) => r.charges_cents), { blank: false })}</td>
         <td class="num">${amt(sumOf(cancellations, (r) => r.supplier_credits_cents), { blank: false })}</td>

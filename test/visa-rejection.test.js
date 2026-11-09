@@ -169,15 +169,25 @@ test('supplier refund on an unpaid bill lowers what we owe them', () => {
   assert.equal(balance('1010'), bank, 'no money came in');
 });
 
-test('daily sales: the visa sale is net of refunds dated in the period', () => {
-  const { visa } = submittedVisa('Dsr', 0);
+test('daily sales: the sale stays on its day; refunds are lines on their own dates', () => {
+  const { visa, bill } = submittedVisa('Dsr', 0);
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
   visaRefunds.refundCustomer(db, visa.id, { amount_cents: 10_000, date: '2026-11-06' });
-  const row = (to) => dailySales(db, '2026-11-01', to).days.flatMap((day) => day.rows).find((item) => item.reference === visa.number);
-  assert.equal(row('2026-11-30').sale_cents, 40_000);
-  assert.equal(row('2026-11-30').balance_cents, 40_000);
-  assert.equal(row('2026-11-30').cancelled_by, null);
-  assert.equal(row('2026-11-05').sale_cents, 50_000, 'a report up to an earlier date is unchanged');
+  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 5_000, date: '2026-11-08' });
+  const rows = (from, to) => dailySales(db, from, to).days.flatMap((day) => day.rows).filter((item) => item.reference === visa.number);
+  const sale = rows('2026-11-01', '2026-11-01');
+  assert.deepEqual(sale.map((row) => [row.sale_cents, row.cost_cents, row.balance_cents]), [[50_000, 35_000, 40_000]], 'the sale day is unchanged');
+  const refundDay = rows('2026-11-06', '2026-11-06');
+  assert.deepEqual(refundDay.map((row) => [row.particulars.split(' · ')[0], row.sale_cents, row.cost_cents, row.margin_cents]),
+    [['Refund to customer', -10_000, 0, -10_000]]);
+  const supplierDay = rows('2026-11-08', '2026-11-08');
+  assert.deepEqual(supplierDay.map((row) => [row.particulars.split(' · ')[0], row.sale_cents, row.cost_cents, row.margin_cents]),
+    [['Refund from supplier', 0, -5_000, 5_000]]);
+  assert.deepEqual(rows('2026-11-05', '2026-11-05'), [], 'rejecting posts nothing');
+  const month = rows('2026-11-01', '2026-11-30');
+  const net = month.reduce((sum, row) => [sum[0] + row.sale_cents, sum[1] + row.cost_cents, sum[2] + row.margin_cents], [0, 0, 0]);
+  assert.deepEqual(net, [40_000, 30_000, 10_000], 'the month nets to the profit report');
+  assert.equal(visas.getVisa(db, visa.id).margin_cents, 10_000);
 });
 
 test('the statement shows the invoice once and the refund as a credit', () => {

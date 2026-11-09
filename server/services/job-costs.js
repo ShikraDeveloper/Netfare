@@ -170,7 +170,6 @@ function valueJobs(db, sourceType, jobs) {
 
 module.exports = {
   withActualResult,
-  customerRefundMap,
   jobCostMap,
   jobCostCents,
   valueJobs,

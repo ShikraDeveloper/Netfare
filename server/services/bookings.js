@@ -310,7 +310,6 @@ function cancelBooking(db, id, payload = {}) {
     sourceType: 'booking',
     sourceId: id,
     payload,
-    finalStatus: 'cancelled',
   });
   return getBooking(db, id);
 }

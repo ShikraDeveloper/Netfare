@@ -29,6 +29,8 @@ const FLOW_LABELS = {
   cancellation_refund: 'Cancellation refunds',
   credit_refund: 'Credit note refunds',
   supplier_refund: 'Supplier refunds',
+  refund: 'Supplier refunds received',
+  customer_credit_refund: 'Credit note refunds',
   cheque: 'Cheques',
   manual: 'Journal entries and expenses',
   deposit_collect: 'Visa security deposits received',

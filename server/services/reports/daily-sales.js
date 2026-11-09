@@ -18,12 +18,14 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   // supplier credits, so a reissued or credited ticket shows its real margin.
   const bookingCosts = jobCosts.jobCostMap(db, 'booking');
   const visaCosts = jobCosts.jobCostMap(db, 'visa');
-  // Refunds given to the customer on a visa lower its sale, like supplier
-  // refunds lower its cost; only those dated by the period end count.
-  const visaRefunds = new Map(db.prepare(`
-    SELECT visa_id, SUM(amount_cents) AS total FROM credit_notes
-    WHERE visa_id IS NOT NULL AND status = 'issued' AND credit_date <= ? GROUP BY visa_id
-  `).all(end).map((row) => [row.visa_id, row.total]));
+  // Refunds on a visa (to the customer, or from the supplier) are their own
+  // lines on the day they were made; the sale keeps the figures of its day.
+  const visaSupplierRefunds = new Map(db.prepare(`
+    SELECT COALESCE(scn.visa_id, b.visa_id) AS visa_id, SUM(scn.amount_cents) AS total
+    FROM supplier_credit_notes scn LEFT JOIN bills b ON b.id = scn.bill_id
+    WHERE scn.status = 'issued' AND scn.cancellation_id IS NULL AND COALESCE(scn.visa_id, b.visa_id) IS NOT NULL
+    GROUP BY COALESCE(scn.visa_id, b.visa_id)
+  `).all().map((row) => [row.visa_id, row.total]));
 
   const invoices = db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
@@ -99,10 +101,10 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     // for an earlier period reads the same as when it was first printed.
     const hasCancellation = Boolean(row.cancelled_by_id);
     const cancelled = hasCancellation && row.cancelled_on <= end;
-    const cost = hasCancellation && kind !== 'direct'
+    const cost = (hasCancellation && kind !== 'direct'
       ? jobCost + (cancellationCredits.get(`${kind}:${row.booking_id || row.visa_id}`) || 0)
-      : jobCost;
-    const sale = row.subtotal_cents - (kind === 'visa' ? visaRefunds.get(row.visa_id) || 0 : 0);
+      : jobCost) + (kind === 'visa' ? visaSupplierRefunds.get(row.visa_id) || 0 : 0);
+    const sale = row.subtotal_cents;
     let particulars = row.particulars || '';
     if (!particulars && kind === 'booking') particulars = row.destination || '';
     if (!particulars && kind === 'visa') {
@@ -184,6 +186,54 @@ function dailySales(db, from, to, { staff = '' } = {}) {
       retained_cost_cents: retainedCost,
       staff: row.created_by || NO_STAFF,
     });
+  }
+
+  // Refunds on visas made in the period: to the customer (a credit note lowers
+  // the sale) and from the supplier (a supplier credit lowers the cost).
+  const refundLine = (row, { sale = 0, cost = 0, label, href }) => ({
+    id: row.id,
+    number: row.number,
+    issue_date: row.date,
+    customer_name: row.customer_name,
+    kind: 'visa',
+    reference: row.visa_number,
+    reference_id: row.visa_id,
+    particulars: `${label} · ${row.visa_number}`,
+    href,
+    sale_cents: sale,
+    cost_cents: cost,
+    margin_cents: sale - cost,
+    paid_cents: 0,
+    balance_cents: 0,
+    charges_cents: 0,
+    reversed_sale_cents: -sale,
+    supplier_credits_cents: -cost,
+    status_display: 'refund',
+    is_cancellation: true,
+    is_refund: true,
+    staff: row.staff || NO_STAFF,
+  });
+  for (const row of db.prepare(`
+    SELECT cn.id, cn.number, cn.credit_date AS date, cn.amount_cents, cn.created_by AS staff,
+           c.name AS customer_name, v.id AS visa_id, v.number AS visa_number
+    FROM credit_notes cn
+    JOIN visa_applications v ON v.id = cn.visa_id
+    JOIN customers c ON c.id = cn.customer_id
+    WHERE cn.status = 'issued' AND cn.credit_date >= ? AND cn.credit_date <= ?
+  `).all(start, end)) {
+    allItems.push(refundLine(row, { sale: -row.amount_cents, label: 'Refund to customer', href: `#/credits/${row.id}` }));
+  }
+  for (const row of db.prepare(`
+    SELECT scn.id, scn.number, scn.credit_date AS date, scn.amount_cents, scn.created_by AS staff,
+           c.name AS customer_name, v.id AS visa_id, v.number AS visa_number
+    FROM supplier_credit_notes scn
+    LEFT JOIN bills b ON b.id = scn.bill_id
+    JOIN visa_applications v ON v.id = COALESCE(scn.visa_id, b.visa_id)
+    JOIN customers c ON c.id = v.customer_id
+    WHERE scn.status = 'issued' AND scn.cancellation_id IS NULL
+      AND scn.credit_date >= ? AND scn.credit_date <= ?
+  `).all(start, end)) {
+    allItems.push(refundLine(row, { cost: -row.amount_cents, label: 'Refund from supplier', href: `#/supplier-credits/${row.id}` }));
   }
 
   // Sales by staff for the whole period; the staff filter then narrows the

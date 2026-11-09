@@ -116,4 +116,4 @@ function supplierRefund(db, visaId, payload = {}) {
   })();
 }
 
-module.exports = { refundCustomer, supplierRefund, customerRefundedCents };
+module.exports = { refundCustomer, supplierRefund };

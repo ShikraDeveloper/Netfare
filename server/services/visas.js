@@ -462,7 +462,6 @@ function cancelVisa(db, id, payload = {}) {
     sourceType: 'visa',
     sourceId: id,
     payload,
-    finalStatus: 'cancelled',
   });
   return getVisa(db, id);
 }
