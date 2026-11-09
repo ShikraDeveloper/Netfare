@@ -2878,11 +2878,29 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** the demo lists run CUS-0001 Rahul Menon … CUS-0005 Corporate Travel Co, and SUP-0001 Emirates Consolidator … SUP-0005 Desert Safari Tours. `npm test` 293 passed, `npm run test:e2e` 43 passed.
 - **Not pushed or released.**
 
+### Release 1.0.15 — `7f7ec38`, tag `v1.0.15`
+
+- **Why:** The user said "OK PUSH & RELEASE".
+- **Version:** 1.0.15 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`. The commit is `7f7ec38 Version 1.0.15`, with an annotated tag whose three lines are the notes:
+  - customer and supplier numbers;
+  - same-day lines in entry order;
+  - entry times and the Customer balances order.
+- **Pushed:** `main` and `v1.0.15` on the first try.
+- **Release run** 42627876214 succeeded in about 3.5 minutes.
+- **Assets:**
+  - Netfare-mac-arm64.dmg, 135 MB;
+  - Netfare-mac-x64.dmg, 141 MB;
+  - Netfare-windows-x64.exe, 124 MB;
+  - `latest.json`.
+- **Checked:** the release is not a draft, `releases/latest` is v1.0.15, and `latest.json` reports 1.0.15, released 2026-11-09, with the three notes.
+- **On first start of 1.0.15:** the migration numbers existing customers and suppliers in the order they were added. Netfare backs up the books before it updates them.
+- **Not checked:** the installers on a real Mac or Windows PC. Windows is still unsigned.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.14** is published (2026-11-09): Reminders (page, Add reminder on bookings and visas, dashboard card, bell alert with Snooze and Done) and the dashboard chart beside Recent. 1.0.13 (2026-11-09) brought simple visa rejection, Refunds cards and dated DSR refunds. Not released yet: date and time order everywhere and customer/supplier numbers (`defc871`), lists sorted by number (`9e478bf`). Ask the user to check the reminder sound and the desktop notification in the office.
+3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Nothing is waiting to be released. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
