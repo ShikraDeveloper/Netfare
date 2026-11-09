@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { refreshMeta } from '../store.js';
+import { isLate, whenLabel } from '../reminders.js';
 import { bindPops, canOpen, newMenuHtml } from '../menu.js';
 import {
   avatar,
@@ -87,6 +88,23 @@ function recentHtml(data) {
         <a class="mini-all" href="#/${list.value}">All ${list.label.toLowerCase()} ${icon('chevron', 12)}</a>
       </div>`;
   }).join('')}
+    </div>`;
+}
+
+// The next few reminders; late ones first, in red.
+function remindersCardHtml(reminders) {
+  const shown = reminders.slice(0, 5);
+  return `
+    <div class="card reminders-mini" data-reminders-card>
+      <div class="card-head">
+        <div class="card-title"><h2>Reminders</h2></div>
+        <a class="card-link" href="#/reminders">All ${icon('chevron', 13)}</a>
+      </div>
+      ${shown.length ? shown.map((reminder) => `
+        <a class="reminder-mini${isLate(reminder) ? ' late' : ''}" href="#/reminders">
+          <span>${esc(reminder.title)}</span>
+          <span>${isLate(reminder) ? 'late · ' : ''}${esc(whenLabel(reminder.due_at))}</span>
+        </a>`).join('') : emptyState({ iconName: 'clock', title: 'No reminders coming up' })}
     </div>`;
 }
 
@@ -322,10 +340,11 @@ function ledgerChecksCard(reconciliation) {
 
 export async function render(container, { query } = {}) {
   destroyCharts();
-  const [data, reconciliation] = await Promise.all([
+  const [data, reconciliation, reminders] = await Promise.all([
     api.get('/reports/dashboard'),
     // The checks are advisory; the dashboard still renders if they fail.
     api.get('/reports/reconciliation').catch(() => null),
+    api.get('/reminders', { status: 'open' }).catch(() => []),
   ]);
   // One New menu: the same as the sidebar's, shown here on phones, where
   // the sidebar is folded away.
@@ -366,7 +385,10 @@ export async function render(container, { query } = {}) {
         </div>
         <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Monthly revenue and expenses for the last six months"></canvas></div>
       </div>
-      ${recentHtml(data)}
+      <div class="dash-side">
+        ${remindersCardHtml(reminders)}
+        ${recentHtml(data)}
+      </div>
     </div>
   `;
 
@@ -386,9 +408,17 @@ export async function render(container, { query } = {}) {
     renderCharts(data, container);
   };
   window.addEventListener('theme-changed', onThemeChange);
+  // Done or snoozed from the alert: the card follows.
+  const onRemindersChanged = async () => {
+    const list = await api.get('/reminders', { status: 'open' }).catch(() => null);
+    const card = container.querySelector('[data-reminders-card]');
+    if (list && card) card.outerHTML = remindersCardHtml(list);
+  };
+  window.addEventListener('reminders-changed', onRemindersChanged);
 
   return () => {
     window.removeEventListener('theme-changed', onThemeChange);
+    window.removeEventListener('reminders-changed', onRemindersChanged);
     destroyCharts();
   };
 }

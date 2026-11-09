@@ -2127,8 +2127,8 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     await guestPage.locator('.company-meta', { hasText: 'Counter Staff' }).waitFor();
     assert.deepEqual(
       await guestPage.locator('#main-nav .nav-item span').allInnerTexts(),
-      ['Dashboard', 'Bookings', 'Invoices', 'Customer balances', 'Settlements', 'Settings'],
-      'the menu shows only screens the user may open',
+      ['Dashboard', 'Reminders', 'Bookings', 'Invoices', 'Customer balances', 'Settlements', 'Settings'],
+      'the menu shows only screens the user may open (Reminders is open to everyone)',
     );
     const visible = async (selector) => guestPage.locator(selector).evaluateAll((nodes) => nodes.filter((node) => node.offsetParent).length);
     await guestPage.goto(`${baseUrl}/?staff=0#/dashboard`);

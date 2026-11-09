@@ -736,4 +736,25 @@ CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_note ON supplier_credit_appl
 CREATE INDEX IF NOT EXISTS idx_supplier_credit_apps_bill ON supplier_credit_applications(bill_id);
 CREATE INDEX IF NOT EXISTS idx_portal_credits_portal ON portal_credits(portal_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+-- Reminders: something to do at a date and time, for one user or everyone,
+-- optionally linked to a booking or visa. due_at is local wall time
+-- (YYYY-MM-DDTHH:MM) as typed; a repeating reminder moves on when done.
+CREATE TABLE IF NOT EXISTS reminders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  due_at TEXT NOT NULL,
+  repeat TEXT NOT NULL DEFAULT 'never' CHECK (repeat IN ('never', 'daily', 'weekly', 'monthly')),
+  for_all INTEGER NOT NULL DEFAULT 0 CHECK (for_all IN (0, 1)),
+  owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  link_type TEXT CHECK (link_type IN ('booking', 'visa')),
+  link_id INTEGER,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done')),
+  done_at TEXT,
+  done_by TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_at);
 `;

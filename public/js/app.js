@@ -3,6 +3,7 @@ import { initTheme } from './theme.js';
 import { ensureSignedIn, signOut } from './auth.js';
 import { openChangePassword } from './views/account.js';
 import { keepCheckingForUpdates } from './updates.js';
+import { startReminderAlerts } from './reminders.js';
 import {
   MENU_GROUPS, SECTION_AREAS, bindPops, buildTopNav, canOpen, getMenuMode, markTopNav, newMenuHtml,
   rememberRecent, searchButtonHtml, visibleGroups,
@@ -41,6 +42,7 @@ import * as openingBalancesView from './views/opening-balances.js';
 import * as refundsView from './views/refunds.js';
 import * as refundDetailView from './views/refund-detail.js';
 import * as complianceView from './views/compliance.js';
+import * as remindersView from './views/reminders.js';
 import * as chequesView from './views/cheques.js';
 import * as bankingView from './views/banking.js';
 import * as pettyCashView from './views/petty-cash.js';
@@ -148,6 +150,7 @@ const ROUTES = [
   { pattern: /^\/refunds$/, view: refundsView, section: 'refunds' },
   { pattern: /^\/refunds\/(\d+)$/, view: refundDetailView, section: 'refunds' },
   { pattern: /^\/compliance$/, view: complianceView, section: 'compliance' },
+  { pattern: /^\/reminders$/, view: remindersView, section: 'reminders' },
   { pattern: /^\/cheques$/, view: chequesView, section: 'cheques' },
   { pattern: /^\/banking$/, view: bankingView, section: 'banking' },
   { pattern: /^\/petty-cash$/, view: pettyCashView, section: 'petty-cash' },
@@ -528,6 +531,7 @@ async function boot() {
   buildTopMenu();
   renderRoute();
   if (store.user.is_admin) keepCheckingForUpdates();
+  startReminderAlerts();
 }
 
 window.addEventListener('hashchange', renderRoute);

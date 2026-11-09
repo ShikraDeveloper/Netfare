@@ -13,6 +13,7 @@ export const MENU_GROUPS = [
     icon: 'home',
     items: [
       { section: 'dashboard', href: '#/dashboard', icon: 'dashboard', label: 'Dashboard', keywords: 'Today at a glance' },
+      { section: 'reminders', href: '#/reminders', icon: 'clock', label: 'Reminders', keywords: 'Things to do at a time · alarm' },
     ],
   },
   {

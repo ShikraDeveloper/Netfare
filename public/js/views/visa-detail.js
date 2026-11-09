@@ -26,6 +26,7 @@ import { openCancellationModal } from './cancellation-modal.js';
 import { bindDepositCard, depositCardHtml } from './visa-deposit-card.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { bindRefunds, refundsCardHtml } from './job-refunds.js';
+import { openReminderForm } from '../reminders.js';
 
 import { advanceModalBody, applyModalBody, depositAccounts, postingPreview, refundModalBody } from './job-modals.js';
 
@@ -184,6 +185,7 @@ export async function render(container, { params } = {}) {
 
   const duration = visaDurationLabel(visa.duration_days);
   menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
+  menu.push(`<button class="btn btn-ghost" data-action="add-reminder">${icon('clock', 15)}<span>Add reminder</span></button>`);
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/visa/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   if (!isCancelled && !isRejected) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
@@ -605,6 +607,9 @@ export async function render(container, { params } = {}) {
   });
 
   bindRefunds(container, visa, 'visa', refresh);
+  on('[data-action="add-reminder"]', () => openReminderForm({
+    link: { type: 'visa', id: visa.id, label: [visa.number, visa.applicant_name || visa.customer_name].filter(Boolean).join(' · ') },
+  }));
 
   const cancelButton = document.querySelector('[data-action="cancel"]');
   if (cancelButton) {

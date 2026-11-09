@@ -317,6 +317,8 @@ html:not(.nav-ready) .main { transition: none !important; }
 /* The chart and Recent side by side; one column on narrow screens. */
 .dash-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
 .dash-row > .card { margin: 0; }
+.dash-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.dash-side > .card { margin: 0; }
 .dash-row > .chart-card { display: flex; flex-direction: column; }
 .dash-row > .chart-card .chart-wrap { flex: 1; height: auto; min-height: 272px; }
 @media (max-width: 1100px) { .dash-row { grid-template-columns: minmax(0, 1fr); } }
@@ -780,6 +782,31 @@ body.modal-open { overflow: hidden; }
 .settlement-choice .callout-actions { align-items: center; }
 
 /* ---------- Toast ---------- */
+/* Reminders: the list, the dashboard card and the alert when one is due. */
+.reminder-row { display: grid; grid-template-columns: 130px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+.reminder-row:last-child { border-bottom: 0; }
+.reminder-row.late { background: var(--red-soft); }
+.reminder-when, .reminder-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reminder-when span, .reminder-main span { font-size: 12px; color: var(--muted); }
+.reminder-row.late .reminder-when { color: var(--red); }
+.reminder-row.late .reminder-when span { color: var(--red); }
+.reminder-main strong { overflow-wrap: anywhere; }
+.reminder-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.reminder-mini { display: flex; justify-content: space-between; gap: 12px; padding: 10px 20px; border-bottom: 1px solid var(--border); color: inherit; text-decoration: none; font-size: 13px; }
+.reminder-mini span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.reminder-mini span:last-child { color: var(--muted); white-space: nowrap; }
+.reminder-mini.late span:last-child { color: var(--red); }
+.reminder-alerts { position: fixed; right: 20px; top: 72px; z-index: 210; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 24px)); }
+.reminder-alert { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius); box-shadow: var(--shadow-lg); }
+.reminder-alert-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--amber-soft); color: var(--amber); }
+.reminder-alert-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reminder-alert-main span { font-size: 12px; color: var(--muted); }
+.reminder-alert-actions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+@media (max-width: 640px) {
+  .reminder-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .reminder-actions { justify-content: flex-start; }
+  .reminder-alerts { right: 12px; top: 64px; }
+}
 .toast-root { position: fixed; right: 20px; bottom: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .toast {
   display: flex;

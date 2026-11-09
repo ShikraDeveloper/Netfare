@@ -111,6 +111,7 @@ router.use('/bills', require('./bills'));
 router.use('/supplier-credits', require('./supplier-credits'));
 router.use('/refunds', require('./refunds'));
 router.use('/compliance', require('./compliance'));
+router.use('/reminders', require('./reminders'));
 router.use('/cheques', require('./cheques'));
 router.use('/cash', require('./cash'));
 router.use('/journal-entries', require('./journal'));

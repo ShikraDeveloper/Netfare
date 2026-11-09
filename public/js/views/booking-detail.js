@@ -25,6 +25,7 @@ import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { bindRefunds, refundsCardHtml } from './job-refunds.js';
+import { openReminderForm } from '../reminders.js';
 
 import { advanceModalBody, applyModalBody, depositAccounts, postingPreview, refundModalBody } from './job-modals.js';
 
@@ -93,6 +94,7 @@ export async function render(container, { params } = {}) {
     actions.push(`<a class="btn btn-primary" href="#/invoices/${invoice.id}">${icon('plus', 15)}<span>Record payment</span></a>`);
   }
   menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
+  menu.push(`<button class="btn btn-ghost" data-action="add-reminder">${icon('clock', 15)}<span>Add reminder</span></button>`);
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/booking/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   if (!isCancelled) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
@@ -354,6 +356,9 @@ export async function render(container, { params } = {}) {
 
   bindAttachmentSection(container, { entityType: 'booking', entityId: id });
   bindRefunds(container, booking, 'booking', () => render(container, { params: [String(id)] }));
+  document.querySelector('[data-action="add-reminder"]')?.addEventListener('click', () => openReminderForm({
+    link: { type: 'booking', id: booking.id, label: [booking.number, booking.customer_name].filter(Boolean).join(' · ') },
+  }));
 
   function refresh() {
     return render(container, { params: [String(id)] });

@@ -114,6 +114,9 @@ function refusal(db, user, req) {
   const permissions = parsePermissions(user.permissions);
   const path = req.path.replace(/\/+$/, '') || '/';
   const prefix = `/${path.split('/')[1] || ''}`;
+  // Everyone keeps their own reminders; the service limits each user to
+  // theirs and the ones for everyone.
+  if (prefix === '/reminders') return null;
   const reading = req.method === 'GET' || req.method === 'HEAD';
 
   if (reading && SHARED_READS.has(path)) return null;
