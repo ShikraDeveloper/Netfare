@@ -2705,11 +2705,26 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - the statement showed "Receive refund · AED 250.00"; it was received into 1010 with 5 bank charges ("AED 245.00 lands in the account");
   - the button went away, 6700 rose by 5, and the rows run credit, then refund.
 
+### Supplier refunds stay with the supplier — code commit `611a1d4`
+
+- **Why:** The user said every refund from a supplier first sits with the supplier (or as a plus in the portal wallet). It should only reach the bank or cash when they ask the supplier to pay it out, and then they record it as received.
+- **Change:**
+  - The visa **Supplier refund** form now asks only for the bill, amount and date; "Received into" and "Bank charges" are gone.
+  - `visa-refunds.supplierRefund` creates the supplier credit, which clears the unpaid bill first, then goes to a prepaid portal wallet or is held as credit with the supplier. An `account_id` from an old caller is ignored.
+  - The money comes in only through **Receive refund** on the supplier statement (with bank charges) or **Withdraw** on the portal.
+  - The visa Refunds card shows where each supplier refund sits: "X off the bill", "X in the portal wallet", "X with the supplier" or "X received". `getVisa` returns `applied_cents`, `portal_settled_cents`, `refunded_cents` and `held_cents` for each.
+- **Tests:**
+  - the supplier refund test now checks the bank is unchanged and 250 is held, then received through `receiveVendorRefund`;
+  - the visa bank charges test was removed (bank charges are covered by the receive refund test).
+
+  `npm test` 280 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo:** VIS-2026-0007 (Oman, cost 300 paid from the prepaid Emirates Consolidator wallet) was rejected and refunded 200 by the supplier. The wallet went from 1,950 to 2,150, and the Refunds card reads "AED 200.00 in the portal wallet".
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) and Receive refund on the supplier statement (`cf1373f`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) Receive refund on the supplier statement (`cf1373f`) and supplier refunds staying with the supplier (`611a1d4`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
