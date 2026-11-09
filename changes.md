@@ -2845,11 +2845,37 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** the release is not a draft, and `releases/latest` is v1.0.14. `latest.json` reports 1.0.14, released 2026-11-09, with the three notes.
 - **Not checked:** the installers on a real Mac or Windows PC, the reminder sound by ear, or the system notification in the desktop app. Windows is still unsigned.
 
+### Date and time order everywhere; customer and supplier numbers — code commit `defc871`
+
+- **Why:** The user wants every entry ordered by date and time everywhere, each entry to show its time, and numbers for customers and suppliers. Their example: in a statement, a top-up, then a bill taken from it, then another top-up on the same day must read in that order.
+- **Audit first:**
+  - single-table lists were already ordered by date and then entry order;
+  - 7 merged views grouped same-day lines by type: customer statement (and its deposit and advance parts), supplier statement, the wallet ledger (server and portal page), the credit portal ledger, the daily sales rows and money received, and the settlement queue;
+  - Customer balances had no order.
+- **Numbers:** `customers.number` and `vendors.number` (CUS-0001, SUP-0001), with unique partial indexes.
+  - Existing rows are numbered on start in id order, and new ones when created (`party-numbers.js`: customers and vendors routes, quick-expense and bank-debit suppliers, demo).
+  - A trigger was tried first and dropped, because backup restore refuses triggers.
+  - Shown in the Customers and Suppliers lists (and searchable), beside the customer page title, as "Customer no." or "Supplier no." on statements, on the invoice print and on the bill page.
+- **Order:** the merged views now sort by date, then `created_at`, then the old type order only as a same-second tie-break. In the DSR money-received list, a payment still comes first within the same second.
+- **Customer balances:** owing customers first (oldest unpaid due date, then the larger amount), then customers we owe (larger first), then the rest by name.
+- **Entry time shown:** `fmtEntryTime` and `entryTimeHtml` in ui.js show "14:32" when a record was entered on its date, or "added 9 Nov, 14:32" when it is back-dated.
+  - In list sub-lines: Invoices, Bills, Bookings, Visas, Refunds, Cancellations, Supplier credits.
+  - As a second line in the date cell: Credit notes, Journal, statements (all parts), the portal page and portal ledger, and Banking deposits.
+- **Tests:** new `test/date-time-order.test.js` (4):
+  - numbering;
+  - the wallet ledger top-up → bill → top-up giving balances 5,000 → 3,800 → 5,800;
+  - the customer statement in entry order;
+  - customer balances with the older debt first.
+
+  The e2e customer page title now expects the number. `npm test` 293 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo:** customers and suppliers are numbered; the Invoices list shows "Oct 22, 2026 · added Nov 9, 14:53"; Aisha Khan's statement shows "Customer no. CUS-0002" and times under the dates.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.14** is published (2026-11-09): Reminders (page, Add reminder on bookings and visas, dashboard card, bell alert with Snooze and Done) and the dashboard chart beside Recent. 1.0.13 (2026-11-09) brought simple visa rejection, Refunds cards and dated DSR refunds. Nothing is waiting to be released. Ask the user to check the reminder sound and the desktop notification in the office.
+3. **Release 1.0.14** is published (2026-11-09): Reminders (page, Add reminder on bookings and visas, dashboard card, bell alert with Snooze and Done) and the dashboard chart beside Recent. 1.0.13 (2026-11-09) brought simple visa rejection, Refunds cards and dated DSR refunds. Not released yet: date and time order everywhere and customer/supplier numbers (`defc871`). Ask the user to check the reminder sound and the desktop notification in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
