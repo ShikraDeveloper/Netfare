@@ -2642,11 +2642,48 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
   `npm test` 280 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Daily sales was checked on the demo for VIS-2026-0006 (sale 1,000 · rejection −200 / −250 · net profit 450).
 
+## 2026-11-09
+
+### Simple visa rejection and refunds — code commit `dcf2e27`
+
+- **Why:** The user found the rejection system too complex: four documents (rejection note, credit note, supplier credit, refund), a long reject form, and special cases in statements, daily sales, credit note void and profit. They chose three plain steps and asked to delete the earlier system.
+- **Removed** (never released):
+  - the rejection note for new rejections (`cancellations.rejectVisa`, `keeps_invoice`) and `credits.createCreditForRejection`;
+  - the Supplier refund button on notes (`recordSupplierRefund`, `POST /api/cancellations/:id/supplier-refund`);
+  - the reject branch of the cancellation form;
+  - the statement and daily sales special cases.
+
+  `cancellations.js`, `credits.js`, `statements.js` and the cancellation routes are back to 1.0.12. The cancellation note keeps the rejection wording for rejections made before this change.
+- **New flow:**
+  1. **Reject** (`visas.rejectVisa`): asks only for the date and the reason (default "Rejected by immigration"). The status changes and the status history and audit log record it; nothing is posted. The invoice, the sale and what the customer owes stay. The visa page shows "Application rejected · date · reason".
+  2. **Refund customer** (`visa-refunds.refundCustomer`, `POST /api/visas/:id/refund-customer`):
+     - asks for an amount (up to the invoice less earlier refunds), a date, and "Paid from" (a bank or cash account, or "Keep as customer credit");
+     - creates a credit note on the invoice's main sale account and sets the new `credit_notes.visa_id`;
+     - applies it first to what is still owed; the rest is refunded from the chosen account or stays as credit;
+     - the form shows "Lowers what they owe by X · Y goes back to them".
+  3. **Supplier refund** (`visa-refunds.supplierRefund`, `POST /api/visas/:id/supplier-refund`):
+     - asks for the bill, an amount, a date, and "Received into" (an account, or "Not received yet: keep as credit with the supplier");
+     - creates a supplier credit on the bill, which clears the unpaid bill first (or moves to a prepaid portal); the rest is refunded into the account.
+  - Both buttons are on a new **Refunds** card on any visa with an open invoice. The card lists the credit notes and supplier credits.
+- **Profit:** `jobCosts.withActualResult` and `valueJobs` take the sale as the invoice less refunds to the customer, and the cost as the bills less supplier credits. Rejected visas with an open invoice stay in the profit report. Daily sales shows the visa sale net of refunds dated by the period end. The visa list "Sales" total counts rejected visas.
+- **Tests:** `test/visa-rejection.test.js` was rewritten (12):
+  - reject posts nothing;
+  - paid customer refunded from the bank; refund kept as credit (shows in the queue); unpaid customer's debt lowered; part paid;
+  - refund cap;
+  - supplier refund with the money in and profit 200; supplier refund on an unpaid bill;
+  - daily sales net and an earlier period unchanged;
+  - statement;
+  - void of a refund credit note;
+  - ledger checks.
+
+  `npm test` 279 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in a fresh demo:** VIS-2026-0006 was rejected (date and reason), refunded 200 to the customer (owed 1,000 → 800) and refunded 250 by the supplier (bill due 600 → 350). The visa page, the list, the Visa gross profit report and daily sales all show sale 800, cost 350 and profit 450.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Visa rejection fixes 1–3 (`386a19d`) "rejection keeps the invoice" (`558f7ab`) real visa profit (`d8c1c64`) and the review fixes (`8d125a5`) are done but not released; next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
