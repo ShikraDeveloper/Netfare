@@ -30,7 +30,7 @@ const SOURCE_TABLES = {
 const cancellationSelect = `
   SELECT cc.*, c.name AS customer_name, c.email AS customer_email,
          c.phone AS customer_phone, c.address AS customer_address,
-         i.number AS invoice_number, i.status AS invoice_status, i.amount_paid_cents AS invoice_paid_cents, ci.number AS cancellation_invoice_number,
+         i.number AS invoice_number, ci.number AS cancellation_invoice_number,
          bk.number AS booking_number, bk.status AS booking_status,
          vi.number AS visa_number, vi.status AS visa_status
   FROM cancellations cc
@@ -59,12 +59,6 @@ function refundDueRemaining(db, cancellation) {
     WHERE cancellation_id = ? AND status = 'issued'
   `).get(cancellation.id).total;
   return Math.max(0, cancellation.refund_due_cents - refunded - credited);
-}
-
-// A visa rejected by immigration keeps its invoice (the work was done); a
-// cancellation voids it. Rejections from before 1.0.13 voided it too.
-function keepsInvoice(cancellation) {
-  return cancellation.invoice_status === 'sent';
 }
 
 function getCancellation(db, id) {
@@ -96,7 +90,6 @@ function getCancellation(db, id) {
     .filter((credit) => credit.status === 'issued')
     .reduce((sum, credit) => sum + credit.amount_cents, 0);
   cancellation.refund_remaining_cents = refundDueRemaining(db, cancellation);
-  cancellation.keeps_invoice = keepsInvoice(cancellation);
   cancellation.source_number = cancellation.source_type === 'booking'
     ? cancellation.booking_number
     : cancellation.visa_number;
@@ -382,87 +375,6 @@ function cancelSource(db, { sourceType, sourceId, payload = {}, finalStatus } = 
   })();
 }
 
-// A visa refused by immigration was still a service performed, so the invoice
-// and the sale stay. The rejection note records the date, the reason, what
-// the agency gives back (a credit note on the invoice) and any refund from
-// the supplier. Without an open invoice it falls back to a cancellation.
-function rejectVisa(db, visaId, payload = {}) {
-  return db.transaction(() => {
-    const visa = sourceRow(db, 'visa', visaId);
-    if (!['submitted', 'approved'].includes(visa.status)) {
-      throw bad('Only submitted or approved applications can be rejected');
-    }
-    const invoice = visa.invoice_id ? db.prepare('SELECT * FROM invoices WHERE id = ?').get(visa.invoice_id) : null;
-    if (!invoice || invoice.status !== 'sent') {
-      const total = invoice ? invoice.total_cents : 0;
-      const refund = cents(payload.refund_to_customer_cents ?? total, 'Refund to customer', { min: 0 });
-      return cancelSource(db, {
-        sourceType: 'visa', sourceId: visaId, finalStatus: 'rejected',
-        payload: { ...payload, customer_charges_cents: Math.max(0, total - refund) },
-      });
-    }
-    if (db.prepare("SELECT 1 FROM cancellations WHERE source_type = 'visa' AND source_id = ?").get(visa.id)) {
-      throw bad('This job already has a cancellation record');
-    }
-    const date = dateISO(payload.cancellation_date || todayISO(), 'Rejection date');
-    if (date < invoice.issue_date) throw bad('The rejection date cannot be before the invoice date');
-    const refund = cents(payload.refund_to_customer_cents ?? 0, 'Refund to customer', { min: 0 });
-    if (refund > invoice.total_cents) {
-      throw bad(`Refund to customer cannot be more than the invoice total of ${(invoice.total_cents / 100).toFixed(2)}`);
-    }
-    const supplierCredits = normalizeSupplierCredits(db, 'visa', visa.id, payload.supplier_credits);
-    const reason = optionalStr(payload.reason, 'Reason', 500);
-    const number = allocateNumber(db, 'cancellation', date);
-    const info = db.prepare(`
-      INSERT INTO cancellations (
-        number, source_type, source_id, cancellation_date, customer_id,
-        invoice_id, customer_charges_cents, received_cents, refund_due_cents, reason, notes
-      ) VALUES (?, 'visa', ?, ?, ?, ?, ?, ?, 0, ?, ?)
-    `).run(
-      number, visa.id, date, visa.customer_id, invoice.id,
-      invoice.total_cents - refund, Math.max(0, invoice.amount_paid_cents),
-      reason, optionalStr(payload.notes, 'Notes', 2000),
-    );
-    const id = Number(info.lastInsertRowid);
-    markCreated(db, 'cancellations', id);
-    if (refund > 0) {
-      creditService.createCreditForRejection(db, {
-        cancellation_id: id, invoice_id: invoice.id, amount_cents: refund, credit_date: date,
-        notes: `${number} — visa ${visa.number} rejected`,
-      });
-    }
-    let supplierTotal = 0;
-    for (const credit of supplierCredits) {
-      supplierCreditService.createSupplierCreditForCancellation(db, {
-        vendor_id: credit.bill.vendor_id,
-        bill_id: credit.bill.id,
-        visa_id: visa.id,
-        cancellation_id: id,
-        credit_date: date,
-        amount_cents: credit.amount_cents,
-        notes: `${number} — refund from the supplier on bill ${credit.bill.number}`,
-      });
-      supplierTotal += credit.amount_cents;
-    }
-    db.prepare('UPDATE cancellations SET supplier_credit_total_cents = ? WHERE id = ?').run(supplierTotal, id);
-    db.prepare("UPDATE visa_applications SET status = 'rejected', updated_at = datetime('now') WHERE id = ?").run(visa.id);
-    jobs.recordStatus(db, 'visa', visa.id, {
-      from: visa.status, to: 'rejected', eventDate: date,
-      remarks: [`Rejection ${number}`, reason].filter(Boolean).join(' · '),
-    });
-    audit.record(db, {
-      entity_type: 'cancellation',
-      entity_id: id,
-      entity_number: number,
-      action: 'reject',
-      remarks: reason || `Visa ${visa.number} rejected`,
-      amount_cents: refund,
-      metadata: { visa_id: visa.id, invoice_id: invoice.id, refund_to_customer_cents: refund, supplier_credit_total_cents: supplierTotal },
-    });
-    return getCancellation(db, id);
-  })();
-}
-
 function refundCancellation(db, id, payload = {}) {
   return db.transaction(() => {
     const cancellation = getCancellation(db, id);
@@ -533,104 +445,7 @@ function convertCancellationToCredit(db, id, payload = {}) {
   })();
 }
 
-// Money a supplier (immigration, an airline) gives back after the job was
-// cancelled or rejected, often weeks later. It becomes a supplier credit on
-// the bill (lowering the cost); if the money already came in, it is recorded
-// as received into that account. Part of it can be passed on to the customer:
-// on a rejection that keeps its invoice, as a credit note on that invoice; on
-// a cancellation, moved from the charges kept (4330) to the refund due (2500)
-// and paid or converted from the note like any other refund.
-function recordSupplierRefund(db, id, payload = {}) {
-  return db.transaction(() => {
-    const cancellation = getCancellation(db, id);
-    const sourceKey = cancellation.source_type === 'booking' ? 'booking_id' : 'visa_id';
-    const bill = db.prepare(`SELECT * FROM bills WHERE id = ? AND ${sourceKey} = ?`).get(Number(payload.bill_id), cancellation.source_id);
-    if (!bill) throw bad('Choose a supplier bill of this job');
-    const [credit] = normalizeSupplierCredits(db, cancellation.source_type, cancellation.source_id, [
-      { bill_id: bill.id, amount_cents: payload.amount_cents },
-    ]);
-    if (!credit) throw bad('Enter the amount the supplier gave back');
-    const amount = credit.amount_cents;
-    const date = dateISO(payload.date || todayISO(), 'Date');
-    if (date < cancellation.cancellation_date) throw bad('The date cannot be before the cancellation date');
-    const passOn = cents(payload.pass_to_customer_cents ?? 0, 'Amount for the customer', { min: 0 });
-    if (passOn > amount) throw bad('The customer cannot get more than the supplier gave back');
-    // A rejection keeps the invoice, so anything kept can go back as a credit
-    // note. A cancellation can only return what was kept from money received.
-    const keptFromHeld = cancellation.keeps_invoice
-      ? cancellation.customer_charges_cents
-      : Math.min(cancellation.received_cents, cancellation.customer_charges_cents);
-    if (passOn > keptFromHeld) {
-      throw bad(`Only ${(keptFromHeld / 100).toFixed(2)} was kept from the customer's money, so no more can go back to them`);
-    }
-    let account = null;
-    if (payload.account_id) {
-      account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.account_id));
-      if (!account || !account.is_active || !isCashAccount(account)) throw bad('Choose an active bank or cash account');
-    }
-
-    const creditId = supplierCreditService.createSupplierCreditForCancellation(db, {
-      vendor_id: bill.vendor_id,
-      bill_id: bill.id,
-      booking_id: cancellation.source_type === 'booking' ? cancellation.source_id : null,
-      visa_id: cancellation.source_type === 'visa' ? cancellation.source_id : null,
-      cancellation_id: cancellation.id,
-      credit_date: date,
-      amount_cents: amount,
-      notes: optionalStr(payload.notes, 'Notes', 1000) || `${cancellation.number} — refund from the supplier on bill ${bill.number}`,
-    });
-    // Whatever the credit did not clear on the bill (or move to a prepaid
-    // portal) came in as money.
-    const left = supplierCreditService.getSupplierCredit(db, creditId).remaining_cents;
-    if (account && left > 0) {
-      supplierCreditService.refundSupplierCredit(db, creditId, {
-        amount_cents: left,
-        refund_date: date,
-        account_id: account.id,
-        method: optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
-        reference: optionalStr(payload.reference, 'Reference', 200),
-      });
-    }
-
-    if (passOn > 0 && cancellation.keeps_invoice) {
-      creditService.createCreditForRejection(db, {
-        cancellation_id: cancellation.id, invoice_id: cancellation.invoice_id, amount_cents: passOn, credit_date: date,
-        notes: `${cancellation.number} — supplier refund passed on`,
-      });
-    } else if (passOn > 0) {
-      const refundPayable = systemAccount(db, '2500', 'Refund Liabilities');
-      const cancellationIncome = systemAccount(db, '4330', 'Cancellation Fee Income');
-      postEntry(db, {
-        entry_date: date,
-        memo: `${cancellation.number} — supplier refund passed on to the customer`,
-        reference: cancellation.number,
-        source_type: 'cancellation_charge',
-        source_id: cancellation.id,
-        lines: [
-          { account_id: cancellationIncome.id, debit_cents: passOn, credit_cents: 0, description: cancellation.number },
-          { account_id: refundPayable.id, debit_cents: 0, credit_cents: passOn, description: cancellation.number },
-        ],
-      });
-    }
-    db.prepare(`
-      UPDATE cancellations SET supplier_credit_total_cents = supplier_credit_total_cents + ?,
-        customer_charges_cents = customer_charges_cents - ?, refund_due_cents = refund_due_cents + ? WHERE id = ?
-    `).run(amount, passOn, cancellation.keeps_invoice ? 0 : passOn, cancellation.id);
-    audit.record(db, {
-      entity_type: 'cancellation',
-      entity_id: cancellation.id,
-      entity_number: cancellation.number,
-      action: 'supplier_refund',
-      remarks: `${(amount / 100).toFixed(2)} back from the supplier on ${bill.number}${passOn ? `; ${(passOn / 100).toFixed(2)} to the customer` : ''}`,
-      amount_cents: amount,
-    });
-    return getCancellation(db, cancellation.id);
-  })();
-}
-
 module.exports = {
-  recordSupplierRefund,
-  rejectVisa,
   cancelSource,
   getCancellation,
   getCancellationForSource,

@@ -6,6 +6,7 @@ const {
   optionalStr,
   num,
   dateISO,
+  todayISO,
   isTruthy,
 } = require('../util');
 const { allocateNumber } = require('./numbering');
@@ -13,6 +14,7 @@ const { markCreated } = require('../created-by');
 const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
 const jobCosts = require('./job-costs');
+const audit = require('./audit');
 
 const VISA_TYPES = ['tourist', 'visit', 'business', 'transit', 'student', 'work', 'other'];
 const OPEN_STATUSES = ['draft', 'submitted', 'approved'];
@@ -154,6 +156,19 @@ function getVisa(db, id) {
       : 0,
   }));
   visa.cancellation = cancellationService.getCancellationForSource(db, 'visa', id);
+  visa.customer_refunds = db.prepare(`
+    SELECT cn.id, cn.number, cn.credit_date AS date, cn.amount_cents, cn.applied_cents, cn.refunded_cents,
+           (cn.amount_cents - cn.applied_cents - cn.refunded_cents) AS remaining_cents
+    FROM credit_notes cn WHERE cn.visa_id = ? AND cn.status = 'issued' ORDER BY cn.credit_date, cn.id
+  `).all(id);
+  visa.supplier_refunds = db.prepare(`
+    SELECT scn.id, scn.number, scn.credit_date AS date, scn.amount_cents, b.number AS bill_number, vd.name AS vendor_name
+    FROM supplier_credit_notes scn
+    LEFT JOIN bills b ON b.id = scn.bill_id
+    LEFT JOIN vendors vd ON vd.id = scn.vendor_id
+    WHERE scn.visa_id = ? AND scn.cancellation_id IS NULL AND scn.status = 'issued'
+    ORDER BY scn.credit_date, scn.id
+  `).all(id);
   visa.status_history = jobs.statusHistory(db, 'visa', id);
   visa.group = visa.group_id ? groupSummary(db, visa.group_id) : null;
   visa.deposits = require('./visa-deposits').listDeposits(db, { visa_id: visa.id });
@@ -200,7 +215,7 @@ function getVisa(db, id) {
     ? visa.invoice.balance_cents
     : (visa.status === 'draft' ? visa.sale_total_cents : 0);
 
-  return jobCosts.withSettledResult(db, 'visa', [serializeVisa(visa)])[0];
+  return jobCosts.withActualResult(db, 'visa', [serializeVisa(visa)])[0];
 }
 
 function listVisas(db, { status, search, from, to } = {}) {
@@ -222,7 +237,7 @@ function listVisas(db, { status, search, from, to } = {}) {
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${visaSelect} ${where} ORDER BY v.application_date DESC, v.id DESC`).all(...params);
-  const serialized = jobCosts.withSettledResult(db, 'visa', rows.map(serializeVisa));
+  const serialized = jobCosts.withActualResult(db, 'visa', rows.map(serializeVisa));
   if (!status || status === 'all') return serialized;
   return serialized.filter((row) => row.status === status);
 }
@@ -418,12 +433,26 @@ function issueVisa(db, id) {
   })();
 }
 
-// A rejection by immigration is not the customer cancelling: the invoice
-// stays and what goes back to the customer is a credit note on it
-// (see cancellations.rejectVisa).
+// Rejected by immigration: the work was done, so the invoice, the sale and
+// what the customer owes stay. Only the status changes, with the date and
+// reason. Money given back or received is recorded separately
+// (visa-refunds.js: refundCustomer, supplierRefund).
 function rejectVisa(db, id, payload = {}) {
-  cancellationService.rejectVisa(db, id, payload);
-  return getVisa(db, id);
+  return db.transaction(() => {
+    const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(Number(id));
+    if (!visa) throw notFound('Visa application not found');
+    if (!['submitted', 'approved'].includes(visa.status)) {
+      throw bad('Only submitted or approved applications can be rejected');
+    }
+    const date = dateISO(payload.rejection_date || todayISO(), 'Rejection date');
+    const reason = optionalStr(payload.reason, 'Reason', 500) || 'Rejected by immigration';
+    db.prepare("UPDATE visa_applications SET status = 'rejected', updated_at = datetime('now') WHERE id = ?").run(visa.id);
+    jobs.recordStatus(db, 'visa', visa.id, { from: visa.status, to: 'rejected', eventDate: date, remarks: reason });
+    audit.record(db, {
+      entity_type: 'visa', entity_id: visa.id, entity_number: visa.number, action: 'reject', remarks: reason, amount_cents: 0,
+    });
+    return getVisa(db, id);
+  })();
 }
 
 function cancelVisa(db, id, payload = {}) {

@@ -57,11 +57,12 @@ function defaultAccounts() {
   return { saleAccountId, costAccountId };
 }
 
-// What a visa sold for: after a rejection or cancellation, what was kept.
-// Cancelled visas with no note had everything reversed.
+// What a visa sold for, less refunds. A rejected visa keeps its sale; a
+// cancelled one (or an old rejection with its invoice voided) has none.
 function saleOf(visa) {
   if (visa.result) return visa.result.sale_cents;
-  return ['cancelled', 'rejected'].includes(visa.status) ? 0 : visa.sale_total_cents;
+  if (visa.status === 'cancelled' || (visa.status === 'rejected' && !visa.payment_status)) return 0;
+  return visa.sale_total_cents;
 }
 
 function visaRow(visa) {

@@ -198,54 +198,6 @@ function createCreditFromCancellation(db, payload = {}) {
   })();
 }
 
-// What the agency gives back on a rejected visa. The invoice stays: the credit
-// lowers the sale and is applied to whatever the customer still owes on it.
-// Any part they already paid stays as their credit, to refund or use later.
-// It is linked to the rejection note, whose refund due stays 0.
-function createCreditForRejection(db, payload = {}) {
-  return db.transaction(() => {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(Number(payload.invoice_id));
-    if (!invoice || invoice.status !== 'sent') throw bad('The visa invoice is not open');
-    const amount = cents(payload.amount_cents, 'Refund to customer', { min: 1 });
-    const creditDate = dateISO(payload.credit_date || todayISO(), 'Credit date');
-    const line = db.prepare(`
-      SELECT account_id FROM invoice_items WHERE invoice_id = ? ORDER BY amount_cents DESC, id LIMIT 1
-    `).get(invoice.id);
-    const revenueAccountId = line ? line.account_id : systemAccount(db, '4320', 'Visa Sales').id;
-    const number = allocateNumber(db, 'credit', creditDate);
-    const info = db.prepare(`
-      INSERT INTO credit_notes (number, customer_id, credit_date, amount_cents, revenue_account_id, cancellation_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      number,
-      invoice.customer_id,
-      creditDate,
-      amount,
-      revenueAccountId,
-      Number(payload.cancellation_id),
-      optionalStr(payload.notes, 'Notes', 2000) || `Refund on invoice ${invoice.number}`,
-    );
-    const creditId = Number(info.lastInsertRowid);
-    markCreated(db, 'credit_notes', creditId);
-    const credits = systemAccount(db, '2450', 'Customer Credits');
-    const entryId = postEntry(db, {
-      entry_date: creditDate,
-      memo: `Credit note ${number} — refund on invoice ${invoice.number}`,
-      reference: number,
-      source_type: 'credit_note',
-      source_id: creditId,
-      lines: [
-        { account_id: revenueAccountId, debit_cents: amount, credit_cents: 0, description: `Credit note ${number}` },
-        { account_id: credits.id, debit_cents: 0, credit_cents: amount, description: `Credit note ${number}` },
-      ],
-    });
-    db.prepare('UPDATE credit_notes SET journal_entry_id = ? WHERE id = ?').run(entryId, creditId);
-    const toApply = Math.min(amount, invoiceBalanceCents(invoice));
-    if (toApply > 0) applyCredit(db, creditId, { invoice_id: invoice.id, amount_cents: toApply, applied_date: creditDate });
-    return getCredit(db, creditId);
-  })();
-}
-
 function applyCredit(db, creditId, payload = {}) {
   return db.transaction(() => {
     const credit = db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(Number(creditId));
@@ -424,13 +376,6 @@ function voidCredit(db, creditId, payload = {}) {
     db.prepare(`
       UPDATE credit_notes SET status = 'void', void_entry_id = ?, applied_cents = 0, refunded_cents = 0 WHERE id = ?
     `).run(voidEntryId, credit.id);
-    // A refund given on a rejected visa (whose invoice stays) is kept again.
-    if (credit.cancellation_id) {
-      db.prepare(`
-        UPDATE cancellations SET customer_charges_cents = customer_charges_cents + ?
-        WHERE id = ? AND EXISTS (SELECT 1 FROM invoices i WHERE i.id = cancellations.invoice_id AND i.status = 'sent')
-      `).run(credit.amount_cents, credit.cancellation_id);
-    }
     audit.record(db, {
       entity_type: 'credit_note',
       entity_id: credit.id,
@@ -449,7 +394,6 @@ module.exports = {
   getCredit,
   createCredit,
   createCreditFromCancellation,
-  createCreditForRejection,
   applyCredit,
   deleteCreditApplication,
   refundCredit,

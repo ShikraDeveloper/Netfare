@@ -7,6 +7,7 @@
 // Drafts have posted nothing and stay out of margin reporting. Jobs cancelled
 // before cancellation notes existed had every document reversed, so they are
 // excluded too. Cancelled jobs with a note show their charges and retained cost.
+// Refunds to the customer on a visa (credit notes) lower its sale.
 
 const COLUMNS = { booking: 'booking_id', visa: 'visa_id' };
 
@@ -73,18 +74,43 @@ function cancellationMap(db, sourceType) {
   return map;
 }
 
-// After a cancellation or rejection a job is worth what was kept, less what
-// the supplier still costs: the figures the profit report uses. Adds them as
-// `result` and makes `margin_cents` the real profit; the sale and cost lines
-// stay as typed.
-function withSettledResult(db, sourceType, jobs) {
+// Refunds given to the customer on each visa (credit notes linked to it).
+// Bookings have none.
+function customerRefundMap(db, sourceType) {
+  const map = new Map();
+  if (sourceType !== 'visa') return map;
+  for (const row of db.prepare(`
+    SELECT visa_id, SUM(amount_cents) AS total FROM credit_notes
+    WHERE visa_id IS NOT NULL AND status = 'issued' GROUP BY visa_id
+  `).all()) map.set(row.visa_id, row.total);
+  return map;
+}
+
+function supplierCreditMap(db, sourceType) {
+  const column = columnFor(sourceType);
+  const map = new Map();
+  for (const row of db.prepare(`
+    SELECT ${creditJobSql(column)} AS job_id, SUM(scn.amount_cents) AS total
+    FROM supplier_credit_notes scn LEFT JOIN bills b ON b.id = scn.bill_id
+    WHERE scn.status = 'issued' AND ${creditJobSql(column)} IS NOT NULL GROUP BY job_id
+  `).all()) map.set(row.job_id, row.total);
+  return map;
+}
+
+// What a job really made once money went back: after a cancellation, what
+// was kept; otherwise the sale less refunds to the customer. Cost is the bills
+// less refunds from the supplier. Added as `result` (with `margin_cents` set
+// to the real profit) only where it differs from the typed lines.
+function withActualResult(db, sourceType, jobs) {
   const notes = cancellationMap(db, sourceType);
-  if (!jobs.some((job) => notes.has(job.id))) return jobs;
+  const refunds = customerRefundMap(db, sourceType);
+  const credits = supplierCreditMap(db, sourceType);
+  if (!jobs.some((job) => notes.has(job.id) || refunds.has(job.id) || credits.has(job.id))) return jobs;
   const costs = jobCostMap(db, sourceType);
   return jobs.map((job) => {
     const note = notes.get(job.id);
-    if (!note) return job;
-    const sale = note.customer_charges_cents;
+    if (!note && !refunds.has(job.id) && !credits.has(job.id)) return job;
+    const sale = note ? note.customer_charges_cents : job.sale_total_cents - (refunds.get(job.id) || 0);
     const cost = costs.get(job.id) || 0;
     return { ...job, result: { sale_cents: sale, cost_cents: cost, margin_cents: sale - cost }, margin_cents: sale - cost };
   });
@@ -95,6 +121,14 @@ function withSettledResult(db, sourceType, jobs) {
 function valueJobs(db, sourceType, jobs) {
   const costs = jobCostMap(db, sourceType);
   const cancellations = cancellationMap(db, sourceType);
+  const refunds = customerRefundMap(db, sourceType);
+  // A visa rejected without a note keeps its invoice and its sale.
+  const keptRejections = sourceType === 'visa'
+    ? new Set(db.prepare(`
+      SELECT v.id FROM visa_applications v JOIN invoices i ON i.id = v.invoice_id
+      WHERE v.status = 'rejected' AND i.status = 'sent'
+    `).all().map((row) => row.id))
+    : new Set();
   const result = [];
   for (const job of jobs) {
     if (job.status === 'draft') continue;
@@ -119,19 +153,24 @@ function valueJobs(db, sourceType, jobs) {
       });
       continue;
     }
-    if (job.status === 'cancelled' || job.status === 'rejected') continue;
+    if (job.status === 'cancelled' || (job.status === 'rejected' && !keptRejections.has(job.id))) continue;
+    const refunded = refunds.get(job.id) || 0;
+    const sale = job.sale_total_cents - refunded;
     result.push({
       ...job,
       planned_cost_total_cents: job.cost_total_cents,
+      ...(refunded ? { original_sale_total_cents: job.sale_total_cents, refunded_cents: refunded } : {}),
+      sale_total_cents: sale,
       cost_total_cents: cost,
-      margin_cents: job.sale_total_cents - cost,
+      margin_cents: sale - cost,
     });
   }
   return result;
 }
 
 module.exports = {
-  withSettledResult,
+  withActualResult,
+  customerRefundMap,
   jobCostMap,
   jobCostCents,
   valueJobs,

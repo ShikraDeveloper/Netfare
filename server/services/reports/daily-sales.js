@@ -18,6 +18,12 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   // supplier credits, so a reissued or credited ticket shows its real margin.
   const bookingCosts = jobCosts.jobCostMap(db, 'booking');
   const visaCosts = jobCosts.jobCostMap(db, 'visa');
+  // Refunds given to the customer on a visa lower its sale, like supplier
+  // refunds lower its cost; only those dated by the period end count.
+  const visaRefunds = new Map(db.prepare(`
+    SELECT visa_id, SUM(amount_cents) AS total FROM credit_notes
+    WHERE visa_id IS NOT NULL AND status = 'issued' AND credit_date <= ? GROUP BY visa_id
+  `).all(end).map((row) => [row.visa_id, row.total]));
 
   const invoices = db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.status, i.subtotal_cents,
@@ -56,8 +62,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
            v.applicant_name,
            ci.amount_paid_cents AS cancellation_invoice_paid_cents,
            ci.credit_applied_cents AS cancellation_invoice_credit_cents,
-           ci.status AS cancellation_invoice_status,
-           oi.status AS original_status
+           ci.status AS cancellation_invoice_status
     FROM cancellations cc
     JOIN customers c ON c.id = cc.customer_id
     LEFT JOIN bookings b ON cc.source_type = 'booking' AND b.id = cc.source_id
@@ -93,13 +98,11 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     // report if the cancellation is on or before the period end, so a report
     // for an earlier period reads the same as when it was first printed.
     const hasCancellation = Boolean(row.cancelled_by_id);
-    // A rejected visa keeps its invoice (still sent): the sale stays open and
-    // the rejection line carries only what was given back.
-    const cancelled = hasCancellation && row.status === 'void' && row.cancelled_on <= end;
+    const cancelled = hasCancellation && row.cancelled_on <= end;
     const cost = hasCancellation && kind !== 'direct'
       ? jobCost + (cancellationCredits.get(`${kind}:${row.booking_id || row.visa_id}`) || 0)
       : jobCost;
-    const sale = row.subtotal_cents;
+    const sale = row.subtotal_cents - (kind === 'visa' ? visaRefunds.get(row.visa_id) || 0 : 0);
     let particulars = row.particulars || '';
     if (!particulars && kind === 'booking') particulars = row.destination || '';
     if (!particulars && kind === 'visa') {
@@ -138,15 +141,12 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     const invoiceOpen = row.cancellation_invoice_status === 'sent';
     const invoicePaid = invoiceOpen ? row.cancellation_invoice_paid_cents || 0 : 0;
     const invoiceCredits = invoiceOpen ? row.cancellation_invoice_credit_cents || 0 : 0;
-    // A rejection that keeps its invoice moves no money: refunds to the
-    // customer are credit notes, paid out (and listed) as credit note refunds.
-    const keepsInvoice = row.original_status === 'sent';
     const paid = heldApplied + invoicePaid;
     // If the shortfall invoice was voided, only the charges taken from money
     // already received remain recognised income.
     const recognizedSale = row.cancellation_invoice_id && !invoiceOpen ? heldApplied : sale;
     const particulars = [
-      `${keepsInvoice ? 'Rejection' : 'Cancellation'} ${row.number}`,
+      `Cancellation ${row.number}`,
       row.source_type === 'booking' ? row.booking_number : row.visa_number,
       row.reason || '',
     ].filter(Boolean).join(' · ');
@@ -169,7 +169,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
       sale_cents: recognizedSale - originalSale,
       cost_cents: 0 - row.supplier_credits_cents,
       margin_cents: recognizedSale - originalSale + row.supplier_credits_cents,
-      paid_cents: keepsInvoice ? 0 : paid - (row.original_paid_cents || 0),
+      paid_cents: paid - (row.original_paid_cents || 0),
       charges_cents: recognizedSale,
       reversed_sale_cents: originalSale,
       supplier_credits_cents: row.supplier_credits_cents,

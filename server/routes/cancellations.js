@@ -20,8 +20,4 @@ router.post('/:id/convert-to-credit', (req, res) => {
   res.status(201).json(service.convertCancellationToCredit(db, Number(req.params.id), req.body || {}));
 });
 
-router.post('/:id/supplier-refund', (req, res) => {
-  res.status(201).json(service.recordSupplierRefund(db, Number(req.params.id), req.body || {}));
-});
-
 module.exports = router;
