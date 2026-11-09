@@ -5,9 +5,12 @@
 //   - a refund to the customer: a credit note on the visa invoice. It first
 //     lowers what the customer still owes; anything above that is paid back
 //     from the chosen bank or cash account, or kept as their credit.
-//   - a refund from the supplier: a supplier credit on the visa's bill. It
-//     first clears what is unpaid on the bill; anything above that came in to
-//     the chosen account, or stays as credit with the supplier.
+//   - a refund from the supplier: a supplier credit on the visa's bill. The
+//     money stays with the supplier: it first clears what is unpaid on the
+//     bill, then goes to the prepaid portal wallet or is held as credit with
+//     the supplier. It is taken into the bank or cash only when the supplier
+//     pays it out (Receive refund on the supplier statement, or Withdraw on
+//     the portal).
 // The invoice and the bill stay as they are; profit is the invoice less
 // refunds to the customer, and the bill less refunds from the supplier.
 
@@ -92,7 +95,6 @@ function supplierRefund(db, visaId, payload = {}) {
     const amount = cents(payload.amount_cents, 'Refund amount', { min: 1 });
     const date = dateISO(payload.date || todayISO(), 'Date');
     if (date < bill.bill_date) throw bad('The date cannot be before the bill date');
-    const account = cashAccount(db, payload.account_id);
     const creditId = supplierCreditService.createSupplierCreditForCancellation(db, {
       vendor_id: bill.vendor_id,
       bill_id: bill.id,
@@ -101,16 +103,6 @@ function supplierRefund(db, visaId, payload = {}) {
       amount_cents: amount,
       notes: optionalStr(payload.notes, 'Notes', 1000) || `Refund from the supplier on visa ${visa.number}`,
     });
-    const left = supplierCreditService.getSupplierCredit(db, creditId).remaining_cents;
-    if (account && left > 0) {
-      supplierCreditService.refundSupplierCredit(db, creditId, {
-        amount_cents: left,
-        refund_date: date,
-        account_id: account.id,
-        method: optionalStr(payload.method, 'Method', 100) || (/cash/i.test(account.name) ? 'Cash' : 'Bank transfer'),
-        bank_charges_cents: payload.bank_charges_cents,
-      });
-    }
     const credit = supplierCreditService.getSupplierCredit(db, creditId);
     audit.record(db, {
       entity_type: 'visa',

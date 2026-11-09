@@ -49,6 +49,17 @@ function outcomeLine(visa, rejected) {
   return 'The customer invoice and supplier bills were reversed under the earlier cancellation logic.';
 }
 
+// Where a supplier refund sits: off the bill, in the portal wallet, still
+// with the supplier, or already received.
+function supplierRefundWhere(row) {
+  return [
+    row.applied_cents > 0 ? `${fmtMoney(row.applied_cents)} off the bill` : '',
+    row.portal_settled_cents > 0 ? `${fmtMoney(row.portal_settled_cents)} in the portal wallet` : '',
+    row.held_cents > 0 ? `${fmtMoney(row.held_cents)} with the supplier` : '',
+    row.refunded_cents > 0 ? `${fmtMoney(row.refunded_cents)} received` : '',
+  ].filter(Boolean).join(' · ');
+}
+
 function statusSteps(visa) {
   if (['rejected', 'cancelled'].includes(visa.status)) {
     const rejected = visa.status === 'rejected';
@@ -306,7 +317,7 @@ export async function render(container, { params } = {}) {
         <div class="payment-icon">${icon('wallet', 15)}</div>
         <div class="payment-main">
           <strong>${esc(row.number)} · From ${esc(row.vendor_name || 'the supplier')}</strong>
-          <span>${esc(fmtDate(row.date))}${row.bill_number ? ` · ${esc(row.bill_number)}` : ''}</span>
+          <span>${esc([fmtDate(row.date), supplierRefundWhere(row)].filter(Boolean).join(' · '))}</span>
         </div>
         <div class="payment-amount">${fmtMoney(row.amount_cents)}</div>
         <a class="icon-btn" href="#/supplier-credits/${row.id}" title="Open supplier credit">${icon('chevron', 16)}</a>
@@ -722,16 +733,6 @@ export async function render(container, { params } = {}) {
             <label for="sr-date">Date</label>
             <input class="input" id="sr-date" name="date" type="date" value="${todayISO()}" required>
           </div>
-          <div class="field">
-            <label for="sr-account">Received into</label>
-            <select class="input" id="sr-account" name="account_id">${accountOptions('Not received yet: keep as credit with the supplier')}</select>
-          </div>
-          <div class="field">
-            <label for="sr-charges">Bank charges</label>
-            <div class="money-input"><span>AED</span>
-              <input class="input" id="sr-charges" name="bank_charges" type="number" min="0" step="0.01" value="0.00" inputmode="decimal">
-            </div>
-          </div>
         </div>
       `,
       async onSubmit(form) {
@@ -740,10 +741,8 @@ export async function render(container, { params } = {}) {
           bill_id: Number(values.get('bill_id')),
           amount_cents: toCents(values.get('amount')),
           date: values.get('date'),
-          account_id: values.get('account_id') ? Number(values.get('account_id')) : null,
-          bank_charges_cents: values.get('account_id') ? toCents(values.get('bank_charges') || 0) : 0,
         });
-        toast('Supplier refund recorded');
+        toast('Supplier refund recorded · it stays with the supplier until you receive it');
         refresh();
       },
     });

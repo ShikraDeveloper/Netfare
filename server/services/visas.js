@@ -162,7 +162,9 @@ function getVisa(db, id) {
     FROM credit_notes cn WHERE cn.visa_id = ? AND cn.status = 'issued' ORDER BY cn.credit_date, cn.id
   `).all(id);
   visa.supplier_refunds = db.prepare(`
-    SELECT scn.id, scn.number, scn.credit_date AS date, scn.amount_cents, b.number AS bill_number, vd.name AS vendor_name
+    SELECT scn.id, scn.number, scn.credit_date AS date, scn.amount_cents, b.number AS bill_number, vd.name AS vendor_name,
+           scn.applied_cents, scn.portal_settled_cents, scn.refunded_cents,
+           (scn.amount_cents - scn.applied_cents - scn.portal_settled_cents - scn.refunded_cents) AS held_cents
     FROM supplier_credit_notes scn
     LEFT JOIN bills b ON b.id = scn.bill_id
     LEFT JOIN vendors vd ON vd.id = scn.vendor_id
