@@ -2871,11 +2871,18 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked in the demo:** customers and suppliers are numbered; the Invoices list shows "Oct 22, 2026 · added Nov 9, 14:53"; Aisha Khan's statement shows "Customer no. CUS-0002" and times under the dates.
 - **Not pushed or released.**
 
+### Customers and Suppliers lists sorted by number — code commit `9e478bf`
+
+- **Why:** The user asked for the supplier and customer lists to be sorted by their numbers.
+- **Change:** `parties.js` sorts the Customers and Suppliers lists by `number` (numeric compare, then id), so they read CUS-0001, CUS-0002 … and SUP-0001 …, the order they were added. The API stays in name order, so the customer and supplier pickers in forms are still alphabetical.
+- **Checked:** the demo lists run CUS-0001 Rahul Menon … CUS-0005 Corporate Travel Co, and SUP-0001 Emirates Consolidator … SUP-0005 Desert Safari Tours. `npm test` 293 passed, `npm run test:e2e` 43 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.14** is published (2026-11-09): Reminders (page, Add reminder on bookings and visas, dashboard card, bell alert with Snooze and Done) and the dashboard chart beside Recent. 1.0.13 (2026-11-09) brought simple visa rejection, Refunds cards and dated DSR refunds. Not released yet: date and time order everywhere and customer/supplier numbers (`defc871`). Ask the user to check the reminder sound and the desktop notification in the office.
+3. **Release 1.0.14** is published (2026-11-09): Reminders (page, Add reminder on bookings and visas, dashboard card, bell alert with Snooze and Done) and the dashboard chart beside Recent. 1.0.13 (2026-11-09) brought simple visa rejection, Refunds cards and dated DSR refunds. Not released yet: date and time order everywhere and customer/supplier numbers (`defc871`), lists sorted by number (`9e478bf`). Ask the user to check the reminder sound and the desktop notification in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
