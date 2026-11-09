@@ -138,6 +138,9 @@ function partyModal({ party = null, config, onSaved }) {
 export async function renderPartyView(container, { query = new URLSearchParams(), kind } = {}) {
   const config = CONFIG[kind];
   const parties = await api.get(config.base, { include_inactive: 1 });
+  // By number: CUS-0001 / SUP-0001 first, in the order they were added.
+  // (Pickers in forms stay in name order.)
+  parties.sort((a, b) => String(a.number || '').localeCompare(String(b.number || ''), undefined, { numeric: true }) || a.id - b.id);
 
   setHeader({
     title: config.title,
