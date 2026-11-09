@@ -1,6 +1,6 @@
 {
   "name": "netfare",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "private": true,
   "license": "MIT",
   "description": "Local-first invoicing and double-entry accounting",
