@@ -2828,11 +2828,28 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Not checked:** the sound by ear, and the system notification in the desktop app.
 - **Not pushed or released.**
 
+### Release 1.0.14 — `ac2929b`, tag `v1.0.14`
+
+- **Why:** The user said "Push and release 1.0.14".
+- **Version:** 1.0.14 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`. The commit is `ac2929b Version 1.0.14`, with an annotated tag whose three lines are the notes:
+  - Reminders;
+  - the bell with Snooze and Done;
+  - the dashboard Reminders card and the chart beside Recent.
+- **Pushed:** `main` and `v1.0.14` on the first try.
+- **Release run** 42619443223 succeeded in about 3.5 minutes.
+- **Assets:**
+  - Netfare-mac-arm64.dmg, 135 MB;
+  - Netfare-mac-x64.dmg, 141 MB;
+  - Netfare-windows-x64.exe, 124 MB;
+  - `latest.json`.
+- **Checked:** the release is not a draft, and `releases/latest` is v1.0.14. `latest.json` reports 1.0.14, released 2026-11-09, with the three notes.
+- **Not checked:** the installers on a real Mac or Windows PC, the reminder sound by ear, or the system notification in the desktop app. Windows is still unsigned.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.13** is published (2026-11-09): simple visa rejection, the Refunds card on visas and bookings, Receive refund on the supplier statement, and dated refunds in daily sales. Not released yet: dashboard chart and Recent side by side (`5909ea2`) and Reminders (`a89bda0`).
+3. **Release 1.0.14** is published (2026-11-09): Reminders (page, Add reminder on bookings and visas, dashboard card, bell alert with Snooze and Done) and the dashboard chart beside Recent. 1.0.13 (2026-11-09) brought simple visa rejection, Refunds cards and dated DSR refunds. Nothing is waiting to be released. Ask the user to check the reminder sound and the desktop notification in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
