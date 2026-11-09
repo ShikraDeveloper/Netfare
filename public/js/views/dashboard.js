@@ -102,6 +102,12 @@ function bindRecent(container) {
 }
 
 
+// Axis labels in one short style: AED 0, AED 500, AED 2K, AED 12K.
+function axisMoney(value) {
+  if (!value) return 'AED 0';
+  return `AED ${new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(value)}`;
+}
+
 function renderCharts(data, container) {
   if (!window.Chart) return;
   const theme = chartTheme();
@@ -122,7 +128,7 @@ function renderCharts(data, container) {
             borderColor: theme.revenue,
             backgroundColor: theme.revenueFill,
             fill: true,
-            tension: 0.35,
+            cubicInterpolationMode: 'monotone',
             borderWidth: 2.2,
             pointRadius: 3,
             pointHoverRadius: 5,
@@ -136,7 +142,7 @@ function renderCharts(data, container) {
             borderColor: theme.expense,
             backgroundColor: theme.expenseFill,
             fill: true,
-            tension: 0.35,
+            cubicInterpolationMode: 'monotone',
             borderWidth: 2,
             pointRadius: 3,
             pointHoverRadius: 5,
@@ -176,7 +182,7 @@ function renderCharts(data, container) {
             beginAtZero: true,
             grid: { color: theme.grid, drawTicks: false },
             border: { display: false },
-            ticks: { color: theme.text, padding: 8, callback: (value) => fmtMoney(value * 100, { compact: true }) },
+            ticks: { color: theme.text, padding: 8, maxTicksLimit: 6, callback: axisMoney },
           },
         },
       },
@@ -352,15 +358,16 @@ export async function render(container, { query } = {}) {
 
     ${isEmpty ? '' : ledgerChecksCard(reconciliation)}
 
-    <div class="card chart-card">
-      <div class="card-head">
-        <div class="card-title"><h2>Revenue &amp; expenses</h2></div>
-        <a class="card-link" href="#/reports/income-statement">P&amp;L ${icon('chevron', 13)}</a>
+    <div class="dash-row">
+      <div class="card chart-card">
+        <div class="card-head">
+          <div class="card-title"><h2>Revenue &amp; expenses</h2></div>
+          <a class="card-link" href="#/reports/income-statement">P&amp;L ${icon('chevron', 13)}</a>
+        </div>
+        <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Monthly revenue and expenses for the last six months"></canvas></div>
       </div>
-      <div class="chart-wrap"><canvas id="revenue-chart" role="img" aria-label="Monthly revenue and expenses for the last six months"></canvas></div>
+      ${recentHtml(data)}
     </div>
-
-    ${recentHtml(data)}
   `;
 
   bindRecent(container);

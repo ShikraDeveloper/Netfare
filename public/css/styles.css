@@ -314,6 +314,12 @@ html:not(.nav-ready) .main { transition: none !important; }
 .callout-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 
 .chart-card { min-width: 0; }
+/* The chart and Recent side by side; one column on narrow screens. */
+.dash-row { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; }
+.dash-row > .card { margin: 0; }
+.dash-row > .chart-card { display: flex; flex-direction: column; }
+.dash-row > .chart-card .chart-wrap { flex: 1; height: auto; min-height: 272px; }
+@media (max-width: 1100px) { .dash-row { grid-template-columns: minmax(0, 1fr); } }
 .chart-wrap { position: relative; height: 272px; padding: 12px 14px 12px; }
 .chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
