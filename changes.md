@@ -2720,11 +2720,33 @@ The user asked about moving the side menu to the top with dropdowns. After three
   `npm test` 280 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Checked in the demo:** VIS-2026-0007 (Oman, cost 300 paid from the prepaid Emirates Consolidator wallet) was rejected and refunded 200 by the supplier. The wallet went from 1,950 to 2,150, and the Refunds card reads "AED 200.00 in the portal wallet".
 
+### Daily sales dates refunds; leftover cleanup — code commit `240318e`
+
+- **Why:** The user asked to clean any leftover of the old refund system, to check the new system again with new entries, and to make sure work done on a date (and refunds made later) appears in that date's daily sales and reports.
+- **Leftovers:** a scan of every changed file found no unused imports or functions.
+  - Removed: `cancelSource`'s `finalStatus` option (only the old reject used it), and the exports `customerRefundMap` and `customerRefundedCents` (used only inside their files).
+  - Kept on purpose: the "Rejection note" wording on the cancellation note, for rejections recorded before 1.0.13.
+- **Daily sales:**
+  - Before this change, a refund lowered the visa's sale line, so it only showed on the sale day.
+  - Now each refund to the customer (credit note with `visa_id`) and each refund from the supplier (supplier credit on the visa, not from a cancellation) is its own line under **E · Cancellations and refunds** on its own date: "Refund to customer" (−sale) and "Refund from supplier" (−cost).
+  - The sale line keeps the cost of its day (supplier refunds are added back), so a past day's report never changes.
+  - Cash flow labels: "Supplier refunds received" (`refund`) and "Credit note refunds" (`customer_credit_refund`).
+  - The column reads "Cancellation or refund", the total reads "Total · N", and the empty text reads "No cancellations or refunds in this period".
+- **Checked:**
+  - The test "daily sales: the sale stays on its day; refunds are lines on their own dates" covers the sale day, the refund day, the supplier refund day, the empty reject day, and the month net matching the profit report.
+  - A full scenario on a temp database passed every check:
+    - per-visa profit on the page, list, report and DSR;
+    - customer and supplier balances, statements and aging;
+    - trial balance, P&L, cash and bank, ledger checks, the settlement queue;
+    - the DSR day by day: the sale on 1 Nov, nothing on the reject day, refunds to customers on 6 Nov, refunds from suppliers on 7 Nov, and on 8 Nov 250 into the bank with a 5 charge.
+  - The demo DSR shows CR and SCN lines under section E.
+- **Tests:** `npm test` 280 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) Receive refund on the supplier statement (`cf1373f`) and supplier refunds staying with the supplier (`611a1d4`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) Receive refund on the supplier statement (`cf1373f`) supplier refunds staying with the supplier (`611a1d4`) and dated refunds in daily sales (`240318e`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
