@@ -20,6 +20,7 @@ const bills = require('../server/services/bills');
 const visaRefunds = require('../server/services/visa-refunds');
 const reconciliation = require('../server/services/reconciliation');
 const credits = require('../server/services/credits');
+const supplierCredits = require('../server/services/supplier-credits');
 const statements = require('../server/services/statements');
 const { dailySales } = require('../server/services/reports/daily-sales');
 const { listSettlementQueue } = require('../server/services/settlement-queue');
@@ -190,6 +191,48 @@ test('voiding a refund credit note puts the sale and what is owed back', () => {
   credits.voidCredit(db, credit.id, { remarks: 'Entered by mistake' });
   assert.equal(owed(visa.id), 50_000);
   assert.equal(visas.getVisa(db, visa.id).margin_cents, 15_000);
+});
+
+test('supplier refund with bank charges: the bank keeps its fee', () => {
+  const { visa, bill } = submittedVisa('Charges', 50_000);
+  bills.recordBillPayment(db, bill.id, {
+    amount_cents: 35_000, payment_date: '2026-11-02', method: 'Bank transfer', payment_account_id: account('1010'),
+  });
+  const bank = balance('1010');
+  const fees = balance('6700');
+  visaRefunds.supplierRefund(db, visa.id, {
+    bill_id: bill.id, amount_cents: 10_000, date: '2026-11-20', account_id: account('1010'), bank_charges_cents: 500,
+  });
+  assert.equal(balance('1010') - bank, 9_500);
+  assert.equal(balance('6700') - fees, 500);
+});
+
+test('receive refund from the supplier statement: oldest credits first, with bank charges', () => {
+  const { visa, bill } = submittedVisa('Held Credit', 50_000);
+  const vendor = bill.vendor_id;
+  bills.recordBillPayment(db, bill.id, {
+    amount_cents: 35_000, payment_date: '2026-11-02', method: 'Bank transfer', payment_account_id: account('1010'),
+  });
+  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 10_000, date: '2026-11-10' });
+  visaRefunds.supplierRefund(db, visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-11' });
+  let statement = statements.vendorStatement(db, vendor, { from: '2026-01-01', to: '2026-12-31' });
+  assert.equal(statement.unapplied_supplier_credits_cents, 25_000);
+  assert.equal(statement.closing_balance_cents, -25_000, 'the supplier holds 250 for us');
+  assert.throws(() => supplierCredits.receiveVendorRefund(db, vendor, { amount_cents: 25_001, account_id: account('1010') }), /cannot be more than the credit/);
+
+  const bank = balance('1010');
+  const fees = balance('6700');
+  const done = supplierCredits.receiveVendorRefund(db, vendor, {
+    amount_cents: 20_000, date: '2026-11-25', account_id: account('1010'), bank_charges_cents: 300,
+  });
+  assert.equal(done.credits_used, 2);
+  assert.equal(balance('1010') - bank, 19_700);
+  assert.equal(balance('6700') - fees, 300);
+  statement = statements.vendorStatement(db, vendor, { from: '2026-01-01', to: '2026-12-31' });
+  assert.equal(statement.unapplied_supplier_credits_cents, 5_000);
+  assert.equal(statement.closing_balance_cents, -5_000);
+  assert.deepEqual(statement.transactions.map((row) => row.kind),
+    ['bill', 'payment', 'supplier_credit', 'supplier_credit', 'credit_refund', 'credit_refund']);
 });
 
 test('the books balance and every ledger check matches', () => {

@@ -108,6 +108,7 @@ function supplierRefund(db, visaId, payload = {}) {
         refund_date: date,
         account_id: account.id,
         method: optionalStr(payload.method, 'Method', 100) || (/cash/i.test(account.name) ? 'Cash' : 'Bank transfer'),
+        bank_charges_cents: payload.bank_charges_cents,
       });
     }
     const credit = supplierCreditService.getSupplierCredit(db, creditId);

@@ -193,6 +193,8 @@ function customerTransactions(db, customerId) {
     : row);
 }
 
+const VENDOR_KIND_ORDER = { bill: 1, payment: 2, supplier_credit: 3, credit_refund: 4, refund: 5 };
+
 function vendorTransactions(db, vendorId) {
   return db.prepare(`
     SELECT 'bill' AS kind, b.id, b.number AS reference, b.bill_date AS date,
@@ -212,14 +214,27 @@ function vendorTransactions(db, vendorId) {
     WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
       AND r.supplier_credit_note_id IS NULL
     UNION ALL
-    SELECT 'supplier_credit', sca.id, scn.number, sca.applied_date, NULL,
-           sca.amount_cents, 'applied', 'Supplier credit', b.number
-    FROM supplier_credit_applications sca
-    JOIN supplier_credit_notes scn ON scn.id = sca.credit_note_id
-    JOIN bills b ON b.id = sca.bill_id
-    WHERE scn.vendor_id = ? AND scn.status = 'issued'
-    ORDER BY date, kind, id
-  `).all(vendorId, vendorId, vendorId, vendorId).map((row) => {
+    -- A supplier credit counts when it is issued: it lowers what we owe, or
+    -- (once bills are clear) is money the supplier holds for us. The part
+    -- moved to a prepaid portal wallet shows on the portal instead.
+    SELECT 'supplier_credit', scn.id, scn.number, scn.credit_date, NULL,
+           scn.amount_cents - scn.portal_settled_cents, 'issued', 'Supplier credit', COALESCE(b.number, '')
+    FROM supplier_credit_notes scn
+    LEFT JOIN bills b ON b.id = scn.bill_id
+    WHERE scn.vendor_id = ? AND scn.status = 'issued' AND scn.amount_cents > scn.portal_settled_cents
+    UNION ALL
+    -- Credit the supplier paid back to us.
+    SELECT 'credit_refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, scn.number
+    FROM refunds r
+    JOIN supplier_credit_notes scn ON scn.id = r.supplier_credit_note_id
+    WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
+  `).all(vendorId, vendorId, vendorId, vendorId, vendorId)
+    // Same-day order: the bill, our payment, the supplier's credit, then the
+    // money it paid back.
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)
+      || (VENDOR_KIND_ORDER[a.kind] || 9) - (VENDOR_KIND_ORDER[b.kind] || 9)
+      || a.id - b.id)
+    .map((row) => {
     if (row.kind === 'bill') {
       return {
         ...row,
@@ -242,6 +257,14 @@ function vendorTransactions(db, vendorId) {
         description: `Supplier credit ${row.reference}${row.related ? ` · ${row.related}` : ''}`,
         debit_cents: row.amount_cents,
         credit_cents: 0,
+      };
+    }
+    if (row.kind === 'credit_refund') {
+      return {
+        ...row,
+        description: `Refund received ${row.reference} · ${row.method || 'Bank transfer'}`,
+        debit_cents: 0,
+        credit_cents: row.amount_cents,
       };
     }
     return {

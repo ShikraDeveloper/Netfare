@@ -722,9 +722,15 @@ export async function render(container, { params } = {}) {
             <label for="sr-date">Date</label>
             <input class="input" id="sr-date" name="date" type="date" value="${todayISO()}" required>
           </div>
-          <div class="field full">
+          <div class="field">
             <label for="sr-account">Received into</label>
             <select class="input" id="sr-account" name="account_id">${accountOptions('Not received yet: keep as credit with the supplier')}</select>
+          </div>
+          <div class="field">
+            <label for="sr-charges">Bank charges</label>
+            <div class="money-input"><span>AED</span>
+              <input class="input" id="sr-charges" name="bank_charges" type="number" min="0" step="0.01" value="0.00" inputmode="decimal">
+            </div>
           </div>
         </div>
       `,
@@ -735,6 +741,7 @@ export async function render(container, { params } = {}) {
           amount_cents: toCents(values.get('amount')),
           date: values.get('date'),
           account_id: values.get('account_id') ? Number(values.get('account_id')) : null,
+          bank_charges_cents: values.get('account_id') ? toCents(values.get('bank_charges') || 0) : 0,
         });
         toast('Supplier refund recorded');
         refresh();

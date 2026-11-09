@@ -1,13 +1,18 @@
 import { api } from '../api.js';
+import { cashAccounts } from '../store.js';
 import {
   bindDateRange,
+  centsToInput,
   dateRangeHtml,
   esc,
   fmtDate,
   fmtMoney,
   icon,
+  openModal,
   printPage,
   setHeader,
+  toast,
+  toCents,
   todayISO,
 } from '../ui.js';
 
@@ -24,7 +29,8 @@ const CUSTOMER_TITLES = {
 const VENDOR_TITLES = {
   bill: 'Supplier bill',
   payment: 'Payment made',
-  supplier_credit: 'Supplier credit applied',
+  supplier_credit: 'Supplier credit',
+  credit_refund: 'Refund received',
   refund: 'Supplier refund received',
 };
 
@@ -219,7 +225,9 @@ export async function render(container, { params = [], query = new URLSearchPara
     ? { text: 'Settled', className: 'settled' }
     : closing > 0
       ? { text: kind === 'customer' ? 'Payment due' : 'Payable', className: 'due' }
-      : { text: kind === 'customer' ? 'Credit balance' : 'Advance paid', className: 'credit' };
+      : { text: kind === 'customer' ? 'Credit balance' : 'Credit with supplier', className: 'credit' };
+  // Money a supplier holds for us (open supplier credits), to take back.
+  const held = kind === 'vendor' ? Number(data.unapplied_supplier_credits_cents || 0) : 0;
   const showDetails = readShowDetails();
   const hasExtras = data.transactions.some((row) => transactionExtraHtml(row));
 
@@ -227,6 +235,7 @@ export async function render(container, { params = [], query = new URLSearchPara
     title: `${data.party.name} statement`,
     actions: `
       <a class="btn btn-ghost" href="#/${routeBase}">${icon('chevron', 15)}<span>All ${routeBase}</span></a>
+      ${held > 0 ? `<button class="btn btn-secondary" data-action="receive-refund">${icon('arrowUp', 15)}<span>Receive refund · ${fmtMoney(held)}</span></button>` : ''}
       <button class="btn btn-primary" data-action="print-statement">${icon('print', 15)}<span>Print</span></button>
     `,
   });
@@ -275,7 +284,7 @@ export async function render(container, { params = [], query = new URLSearchPara
         </div>
       </div>
       ${data.unapplied_credits_cents > 0 ? `<p class="statement-note">Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</p>` : ''}
-      ${data.unapplied_supplier_credits_cents > 0 ? `<p class="statement-note">Open supplier credits: ${fmtMoney(data.unapplied_supplier_credits_cents)}</p>` : ''}
+      ${data.unapplied_supplier_credits_cents > 0 ? `<p class="statement-note">Credit with supplier: ${fmtMoney(data.unapplied_supplier_credits_cents)}</p>` : ''}
 
       <div class="table-wrap">
         <table class="data statement-table"><caption class="sr-only">Account statement</caption>
@@ -387,6 +396,67 @@ export async function render(container, { params = [], query = new URLSearchPara
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);
+
+  document.querySelector('[data-action="receive-refund"]')?.addEventListener('click', () => {
+    const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));
+    const bank = accounts.find((account) => account.code === '1010') || accounts[0];
+    openModal({
+      title: `Receive refund · ${data.party.name}`,
+      submitLabel: 'Record refund',
+      body: `
+        <div class="form-grid">
+          <div class="field">
+            <label for="rr-amount">Amount · up to ${fmtMoney(held)}</label>
+            <div class="money-input"><span>AED</span>
+              <input class="input" id="rr-amount" name="amount" type="number" min="0.01" max="${centsToInput(held)}" step="0.01"
+                value="${centsToInput(held)}" required inputmode="decimal" data-rr-amount>
+            </div>
+          </div>
+          <div class="field">
+            <label for="rr-date">Date</label>
+            <input class="input" id="rr-date" name="date" type="date" value="${todayISO()}" required>
+          </div>
+          <div class="field">
+            <label for="rr-account">Received into</label>
+            <select class="input" id="rr-account" name="account_id" required>
+              ${accounts.map((account) => `<option value="${account.id}" ${account.id === bank?.id ? 'selected' : ''}>${esc(account.code)} · ${esc(account.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="rr-charges">Bank charges</label>
+            <div class="money-input"><span>AED</span>
+              <input class="input" id="rr-charges" name="bank_charges" type="number" min="0" step="0.01" value="0.00" inputmode="decimal" data-rr-charges>
+            </div>
+          </div>
+          <div class="field full muted" data-rr-net></div>
+        </div>
+      `,
+      onMount(overlay) {
+        const amount = overlay.querySelector('[data-rr-amount]');
+        const charges = overlay.querySelector('[data-rr-charges]');
+        const net = overlay.querySelector('[data-rr-net]');
+        const sync = () => {
+          const fee = toCents(charges.value || 0);
+          net.textContent = fee > 0 ? `${fmtMoney(Math.max(0, toCents(amount.value || 0) - fee))} lands in the account` : '';
+        };
+        amount.addEventListener('input', sync);
+        charges.addEventListener('input', sync);
+      },
+      async onSubmit(form) {
+        const values = new FormData(form);
+        const account = accounts.find((row) => row.id === Number(values.get('account_id')));
+        await api.post(`/vendors/${partyId}/receive-refund`, {
+          amount_cents: toCents(values.get('amount')),
+          date: values.get('date'),
+          account_id: Number(values.get('account_id')),
+          method: /cash/i.test(account?.name || '') ? 'Cash' : 'Bank transfer',
+          bank_charges_cents: toCents(values.get('bank_charges') || 0),
+        });
+        toast('Refund recorded');
+        render(container, { params, query, kind });
+      },
+    });
+  });
 }
 
 function periodLabel(from, to) {

@@ -16,6 +16,8 @@ const {
   postEntry,
   reverseEntry,
   billBalanceCents,
+  bankChargesCents,
+  bankChargeLines,
 } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const { markCreated } = require('../created-by');
@@ -451,13 +453,15 @@ function refundSupplierCredit(db, creditId, payload = {}) {
     if (!account.is_active) throw bad('That account is archived');
     if (!isCashAccount(account)) throw bad('Refunds must be paid from a bank or cash account');
     const method = optionalStr(payload.method, 'Refund method', 100) || 'Bank transfer';
+    // What the bank keeps on the way in (Dr 6700 · Cr the bank), in the same entry.
+    const charges = bankChargesCents(payload, { max: amount });
     const supplierCredits = systemAccount(db, '1450', 'Supplier Credits');
     const number = allocateNumber(db, 'refund', refundDate);
     const info = db.prepare(`
       INSERT INTO refunds (
         number, refund_type, party_id, bill_id, supplier_credit_note_id,
-        refund_date, amount_cents, method, reference, notes, account_id
-      ) VALUES (?, 'supplier', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        refund_date, amount_cents, method, reference, notes, account_id, bank_charges_cents
+      ) VALUES (?, 'supplier', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       number,
       credit.vendor_id,
@@ -469,6 +473,7 @@ function refundSupplierCredit(db, creditId, payload = {}) {
       optionalStr(payload.reference, 'Reference', 200),
       optionalStr(payload.notes, 'Notes', 2000) || `Cash refund of supplier credit ${credit.number}`,
       account.id,
+      charges,
     );
     const refundId = Number(info.lastInsertRowid);
     markCreated(db, 'refunds', refundId);
@@ -481,11 +486,60 @@ function refundSupplierCredit(db, creditId, payload = {}) {
       lines: [
         { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Supplier credit refund ${number}` },
         { account_id: supplierCredits.id, debit_cents: 0, credit_cents: amount, description: `Supplier credit ${credit.number}` },
+        ...bankChargeLines(db, charges, account, number),
       ],
     });
     db.prepare('UPDATE refunds SET journal_entry_id = ? WHERE id = ?').run(entryId, refundId);
     db.prepare('UPDATE supplier_credit_notes SET refunded_cents = refunded_cents + ? WHERE id = ?').run(amount, credit.id);
     return getSupplierCredit(db, credit.id);
+  })();
+}
+
+// Money a supplier pays back from what it holds for us (open supplier
+// credits), received into a bank or cash account. It uses the oldest credits
+// first; bank charges go on the largest part.
+function receiveVendorRefund(db, vendorId, payload = {}) {
+  return db.transaction(() => {
+    const vendor = assertVendor(db, vendorId, { allowArchived: true });
+    const open = db.prepare(`
+      SELECT * FROM supplier_credit_notes
+      WHERE vendor_id = ? AND status = 'issued' AND amount_cents > applied_cents + refunded_cents + portal_settled_cents
+      ORDER BY credit_date, id
+    `).all(vendor.id);
+    const held = open.reduce((sum, note) => sum + remainingCents(note), 0);
+    if (held <= 0) throw bad(`${vendor.name} holds no credit for you`);
+    const amount = cents(payload.amount_cents, 'Amount', { min: 1 });
+    if (amount > held) throw bad(`The amount cannot be more than the credit with the supplier (${(held / 100).toFixed(2)})`);
+    const charges = bankChargesCents(payload, { max: amount });
+    const parts = [];
+    let left = amount;
+    for (const note of open) {
+      if (left <= 0) break;
+      const part = Math.min(left, remainingCents(note));
+      parts.push({ note, part });
+      left -= part;
+    }
+    const largest = parts.reduce((best, item) => (item.part > best.part ? item : best), parts[0]);
+    if (charges > largest.part) throw bad('Bank charges cannot be more than the amount');
+    for (const item of parts) {
+      refundSupplierCredit(db, item.note.id, {
+        amount_cents: item.part,
+        refund_date: payload.date,
+        account_id: payload.account_id,
+        method: payload.method,
+        reference: payload.reference,
+        bank_charges_cents: item === largest ? charges : 0,
+      });
+    }
+    audit.record(db, {
+      entity_type: 'vendor',
+      entity_id: vendor.id,
+      entity_number: vendor.name,
+      action: 'refund',
+      remarks: `Refund received from ${vendor.name}${charges ? ` · bank charges ${(charges / 100).toFixed(2)}` : ''}`,
+      amount_cents: amount,
+    });
+    return { vendor_id: vendor.id, amount_cents: amount, bank_charges_cents: charges, credits_used: parts.length };
   })();
 }
 
@@ -604,6 +658,7 @@ module.exports = {
   applySupplierCredit,
   deleteSupplierCreditApplication,
   refundSupplierCredit,
+  receiveVendorRefund,
   voidSupplierCredit,
   supplierCreditReconciliation,
   supplierCreditsForSource,

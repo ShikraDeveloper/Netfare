@@ -31,6 +31,11 @@ router.get('/:id/statement', (req, res) => {
 });
 
 // Only the admin may give a new record an opening balance.
+// Money the supplier pays back from the credit it holds for us.
+router.post('/:id/receive-refund', (req, res) => {
+  res.status(201).json(require('../services/supplier-credits').receiveVendorRefund(db, Number(req.params.id), req.body || {}));
+});
+
 router.post('/', (req, res) => {
   const body = req.body || {};
   if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');
