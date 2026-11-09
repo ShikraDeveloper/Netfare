@@ -2742,11 +2742,38 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - The demo DSR shows CR and SCN lines under section E.
 - **Tests:** `npm test` 280 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 
+### Refunds card on bookings — code commit `86e3420`
+
+- **Why:** The user asked whether bookings need the same refund system. On checking:
+  - booking cancellation (invoice void, charges in 4330, cancellation note) is correct as it is;
+  - but bookings had no path for an airline refund that comes after the cancellation, nor for a part refund to the customer (for example one passenger);
+  - and a later supplier credit changed a past day's daily sales.
+
+  The user said "do it".
+- **Server:**
+  - `visa-refunds.js` became `job-refunds.js`: `refundCustomer(db, sourceType, jobId, payload)`, `supplierRefund(db, sourceType, jobId, payload)` and `refundLists`, for bookings and visas. Bookings got the routes `POST /api/bookings/:id/refund-customer` and `/supplier-refund`.
+  - `credit_notes.booking_id` was added (schema and migration).
+  - `getBooking` returns `customer_refunds` and `supplier_refunds`. `getBooking` and `listBookings` use `withActualResult`, and `customerRefundMap` now covers bookings.
+- **Daily sales:** for both bookings and visas, every supplier credit not from a cancellation (refund, reissue, goodwill) is its own "Refund from supplier" line on its date, and every customer refund credit note is a "Refund to customer" line. The sale line keeps its day's cost.
+  - The M3 test in `reports-privacy.test.js` was updated: the sale line cost stays 800, there are two dated credit lines (−150, −50), and the month nets to cost 600 and margin 400.
+- **UI:**
+  - New shared `public/js/views/job-refunds.js` (`refundsCardHtml`, `bindRefunds`), used by the visa and booking pages; the visa page's own copy was removed.
+  - The booking page shows the card for any non-draft booking. Refund customer appears only while the invoice is open; a cancelled booking shows only Supplier refund.
+  - The booking totals show "Sale after refund to customer" (or "Sale after cancellation") and "Cost after supplier refund" when they differ.
+  - The Bookings list shows the sale and cost after refunds, and its Sales total counts what was kept.
+- **Tests:** new `test/booking-refunds.test.js` (3):
+  - one passenger refunded from the bank, an airline refund held then received with bank charges, profit on the page, list and report, and daily sales day by day;
+  - a cancelled booking with an airline refund 3 weeks later: earlier days unchanged, a dated line, the report and page;
+  - ledger checks.
+
+  `npm test` 283 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo:** on cancelled BK-2026-0007, a supplier refund of 300 went "off the bill" (the bill was unpaid), today's DSR showed "Refund from supplier", and the card showed only Supplier refund.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) Receive refund on the supplier statement (`cf1373f`) supplier refunds staying with the supplier (`611a1d4`) and dated refunds in daily sales (`240318e`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
+3. **Release 1.0.12** is published (all simplify phases done). Not released yet: the simple visa rejection and refunds (`dcf2e27`) Receive refund on the supplier statement (`cf1373f`) supplier refunds staying with the supplier (`611a1d4`) dated refunds in daily sales (`240318e`) and the Refunds card on bookings (`86e3420`), which replace the rejection-note work of 2026-11-07 (`386a19d`, `558f7ab`, `d8c1c64`, `8d125a5`). Next release is 1.0.13 when the user says so.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
