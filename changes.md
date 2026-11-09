@@ -2799,11 +2799,40 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** the demo at 1188px (both cards 449px tall) and at 375px. `npm test` 283 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### Reminders — code commit `a89bda0`
+
+- **Why:** The user asked for a reminders app inside Netfare: upcoming reminders, a dashboard card, and a bell sound when one is due. The mockup was approved and they said "Proceed".
+- **Server:**
+  - New `reminders` table, created by `schema.js` on start: `title`, `notes`, `due_at` (local `YYYY-MM-DDTHH:MM`), `repeat` (never, daily, weekly, monthly), `for_all`, `owner_user_id`, `link_type` and `link_id` (booking or visa), `status` (open or done), `done_at`, `done_by`, `created_by`.
+  - `services/reminders.js` and `routes/reminders.js`: list, create, update, done, snooze, reopen and delete.
+  - Each user sees their own reminders and those for everyone. Only the maker or the admin edits or deletes; anyone who sees one can mark it done or snooze it.
+  - Done on a repeating reminder moves it to the next time still ahead, skipping missed days (monthly keeps the day, capped at the month's end); a one-off one closes.
+  - `permissions.refusal` lets every signed-in user use `/reminders`.
+- **App:**
+  - `public/js/reminders.js` holds the form, the labels ("Today 10:00", "late 45 min") and the alerts.
+  - Every 20 seconds it checks open reminders. For each new due one it shows an alert (top right) with Snooze 10 min and Done, plays a two-tone bell three times (Web Audio, unlocked on the first click or key), and shows a system notification when the window is not focused (permission asked on the first save).
+  - Late reminders alert as soon as Netfare opens.
+  - **Reminders page** (Home menu, `#/reminders`): Upcoming and Done, with late rows in red and actions Snooze, Done, Edit, Delete and Open again.
+  - Booking and visa pages: **More → Add reminder**, linked to that job.
+  - Dashboard: a **Reminders** card (the next 5; late ones in red) above Recent in the right column. It updates when reminders change.
+- **Tests:**
+  - new `test/reminders.test.js` (6): visibility, done and repeat (daily skipping missed days, weekly, monthly on the 31st), snooze and shared done, owner-only changes, input checks, staff without rights;
+  - the e2e staff menu now lists Reminders.
+
+  `npm test` 289 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo:**
+  - a reminder from VIS-2026-0007 a minute ahead raised the alert at 16:25, with the visa link;
+  - Done cleared the alert and the dashboard card and moved it to Done ("by Demo Admin");
+  - a reminder 50 minutes late alerted on reload;
+  - the page showed late, today and tomorrow (daily) rows.
+- **Not checked:** the sound by ear, and the system notification in the desktop app.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.13** is published (2026-11-09): simple visa rejection, the Refunds card on visas and bookings, Receive refund on the supplier statement, and dated refunds in daily sales. Not released yet: dashboard chart and Recent side by side (`5909ea2`).
+3. **Release 1.0.13** is published (2026-11-09): simple visa rejection, the Refunds card on visas and bookings, Receive refund on the supplier statement, and dated refunds in daily sales. Not released yet: dashboard chart and Recent side by side (`5909ea2`) and Reminders (`a89bda0`).
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
