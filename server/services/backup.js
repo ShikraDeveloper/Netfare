@@ -19,6 +19,10 @@ function safeLabel(label) {
 }
 
 const AUTO_BACKUP_MAX_AGE_DAYS = 90;
+// Every automatic backup of the last 14 days is kept; older ones thin out to
+// one per week, so 90 days cost about 20 files, not 90.
+const AUTO_BACKUP_DAILY_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function pruneBackups(keep = 30, { autoMaxAgeDays = AUTO_BACKUP_MAX_AGE_DAYS } = {}) {
   try {
@@ -34,9 +38,15 @@ function pruneBackups(keep = 30, { autoMaxAgeDays = AUTO_BACKUP_MAX_AGE_DAYS } =
       fs.unlinkSync(path.join(backupDir, file.name));
     }
 
-    const cutoff = Date.now() - autoMaxAgeDays * 24 * 60 * 60 * 1000;
-    for (const file of files.filter(isAutomatic)) {
-      if (file.time < cutoff) fs.unlinkSync(path.join(backupDir, file.name));
+    const now = Date.now();
+    const weeksSeen = new Set();
+    // Newest first, so the copy kept for a week is its latest one.
+    for (const file of files.filter(isAutomatic).sort((a, b) => b.time - a.time)) {
+      const age = now - file.time;
+      const week = Math.floor(file.time / (7 * DAY_MS));
+      const thinned = age >= AUTO_BACKUP_DAILY_DAYS * DAY_MS && weeksSeen.has(week);
+      if (age >= AUTO_BACKUP_DAILY_DAYS * DAY_MS) weeksSeen.add(week);
+      if (age > autoMaxAgeDays * DAY_MS || thinned) fs.unlinkSync(path.join(backupDir, file.name));
     }
   } catch {
     // Backup retention must never block the backup itself.

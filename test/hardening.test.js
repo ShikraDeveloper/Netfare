@@ -317,6 +317,23 @@ test('backup retention protects safety and automatic backups and downloads are t
   }
   assert.equal(names.includes(path.basename(oldAutomatic)), false, 'automatic backups older than 90 days are removed');
 
+  // Last 14 days: all kept. Older: one per week. Over 90 days: gone.
+  const dayMs = 24 * 60 * 60 * 1000;
+  const autoAt = (days) => {
+    const file = path.join(backupDir, `ledgerly-thin-${days}-auto.db`);
+    fs.writeFileSync(file, 'test');
+    const when = new Date(Date.now() - days * dayMs);
+    fs.utimesSync(file, when, when);
+    return path.basename(file);
+  };
+  const recent = [1, 5, 13].map(autoAt);
+  const weekly = [20, 21, 22, 23, 24, 25, 26, 27].map(autoAt);
+  backupService.pruneBackups(30);
+  const kept = fs.readdirSync(backupDir);
+  for (const name of recent) assert.ok(kept.includes(name), 'the last 14 days are all kept');
+  const keptWeekly = weekly.filter((name) => kept.includes(name));
+  assert.ok(keptWeekly.length >= 1 && keptWeekly.length <= 2, 'older automatic backups thin to about one per week');
+
   const before = backupService.listBackups().length;
   const temporary = backupService.createTemporaryBackup(db, 'download');
   assert.ok(fs.existsSync(temporary.path));
