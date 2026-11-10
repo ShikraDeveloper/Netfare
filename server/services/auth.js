@@ -257,7 +257,7 @@ function createUser(db, payload = {}) {
 function rightsSummary(permissions) {
   const parts = AREAS.filter((area) => permissions[area.key])
     .map((area) => `${area.label}: ${permissions[area.key] === 'edit' ? 'Edit' : 'View'}`);
-  if (permissions.void) parts.push('Void, cancel & delete');
+  if (permissions.cancel) parts.push('Cancel & reject');
   return parts.length ? parts.join(', ') : 'No rights';
 }
 

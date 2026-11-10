@@ -1,7 +1,8 @@
 'use strict';
 
 // What each staff user may do. The admin ticks View or Edit for each area,
-// plus a separate right to void, cancel or delete. Every API request is
+// plus a separate right to cancel bookings and reject visas. Voiding,
+// correcting and deleting are for the admin only. Every API request is
 // matched to an area here; the admin is never limited.
 
 const AREAS = [
@@ -63,15 +64,16 @@ function areaForPrefix(prefix) {
   return AREAS.find((area) => area.prefixes?.includes(prefix))?.key || null;
 }
 
-// Stored as {"bookings":"edit","visas":"view","void":true}; anything unknown
-// or above what an area allows is dropped.
+// Stored as {"bookings":"edit","visas":"view","cancel":true}; anything
+// unknown or above what an area allows is dropped. The old "void" right
+// (void, cancel and delete) becomes "cancel": voiding is now admin-only.
 function cleanPermissions(input = {}) {
   const clean = {};
   for (const area of AREAS) {
     const level = input?.[area.key];
     if (level === 'view' || (level === 'edit' && area.edit !== false)) clean[area.key] = level;
   }
-  if (input?.void === true) clean.void = true;
+  if (input?.cancel === true || input?.void === true) clean.cancel = true;
   return clean;
 }
 
@@ -91,21 +93,24 @@ function canEdit(permissions, area) {
   return permissions[area] === 'edit';
 }
 
-// Requests that void, cancel or undo a posted record. Express matches routes
-// without regard to case, so this does too: /VOID must not pass as an edit.
-// void-last undoes a deposit step; reject cancels a visa like cancel does.
-const VOID_ENDINGS = /\/(void|cancel|void-last|reject)$/i;
+// Requests that reverse, correct or remove a posted record: admin only.
+// Express matches routes without regard to case, so this does too: /VOID
+// must not pass as an edit. void-last undoes a deposit step.
+const ADMIN_ENDINGS = /\/(void|void-last|correct)$/i;
+// Cancelling a booking or visa, and a visa rejection: everyday work, for
+// staff with the Cancel right.
+const CANCEL_ENDINGS = /\/(cancel|reject)$/i;
 
 // Saving opening balances with no amounts reverses the posted entry, the
-// same as Clear, so it needs the void right too.
+// same as Clear, so it is admin only too.
 function clearsOpeningBalances(req, path) {
   if (req.method !== 'POST' || !/^\/opening-balances$/i.test(path)) return false;
   const rows = Array.isArray(req.body?.balances) ? req.body.balances : [];
   return !rows.some((row) => Number(row?.debit_cents) > 0 || Number(row?.credit_cents) > 0);
 }
 
-function isVoidAction(req, path) {
-  return req.method === 'DELETE' || VOID_ENDINGS.test(path) || clearsOpeningBalances(req, path);
+function isAdminOnly(req, path) {
+  return req.method === 'DELETE' || ADMIN_ENDINGS.test(path) || clearsOpeningBalances(req, path);
 }
 
 // Why a request is refused, or null when the user may make it.
@@ -155,8 +160,12 @@ function refusal(db, user, req) {
     return areas.some((area) => canView(permissions, area)) ? null : `You do not have View rights for ${label}. Ask the admin.`;
   }
   if (!areas.some((area) => canEdit(permissions, area))) return `You do not have Edit rights for ${label}. Ask the admin.`;
-  if (prefix !== '/attachments' && isVoidAction(req, path) && !permissions.void) {
-    return 'You do not have the right to void, cancel or delete. Ask the admin.';
+  // A file on a record may be removed by anyone who may edit that record.
+  if (prefix !== '/attachments' && isAdminOnly(req, path)) {
+    return 'Only the admin can void, correct or delete. Ask the admin.';
+  }
+  if (CANCEL_ENDINGS.test(path) && !permissions.cancel) {
+    return 'You do not have the right to cancel or reject. Ask the admin.';
   }
   return null;
 }

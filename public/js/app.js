@@ -74,12 +74,15 @@ const NEW_ACTION_AREAS = {
 };
 // These mean "new" for whatever screen they are on.
 const SECTION_NEW_ACTIONS = ['new-party', 'new-credit'];
-const VOID_SELECTORS = [
-  '[data-action="void"]', '[data-action="void-credit"]', '[data-action="cancel"]', '[data-action="cancel-job"]',
-  '[data-action="delete"]', '[data-delete-payment]', '[data-delete-recon]', '[data-delete]', '[data-void-advance]',
-  '[data-void-cheque]', '[data-void-count]', '[data-void-kind]', '[data-void-portal]', '[data-void-settlement]', '[data-void]',
-  '[data-deposit-action="void-last"]', '[data-action="reject"]', '[data-action="clear-opening"]',
+// Buttons that void, correct or delete: the admin's only.
+const ADMIN_ONLY_SELECTORS = [
+  '[data-action="void"]', '[data-action="void-credit"]', '[data-action="void-job"]', '[data-action="void-cancellation"]',
+  '[data-action="correct"]', '[data-action="delete"]', '[data-delete-payment]', '[data-delete-recon]', '[data-delete]',
+  '[data-void-advance]', '[data-void-cheque]', '[data-void-count]', '[data-void-kind]', '[data-void-portal]',
+  '[data-void-settlement]', '[data-void]', '[data-deposit-action="void-last"]', '[data-action="clear-opening"]',
 ];
+// Cancelling a booking or visa and rejecting a visa: staff with the Cancel right.
+const CANCEL_SELECTORS = ['[data-action="cancel"]', '[data-action="cancel-job"]', '[data-action="reject"]'];
 
 function applyRightsStyles() {
   if (!store.user?.permissions) return;
@@ -89,7 +92,8 @@ function applyRightsStyles() {
   for (const [section, areas] of Object.entries(SECTION_AREAS)) {
     if (!can(areas[0], 'edit')) hidden.push(...SECTION_NEW_ACTIONS.map((action) => `html[data-section="${section}"] [data-action="${action}"]`));
   }
-  if (!can('void')) hidden.push(...VOID_SELECTORS.map((selector) => `.main ${selector}`));
+  if (!store.user.is_admin) hidden.push(...ADMIN_ONLY_SELECTORS.map((selector) => `.main ${selector}`));
+  if (!can('cancel')) hidden.push(...CANCEL_SELECTORS.map((selector) => `.main ${selector}`));
   if (!can('audit')) hidden.push('.main a[href^="#/audit-chain"]', '.main [data-action="audit-chain"]');
   const style = document.createElement('style');
   style.id = 'rights-style';

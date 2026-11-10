@@ -87,8 +87,8 @@ function rightsHtml(permissions = {}) {
         <tbody>${rows}</tbody>
       </table>
       <label class="checkbox-row rights-void">
-        <input type="checkbox" name="right-void" ${permissions.void ? 'checked' : ''}>
-        <span><strong>Void, cancel &amp; delete</strong> — reverse invoices, payments, bills and other entries, cancel bookings and visas, delete drafts. Also needs Edit for that area.</span>
+        <input type="checkbox" name="right-cancel" ${permissions.cancel || permissions.void ? 'checked' : ''}>
+        <span><strong>Cancel &amp; reject</strong> — cancel bookings and visas, and record a visa rejection. Also needs Edit for that area. Voiding, correcting and deleting stay with the admin.</span>
       </label>
     </fieldset>`;
 }
@@ -112,17 +112,17 @@ function readRights(form) {
     const level = form.querySelector(`input[name="right-${area.key}"]:checked`)?.value;
     if (level === 'view' || level === 'edit') permissions[area.key] = level;
   }
-  if (form.elements['right-void'].checked) permissions.void = true;
+  if (form.elements['right-cancel'].checked) permissions.cancel = true;
   return permissions;
 }
 
 function rightsSummary(user) {
   if (user.is_admin) return 'Every right';
-  const levels = Object.entries(user.permissions || {}).filter(([key]) => key !== 'void');
+  const levels = Object.entries(user.permissions || {}).filter(([key]) => key !== 'cancel' && key !== 'void');
   if (!levels.length) return 'No rights yet';
   const edit = levels.filter(([, level]) => level === 'edit').length;
   const view = levels.length - edit;
-  return [edit ? `Edit ${edit}` : '', view ? `View ${view}` : '', user.permissions.void ? 'Void' : ''].filter(Boolean).join(' · ');
+  return [edit ? `Edit ${edit}` : '', view ? `View ${view}` : '', user.permissions.cancel ? 'Cancel' : ''].filter(Boolean).join(' · ');
 }
 
 function userRow(user) {

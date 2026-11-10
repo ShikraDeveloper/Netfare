@@ -36,7 +36,7 @@ export function can(area, level = 'view') {
   const permissions = store.user?.permissions;
   if (!store.user) return false;
   if (!permissions) return true;
-  if (area === 'void') return Boolean(permissions.void);
+  if (area === 'cancel') return Boolean(permissions.cancel || permissions.void);
   return level === 'edit' ? permissions[area] === 'edit' : Boolean(permissions[area]);
 }
 

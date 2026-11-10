@@ -27,19 +27,20 @@ test('stored rights keep only known areas and allowed levels', () => {
     cleanPermissions({ bookings: 'edit', dashboard: 'edit', reports: 'view', nonsense: 'edit', sales: 'admin', void: 'yes' }),
     { bookings: 'edit', reports: 'view' },
   );
-  assert.deepEqual(cleanPermissions({ void: true }), { void: true });
+  assert.deepEqual(cleanPermissions({ cancel: true }), { cancel: true });
+  assert.deepEqual(cleanPermissions({ void: true }), { cancel: true }, 'the old void right becomes cancel');
 });
 
-test('view, edit and void decide each request', () => {
+test('view, edit and cancel decide each request', () => {
   const rights = { visas: 'edit', sales: 'view' };
   assert.equal(decide(rights, 'GET', '/visas/4'), null);
   assert.equal(decide(rights, 'POST', '/visas/4/approve'), null);
   assert.equal(decide(rights, 'POST', '/visa-deposits'), null);
-  assert.match(decide(rights, 'POST', '/visas/4/cancel'), /void, cancel or delete/);
-  assert.equal(decide({ ...rights, void: true }, 'POST', '/visas/4/cancel'), null);
+  assert.match(decide(rights, 'POST', '/visas/4/cancel'), /right to cancel or reject/);
+  assert.equal(decide({ ...rights, cancel: true }, 'POST', '/visas/4/cancel'), null);
   assert.equal(decide(rights, 'GET', '/invoices'), null);
   assert.match(decide(rights, 'POST', '/invoices/2/payments'), /Edit rights for Invoices/);
-  assert.match(decide({ visas: 'edit', void: true }, 'POST', '/invoices/2/void'), /Edit rights/, 'void also needs Edit for that area');
+  assert.match(decide({ visas: 'edit', cancel: true }, 'POST', '/invoices/2/void'), /Edit rights/, 'without Edit the area answer comes first');
   assert.equal(decide(rights, 'POST', '/advances'), null, 'a visa page records customer advances');
   assert.match(decide(rights, 'GET', '/bills'), /View rights for Suppliers/);
 });
@@ -56,31 +57,42 @@ test('shared lists, the dashboard, journal entries and attachments', () => {
   assert.match(decide({ sales: 'view' }, 'GET', '/journal-entries'), /Journal/, 'not the whole journal');
   assert.equal(decide({ visas: 'view' }, 'GET', '/attachments/9/download'), null, 'a visa file follows visa rights');
   assert.match(decide({ bookings: 'edit' }, 'GET', '/attachments/9/download'), /View rights for Visas/);
-  assert.equal(decide({ visas: 'edit' }, 'DELETE', '/attachments/9'), null, 'removing a file needs Edit, not Void');
-  assert.match(decide({ visas: 'edit', void: true }, 'GET', '/users'), /Only the admin/);
-  assert.match(decide({ visas: 'edit', void: true }, 'POST', '/admin/reset'), /Only the admin/);
+  assert.equal(decide({ visas: 'edit' }, 'DELETE', '/attachments/9'), null, 'removing a file needs Edit, not the admin');
+  assert.match(decide({ visas: 'edit', cancel: true }, 'GET', '/users'), /Only the admin/);
+  assert.match(decide({ visas: 'edit', cancel: true }, 'POST', '/admin/reset'), /Only the admin/);
 });
 
-test('void needs the void right under any case or name', () => {
-  const rights = { sales: 'edit', visas: 'edit', books: 'edit' };
-  for (const path of ['/invoices/5/VOID', '/invoices/5/Void', '/visas/4/CANCEL', '/opening-balances/VOID']) {
-    assert.match(decide(rights, 'POST', path), /void, cancel or delete/, path);
+test('void, correct and delete are for the admin only, under any case or name', () => {
+  const rights = { sales: 'edit', visas: 'edit', books: 'edit', suppliers: 'edit', portals: 'edit', banking: 'edit', refunds: 'edit', bookings: 'edit', customers: 'edit', cancel: true };
+  for (const path of [
+    '/invoices/5/void', '/invoices/5/VOID', '/invoices/5/Void', '/opening-balances/VOID', '/bills/3/void',
+    '/portals/topups/2/void', '/portals/refunds/2/void', '/credits/applications/4/void', '/refunds/8/void',
+    '/visa-deposits/7/void-last', '/visa-deposits/7/VOID-LAST', '/bookings/2/void', '/cancellations/3/void',
+    '/invoices/5/correct', '/bookings/2/CORRECT',
+  ]) {
+    assert.match(decide(rights, 'POST', path), /Only the admin can void, correct or delete/, path);
   }
-  assert.match(decide(rights, 'POST', '/visa-deposits/7/void-last'), /void, cancel or delete/);
-  assert.match(decide(rights, 'POST', '/visa-deposits/7/VOID-LAST'), /void, cancel or delete/);
-  assert.match(decide(rights, 'POST', '/visas/4/reject'), /void, cancel or delete/);
-  assert.equal(decide({ ...rights, void: true }, 'POST', '/visas/4/reject'), null);
+  for (const path of ['/invoices/payments/4', '/bills/payments/4', '/invoices/5', '/customers/2', '/journal-entries/9']) {
+    assert.match(decide(rights, 'DELETE', path), /Only the admin/, `DELETE ${path}`);
+  }
   assert.equal(decide(rights, 'POST', '/visa-deposits/7/refund'), null, 'a deposit refund is a normal edit');
 });
 
-test('saving opening balances with no amounts needs the void right', () => {
-  const rights = { books: 'edit' };
+test('cancel and reject need the cancel right, under any case', () => {
+  const rights = { visas: 'edit', bookings: 'edit' };
+  for (const path of ['/visas/4/cancel', '/visas/4/CANCEL', '/visas/4/reject', '/bookings/2/cancel']) {
+    assert.match(decide(rights, 'POST', path), /right to cancel or reject/, path);
+    assert.equal(decide({ ...rights, cancel: true }, 'POST', path), null, path);
+  }
+});
+
+test('saving opening balances with no amounts is for the admin only', () => {
+  const rights = { books: 'edit', cancel: true };
   const amounts = { entry_date: '2026-01-01', balances: [{ account_id: 1, debit_cents: 5000, credit_cents: 0 }] };
   assert.equal(decide(rights, 'POST', '/opening-balances', {}, amounts), null);
   for (const balances of [[], [{ account_id: 1, debit_cents: 0, credit_cents: 0 }], undefined]) {
-    assert.match(decide(rights, 'POST', '/opening-balances', {}, { entry_date: '2026-01-01', balances }), /void, cancel or delete/);
+    assert.match(decide(rights, 'POST', '/opening-balances', {}, { entry_date: '2026-01-01', balances }), /Only the admin/);
   }
-  assert.equal(decide({ ...rights, void: true }, 'POST', '/opening-balances', {}, { balances: [] }), null);
 });
 
 test('an attachment id must be plain digits', () => {

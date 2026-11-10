@@ -393,7 +393,7 @@ test('npm run reset-admin gives a one-time password that must be changed first',
   cookie = admin.cookie;
 });
 
-test('rights: view, edit and void are enforced per area and changes apply at once', async () => {
+test('rights: view, edit and cancel are enforced per area, delete is the admin\'s, and changes apply at once', async () => {
   const created = await postAs(cookie, '/api/users', {
     full_name: 'Rights Staff', username: 'rights', password: 'rights-pass-1',
     permissions: { bookings: 'edit', sales: 'view', reports: 'edit', made_up: 'edit' },
@@ -425,12 +425,18 @@ test('rights: view, edit and void are enforced per area and changes apply at onc
   assert.equal(invoice.status, 403, 'View only on invoices');
   assert.match(invoice.data.error, /Edit rights for Invoices/);
   const removed = await jsonRequest(`/api/bookings/${booking.data.id}`, { method: 'DELETE', headers: { Origin: baseUrl, Cookie: staff.cookie } });
-  assert.equal(removed.status, 403, 'deleting needs the void right');
-  assert.match(removed.data.error, /void, cancel or delete/);
+  assert.equal(removed.status, 403, 'deleting is the admin\'s');
+  assert.match(removed.data.error, /Only the admin can void, correct or delete/);
+  const cancelled = await postAs(staff.cookie, `/api/bookings/${booking.data.id}/cancel`, {});
+  assert.equal(cancelled.status, 403, 'cancelling needs the cancel right');
+  assert.match(cancelled.data.error, /right to cancel or reject/);
 
-  const granted = await postAs(cookie, `/api/users/${created.data.id}`, { permissions: { bookings: 'edit', void: true } }, 'PUT');
+  const granted = await postAs(cookie, `/api/users/${created.data.id}`, { permissions: { bookings: 'edit', cancel: true } }, 'PUT');
   assert.equal(granted.status, 200);
-  const again = await jsonRequest(`/api/bookings/${booking.data.id}`, { method: 'DELETE', headers: { Origin: baseUrl, Cookie: staff.cookie } });
+  assert.deepEqual(granted.data.permissions, { bookings: 'edit', cancel: true });
+  const still = await jsonRequest(`/api/bookings/${booking.data.id}`, { method: 'DELETE', headers: { Origin: baseUrl, Cookie: staff.cookie } });
+  assert.equal(still.status, 403, 'the cancel right does not allow deleting');
+  const again = await postAs(staff.cookie, `/api/bookings/${booking.data.id}/cancel`, {});
   assert.equal(again.status, 200, 'new rights apply without signing in again');
   assert.equal((await get('/api/customer-balances')).status, 403, 'and removed rights are gone at once');
   assert.equal((await get('/api/invoices')).status, 200, 'bookings still show their invoices');
@@ -441,7 +447,7 @@ test('rights: view, edit and void are enforced per area and changes apply at onc
   assert.equal((await postAs(cookie, `/api/users/${admin.id}`, { permissions: {} }, 'PUT')).status, 400);
   const audit = await jsonRequest('/api/audit-logs?entity_type=user&action=rights');
   const rows = audit.data.rows || audit.data;
-  assert.ok(rows.some((row) => row.entity_number === 'rights' && /Bookings: Edit/.test(row.remarks) && /Void/.test(row.remarks)));
+  assert.ok(rows.some((row) => row.entity_number === 'rights' && /Bookings: Edit/.test(row.remarks) && /Cancel & reject/.test(row.remarks)));
 });
 
 test('two people editing the same record: the older copy is refused, not saved over', async () => {
