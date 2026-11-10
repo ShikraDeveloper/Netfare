@@ -3025,11 +3025,45 @@ The user asked about moving the side menu to the top with dropdowns. After three
   - latest.json (version 1.0.16, dated 2026-11-10, four notes).
 - **`releases/latest`** points at v1.0.16.
 
+## 2026-11-11
+
+### Two ponytail audits (another session) — 17 commits, reviewed here
+
+- **Why:** The user ran two code audits in a separate terminal session, which fixed what they found and committed locally. The user asked for a deep check and a push recommendation.
+- **First audit (A):**
+  - `8a92572` office network addresses other than Tailscale are marked as not encrypted;
+  - `ef85efe` removed attachments are written to the audit log;
+  - `400fab1` automatic backups are kept daily for 14 days, then one a week to 90 days;
+  - `221b750` the audit log date filter uses the local date;
+  - `3553eb5` every change to a versioned record stamps `updated_at` to the millisecond, so two edits in one second are still caught;
+  - `e61e92c` a backup folder that only shares a name prefix with the data folder is accepted;
+  - `e68321f` body-parser 1.20.9 (denial-of-service advisory).
+- **Second audit (B):**
+  - `a4cfb9c` aging reports as they stood on a past date;
+  - `69466a9` advances, credits and deposits cannot be used before they or the invoice exist;
+  - `a30bf64` voiding a supplier refund on a bill payment also voids the supplier credit it made;
+  - `936d7e7` portal wallets cannot go below zero on any date (top-ups, withdrawals, settlements, deposit steps);
+  - `5c1a268` the hard-delete route for manual journal entries is removed (void only);
+  - `ebacc9a` "This year" follows the fiscal year start month;
+  - `d4ca3fe` every refund kind can be corrected; advance and cancellation refunds refuse bank charges;
+  - `6bcc178` visa deposit events move to the corrected invoice;
+  - `eb91b7e` **Books closed through** (admin, Settings): nothing is posted on or before it, including a correction's reversal (`reverseOnOriginalDate` checks it); voids dated today still work;
+  - `60f7f87` **Netfare → Restore from backup…** in the desktop app: restarts, saves a pre-restore copy, then restores before the server opens the books.
+- **Review here:** every diff read. `npm test` 327, `npm run test:e2e` 43, `npm run check` OK, `npm audit --omit=dev` 0. On a scratch database: a payment in a closed month cannot be recorded or corrected into it, a void still works, the closed months keep the same entries; a supplier refund corrected 50 → 40 leaves 1450 at zero. **Not run:** the desktop restore end to end (needs the built app).
+
+### Voids on archived accounts and the credit date check — code commit `1dc3b46`
+
+- **Why:** Two bugs from the audit in this session, confirmed on a scratch database.
+- **Archived accounts:** `postEntry` refused every line on an archived account, so a payment into a bank archived later could not be voided or corrected. Reversals (`reversal_of_id`) may now post to an archived account; new postings are still refused.
+- **Credit date:** Correct for credit notes and supplier credits counted voided refunds and portal credits as "first used". Only paid refunds and posted portal credits count now (applications are deleted when undone).
+- **Tests:** two in `test/credit-corrections.test.js`. `npm test` 329 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office.
+3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) and `1dc3b46`. Ask the user to try Restore from backup once in the built app.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
