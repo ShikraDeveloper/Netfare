@@ -567,6 +567,7 @@ function voidSupplierCredit(db, creditId, payload = {}) {
     for (const refund of refunds) {
       refundService.voidRefund(db, refund.id, {
         remarks: remarks || `Voided with supplier credit ${credit.number}`,
+        fromSupplierCredit: true,
       });
     }
 

@@ -108,6 +108,7 @@ const KINDS = {
       if (row.cancellation_id) require('./cancellations').refundCancellation(db, row.cancellation_id, values);
       else if (row.credit_note_id) require('./credits').refundCredit(db, row.credit_note_id, values);
       else if (row.advance_id) require('./advances').refundAdvance(db, row.advance_id, { ...values, payment_account_id: values.account_id });
+      else if (row.bill_payment_id) require('./refunds').createRefund(db, { ...values, refund_type: 'supplier', bill_payment_id: row.bill_payment_id });
       else if (row.supplier_credit_note_id) require('./supplier-credits').refundSupplierCredit(db, row.supplier_credit_note_id, values);
       else if (row.payment_id) require('./refunds').createRefund(db, { ...values, refund_type: 'customer', payment_id: row.payment_id });
       else throw bad('This refund cannot be corrected here. Void it and record it again.');

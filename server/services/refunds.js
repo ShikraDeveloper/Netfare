@@ -499,6 +499,17 @@ function voidRefund(db, id, payload = {}) {
     db.prepare(`
       UPDATE refunds SET status = 'void', void_entry_id = ? WHERE id = ?
     `).run(voidEntryId, id);
+    // A refund on a bill payment made its own credit note (createRefund).
+    // Without the refund that credit was never given, so it goes too. Done
+    // after the refund is marked void, so the credit note does not void it again.
+    if (refund.bill_payment_id && refund.supplier_credit_note_id && !payload.fromSupplierCredit) {
+      const note = db.prepare('SELECT status FROM supplier_credit_notes WHERE id = ?').get(refund.supplier_credit_note_id);
+      if (note?.status === 'issued') {
+        supplierCreditService.voidSupplierCredit(db, refund.supplier_credit_note_id, {
+          remarks: remarks || `Voided with refund ${refund.number}`,
+        });
+      }
+    }
     audit.record(db, {
       entity_type: 'refund',
       entity_id: refund.id,

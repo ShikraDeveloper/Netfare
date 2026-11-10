@@ -85,3 +85,19 @@ test('advances, credits and deposits cannot be used before they or the invoice e
   advances.applyAdvance(db, advance.id, { invoice_id: inv.id, payment_date: '2026-04-20' });
   assert.equal(balance('2400', '2026-04-15'), -1_000, 'on 15 Apr only the early advance is held');
 });
+
+test('voiding a supplier refund also voids the credit note it made', () => {
+  const vendorId = vendor();
+  const b = bill(vendorId, '2026-03-01', 10_000);
+  const paid = bills.recordBillPayment(db, b.id, { amount_cents: 10_000, payment_date: '2026-03-01', payment_account_id: account('1010').id });
+  const costBefore = balance('6000');
+  const supplierCreditsBefore = balance('1450');
+  const refund = refunds.createRefund(db, {
+    refund_type: 'supplier', bill_payment_id: paid.payments[0].id, amount_cents: 4_000, refund_date: '2026-03-05', account_id: account('1010').id,
+  });
+  refunds.voidRefund(db, refund.id, { remarks: 'Never received' });
+  assert.equal(balance('6000'), costBefore, 'cost is back to the full bill');
+  assert.equal(balance('1450'), supplierCreditsBefore, 'no supplier credit is left behind');
+  assert.equal(db.prepare('SELECT status FROM supplier_credit_notes WHERE id = ?').get(refund.supplier_credit_note_id).status, 'void');
+  assert.equal(db.prepare('SELECT COUNT(*) AS c FROM journal_entries WHERE reversal_of_id = ?').get(refund.journal_entry_id).c, 1, 'reversed once');
+});
