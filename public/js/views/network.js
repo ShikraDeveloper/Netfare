@@ -10,9 +10,15 @@ function addressesHtml(status) {
   }
   const rows = status.addresses.map((address) => `
     <li><span class="chip">${esc(address.kind)}</span> <code>${esc(address.url)}</code></li>`).join('');
+  // Only Tailscale is encrypted; other addresses carry passwords as plain text.
+  const plain = status.addresses.some((address) => address.kind !== 'Tailscale');
+  const warning = plain ? `
+    <div class="callout network-warning" role="alert" style="margin-top:10px">
+      <strong>Not encrypted.</strong> Over the office network or Wi-Fi, passwords and sign-ins can be read by anyone else on that network. Use these only on a wired or trusted network, and use the <strong>Tailscale</strong> address for Wi-Fi or working from home.
+    </div>` : '';
   return `
     <p class="network-state">${icon('check', 14)} Running for the <strong>office network</strong>. On another computer, open one of these in the browser:</p>
-    <ul class="network-addresses">${rows || '<li class="muted">No network connection found on this computer.</li>'}</ul>`;
+    <ul class="network-addresses">${rows || '<li class="muted">No network connection found on this computer.</li>'}</ul>${warning}`;
 }
 
 export function networkCardHtml() {
@@ -34,7 +40,7 @@ export function networkCardHtml() {
               placeholder="office-mac.tail1234.ts.net">
           </div>
           <div class="form-note" style="margin-top:12px">
-            Takes effect after Netfare restarts. Office Wi-Fi is not encrypted: staff working from home should use Tailscale.
+            Takes effect after Netfare restarts. Only Tailscale is encrypted. Office Wi-Fi and the office network are not, so anyone on them could read passwords: prefer Tailscale for everyone.
           </div>
         </div>
         <div class="settings-actions">
