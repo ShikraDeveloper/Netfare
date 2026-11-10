@@ -2,7 +2,8 @@
 
 const router = require('express').Router();
 const db = require('../db');
-const { bad, str, optionalStr, num } = require('../util');
+const { bad, str, optionalStr, num, dateISO, todayISO } = require('../util');
+const audit = require('../services/audit');
 
 // Every screen reads the company settings. Where backups are copied, the
 // update address and the office network are the admin's business only.
@@ -55,6 +56,13 @@ router.put('/', (req, res) => {
   const receiptPrefix = body.receipt_prefix != null
     ? str(body.receipt_prefix, 'Receipt prefix', { max: 12 }).toUpperCase()
     : (current.receipt_prefix || 'RCP');
+  // The closing date (admin only): checked here, saved after the other settings.
+  const closed = body.books_closed_through === undefined
+    ? (current.books_closed_through || '')
+    : (body.books_closed_through ? dateISO(body.books_closed_through, 'Books closed through') : '');
+  const closedChanged = closed !== (current.books_closed_through || '');
+  if (closedChanged && !req.user?.is_admin) throw bad('Only the admin can change the closing date');
+  if (closed > todayISO()) throw bad('The closing date cannot be in the future');
   const printPreparedBy = body.print_prepared_by != null ? (body.print_prepared_by ? 1 : 0) : (current.print_prepared_by ?? 1);
 
   db.prepare(`
@@ -79,6 +87,14 @@ router.put('/', (req, res) => {
     fiscalMonth,
     printPreparedBy,
   );
+
+  if (closedChanged) {
+    db.prepare('UPDATE settings SET books_closed_through = ? WHERE id = 1').run(closed);
+    audit.record(db, {
+      entity_type: 'settings', entity_number: 'Closing date', action: closed ? 'enable' : 'disable',
+      remarks: closed ? `Books closed through ${closed}` : 'Closing date removed',
+    });
+  }
 
   res.json(settingsFor(req.user));
 });

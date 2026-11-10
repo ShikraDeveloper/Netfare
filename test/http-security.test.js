@@ -818,3 +818,27 @@ test('recovery key: admin only, and a reset at this computer signs the admin in'
   assert.equal((await jsonRequest('/api/settings')).status, 200, 'the reset signed the admin in');
   assert.equal((await signIn(ADMIN.username, 'recovered-admin-pass')).status, 200);
 });
+
+test('the closing date: only the admin sets it, and nothing posts on or before it', async () => {
+  await postAs(cookie, '/api/users', { full_name: 'Settings Clerk', username: 'settings.clerk', password: 'settings-clerk-1', permissions: { settings: 'edit', sales: 'edit' } });
+  const clerk = await signIn('settings.clerk', 'settings-clerk-1');
+  const refused = await postAs(clerk.cookie, '/api/settings', { books_closed_through: '2026-01-31' }, 'PUT');
+  assert.equal(refused.status, 400);
+  assert.match(refused.data.error, /Only the admin/);
+  assert.equal((await postAs(cookie, '/api/settings', { books_closed_through: '2999-01-01' }, 'PUT')).status, 400, 'not in the future');
+
+  const closed = await postAs(cookie, '/api/settings', { books_closed_through: '2026-01-31' }, 'PUT');
+  assert.equal(closed.data.books_closed_through, '2026-01-31');
+  const customer = await postAs(cookie, '/api/customers', { name: 'Closed Period Customer' });
+  const revenue = (await jsonRequest('/api/accounts')).data.find((row) => row.code === '4300');
+  const invoice = (date) => postAs(clerk.cookie, '/api/invoices', {
+    customer_id: customer.data.id, issue_date: date, status: 'sent',
+    items: [{ description: 'Fee', quantity: 1, unit_price_cents: 1_000, account_id: revenue.id }],
+  });
+  const early = await invoice('2026-01-15');
+  assert.equal(early.status, 400);
+  assert.match(early.data.error, /closed through 2026-01-31/);
+  assert.equal((await invoice('2026-02-01')).status, 201);
+
+  assert.equal((await postAs(cookie, '/api/settings', { books_closed_through: '' }, 'PUT')).data.books_closed_through, '');
+});

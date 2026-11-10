@@ -9,6 +9,7 @@ import {
   openModal,
   setHeader,
   toast,
+  todayISO,
 } from '../ui.js';
 import { bindUsersCard, usersCardHtml } from './account.js';
 import { bindNetworkCard, networkCardHtml } from './network.js';
@@ -154,6 +155,12 @@ export async function render(container) {
                     ${MONTHS.map((month, index) => `<option value="${index + 1}" ${Number(settings.fiscal_year_start_month) === index + 1 ? 'selected' : ''}>${month}</option>`).join('')}
                   </select>
                 </div>
+                ${store.user?.is_admin ? `
+                <div class="field">
+                  <label for="books-closed">Books closed through</label>
+                  <input class="input" id="books-closed" name="books_closed_through" type="date" max="${todayISO()}" value="${esc(settings.books_closed_through || '')}"
+                    title="Nothing can be posted on or before this date. Leave empty to keep every period open.">
+                </div>` : ''}
                 <div class="field">
                   <label for="invoice-prefix">Invoice prefix</label>
                   <input class="input" id="invoice-prefix" name="invoice_prefix" value="${esc(settings.invoice_prefix)}" maxlength="12">
@@ -209,7 +216,7 @@ export async function render(container) {
             <div class="danger-row" style="border-color:var(--border)">
               <div>
                 <h4>Restore a backup</h4>
-                <p>Stop Netfare first, then run the restore command. A safety backup of the current database is created automatically.</p>
+                <p>In the Netfare app, on the main computer: <strong>Netfare → Restore from backup…</strong> Without the app, stop Netfare and run the command below. The current books are saved as a backup first.</p>
                 <p class="hint" style="margin-top:4px"><code>npm run restore -- data/backups/&lt;file&gt;.db</code></p>
               </div>
             </div>
@@ -308,6 +315,7 @@ export async function render(container) {
         visa_prefix: values.get('visa_prefix'),
         receipt_prefix: values.get('receipt_prefix'),
         print_prepared_by: values.get('print_prepared_by') === 'on',
+        ...(store.user?.is_admin ? { books_closed_through: values.get('books_closed_through') || '' } : {}),
       });
       store.settings = updated;
       window.dispatchEvent(new Event('meta-changed'));

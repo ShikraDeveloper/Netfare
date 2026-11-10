@@ -510,7 +510,7 @@ function resetAll(db) {
         next_booking_number = 1, next_visa_number = 1, next_visa_group_number = 1, next_visa_deposit_number = 1, next_advance_number = 1, next_receipt_number = 1, next_topup_number = 1,
         next_refund_number = 1, next_deposit_number = 1, next_credit_number = 1,
         next_supplier_credit_number = 1, next_cancellation_number = 1, next_portal_credit_number = 1,
-        next_card_settlement_number = 1,
+        next_card_settlement_number = 1, books_closed_through = '',
         updated_at = datetime('now') WHERE id = 1
     `).run();
     db.prepare(`DELETE FROM sqlite_sequence WHERE name IN

@@ -161,6 +161,7 @@ const KINDS = {
 function reverseOnOriginalDate(db, entryId) {
   if (!entryId) return;
   const original = db.prepare('SELECT entry_date FROM journal_entries WHERE id = ?').get(entryId);
+  if (original) require('../accounting').assertOpenDate(db, original.entry_date);
   if (original) db.prepare('UPDATE journal_entries SET entry_date = ? WHERE reversal_of_id = ?').run(original.entry_date, entryId);
 }
 

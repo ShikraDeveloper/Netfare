@@ -66,8 +66,18 @@ function systemAccount(db, code, label) {
   return account;
 }
 
+// Months whose accounts or tax return are filed stay as filed: nothing is
+// posted on or before the closing date the admin set in Settings.
+function assertOpenDate(db, date) {
+  const closed = db.prepare('SELECT books_closed_through FROM settings WHERE id = 1').get()?.books_closed_through;
+  if (closed && date <= closed) {
+    throw bad(`The books are closed through ${closed}. Use a later date, or ask the admin to move the closing date in Settings.`);
+  }
+}
+
 function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'manual', source_id = null, reversal_of_id = null, lines }) {
   const date = dateISO(entry_date, 'Entry date');
+  assertOpenDate(db, date);
   if (!Array.isArray(lines) || lines.length < 2) {
     throw bad('A journal entry needs at least two lines');
   }
@@ -246,6 +256,7 @@ module.exports = {
   isCashAccount,
   isPurchaseAccount,
   systemAccount,
+  assertOpenDate,
   postEntry,
   settledCardNumber,
   reverseEntry,
