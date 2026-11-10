@@ -75,6 +75,12 @@ function catchUp(db, latest) {
   return copyBackup(db, latest);
 }
 
+// True when dir is the data folder or inside it ("data-copy" is not).
+function isInside(dir, dataDir) {
+  const relative = path.relative(path.resolve(dataDir), path.resolve(dir));
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 function home(...parts) {
   return path.join(os.homedir(), ...parts);
 }
@@ -97,7 +103,7 @@ function suggestions(dataDir) {
     } catch {
       return;
     }
-    if (path.resolve(dir).startsWith(path.resolve(dataDir))) return;
+    if (isInside(dir, dataDir)) return;
     if (!found.some((item) => item.path === dir)) found.push({ label, path: dir, kind });
   };
   if (process.platform === 'darwin') {
@@ -173,7 +179,7 @@ function setFolder(db, dataDir, value) {
   let stat;
   try { stat = fs.statSync(dir); } catch { throw bad('That folder does not exist'); }
   if (!stat.isDirectory()) throw bad('That is not a folder');
-  if (dir.startsWith(path.resolve(dataDir))) throw bad("Choose a place outside Netfare's own folder");
+  if (isInside(dir, dataDir)) throw bad("Choose a place outside Netfare's own folder");
   try {
     fs.mkdirSync(targetDir(dir), { recursive: true, mode: 0o700 });
     const probe = path.join(targetDir(dir), '.netfare-write-test');

@@ -28,6 +28,16 @@ test('the second place must be an existing, writable folder outside Netfare', ()
   assert.throws(() => mirror.setFolder(db, tempDir, 'relative/folder'), /full folder path/);
   assert.throws(() => mirror.setFolder(db, tempDir, path.join(elsewhere, 'missing')), /does not exist/);
   assert.throws(() => mirror.setFolder(db, tempDir, tempDir), /outside Netfare/);
+  assert.throws(() => mirror.setFolder(db, tempDir, path.join(tempDir, 'inner')), /does not exist|outside Netfare/);
+  // A neighbour whose name merely starts the same is a different folder.
+  const neighbour = `${tempDir}-copy`;
+  fs.mkdirSync(neighbour);
+  try {
+    assert.equal(mirror.setFolder(db, tempDir, neighbour), neighbour);
+    mirror.setFolder(db, tempDir, '');
+  } finally {
+    fs.rmSync(neighbour, { recursive: true, force: true });
+  }
   assert.equal(mirror.setFolder(db, tempDir, elsewhere), elsewhere);
   assert.equal(mirror.status(db, tempDir).dir, elsewhere);
   assert.ok(Array.isArray(mirror.status(db, tempDir).suggestions));
