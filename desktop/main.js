@@ -99,9 +99,31 @@ function openOrigin(origin) {
   mainWindow.loadURL(`${origin}/`);
 }
 
+// Replaces the books with the backup chosen in "Restore from backup…" while
+// the server is not running yet. The current books are kept as a
+// pre-restore backup first. A failed restore leaves the books as they were.
+async function restoreRequested() {
+  const source = config.restoreSource(process.argv);
+  if (!source) return;
+  try {
+    const { restoreDatabase } = require(path.join(SERVER_DIR, 'scripts', 'restore.js'));
+    // force: the last run stopped with app.exit, so its WAL file may still be
+    // there; the safety backup reads it in, and no server holds the books yet.
+    const { safety } = await restoreDatabase({ source, dataDir: config.dataDir(userData()), checkServer: async () => false, force: true });
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      message: 'The backup is restored',
+      detail: `Netfare now shows the books from ${path.basename(source)}.${safety ? `\n\nThe books from before are saved as ${path.basename(safety)} in the backups folder.` : ''}`,
+    });
+  } catch (error) {
+    dialog.showErrorBox('The backup could not be restored', `${error.message}\n\nYour books are unchanged.`);
+  }
+}
+
 // Runs the Netfare server in this app, with the books in the app folder.
 async function startMainComputer() {
   if (!netfareServer) {
+    await restoreRequested();
     process.env.LEDGERLY_DATA_DIR = config.dataDir(userData());
     process.env.PORT = process.env.PORT || String(config.DEFAULT_PORT);
     netfareServer = require(path.join(SERVER_DIR, 'server', 'index.js'));
@@ -199,7 +221,39 @@ async function changeSetup() {
   });
   if (response !== 0) return;
   config.clearConfig(userData());
-  app.relaunch();
+  app.relaunch({ args: config.relaunchArgs(process.argv) });
+  app.exit(0);
+}
+
+// Netfare → Restore from backup… (main computer only). The app restarts and
+// restores before the server opens the books (restoreRequested).
+async function restoreFromBackup() {
+  if (!mainWindow) return;
+  if (!netfareServer) {
+    await dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      message: 'Restore a backup at the main computer',
+      detail: 'Open Netfare on the computer that keeps the books and choose Netfare → Restore from backup.',
+    });
+    return;
+  }
+  const picked = await dialog.showOpenDialog(mainWindow, {
+    title: 'Choose a Netfare backup',
+    defaultPath: path.join(config.dataDir(userData()), 'backups'),
+    properties: ['openFile'],
+    filters: [{ name: 'Netfare backup', extensions: ['db'] }],
+  });
+  if (picked.canceled || !picked.filePaths[0]) return;
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'warning',
+    buttons: ['Restore and restart', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    message: `Replace the books with ${path.basename(picked.filePaths[0])}?`,
+    detail: 'Everything entered after that backup is replaced. The current books are saved as a backup first. Everyone is signed out and Netfare restarts.',
+  });
+  if (response !== 0) return;
+  app.relaunch({ args: config.relaunchArgs(process.argv, picked.filePaths[0]) });
   app.exit(0);
 }
 
@@ -231,6 +285,7 @@ function buildMenu() {
         { role: 'about' },
         { type: 'separator' },
         { label: 'Change setup…', click: changeSetup },
+        { label: 'Restore from backup…', click: restoreFromBackup },
         { label: 'Show books folder', click: () => shell.openPath(config.dataDir(userData())) },
         { type: 'separator' },
         ...macOnly,

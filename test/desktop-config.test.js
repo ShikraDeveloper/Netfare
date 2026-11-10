@@ -52,3 +52,12 @@ test('the window stays on Netfare pages', () => {
   assert.equal(config.isSameOrigin('https://evil.example/', 'http://127.0.0.1:4173'), false);
   assert.equal(config.isSameOrigin('nonsense', 'http://127.0.0.1:4173'), false);
 });
+
+test('a restore request rides on the restart and is dropped from the next one', () => {
+  const argv = ['/Applications/Netfare.app/Contents/MacOS/Netfare', '--inspect=0'];
+  assert.equal(config.restoreSource(argv), null);
+  const restart = config.relaunchArgs(argv, '/Users/x/backups/netfare-1.db');
+  assert.deepEqual(restart, ['--inspect=0', '--restore-from=/Users/x/backups/netfare-1.db']);
+  assert.equal(config.restoreSource(['exe', ...restart]), '/Users/x/backups/netfare-1.db');
+  assert.deepEqual(config.relaunchArgs(['exe', ...restart]), ['--inspect=0'], 'Change setup does not restore again');
+});

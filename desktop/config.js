@@ -34,6 +34,21 @@ function writeConfig(userDataDir, config) {
   fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 });
 }
 
+// "Restore from backup…" restarts the app with --restore-from=<file>, so the
+// books are replaced before the Netfare server opens them.
+const RESTORE_FLAG = '--restore-from=';
+
+function restoreSource(argv) {
+  const arg = argv.find((value) => String(value).startsWith(RESTORE_FLAG));
+  return arg ? arg.slice(RESTORE_FLAG.length) : null;
+}
+
+// The arguments for a restart: this run's, without an old restore request.
+function relaunchArgs(argv, restoreFile = null) {
+  const args = argv.slice(1).filter((value) => !String(value).startsWith(RESTORE_FLAG));
+  return restoreFile ? [...args, `${RESTORE_FLAG}${restoreFile}`] : args;
+}
+
 function clearConfig(userDataDir) {
   fs.rmSync(path.join(userDataDir, CONFIG_FILE), { force: true });
 }
@@ -69,6 +84,8 @@ function isSameOrigin(target, origin) {
 }
 
 module.exports = {
+  restoreSource,
+  relaunchArgs,
   DEFAULT_PORT,
   dataDir,
   readConfig,
