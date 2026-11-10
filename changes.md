@@ -2896,11 +2896,56 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **On first start of 1.0.15:** the migration numbers existing customers and suppliers in the order they were added. Netfare backs up the books before it updates them.
 - **Not checked:** the installers on a real Mac or Windows PC. Windows is still unsigned.
 
+## 2026-11-10
+
+### Void, correct and delete for the admin only — code commit `c4a5732`
+
+- **Why:** The user wants correction, delete and void on every transaction (top-ups, received payments and so on) for the admin only.
+- **Server (`permissions.js`):** every `/void`, `/void-last`, `/correct` and `DELETE` request, and clearing opening balances, is refused for staff, in any letter case, with "Only the admin can void, correct or delete". Removing a file from a record still follows Edit rights.
+- **Cancel and reject:** cancelling a booking or visa and recording a rejection need the staff right now called **Cancel & reject** (`permissions.cancel`). The old `void` right is read as `cancel`, so no staff user loses the right to cancel.
+- **App:** `ADMIN_ONLY_SELECTORS` hides void, correct and delete buttons from staff, and `CANCEL_SELECTORS` follow the Cancel right. The rights form shows "Cancel & reject", and the user audit summary says the same.
+- **Tests:** the permission tests were rewritten (admin-only paths in any case, DELETE paths, the cancel right, opening balances), and the HTTP rights test now covers delete refused, cancel needing the right, granting cancel, and delete still refused.
+
+### Void bookings, visas and cancellation notes — code commit `be7d268`
+
+- **Why:** These had no Void. A confirmed booking or visa could only be cancelled, which makes a note and charges, and a wrong cancellation could not be undone.
+- **New columns:** `voided_at` and `void_remarks` on `bookings`, `visa_applications` and `cancellations`. The bookings and visas status CHECK is not rebuilt: a voided job stays `cancelled` with `voided_at`, and shows as Void (`status_display`).
+- **`job-void.js` `voidJob`** (`POST /api/bookings/:id/void`, `/api/visas/:id/void`):
+  - reverses the job's refund credit notes;
+  - voids its invoice with the payments and credits on it (`voidInvoice`, option `fromWorkflow`);
+  - voids its supplier credits, and its bills with their payments (`voidBill`, `fromWorkflow`);
+  - a reason is required, and the status history and audit log record it;
+  - refused for drafts (delete instead), for a job with a live cancellation note (void the note first) and for a visa with a security deposit.
+- **`cancellations.voidCancellation`** (`POST /api/cancellations/:id/void`):
+  - voids the refunds and credit notes made from the note, its charges invoice and the supplier credits it raised;
+  - reverses its `cancellation_received` and `cancellation_charge` entries;
+  - restores the original invoice by reversing the cancellation's reversal entry (found by `reversal_of_id` and the memo);
+  - puts the job back to its status before the cancellation (from the status history);
+  - marks the note void with its amounts cleared (the audit metadata keeps them). Credits that were applied to the original invoice stay free to apply again.
+- **Readers:** voided notes are left out by `getCancellationForSource`, the "already has a cancellation" check, the invoice's source cancellation, `job-costs`, customer balances, statements (`ON_STATEMENT`, related, cancellation and charge rows) and daily sales.
+- **UI:**
+  - booking and visa pages: More → "Void (entered by mistake)" with the void dialog;
+  - the visa outcome reads "Application void · reason";
+  - cancellation note: a Void button, and the Void badge when voided;
+  - the Cancellations list shows Void; booking and visa lists show Void.
+- **Tests:** new `test/admin-void.test.js` (4), each comparing **every account balance** before and after:
+  - booking with payment, bill payment, a customer refund and a supplier refund;
+  - visa: draft refused, deposit refused, then void;
+  - cancellation with a paid refund and a converted credit, then cancelling again;
+  - cancellation with a charges invoice (paid) and supplier credits.
+
+  `npm test` 298 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo (admin):**
+  - BK-2026-0004 voided from the page: Void badge, invoice and bill void, ledger checks all matched;
+  - CNC-2026-0001 voided: BK-2026-0007 back to Confirmed with its invoice sent, the note shows Void and the Void button is gone.
+- **Not done yet (part 3):** Correct (void and re-post in one step) on every transaction, and Edit details on posted bookings and visas.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Nothing is waiting to be released. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
+3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Not released yet: admin-only void/correct/delete (`c4a5732`) and Void for bookings, visas and cancellation notes (`be7d268`). Next: part 3, Correct on every transaction. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
