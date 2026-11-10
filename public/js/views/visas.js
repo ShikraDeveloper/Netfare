@@ -101,7 +101,9 @@ function visaRow(visa) {
   `;
 }
 
-export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
+// correct: an admin correction of a posted application (its invoice and bills
+// are re-posted on the server, payments move across); otherwise draft edit.
+export function openVisaModal({ visa = null, correct = false, onSaved = () => {} } = {}) {
   // New applications use the applicants-list form (one or more people).
   if (!visa) return openVisaGroupModal({ visaTypes: VISA_TYPE_LABELS, onSaved });
   const isEdit = Boolean(visa);
@@ -241,14 +243,18 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
           </div>
         </div>
       </details>
+      ${correct ? `<div class="field full">
+        <label for="correct-reason">Why</label>
+        <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Fare entered wrong">
+      </div>` : ''}
     </div>
   `;
 
   const modal = openModal({
-    title: isEdit ? `Edit ${visa.number}` : 'New visa application',
+    title: correct ? `Correct ${visa.number}` : isEdit ? `Edit ${visa.number}` : 'New visa application',
     size: 'modal-xl',
     body,
-    submitLabel: isEdit ? 'Save application' : 'Create application',
+    submitLabel: correct ? 'Save correction' : isEdit ? 'Save application' : 'Create application',
     async onSubmit(form) {
       const editor = modal?.overlay?._visaEditor;
       const values = new FormData(form);
@@ -282,6 +288,12 @@ export function openVisaModal({ visa = null, onSaved = () => {} } = {}) {
         sale_items: sale,
         cost_items: cost,
       };
+      if (correct) {
+        const saved = await api.post(`/visas/${visa.id}/correct`, { remarks: values.get('correct_reason'), values: payload });
+        toast(`${saved.number} corrected · invoice ${saved.invoice?.number || ''}`);
+        onSaved(saved);
+        return;
+      }
       const saved = isEdit
         ? await api.put(`/visas/${visa.id}`, payload)
         : await api.post('/visas', payload);

@@ -5,6 +5,8 @@ const db = require('../db');
 const service = require('../services/visas');
 const jobRefunds = require('../services/job-refunds');
 const { voidJob } = require('../services/job-void');
+const { correctJob } = require('../services/job-correct');
+const { updateJobDetails } = require('../services/job-details');
 
 router.get('/', (req, res) => {
   res.json(service.listVisas(db, req.query));
@@ -48,6 +50,17 @@ router.post('/:id/issue', (req, res) => {
 
 router.post('/:id/reject', (req, res) => {
   res.json(service.rejectVisa(db, Number(req.params.id), req.body || {}));
+});
+
+// Details that do not touch money (dates, PNR, notes, passengers): Edit rights.
+router.post('/:id/details', (req, res) => {
+  updateJobDetails(db, 'visa', Number(req.params.id), req.body || {});
+  res.json(service.getVisa(db, Number(req.params.id)));
+});
+
+// Admin only (permissions.js): correct the lines of a posted visa application.
+router.post('/:id/correct', (req, res) => {
+  res.json(correctJob(db, 'visa', Number(req.params.id), req.body || {}));
 });
 
 // Admin only (permissions.js): undo a visa application entered by mistake.

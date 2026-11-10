@@ -192,9 +192,14 @@ export async function render(container, { params } = {}) {
   if (!isCancelled && !isRejected) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
   }
-  // Admin only: undo an application entered by mistake (a cancelled one has
-  // a note to void instead).
+  // Details that do not touch money: anyone with Edit rights.
+  if (!isDraft && !visa.voided_at) {
+    menu.push(`<button class="btn btn-ghost" data-action="edit-details">${icon('edit', 15)}<span>Edit details</span></button>`);
+  }
+  // Admin only: correct the lines, or undo an application entered by mistake
+  // (a cancelled one has a note to void instead).
   if (!isDraft && !isCancelled && !visa.cancellation) {
+    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
     menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
   }
   pageRecord(visa);
@@ -619,6 +624,41 @@ export async function render(container, { params } = {}) {
   on('[data-action="add-reminder"]', () => openReminderForm({
     link: { type: 'visa', id: visa.id, label: [visa.number, visa.applicant_name || visa.customer_name].filter(Boolean).join(' · ') },
   }));
+
+  on('[data-action="edit-details"]', () => {
+    openModal({
+      title: `Edit details · ${visa.number}`,
+      submitLabel: 'Save details',
+      body: `
+        <div class="form-grid">
+          <div class="field"><label for="ed-travel">Travel date</label><input class="input" id="ed-travel" name="travel_date" type="date" value="${esc(visa.travel_date || '')}"></div>
+          <div class="field"><label for="ed-reference">Application reference</label><input class="input" id="ed-reference" name="reference" maxlength="120" value="${esc(visa.reference || '')}"></div>
+          <div class="field"><label for="ed-nationality">Nationality</label><input class="input" id="ed-nationality" name="nationality" maxlength="80" value="${esc(visa.nationality || '')}"></div>
+          <div class="field"><label for="ed-passport">Passport number</label><input class="input" id="ed-passport" name="passport_number" maxlength="60" value="${esc(visa.passport_number || '')}"></div>
+          <div class="field"><label for="ed-expiry">Passport expiry</label><input class="input" id="ed-expiry" name="passport_expiry" type="date" value="${esc(visa.passport_expiry || '')}"></div>
+          <div class="field"><label for="ed-birth">Date of birth</label><input class="input" id="ed-birth" name="date_of_birth" type="date" value="${esc(visa.date_of_birth || '')}"></div>
+          <div class="field full"><label for="ed-notes">Notes</label><textarea class="input" id="ed-notes" name="notes" rows="2" maxlength="2000">${esc(visa.notes || '')}</textarea></div>
+        </div>`,
+      async onSubmit(form) {
+        const values = new FormData(form);
+        await api.post(`/visas/${id}/details`, {
+          travel_date: values.get('travel_date') || null,
+          reference: values.get('reference'),
+          nationality: values.get('nationality'),
+          passport_number: values.get('passport_number'),
+          passport_expiry: values.get('passport_expiry') || null,
+          date_of_birth: values.get('date_of_birth') || null,
+          notes: values.get('notes'),
+        });
+        toast('Details saved');
+        refresh();
+      },
+    });
+  });
+
+  on('[data-action="correct-document"]', () => {
+    openVisaModal({ visa, correct: true, onSaved: refresh });
+  });
 
   on('[data-action="void-job"]', async () => {
     const result = await voidDialog({

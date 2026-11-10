@@ -110,6 +110,7 @@ function postJobDocuments(db, {
   billNotes,
   items,
   lineLabel = '',
+  autoSettle = true,
 }) {
   const { fkColumn, label } = jobConfig(sourceType);
   // Passenger rows print as "Dubai–London return · Emirates – Ali Khan".
@@ -169,8 +170,10 @@ function postJobDocuments(db, {
   }
 
   // Prepaid portals settle their supplier's bill straight away from the balance.
+  // A correction settles only what is left after the old payments move across.
   const warnings = [];
-  const jobBills = db.prepare(`SELECT id, number FROM bills WHERE ${fkColumn} = ?`).all(jobId);
+  if (!autoSettle) return { invoice, warnings };
+  const jobBills = db.prepare(`SELECT id, number FROM bills WHERE ${fkColumn} = ? AND status = 'received'`).all(jobId);
   for (const bill of jobBills) {
     let settled;
     try {

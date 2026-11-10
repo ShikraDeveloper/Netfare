@@ -299,51 +299,57 @@ function createVisa(db, payload, options = {}) {
   })();
 }
 
+// The application's fields and lines, from a draft edit or a correction.
+function writeVisa(db, existing, payload) {
+  const id = existing.id;
+  const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
+  const applicant = normalizeApplicant(payload, customer);
+  const dates = normalizeDates(db, payload, existing);
+  const durationDays = normalizeDurationDays(payload.duration_days, existing.duration_days || 0);
+  const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
+  const costItems = jobs.normalizeJobItems(db, payload.cost_items || [], 'cost');
+  if (!saleItems.length) throw bad('Add at least one sale item');
+  const saleTotal = itemTotals(saleItems);
+  if (saleTotal <= 0) throw bad('Visa sale total must be greater than zero');
+
+  db.prepare(`
+    UPDATE visa_applications SET customer_id = ?, application_date = ?, due_date = ?, travel_date = ?,
+      destination_country = ?, visa_type = ?, duration_days = ?, applicant_name = ?, applicant_is_customer = ?,
+      nationality = ?, passport_number = ?, passport_expiry = ?, date_of_birth = ?,
+      reference = ?, notes = ?, invoice_notes = ?, sale_total_cents = ?, cost_total_cents = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    customer.id,
+    dates.applicationDate,
+    dates.dueDate,
+    dates.travelDate,
+    optionalStr(payload.destination_country, 'Destination country', 120),
+    normalizeVisaType(payload.visa_type ?? existing.visa_type),
+    durationDays,
+    applicant.name,
+    applicant.isCustomer,
+    optionalStr(payload.nationality, 'Nationality', 80),
+    optionalStr(payload.passport_number, 'Passport number', 60),
+    dates.passportExpiry,
+    dates.dateOfBirth,
+    optionalStr(payload.reference, 'Application reference', 120),
+    optionalStr(payload.notes, 'Notes', 2000),
+    optionalStr(payload.invoice_notes ?? existing.invoice_notes, 'Invoice note', 2000),
+    saleTotal,
+    itemTotals(costItems),
+    id,
+  );
+  db.prepare('DELETE FROM visa_items WHERE visa_id = ?').run(id);
+  jobs.insertJobItems(db, 'visa', id, saleItems, costItems);
+}
+
 function updateVisa(db, id, payload) {
   return db.transaction(() => {
     const existing = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!existing) throw notFound('Visa application not found');
     if (existing.status !== 'draft') throw bad('Only draft visa applications can be edited');
-    const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
-    const applicant = normalizeApplicant(payload, customer);
-    const dates = normalizeDates(db, payload, existing);
-    const durationDays = normalizeDurationDays(payload.duration_days, existing.duration_days || 0);
-    const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
-    const costItems = jobs.normalizeJobItems(db, payload.cost_items || [], 'cost');
-    if (!saleItems.length) throw bad('Add at least one sale item');
-    const saleTotal = itemTotals(saleItems);
-    if (saleTotal <= 0) throw bad('Visa sale total must be greater than zero');
-
-    db.prepare(`
-      UPDATE visa_applications SET customer_id = ?, application_date = ?, due_date = ?, travel_date = ?,
-        destination_country = ?, visa_type = ?, duration_days = ?, applicant_name = ?, applicant_is_customer = ?,
-        nationality = ?, passport_number = ?, passport_expiry = ?, date_of_birth = ?,
-        reference = ?, notes = ?, invoice_notes = ?, sale_total_cents = ?, cost_total_cents = ?,
-        updated_at = datetime('now')
-      WHERE id = ?
-    `).run(
-      customer.id,
-      dates.applicationDate,
-      dates.dueDate,
-      dates.travelDate,
-      optionalStr(payload.destination_country, 'Destination country', 120),
-      normalizeVisaType(payload.visa_type ?? existing.visa_type),
-      durationDays,
-      applicant.name,
-      applicant.isCustomer,
-      optionalStr(payload.nationality, 'Nationality', 80),
-      optionalStr(payload.passport_number, 'Passport number', 60),
-      dates.passportExpiry,
-      dates.dateOfBirth,
-      optionalStr(payload.reference, 'Application reference', 120),
-      optionalStr(payload.notes, 'Notes', 2000),
-      optionalStr(payload.invoice_notes ?? existing.invoice_notes, 'Invoice note', 2000),
-      saleTotal,
-      itemTotals(costItems),
-      id,
-    );
-    db.prepare('DELETE FROM visa_items WHERE visa_id = ?').run(id);
-    jobs.insertJobItems(db, 'visa', id, saleItems, costItems);
+    writeVisa(db, existing, payload);
     return getVisa(db, id);
   })();
 }
@@ -360,34 +366,40 @@ function deleteVisa(db, id) {
   })();
 }
 
+// The invoice and supplier bills of an application, from its current lines.
+function postVisaDocuments(db, visa, { autoSettle = true } = {}) {
+  const items = db.prepare('SELECT * FROM visa_items WHERE visa_id = ? ORDER BY item_type, sort_order, id').all(visa.id);
+  const visaTypeName = visa.visa_type
+    ? `${visa.visa_type.charAt(0).toUpperCase()}${visa.visa_type.slice(1)}`
+    : '';
+  const visaDetails = [
+    visa.destination_country,
+    visaTypeName ? `${visaTypeName} visa` : '',
+    visa.duration_days ? `${visa.duration_days} days` : '',
+  ].filter(Boolean).join(' · ');
+  return jobs.postJobDocuments(db, {
+    sourceType: 'visa',
+    jobId: visa.id,
+    customerId: visa.customer_id,
+    issueDate: visa.application_date,
+    dueDate: visa.due_date || visa.application_date,
+    // Only the customer-facing note is copied; application notes stay internal.
+    invoiceNotes: visa.invoice_notes,
+    invoiceTerms: visaDetails
+      ? `${visaDetails}${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
+      : '',
+    billNotes: `Visa ${visa.number} · ${visa.destination_country || 'Application'}${visa.reference ? ` · Ref ${visa.reference}` : ''}`,
+    items,
+    autoSettle,
+  });
+}
+
 function submitVisa(db, id, options = {}) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
     if (visa.status !== 'draft') throw bad('Only draft visa applications can be submitted');
-    const items = db.prepare('SELECT * FROM visa_items WHERE visa_id = ? ORDER BY item_type, sort_order, id').all(id);
-    const visaTypeName = visa.visa_type
-      ? `${visa.visa_type.charAt(0).toUpperCase()}${visa.visa_type.slice(1)}`
-      : '';
-    const visaDetails = [
-      visa.destination_country,
-      visaTypeName ? `${visaTypeName} visa` : '',
-      visa.duration_days ? `${visa.duration_days} days` : '',
-    ].filter(Boolean).join(' · ');
-    const { invoice, warnings } = jobs.postJobDocuments(db, {
-      sourceType: 'visa',
-      jobId: id,
-      customerId: visa.customer_id,
-      issueDate: visa.application_date,
-      dueDate: visa.due_date || visa.application_date,
-      // Only the customer-facing note is copied; application notes stay internal.
-      invoiceNotes: visa.invoice_notes,
-      invoiceTerms: visaDetails
-        ? `${visaDetails}${visa.applicant_name ? ` for ${visa.applicant_name}` : ''}`
-        : '',
-      billNotes: `Visa ${visa.number} · ${visa.destination_country || 'Application'}${visa.reference ? ` · Ref ${visa.reference}` : ''}`,
-      items,
-    });
+    const { invoice, warnings } = postVisaDocuments(db, visa);
     db.prepare("UPDATE visa_applications SET status = 'submitted', invoice_id = ?, updated_at = datetime('now') WHERE id = ?")
       .run(invoice.id, id);
     jobs.recordStatus(db, 'visa', id, { from: 'draft', to: 'submitted', remarks: `Invoice ${invoice.number} posted` });
@@ -607,6 +619,8 @@ function submitVisaGroup(db, groupId, options = {}) {
 }
 
 module.exports = {
+  writeVisa,
+  postVisaDocuments,
   createVisaGroup,
   submitVisaGroup,
   VISA_TYPES,

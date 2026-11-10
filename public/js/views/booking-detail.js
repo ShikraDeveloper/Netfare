@@ -100,9 +100,14 @@ export async function render(container, { params } = {}) {
   if (!isCancelled) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
   }
-  // Admin only: undo a booking entered by mistake (a cancelled one has a note
-  // to void instead).
+  // Details that do not touch money: anyone with Edit rights.
+  if (!isDraft && !booking.voided_at) {
+    menu.push(`<button class="btn btn-ghost" data-action="edit-details">${icon('edit', 15)}<span>Edit details</span></button>`);
+  }
+  // Admin only: correct the lines, or undo a booking entered by mistake (a
+  // cancelled one has a note to void instead).
   if (!isDraft && !isCancelled) {
+    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
     menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
   }
   pageRecord(booking);
@@ -439,6 +444,48 @@ export async function render(container, { params } = {}) {
       }
     });
   }
+
+  document.querySelector('[data-action="edit-details"]')?.addEventListener('click', () => {
+    const sale = booking.sale_items || [];
+    const cost = booking.cost_items || [];
+    openModal({
+      title: `Edit details · ${booking.number}`,
+      submitLabel: 'Save details',
+      body: `
+        <div class="form-grid">
+          <div class="field"><label for="ed-travel">Travel date</label><input class="input" id="ed-travel" name="travel_date" type="date" value="${esc(booking.travel_date || '')}"></div>
+          <div class="field"><label for="ed-return">Return date</label><input class="input" id="ed-return" name="return_date" type="date" value="${esc(booking.return_date || '')}"></div>
+          <div class="field"><label for="ed-destination">Destination</label><input class="input" id="ed-destination" name="destination" maxlength="200" value="${esc(booking.destination || '')}"></div>
+          <div class="field"><label for="ed-pnr">PNR</label><input class="input" id="ed-pnr" name="pnr" maxlength="60" value="${esc(booking.pnr || '')}"></div>
+          ${sale.filter((item) => item.passenger_name).map((item) => `<div class="field full"><label for="ed-pax-${item.id}">Passenger</label><input class="input" id="ed-pax-${item.id}" data-line="${item.id}" data-field="passenger_name" maxlength="160" value="${esc(item.passenger_name || '')}"></div>`).join('')}
+          ${cost.map((item) => `<div class="field full"><label for="ed-ticket-${item.id}">Supplier reference · ${esc(item.passenger_name || item.description)}</label><input class="input" id="ed-ticket-${item.id}" data-line="${item.id}" data-field="supplier_ref" maxlength="120" value="${esc(item.supplier_ref || '')}"></div>`).join('')}
+          <div class="field full"><label for="ed-notes">Notes</label><textarea class="input" id="ed-notes" name="notes" rows="2" maxlength="2000">${esc(booking.notes || '')}</textarea></div>
+        </div>`,
+      async onSubmit(form) {
+        const values = new FormData(form);
+        const items = new Map();
+        form.querySelectorAll('[data-line]').forEach((input) => {
+          const line = items.get(input.dataset.line) || { id: Number(input.dataset.line) };
+          line[input.dataset.field] = input.value;
+          items.set(input.dataset.line, line);
+        });
+        await api.post(`/bookings/${id}/details`, {
+          travel_date: values.get('travel_date') || null,
+          return_date: values.get('return_date') || null,
+          destination: values.get('destination'),
+          pnr: values.get('pnr'),
+          notes: values.get('notes'),
+          items: [...items.values()],
+        });
+        toast('Details saved');
+        render(container, { params: [String(id)] });
+      },
+    });
+  });
+
+  document.querySelector('[data-action="correct-document"]')?.addEventListener('click', () => {
+    openBookingModal({ booking, correct: true, onSaved: () => render(container, { params: [String(id)] }) });
+  });
 
   document.querySelector('[data-action="void-job"]')?.addEventListener('click', async () => {
     const result = await voidDialog({

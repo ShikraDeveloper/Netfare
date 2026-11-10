@@ -207,7 +207,9 @@ export function mountBookingLines(overlay, defaults = {}) {
   return { getItems, recalc, updateRemoveButtons };
 }
 
-export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
+// correct: an admin correction of a posted booking (its invoice and bills are
+// re-posted on the server, payments move across); otherwise new or draft edit.
+export function openBookingModal({ booking = null, correct = false, onSaved = () => {} } = {}) {
   const isEdit = Boolean(booking);
   const customers = activeCustomers();
   if (!customers.length) {
@@ -282,14 +284,18 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
           </div>
         </div>
       </details>
+      ${correct ? `<div class="field full">
+        <label for="correct-reason">Why</label>
+        <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Fare entered wrong">
+      </div>` : ''}
     </div>
   `;
 
   const modal = openModal({
-    title: isEdit ? `Edit ${booking.number}` : 'New booking',
+    title: correct ? `Correct ${booking.number}` : isEdit ? `Edit ${booking.number}` : 'New booking',
     size: 'modal-xl',
     body,
-    submitLabel: isEdit ? 'Save booking' : 'Create booking',
+    submitLabel: correct ? 'Save correction' : isEdit ? 'Save booking' : 'Create booking',
     async onSubmit(form) {
       const editor = modal?.overlay?._bookingEditor;
       const values = new FormData(form);
@@ -309,6 +315,12 @@ export function openBookingModal({ booking = null, onSaved = () => {} } = {}) {
         sale_items: sale,
         cost_items: cost,
       };
+      if (correct) {
+        const saved = await api.post(`/bookings/${booking.id}/correct`, { remarks: values.get('correct_reason'), values: payload });
+        toast(`${saved.number} corrected · invoice ${saved.invoice?.number || ''}`);
+        onSaved(saved);
+        return;
+      }
       const saved = isEdit
         ? await api.put(`/bookings/${booking.id}`, payload)
         : await api.post('/bookings', payload);

@@ -234,4 +234,4 @@ function correctDocument(db, kind, id, payload = {}) {
   })();
 }
 
-module.exports = { correct, correctDocument, KINDS };
+module.exports = { correct, correctDocument, reverseOnOriginalDate, KINDS };

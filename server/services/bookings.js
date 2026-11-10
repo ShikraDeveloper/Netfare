@@ -208,45 +208,51 @@ function createBooking(db, payload) {
   })();
 }
 
+// The booking's fields and lines, from a draft edit or a correction.
+function writeBooking(db, existing, payload) {
+  const id = existing.id;
+  const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
+  const bookingDate = dateISO(payload.booking_date ?? existing.booking_date, 'Booking date');
+  const dueDate = payload.due_date
+    ? dateISO(payload.due_date, 'Due date')
+    : (existing.due_date && existing.due_date >= bookingDate ? existing.due_date : jobs.defaultDueDate(db, bookingDate));
+  if (dueDate < bookingDate) throw bad('Due date cannot be before the booking date');
+  const { travelDate, returnDate } = tripDates(payload);
+  const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
+  const costItems = jobs.normalizeJobItems(db, payload.cost_items || [], 'cost');
+  if (!saleItems.length) throw bad('Add at least one sale item');
+  const saleTotal = itemTotals(saleItems);
+  if (saleTotal <= 0) throw bad('Booking sale total must be greater than zero');
+
+  db.prepare(`
+    UPDATE bookings SET customer_id = ?, booking_date = ?, due_date = ?, travel_date = ?,
+      return_date = ?, destination = ?, pnr = ?, notes = ?, invoice_notes = ?,
+      sale_total_cents = ?, cost_total_cents = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    customer.id,
+    bookingDate,
+    dueDate,
+    travelDate,
+    returnDate,
+    optionalStr(payload.destination, 'Destination', 200),
+    optionalStr(payload.pnr, 'PNR / ticket number', 60),
+    optionalStr(payload.notes, 'Notes', 2000),
+    optionalStr(payload.invoice_notes ?? existing.invoice_notes, 'Invoice note', 2000),
+    saleTotal,
+    itemTotals(costItems),
+    id,
+  );
+  db.prepare('DELETE FROM booking_items WHERE booking_id = ?').run(id);
+  jobs.insertJobItems(db, 'booking', id, saleItems, costItems);
+}
+
 function updateBooking(db, id, payload) {
   return db.transaction(() => {
     const existing = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!existing) throw notFound('Booking not found');
     if (existing.status !== 'draft') throw bad('Only draft bookings can be edited');
-    const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
-    const bookingDate = dateISO(payload.booking_date ?? existing.booking_date, 'Booking date');
-    const dueDate = payload.due_date
-      ? dateISO(payload.due_date, 'Due date')
-      : (existing.due_date && existing.due_date >= bookingDate ? existing.due_date : jobs.defaultDueDate(db, bookingDate));
-    if (dueDate < bookingDate) throw bad('Due date cannot be before the booking date');
-    const { travelDate, returnDate } = tripDates(payload);
-    const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
-    const costItems = jobs.normalizeJobItems(db, payload.cost_items || [], 'cost');
-    if (!saleItems.length) throw bad('Add at least one sale item');
-    const saleTotal = itemTotals(saleItems);
-    if (saleTotal <= 0) throw bad('Booking sale total must be greater than zero');
-
-    db.prepare(`
-      UPDATE bookings SET customer_id = ?, booking_date = ?, due_date = ?, travel_date = ?,
-        return_date = ?, destination = ?, pnr = ?, notes = ?, invoice_notes = ?,
-        sale_total_cents = ?, cost_total_cents = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(
-      customer.id,
-      bookingDate,
-      dueDate,
-      travelDate,
-      returnDate,
-      optionalStr(payload.destination, 'Destination', 200),
-      optionalStr(payload.pnr, 'PNR / ticket number', 60),
-      optionalStr(payload.notes, 'Notes', 2000),
-      optionalStr(payload.invoice_notes ?? existing.invoice_notes, 'Invoice note', 2000),
-      saleTotal,
-      itemTotals(costItems),
-      id,
-    );
-    db.prepare('DELETE FROM booking_items WHERE booking_id = ?').run(id);
-    jobs.insertJobItems(db, 'booking', id, saleItems, costItems);
+    writeBooking(db, existing, payload);
     return getBooking(db, id);
   })();
 }
@@ -263,25 +269,31 @@ function deleteBooking(db, id) {
   })();
 }
 
+// The invoice and supplier bills of a booking, from its current lines.
+function postBookingDocuments(db, booking, { autoSettle = true } = {}) {
+  const items = db.prepare('SELECT * FROM booking_items WHERE booking_id = ? ORDER BY item_type, sort_order, id').all(booking.id);
+  return jobs.postJobDocuments(db, {
+    sourceType: 'booking',
+    jobId: booking.id,
+    customerId: booking.customer_id,
+    issueDate: booking.booking_date,
+    dueDate: booking.due_date || booking.booking_date,
+    // Only the customer-facing note is copied; booking notes stay internal.
+    invoiceNotes: booking.invoice_notes,
+    invoiceTerms: booking.destination ? `Destination: ${booking.destination}` : '',
+    billNotes: `Booking ${booking.number}${booking.pnr ? ` · PNR ${booking.pnr}` : ''}`,
+    items,
+    lineLabel: booking.destination,
+    autoSettle,
+  });
+}
+
 function confirmBooking(db, id, options = {}) {
   return db.transaction(() => {
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!booking) throw notFound('Booking not found');
     if (booking.status !== 'draft') throw bad('Only draft bookings can be confirmed');
-    const items = db.prepare('SELECT * FROM booking_items WHERE booking_id = ? ORDER BY item_type, sort_order, id').all(id);
-    const { invoice, warnings } = jobs.postJobDocuments(db, {
-      sourceType: 'booking',
-      jobId: id,
-      customerId: booking.customer_id,
-      issueDate: booking.booking_date,
-      dueDate: booking.due_date || booking.booking_date,
-      // Only the customer-facing note is copied; booking notes stay internal.
-      invoiceNotes: booking.invoice_notes,
-      invoiceTerms: booking.destination ? `Destination: ${booking.destination}` : '',
-      billNotes: `Booking ${booking.number}${booking.pnr ? ` · PNR ${booking.pnr}` : ''}`,
-      items,
-      lineLabel: booking.destination,
-    });
+    const { invoice, warnings } = postBookingDocuments(db, booking);
 
     db.prepare("UPDATE bookings SET status = 'confirmed', invoice_id = ?, updated_at = datetime('now') WHERE id = ?").run(invoice.id, id);
     jobs.recordStatus(db, 'booking', id, { from: 'draft', to: 'confirmed', remarks: `Invoice ${invoice.number} posted` });
@@ -354,6 +366,8 @@ function bookingMarginReport(db, from, to) {
 }
 
 module.exports = {
+  writeBooking,
+  postBookingDocuments,
   listBookings,
   getBooking,
   createBooking,
