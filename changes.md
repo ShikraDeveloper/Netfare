@@ -3059,11 +3059,24 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** two in `test/credit-corrections.test.js`. `npm test` 329 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### Correct for card settlements, petty cash counts and portal credits — code commit `6ca6d1c`
+
+- **Why:** The user asked for it. Voiding and entering again gave the same totals, but the void is dated today, so an earlier month's report showed both the wrong and the right amount.
+- **New kinds in `corrections.js` `correct`:**
+  - `card_settlement` (`POST /card-settlements/:id/correct`): bank amount, date, bank, reference, notes; the same card items are settled again (`defaults` reads them from `card_settlement_lines`);
+  - `petty_cash_count` (`POST /petty-cash/counts/:id/correct`): amount counted, date, notes; refused when a later count exists, since later counts were measured against this one;
+  - `portal_credit` (`POST /portals/credits/:id/correct`): amount, date, notes; same portal, bill and supplier credit. A credit already spent may be corrected: `voidPortalCredit` skips its own usage checks when `correcting`, and the correction then refuses if the wallet would go below zero on any date (`assertWalletNotLower`).
+- **`check(row, values, db)`:** the check hook now also gets the database.
+- **App:** Correct (admin) on Card settlements, Petty cash counts and the portal page's wallet credits. The shared form gained `amountField`, `amountLabel`, a bank-only mode (`bank`), and `credit` is renamed `simple`.
+- **Tests:** `test/more-corrections.test.js` (3), with ledger checks: a settlement's bank amount (October shows only the corrected amount), a count corrected and an older count refused, a spent portal credit corrected with a too-low amount refused. `npm test` 332 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo (admin), through each screen's Correct button:** CS-2026-0001 → CS-2026-0002 (195 → 194), count #1 → #2 (480 → 485), PCR-2026-0001 → PCR-2026-0002 (50 → 40). Ledger checks matched.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) and `1dc3b46`. Ask the user to try Restore from backup once in the built app.
+3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) `1dc3b46`, and Correct for card settlements, petty cash counts and portal credits (`6ca6d1c`). Ask the user to try Restore from backup once in the built app.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
