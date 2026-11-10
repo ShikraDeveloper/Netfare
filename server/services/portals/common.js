@@ -96,37 +96,62 @@ function lockBalance(db, portalId) {
   return topup + credit - refunded - consumed - depositWalletNet(db, portalId);
 }
 
-// True when removing a movement would leave the wallet negative on any date.
-function canRemoveMovement(db, portalId, { type, id }) {
+// The wallet's lowest balance over time, and the first date it is reached:
+// every top-up, credit, withdrawal, bill settlement and visa deposit step,
+// netted per day. `skip` leaves one top-up or credit out (to test a void).
+function walletLow(db, portalId, skip = {}) {
   const events = new Map();
   const add = (date, delta) => events.set(date, (events.get(date) || 0) + delta);
   for (const row of db.prepare("SELECT id, topup_date AS date, amount_cents AS amount FROM portal_topups WHERE portal_id = ? AND status = 'posted'")
     .all(portalId)) {
-    if (type !== 'topup' || row.id !== id) add(row.date, row.amount);
+    if (skip.type !== 'topup' || row.id !== skip.id) add(row.date, row.amount);
   }
   for (const row of db.prepare("SELECT id, credit_date AS date, amount_cents AS amount FROM portal_credits WHERE portal_id = ? AND status = 'posted'")
     .all(portalId)) {
-    if (type !== 'credit' || row.id !== id) add(row.date, row.amount);
+    if (skip.type !== 'credit' || row.id !== skip.id) add(row.date, row.amount);
   }
   for (const row of db.prepare("SELECT refund_date AS date, amount_cents AS amount FROM portal_refunds WHERE portal_id = ? AND status = 'posted'")
     .all(portalId)) add(row.date, -row.amount);
   for (const row of db.prepare(
     "SELECT payment_date AS date, amount_cents AS amount FROM bill_payments WHERE portal_id = ? AND status = 'posted'",
   ).all(portalId)) add(row.date, -row.amount);
+  for (const row of db.prepare(`
+    SELECT event_date AS date, CASE WHEN event_type = 'to_supplier' THEN -amount_cents ELSE amount_cents - deduction_cents END AS amount
+    FROM visa_deposit_events
+    WHERE portal_id = ? AND voided_at IS NULL AND event_type IN ('to_supplier', 'supplier_return')
+  `).all(portalId)) add(row.date, row.amount);
   let balance = 0;
+  let low = { min: 0, date: null };
   for (const date of [...events.keys()].sort()) {
     balance += events.get(date);
-    if (balance < 0) return false;
+    if (balance < low.min) low = { min: balance, date };
   }
-  return true;
+  return low;
+}
+
+// A void may not take the wallet below zero, or lower than it already is.
+function canRemove(db, portalId, skip) {
+  const without = walletLow(db, portalId, skip).min;
+  return without >= 0 || without >= walletLow(db, portalId).min;
 }
 
 function canRemoveTopup(db, topup) {
-  return canRemoveMovement(db, topup.portal_id, { type: 'topup', id: topup.id });
+  return canRemove(db, topup.portal_id, { type: 'topup', id: topup.id });
 }
 
 function canRemoveCredit(db, credit) {
-  return canRemoveMovement(db, credit.portal_id, { type: 'credit', id: credit.id });
+  return canRemove(db, credit.portal_id, { type: 'credit', id: credit.id });
+}
+
+// Call with the walletLow from before a change, after making it (inside the
+// transaction): refuses a change that leaves the wallet below zero on any
+// date. A wallet already below zero from older entries is not blocked by
+// that alone, only made no worse.
+function assertWalletNotLower(db, portalId, before) {
+  const after = walletLow(db, portalId);
+  if (after.min < 0 && after.min < before.min) {
+    throw bad(`This would leave the portal wallet below zero on ${after.date} (${(after.min / 100).toFixed(2)}). Record a top-up on or before that date first.`);
+  }
 }
 
 function serializePortal(portal, agg, outstanding) {
@@ -171,6 +196,8 @@ module.exports = {
   lockBalance,
   canRemoveTopup,
   canRemoveCredit,
+  walletLow,
+  assertWalletNotLower,
   serializePortal,
   assertAccount,
 };

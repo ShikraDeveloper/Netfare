@@ -15,6 +15,8 @@ const {
   lockBalance,
   canRemoveTopup,
   canRemoveCredit,
+  walletLow,
+  assertWalletNotLower,
 } = require('./common');
 const { getPortal, portalForVendor } = require('./lifecycle');
 
@@ -224,6 +226,7 @@ function refundPortal(db, id, payload = {}) {
 
     const account = assertAccount(db, payload.payment_account_id, 'refund account');
     const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
+    const before = walletLow(db, portal.id);
 
     const info = db.prepare(`
       INSERT INTO portal_refunds (portal_id, refund_date, amount_cents, method, reference, notes, payment_account_id)
@@ -252,6 +255,7 @@ function refundPortal(db, id, payload = {}) {
       ],
     });
     db.prepare('UPDATE portal_refunds SET journal_entry_id = ? WHERE id = ?').run(entryId, refundId);
+    assertWalletNotLower(db, portal.id, before);
     return getPortal(db, portal.id);
   })();
 }
@@ -288,6 +292,7 @@ function settleBillFromPortal(db, payload) {
 
     const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
     const ap = systemAccount(db, AP, 'Trade Payables');
+    const before = walletLow(db, portal.id);
     const number = allocateNumber(db, 'bill_payment', date);
 
     const info = db.prepare(`
@@ -323,6 +328,7 @@ function settleBillFromPortal(db, payload) {
         updated_at = datetime('now')
       WHERE id = ?
     `).run(amount, portal.id, bill.id);
+    assertWalletNotLower(db, portal.id, before);
 
     return { settled_cents: amount, bill_id: bill.id, portal_id: portal.id, portal_name: portal.name };
   })();

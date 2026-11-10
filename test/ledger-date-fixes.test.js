@@ -101,3 +101,38 @@ test('voiding a supplier refund also voids the credit note it made', () => {
   assert.equal(db.prepare('SELECT status FROM supplier_credit_notes WHERE id = ?').get(refund.supplier_credit_note_id).status, 'void');
   assert.equal(db.prepare('SELECT COUNT(*) AS c FROM journal_entries WHERE reversal_of_id = ?').get(refund.journal_entry_id).c, 1, 'reversed once');
 });
+
+test('a portal wallet cannot go below zero on any date', () => {
+  // A back-dated withdrawal.
+  const first = wallet();
+  topUp(first.portal, '2026-07-01', 1_000);
+  portals.settleBillFromPortal(db, { bill_id: bill(first.vendorId, '2026-07-10', 1_000).id, portal_id: first.portal.id, settle_date: '2026-07-10' });
+  topUp(first.portal, '2026-07-20', 1_000);
+  assert.throws(() => portals.refundPortal(db, first.portal.id, { refund_date: '2026-07-05', amount_cents: 1_000, payment_account_id: account('1010').id }), /below zero on 2026-07-10/);
+  portals.refundPortal(db, first.portal.id, { refund_date: '2026-07-20', amount_cents: 1_000, payment_account_id: account('1010').id });
+
+  // Voiding a top-up when a visa deposit was paid from the wallet in between.
+  const second = wallet();
+  topUp(second.portal, '2026-06-01', 1_000);
+  const customerId = customer();
+  const deposit = deposits.collectDeposit(db, { visa_id: visa(customerId), amount_cents: 1_000, deposit_date: '2026-06-01', account_id: account('1010').id });
+  deposits.payToSupplier(db, deposit.id, { portal_id: second.portal.id, vendor_id: second.vendorId, event_date: '2026-06-02' });
+  topUp(second.portal, '2026-06-10', 1_000);
+  const firstTopup = db.prepare('SELECT id FROM portal_topups WHERE portal_id = ? ORDER BY id LIMIT 1').get(second.portal.id);
+  assert.throws(() => portals.voidTopup(db, firstTopup.id, { remarks: 'test' }), /negative on a past date/);
+
+  // Undoing a deposit return into the wallet after the money was spent.
+  const third = wallet();
+  topUp(third.portal, '2026-08-01', 1_000);
+  const returned = deposits.collectDeposit(db, { visa_id: visa(customerId), amount_cents: 1_000, deposit_date: '2026-08-01', account_id: account('1010').id });
+  deposits.payToSupplier(db, returned.id, { portal_id: third.portal.id, vendor_id: third.vendorId, event_date: '2026-08-02' });
+  deposits.supplierReturn(db, returned.id, { to_wallet: true, event_date: '2026-08-03' });
+  portals.settleBillFromPortal(db, { bill_id: bill(third.vendorId, '2026-08-04', 1_000).id, portal_id: third.portal.id, settle_date: '2026-08-04' });
+  assert.throws(() => deposits.voidLastEvent(db, returned.id, { remarks: 'test' }), /below zero on 2026-08-04/);
+
+  for (const { portal } of [first, second, third]) {
+    for (const date of ['2026-06-05', '2026-07-15', '2026-08-05', '9999-12-31']) {
+      assert.ok(balanceAsOf(db, portal.id, date) >= 0, `${portal.name} on ${date}`);
+    }
+  }
+});

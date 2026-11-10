@@ -243,6 +243,8 @@ function payToSupplier(db, id, payload = {}) {
       ? systemAccount(db, SYSTEM_CODES.SUPPLIER_ADVANCES, 'Advances to Suppliers')
       : cashAccount(db, payload.account_id, 'account the deposit was paid from');
     const { withSuppliers } = accounts(db);
+    const { walletLow, assertWalletNotLower } = require('./portals/common');
+    const before = portal ? walletLow(db, portal.id) : null;
     const entryId = postEntry(db, {
       entry_date: date,
       memo: `Deposit ${deposit.number} paid to ${vendor.name}${portal ? ` from portal ${portal.name}` : ''}`,
@@ -260,6 +262,7 @@ function payToSupplier(db, id, payload = {}) {
       method: portal ? 'Portal wallet' : optionalStr(payload.method, 'Method', 100) || 'Bank transfer',
       reference: optionalStr(payload.reference, 'Reference', 200) || (portal ? portal.name : ''), journal_entry_id: entryId,
     });
+    if (portal) assertWalletNotLower(db, portal.id, before);
     return getDeposit(db, deposit.id);
   })();
 }
@@ -456,6 +459,8 @@ function voidLastEvent(db, id, payload = {}) {
     if (!remarks) throw bad('Enter the reason for the void');
     const last = deposit.events.filter((event) => !event.voided_at).at(-1);
     if (!last) throw bad('Nothing to void');
+    const { walletLow, assertWalletNotLower } = require('./portals/common');
+    const before = last.portal_id ? walletLow(db, last.portal_id) : null;
     if (last.event_type === 'apply' && last.payment_id) {
       // The payment voids its own entry and the invoice balance.
       require('./invoices').deleteInvoicePayment(db, last.payment_id, { remarks, fromDeposit: true });
@@ -477,6 +482,7 @@ function voidLastEvent(db, id, payload = {}) {
     if (last.event_type === 'collect') {
       db.prepare("UPDATE visa_deposits SET voided_at = datetime('now') WHERE id = ?").run(deposit.id);
     }
+    if (last.portal_id) assertWalletNotLower(db, last.portal_id, before);
     audit.record(db, {
       entity_type: 'visa_deposit', entity_id: deposit.id, entity_number: deposit.number, action: 'void',
       remarks, amount_cents: last.amount_cents, metadata: { event_type: last.event_type },
