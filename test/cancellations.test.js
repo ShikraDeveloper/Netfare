@@ -613,7 +613,7 @@ test('applied advances and customer credits are restored or consumed correctly a
   creditService.applyCredit(db, customerCredit.id, {
     invoice_id: job.invoice_id,
     amount_cents: 30_000,
-    applied_date: '2026-10-19',
+    applied_date: '2026-10-20',
   });
   const advance = advanceService.createAdvance(db, {
     customer_id: customerId,
@@ -625,7 +625,7 @@ test('applied advances and customer credits are restored or consumed correctly a
   });
   advanceService.applyAdvance(db, advance.id, {
     invoice_id: job.invoice_id,
-    payment_date: '2026-10-19',
+    payment_date: '2026-10-20',
   });
   payInvoice(job.invoice_id, 50_000);
   const beforeRefundPayable = creditBalance('2500');

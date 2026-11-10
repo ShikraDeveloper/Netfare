@@ -176,6 +176,8 @@ function applyAdvance(db, id, payload = {}) {
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     const ar = systemAccount(db, AR_ACCOUNT, 'Trade Receivables');
     const paymentDate = dateISO(payload.payment_date || todayISO(), 'Application date');
+    if (paymentDate < advance.advance_date) throw bad(`The date cannot be before the advance was received (${advance.advance_date})`);
+    if (paymentDate < invoice.issue_date) throw bad(`The date cannot be before the invoice date (${invoice.issue_date})`);
     const number = allocateNumber(db, 'payment', paymentDate);
 
     const info = db.prepare(`
@@ -242,6 +244,7 @@ function refundAdvance(db, id, payload = {}) {
 
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    if (refundDate < advance.advance_date) throw bad(`Refund date cannot be before the advance was received (${advance.advance_date})`);
 
     const entryId = postEntry(db, {
       entry_date: refundDate,

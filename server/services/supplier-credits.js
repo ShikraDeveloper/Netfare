@@ -394,6 +394,7 @@ function applySupplierCredit(db, creditId, payload = {}) {
     if (appliedDate < credit.credit_date) {
       throw bad('Application date cannot be before the supplier credit date');
     }
+    if (appliedDate < bill.bill_date) throw bad(`Application date cannot be before the bill date (${bill.bill_date})`);
     applySupplierCreditRow(db, credit.id, bill.id, amount, appliedDate);
     return getSupplierCredit(db, credit.id);
   })();

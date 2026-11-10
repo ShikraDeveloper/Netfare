@@ -65,3 +65,23 @@ test('aging as of a past date counts only what was owed on that date', () => {
   assert.equal(row.invoices[0].days_overdue, 30);
   assert.equal(arAging(db).rows.find((party) => party.party_name === name).total_cents, 700, 'today is unchanged');
 });
+
+test('advances, credits and deposits cannot be used before they or the invoice exist', () => {
+  const customerId = customer();
+  const inv = invoice(customerId, '2026-04-10', 5_000);
+  const advance = advances.createAdvance(db, { customer_id: customerId, amount_cents: 5_000, advance_date: '2026-04-20', deposit_account_id: account('1010').id });
+  assert.throws(() => advances.applyAdvance(db, advance.id, { invoice_id: inv.id, payment_date: '2026-04-15' }), /before the advance was received/);
+  assert.throws(() => advances.refundAdvance(db, advance.id, { refund_date: '2026-04-19', payment_account_id: account('1010').id }), /before the advance was received/);
+
+  const early = advances.createAdvance(db, { customer_id: customerId, amount_cents: 1_000, advance_date: '2026-04-01', deposit_account_id: account('1010').id });
+  assert.throws(() => advances.applyAdvance(db, early.id, { invoice_id: inv.id, payment_date: '2026-04-05' }), /before the invoice date/);
+
+  const note = credits.createCredit(db, { customer_id: customerId, credit_date: '2026-04-20', amount_cents: 500, revenue_account_id: account('4300').id });
+  assert.throws(() => credits.applyCredit(db, note.id, { invoice_id: inv.id, amount_cents: 500, applied_date: '2026-04-15' }), /before the credit note date/);
+
+  const deposit = deposits.collectDeposit(db, { visa_id: visa(customerId), amount_cents: 500, deposit_date: '2026-04-01', account_id: account('1010').id });
+  assert.throws(() => deposits.applyToInvoice(db, deposit.id, { invoice_id: inv.id, amount_cents: 500, event_date: '2026-04-05' }), /before the invoice date/);
+
+  advances.applyAdvance(db, advance.id, { invoice_id: inv.id, payment_date: '2026-04-20' });
+  assert.equal(balance('2400', '2026-04-15'), -1_000, 'on 15 Apr only the early advance is held');
+});

@@ -377,6 +377,7 @@ function applyToInvoice(db, id, payload = {}) {
     }
     if (requested > balance) throw bad(`That invoice only has ${(balance / 100).toFixed(2)} left to pay`);
     const date = eventDate(deposit, payload.event_date, 'Date');
+    if (date < invoice.issue_date) throw bad(`The date cannot be before the invoice date (${invoice.issue_date})`);
     const { held, ar } = accounts(db);
     const number = allocateNumber(db, 'payment', date);
     const paymentId = Number(db.prepare(`
