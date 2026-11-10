@@ -478,6 +478,19 @@ test('two people editing the same record: the older copy is refused, not saved o
   assert.equal((await put(fresh.updated_at, 'After reopening')).status, 200, 'a fresh copy saves');
   assert.equal((await put(null, 'A script without a version')).status, 200);
 
+  // Two saves inside one second are still told apart.
+  const quick = (await jsonRequest(`/api/bookings/${created.data.id}`)).data;
+  assert.equal((await put(quick.updated_at, 'Quick save one')).status, 200);
+  const quickStale = await put(quick.updated_at, 'Quick save two');
+  assert.equal(quickStale.status, 409, 'a stale copy is refused even within the same second');
+
+  // Other changes to the record (here: confirming it) also give a new, exact version.
+  const confirmed = await postAs(cookie, `/api/bookings/${created.data.id}/confirm`, {});
+  assert.equal(confirmed.status, 200);
+  const afterConfirm = (await jsonRequest(`/api/bookings/${created.data.id}`)).data;
+  assert.match(afterConfirm.updated_at, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}$/);
+  assert.equal((await put(quick.updated_at, 'Stale after confirm')).status, 409);
+
   const customerBefore = (await jsonRequest('/api/customers')).data.find((row) => row.id === customer.id);
   await new Promise((resolve) => setTimeout(resolve, 1100));
   const renamed = await jsonRequest(`/api/customers/${customer.id}`, {

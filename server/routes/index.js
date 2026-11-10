@@ -74,17 +74,33 @@ const VERSIONED_TABLES = {
   visas: 'visa_applications',
 };
 
-router.put('/:kind/:id', (req, res, next) => {
+// Any change to a versioned record (a save, a payment, a void) gives it a new
+// version. updated_at is written to the second, so the stamp is made exact to
+// the millisecond: two changes in one second still look different. A save
+// (PUT) from an older copy is refused, and the reply carries the new stamp.
+router.use('/:kind/:id', (req, res, next) => {
   const table = VERSIONED_TABLES[req.params.kind];
+  if (!table || !/^\d+$/.test(req.params.id) || req.method === 'GET' || req.method === 'HEAD') return next();
+  const id = Number(req.params.id);
+  const saving = req.method === 'PUT' && req.baseUrl.endsWith(`/${id}`) && req.path === '/';
   const expected = req.get('x-record-version');
-  if (!table || expected === undefined || !/^\d+$/.test(req.params.id)) return next();
-  const current = db.prepare(`SELECT updated_at FROM ${table} WHERE id = ?`).get(Number(req.params.id));
-  if (current && current.updated_at !== expected) {
-    return res.status(409).json({
-      error: 'Someone else changed this record while you were editing. Close it and open it again to see their changes.',
-      code: 'record_changed',
-    });
+  if (saving && expected !== undefined) {
+    const current = db.prepare(`SELECT updated_at FROM ${table} WHERE id = ?`).get(id);
+    if (current && current.updated_at !== expected) {
+      return res.status(409).json({
+        error: 'Someone else changed this record while you were editing. Close it and open it again to see their changes.',
+        code: 'record_changed',
+      });
+    }
   }
+  const reply = res.json.bind(res);
+  res.json = (body) => {
+    if (res.statusCode < 400) {
+      const { updated_at: stamp } = db.prepare(`UPDATE ${table} SET updated_at = strftime('%Y-%m-%d %H:%M:%f', 'now') WHERE id = ? RETURNING updated_at`).get(id) || {};
+      if (saving && stamp && body && typeof body === 'object' && Number(body.id) === id) body.updated_at = stamp;
+    }
+    return reply(body);
+  };
   return next();
 });
 
