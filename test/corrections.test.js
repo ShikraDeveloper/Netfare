@@ -19,7 +19,7 @@ const portals = require('../server/services/portals');
 const advances = require('../server/services/advances');
 const cashDeposits = require('../server/services/cash-deposits');
 const reconciliation = require('../server/services/reconciliation');
-const { correct } = require('../server/services/corrections');
+const { correct, correctDocument } = require('../server/services/corrections');
 
 after(() => {
   try { db.close(); } catch { /* ignore */ }
@@ -65,6 +65,13 @@ test('a received payment: wrong amount and account corrected in one step', () =>
   assert.equal(invoices.getInvoice(db, invoice.id).amount_paid_cents, 50_000);
   assert.equal(cash - balance('1000'), 60_000);
   assert.equal(balance('1010') - bank, 50_000);
+  const asOf = (code, date) => db.prepare(`
+    SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS n FROM journal_lines l
+    JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
+    WHERE a.code = ? AND e.entry_date <= ?
+  `).get(code, date).n;
+  assert.equal(asOf('1000', '2026-11-02') - asOf('1000', '2026-11-01'), 0, 'on its own date the wrong cash payment is gone');
+  assert.equal(asOf('1010', '2026-11-02') - asOf('1010', '2026-11-01'), 50_000, 'and the corrected transfer is there');
   const log = db.prepare("SELECT * FROM audit_logs WHERE action = 'correct' AND entity_id = ?").get(payment.id);
   assert.match(log.remarks, new RegExp(`${payment.number} → ${fresh.number} · Paid 500`));
   checksMatch();
@@ -128,5 +135,48 @@ test('an unused advance and a cash deposit; a used advance is voided instead', (
   const movedBank = balance('1010');
   correct(db, 'cash_deposit', deposit.id, { remarks: 'Deposited 150', values: { amount_cents: 15_000 } });
   assert.equal(movedBank - balance('1010'), 5_000);
+  checksMatch();
+});
+
+test('an invoice: lines corrected, payments and credits move across with the same numbers', () => {
+  const invoice = sentInvoice('Invoice Fix', 100_000);
+  invoices.recordInvoicePayment(db, invoice.id, { amount_cents: 40_000, payment_date: '2026-11-02', method: 'Cash', deposit_account_id: account('1000') });
+  const payment = db.prepare('SELECT * FROM payments WHERE invoice_id = ?').get(invoice.id);
+  const sales = balance('4300');
+  const cash = balance('1000');
+
+  assert.throws(() => correctDocument(db, 'invoice', invoice.id, {
+    remarks: 'x', values: { items: [{ description: 'Service', quantity: 1, unit_price_cents: 30_000, account_id: account('4300') }] },
+  }), /less than what was paid/);
+  assert.equal(invoices.getInvoice(db, invoice.id).status, 'sent', 'nothing changed');
+
+  const fixed = correctDocument(db, 'invoice', invoice.id, {
+    remarks: 'Price was 900',
+    values: { items: [{ description: 'Service', quantity: 1, unit_price_cents: 90_000, account_id: account('4300') }] },
+  });
+  assert.equal(fixed.total_cents, 90_000);
+  assert.equal(fixed.issue_date, '2026-11-01', 'same date by default');
+  assert.equal(fixed.amount_paid_cents, 40_000);
+  assert.deepEqual(fixed.payments.map((row) => row.number), [payment.number], 'the receipt keeps its number');
+  assert.equal(invoices.getInvoice(db, invoice.id).status, 'void');
+  assert.equal(sales - balance('4300'), -10_000, 'sales down by 100');
+  assert.equal(balance('1000'), cash, 'cash untouched');
+  assert.throws(() => correctDocument(db, 'invoice', invoice.id, { remarks: 'x' }), /Only a posted invoice/);
+  checksMatch();
+});
+
+test('a bill: corrected, its payment moves across; a job bill is refused', () => {
+  const vendor = party('vendors', 'Bill Fix');
+  const bill = bills.createBill(db, {
+    vendor_id: vendor, bill_date: '2026-11-01', due_date: '2026-11-01', status: 'received',
+    items: [{ description: 'Rent', quantity: 1, unit_price_cents: 50_000, account_id: account('5000') }],
+  });
+  bills.recordBillPayment(db, bill.id, { amount_cents: 20_000, payment_date: '2026-11-02', method: 'Bank transfer', payment_account_id: account('1010') });
+  const fixed = correctDocument(db, 'bill', bill.id, {
+    remarks: 'Rent is 550', values: { items: [{ description: 'Rent', quantity: 1, unit_price_cents: 55_000, account_id: account('5000') }] },
+  });
+  assert.equal(fixed.total_cents, 55_000);
+  assert.equal(fixed.amount_paid_cents, 20_000);
+  assert.equal(bills.getBill(db, bill.id).status, 'void');
   checksMatch();
 });

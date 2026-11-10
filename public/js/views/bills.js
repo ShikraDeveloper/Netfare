@@ -204,7 +204,9 @@ function maybeOpenNew(query, alreadyBound) {
   }
 }
 
-export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
+// correct: an admin correction of a posted bill (void and re-post on the
+// server, payments move across); otherwise a new bill or a draft edit.
+export function openBillModal({ bill = null, correct = false, onSaved = () => {} } = {}) {
   const isEdit = Boolean(bill);
   const vendors = activeVendors();
   const accounts = purchaseAccounts();
@@ -268,14 +270,18 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
           </label>
         </div>
       `}
+      ${correct ? `<div class="field full">
+        <label for="correct-reason">Why</label>
+        <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Price entered wrong">
+      </div>` : ''}
     </div>
   `;
 
   const modal = openModal({
-    title: isEdit ? `Edit ${bill.number}` : 'New bill',
+    title: correct ? `Correct ${bill.number}` : isEdit ? `Edit ${bill.number}` : 'New bill',
     size: 'modal-xl',
     body,
-    submitLabel: isEdit ? 'Save bill' : 'Save bill',
+    submitLabel: correct ? 'Save correction' : 'Save bill',
     onMount(overlay) {
       const editor = mountLineItems(overlay, {
         accounts,
@@ -316,6 +322,13 @@ export function openBillModal({ bill = null, onSaved = () => {} } = {}) {
         items,
         status,
       };
+      if (correct) {
+        delete payload.status;
+        const saved = await api.post(`/bills/${bill.id}/correct`, { remarks: values.get('correct_reason'), values: payload });
+        toast(`${bill.number} corrected by ${saved.number}`);
+        onSaved(saved);
+        return;
+      }
       const saved = isEdit
         ? await api.put(`/bills/${bill.id}`, payload)
         : await api.post('/bills', payload);

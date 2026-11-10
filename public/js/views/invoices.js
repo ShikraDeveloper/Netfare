@@ -204,7 +204,9 @@ function maybeOpenNew(query, alreadyBound) {
 
 const SERVICE_INVOICE_BLOCKED_CODES = ['4000', '4100', '4320'];
 
-export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
+// correct: an admin correction of a posted invoice (void and re-post on the
+// server, payments move across); otherwise a new invoice or a draft edit.
+export function openInvoiceModal({ invoice = null, correct = false, onSaved = () => {} } = {}) {
   const isEdit = Boolean(invoice);
   const customers = activeCustomers();
   // Ticket, package and visa revenue is invoiced from bookings and visas, where
@@ -304,14 +306,18 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
           `}
         </div>
       </details>
+      ${correct ? `<div class="field full">
+        <label for="correct-reason">Why</label>
+        <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Price entered wrong">
+      </div>` : ''}
     </div>
   `;
 
   const modal = openModal({
-    title: isEdit ? `Edit ${invoice.number}` : 'New invoice',
+    title: correct ? `Correct ${invoice.number}` : isEdit ? `Edit ${invoice.number}` : 'New invoice',
     size: 'modal-xl',
     body,
-    submitLabel: isEdit ? 'Save invoice' : 'Create',
+    submitLabel: correct ? 'Save correction' : isEdit ? 'Save invoice' : 'Create',
     onMount(overlay) {
       const editor = mountLineItems(overlay, {
         accounts,
@@ -375,6 +381,13 @@ export function openInvoiceModal({ invoice = null, onSaved = () => {} } = {}) {
         payload.beneficiary_name = traveller;
         payload.beneficiary_nationality = values.get('beneficiary_nationality');
         payload.beneficiary_passport = values.get('beneficiary_passport');
+      }
+      if (correct) {
+        delete payload.status;
+        const saved = await api.post(`/invoices/${invoice.id}/correct`, { remarks: values.get('correct_reason'), values: payload });
+        toast(`${invoice.number} corrected by ${saved.number}`);
+        onSaved(saved);
+        return;
       }
       const saved = isEdit
         ? await api.put(`/invoices/${invoice.id}`, payload)

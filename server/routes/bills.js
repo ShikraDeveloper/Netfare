@@ -33,6 +33,11 @@ router.post('/:id/finalize', (req, res) => {
   res.json(service.finalizeBill(db, Number(req.params.id)));
 });
 
+// Admin only (permissions.js): reverse and re-post with corrected lines.
+router.post('/:id/correct', (req, res) => {
+  res.json(corrections.correctDocument(db, 'bill', Number(req.params.id), req.body || {}));
+});
+
 router.post('/:id/void', (req, res) => {
   res.json(service.voidBill(db, Number(req.params.id), req.body || {}));
 });

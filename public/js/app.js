@@ -77,7 +77,7 @@ const SECTION_NEW_ACTIONS = ['new-party', 'new-credit'];
 // Buttons that void, correct or delete: the admin's only.
 const ADMIN_ONLY_SELECTORS = [
   '[data-action="void"]', '[data-action="void-credit"]', '[data-action="void-job"]', '[data-action="void-cancellation"]',
-  '[data-action="correct"]', '[data-action="delete"]', '[data-delete-payment]', '[data-delete-recon]', '[data-delete]',
+  '[data-action="correct"]', '[data-action="correct-document"]', '[data-action="delete"]', '[data-delete-payment]', '[data-delete-recon]', '[data-delete]',
   '[data-void-advance]', '[data-void-cheque]', '[data-void-count]', '[data-void-kind]', '[data-void-portal]',
   '[data-void-settlement]', '[data-void]', '[data-deposit-action="void-last"]', '[data-action="clear-opening"]',
 ];

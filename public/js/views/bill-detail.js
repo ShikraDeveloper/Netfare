@@ -158,6 +158,9 @@ export async function render(container, { params } = {}) {
   }
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   menu.push(`<a class="btn btn-ghost" href="#/bills"><span>All bills</span></a>`);
+  if (canVoid && !bill.is_opening) {
+    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
+  }
   if (canVoid) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
@@ -329,6 +332,10 @@ export async function render(container, { params } = {}) {
 
   bindAttachmentSection(container, { entityType: 'bill', entityId: id });
   bindCorrections(container, () => render(container, { params: [String(id)] }));
+  // Admin only: correct the posted bill; the page then shows the new one.
+  document.querySelector('[data-action="correct-document"]')?.addEventListener('click', () => {
+    openBillModal({ bill, correct: true, onSaved: (saved) => { location.hash = `#/bills/${saved.id}`; } });
+  });
 
   function refresh() {
     return render(container, { params: [String(id)] });
