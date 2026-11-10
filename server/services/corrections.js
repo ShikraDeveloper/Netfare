@@ -98,8 +98,12 @@ const KINDS = {
     table: 'refunds',
     label: 'Refund',
     fields: ['amount_cents', 'refund_date', 'method', 'reference', 'notes', 'account_id', 'bank_charges_cents'],
-    check(row) {
+    check(row, values) {
       if (row.deposit_id) throw bad('This refund is part of a visa security deposit. Undo it on the deposit card instead.');
+      // These two refunds have no bank charges line, so asking for one would be dropped silently.
+      if ((row.advance_id || row.cancellation_id) && Number(values.bank_charges_cents) > 0) {
+        throw bad('Bank charges are not recorded on advance or cancellation refunds. Record them as a quick expense.');
+      }
     },
     void(db, row, remarks) {
       require('./refunds').voidRefund(db, row.id, { remarks });
@@ -172,12 +176,12 @@ function correct(db, kind, id, payload = {}) {
     if (!row) throw notFound(`${config.label} not found`);
     if (isVoid(row)) throw bad(`This ${config.label.toLowerCase()} is void`);
     const reason = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });
-    config.check?.(row);
 
     const sent = payload.values && typeof payload.values === 'object' ? payload.values : {};
     const base = { ...row, ...config.defaults?.(db, row) };
     const values = {};
     for (const field of config.fields) values[field] = sent[field] !== undefined ? sent[field] : base[field];
+    config.check?.(row, values);
 
     config.void(db, row, `Corrected · ${reason}`);
     reverseOnOriginalDate(db, config.entry ? config.entry(row) : row.journal_entry_id);
