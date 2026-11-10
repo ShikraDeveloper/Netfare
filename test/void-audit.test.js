@@ -257,7 +257,6 @@ test('voiding a manual journal entry posts a reversal instead of deleting it', (
   assert.ok(audit);
   assert.equal(audit.remarks, 'Wrong account used');
   assert.throws(() => journalService.voidManualEntry(db, entryId, { remarks: 'Again' }), /already void/i);
-  assert.throws(() => journalService.deleteManualEntry(db, entryId), /void and cannot be deleted/i);
   assertBalanced();
 });
 

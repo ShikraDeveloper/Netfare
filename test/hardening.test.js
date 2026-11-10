@@ -144,7 +144,7 @@ test('opening balances reverse instead of deleting reconciled journal lines', ()
   assertBalanced();
 });
 
-test('manual journal entries in a reconciliation cannot be deleted', () => {
+test('manual journal entries in a reconciliation cannot be voided until it is reopened', () => {
   const bankId = Number(db.prepare(`
     INSERT INTO accounts (code, name, type, subtype, normal_balance, is_cash)
     VALUES ('1098', 'Journal Protection Bank', 'asset', 'current_asset', 'debit', 1)
@@ -171,13 +171,13 @@ test('manual journal entries in a reconciliation cannot be deleted', () => {
   });
 
   assert.throws(
-    () => journalService.deleteManualEntry(db, entryId),
+    () => journalService.voidManualEntry(db, entryId, { remarks: 'test' }),
     /bank reconciliation/i,
   );
   assert.ok(db.prepare('SELECT id FROM journal_entries WHERE id = ?').get(entryId));
 
   bankReconciliations.voidReconciliation(db, reconciliation.id);
-  assert.deepEqual(journalService.deleteManualEntry(db, entryId), { deleted: true });
+  assert.equal(journalService.voidManualEntry(db, entryId, { remarks: 'test' }).voided, true);
   assertBalanced();
 });
 

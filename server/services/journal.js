@@ -18,44 +18,6 @@ function createManualEntry(db, payload = {}) {
   });
 }
 
-function deleteManualEntry(db, id, payload = {}) {
-  return db.transaction(() => {
-    const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(Number(id));
-    if (!entry) throw notFound('Journal entry not found');
-    if (entry.source_type !== 'manual') {
-      throw bad('Only manual journal entries can be deleted. Void the source document instead.');
-    }
-    if (entry.voided_at) {
-      throw bad('This journal entry is void and cannot be deleted.');
-    }
-    const reconciled = db.prepare(`
-      SELECT 1
-      FROM bank_reconciliation_lines rl
-      JOIN journal_lines l ON l.id = rl.journal_line_id
-      WHERE l.entry_id = ?
-      LIMIT 1
-    `).get(entry.id);
-    if (reconciled) {
-      throw bad('This entry is part of a bank reconciliation. Reopen the reconciliation before deleting it.');
-    }
-    const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
-    const total = db.prepare(
-      'SELECT COALESCE(SUM(debit_cents), 0) AS total FROM journal_lines WHERE entry_id = ?',
-    ).get(entry.id).total;
-    db.prepare('DELETE FROM journal_entries WHERE id = ?').run(entry.id);
-    audit.record(db, {
-      entity_type: 'journal_entry',
-      entity_id: entry.id,
-      entity_number: `#${entry.id}`,
-      action: 'delete',
-      remarks: remarks || `Deleted journal entry #${entry.id}`,
-      amount_cents: total,
-      metadata: { memo: entry.memo, source_type: entry.source_type },
-    });
-    return { deleted: true };
-  })();
-}
-
 function voidManualEntry(db, id, payload = {}) {
   return db.transaction(() => {
     const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(Number(id));
@@ -103,4 +65,4 @@ function voidManualEntry(db, id, payload = {}) {
   })();
 }
 
-module.exports = { createManualEntry, deleteManualEntry, voidManualEntry };
+module.exports = { createManualEntry, voidManualEntry };
