@@ -3072,11 +3072,21 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked in the demo (admin), through each screen's Correct button:** CS-2026-0001 → CS-2026-0002 (195 → 194), count #1 → #2 (480 → 485), PCR-2026-0001 → PCR-2026-0002 (50 → 40). Ledger checks matched.
 - **Not pushed or released.**
 
+### Void and Correct for advances on the customer page — code commit `025249c`
+
+- **Why:** The user found no Void for a customer advance. Booking and visa pages had it, but the customer page listed advances with only Use for invoice and Refund, and only while money was left. An advance recorded from the customer page, or one fully used, could not be voided anywhere.
+- **Customer page:** each advance row has Void (admin), and Correct while nothing is used (not for receipts). Used advances and receipts are listed too, open ones first; a used receipt reads "Receipt" instead of "Left from a receipt".
+- **`customerAdvances`** (`server/services/customer-balances.js`) returns every live advance with all its columns, so the Correct form gets the method and account.
+- **Shared:** the advance Void dialog moved to `customer-advance-modals.js` `voidAdvance`, used by the booking, visa and customer pages (two copies removed).
+- **Tests:** `test/phase2.test.js` now expects a used advance to stay listed with nothing left. `npm test` 332 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo (admin), on Corporate Travel Co's page:** ADV-2026-0003 (fully used on an invoice) voided with its application reversed; ADV-2026-0002 corrected 300 → 250 by ADV-2026-0004. Ledger checks matched.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) `1dc3b46`, and Correct for card settlements, petty cash counts and portal credits (`6ca6d1c`). Ask the user to try Restore from backup once in the built app.
+3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) `1dc3b46`, and Correct for card settlements, petty cash counts and portal credits (`6ca6d1c`), and Void/Correct for advances on the customer page (`025249c`). Ask the user to try Restore from backup once in the built app.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
