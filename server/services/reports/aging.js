@@ -2,20 +2,62 @@
 
 const { dateISO, todayISO } = require('../../util');
 
-function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName, asOf) {
-  const today = asOf ? dateISO(asOf, 'As-of date') : todayISO();
-  const dateColumn = table === 'invoices' ? 'issue_date' : 'bill_date';
-  const creditExpr = 'd.credit_applied_cents';
+// What was still owed on each document. Today it is the stored balance. For a
+// past date only documents dated by then count, and only the payments,
+// refunds and credits dated by then; a document or payment voided after that
+// date still counts, as it did in the books on that day.
+// shortcut: a credit application reversed later is deleted, so a past date
+// misses it; keep reversed applications if month-end aging must match exactly.
+function openDocuments(db, table, statusValue, partyTable, partyColumn, asOf, today) {
+  const invoice = table === 'invoices';
+  const dateColumn = invoice ? 'issue_date' : 'bill_date';
+  const columns = `d.id, d.number, d.${dateColumn} AS document_date, d.due_date, d.total_cents,
+           p.id AS party_id, p.name AS party_name`;
+  if (asOf >= today) {
+    return db.prepare(`
+      SELECT ${columns}, d.amount_paid_cents, d.credit_applied_cents,
+             d.total_cents - d.amount_paid_cents - d.credit_applied_cents AS balance_cents
+      FROM ${table} d
+      JOIN ${partyTable} p ON p.id = d.${partyColumn}
+      WHERE d.status = '${statusValue}' AND d.total_cents > d.amount_paid_cents + d.credit_applied_cents
+      ORDER BY p.name, d.due_date
+    `).all();
+  }
+  // Still in the books on the date: posted by then and not reversed by then.
+  const live = (alias, dateExpr) => `${dateExpr} <= @asOf AND NOT EXISTS (
+      SELECT 1 FROM journal_entries v WHERE v.id = ${alias}.void_entry_id AND v.entry_date <= @asOf)`;
+  const payments = invoice ? 'payments' : 'bill_payments';
+  const paymentKey = invoice ? 'invoice_id' : 'bill_id';
+  const applications = invoice ? 'credit_applications' : 'supplier_credit_applications';
+  // A refund of a customer payment reopens the invoice; a supplier refund is a
+  // credit note and leaves the bill alone.
+  const refunded = invoice
+    ? `(SELECT COALESCE(SUM(r.amount_cents), 0) FROM refunds r
+        WHERE r.invoice_id = d.id AND r.payment_id IS NOT NULL AND ${live('r', 'r.refund_date')})`
+    : '0';
   const rows = db.prepare(`
-    SELECT d.id, d.number, d.${dateColumn} AS document_date, d.due_date, d.total_cents, d.amount_paid_cents,
-           d.credit_applied_cents,
-           p.id AS party_id, p.name AS party_name,
-           d.total_cents - d.amount_paid_cents - ${creditExpr} AS balance_cents
-    FROM ${table} d
-    JOIN ${partyTable} p ON p.id = d.${partyColumn}
-    WHERE d.status = '${statusValue}' AND d.total_cents > d.amount_paid_cents + ${creditExpr}
-    ORDER BY p.name, d.due_date
-  `).all();
+    SELECT * FROM (
+      SELECT ${columns},
+        (SELECT COALESCE(SUM(x.amount_cents), 0) FROM ${payments} x
+          WHERE x.${paymentKey} = d.id AND ${live('x', 'x.payment_date')}) - ${refunded} AS amount_paid_cents,
+        (SELECT COALESCE(SUM(a.amount_cents), 0) FROM ${applications} a
+          WHERE a.${paymentKey} = d.id AND a.applied_date <= @asOf) AS credit_applied_cents
+      FROM ${table} d
+      JOIN ${partyTable} p ON p.id = d.${partyColumn}
+      WHERE d.status IN ('${statusValue}', 'void') AND d.${dateColumn} <= @asOf
+        AND d.journal_entry_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM journal_entries v WHERE v.reversal_of_id = d.journal_entry_id AND v.entry_date <= @asOf)
+    )
+    WHERE total_cents > amount_paid_cents + credit_applied_cents
+    ORDER BY party_name, due_date
+  `).all({ asOf });
+  return rows.map((row) => ({ ...row, balance_cents: row.total_cents - row.amount_paid_cents - row.credit_applied_cents }));
+}
+
+function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName, asOf) {
+  const today = todayISO();
+  const date = asOf ? dateISO(asOf, 'As-of date') : today;
+  const rows = openDocuments(db, table, statusValue, partyTable, partyColumn, date, today);
 
   const byParty = new Map();
   const buckets = {
@@ -29,7 +71,7 @@ function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName
 
   for (const row of rows) {
     const due = new Date(`${row.due_date}T00:00:00Z`);
-    const ref = new Date(`${today}T00:00:00Z`);
+    const ref = new Date(`${date}T00:00:00Z`);
     const daysOverdue = Math.round((ref - due) / 86_400_000);
     let bucket;
     if (daysOverdue <= 0) bucket = 'current_cents';
@@ -70,7 +112,7 @@ function agingBuckets(db, table, statusValue, partyTable, partyColumn, partyName
   }
 
   return {
-    as_of: today,
+    as_of: date,
     rows: Array.from(byParty.values()).sort((a, b) => b.total_cents - a.total_cents),
     totals: buckets,
   };
