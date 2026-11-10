@@ -721,6 +721,23 @@ test('attachments: PDFs and pictures can be previewed; anything else is only eve
   }
 });
 
+test('attachments: removing a file is written to the audit log', async () => {
+  const customer = await postAs(cookie, '/api/customers', { name: 'Audit Delete Customer' });
+  const upload = await fetch(`${baseUrl}/api/attachments?entity_type=customer&entity_id=${customer.data.id}&filename=receipt.pdf&type=application/pdf`, {
+    method: 'POST',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/octet-stream', Cookie: cookie },
+    body: Buffer.from('%PDF-1.4 receipt'),
+  });
+  const file = await upload.json();
+  assert.equal((await jsonRequest(`/api/attachments/${file.id}`, { method: 'DELETE', headers: { Origin: baseUrl } })).status, 200);
+  const log = await jsonRequest('/api/audit-logs?entity_type=attachment');
+  const entry = log.data.rows.find((row) => row.entity_id === file.id);
+  assert.ok(entry, 'the removal is logged');
+  assert.equal(entry.entity_number, 'receipt.pdf');
+  assert.equal(entry.action, 'delete');
+  assert.equal(entry.user_name, ADMIN.full_name);
+});
+
 test('created by and last changed by: stamped on new and edited records and on uploads', async () => {
   const created = await postAs(cookie, '/api/customers', { name: 'Stamp Customer' });
   assert.equal(created.status, 201);

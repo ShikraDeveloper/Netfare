@@ -36,6 +36,7 @@ const ENTITY_LABELS = {
   visa_deposit: 'Visa security deposit',
   user: 'User login',
   settings: 'Settings',
+  attachment: 'Attached file',
 };
 
 const ACTION_LABELS = {

@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { bad, notFound } = require('../util');
+const audit = require('../services/audit');
 
 const ENTITY_TABLES = {
   invoice: 'invoices',
@@ -128,9 +129,15 @@ router.get('/:id/download', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  const attachment = db.prepare('SELECT id FROM attachments WHERE id = ?').get(Number(req.params.id));
+  const attachment = db.prepare('SELECT id, entity_type, entity_id, file_name, size_bytes FROM attachments WHERE id = ?').get(Number(req.params.id));
   if (!attachment) throw notFound('Attachment not found');
-  db.prepare('DELETE FROM attachments WHERE id = ?').run(attachment.id);
+  db.transaction(() => {
+    db.prepare('DELETE FROM attachments WHERE id = ?').run(attachment.id);
+    audit.record(db, {
+      entity_type: 'attachment', entity_id: attachment.id, entity_number: attachment.file_name, action: 'delete',
+      remarks: `Removed from ${attachment.entity_type.replace('_', ' ')} #${attachment.entity_id} (${attachment.size_bytes} bytes)`,
+    });
+  })();
   res.json({ deleted: true });
 });
 
