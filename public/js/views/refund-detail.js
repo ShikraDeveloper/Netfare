@@ -1,3 +1,4 @@
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { api } from '../api.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { store } from '../store.js';
@@ -125,6 +126,8 @@ export async function render(container, { params } = {}) {
     `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
   ];
   if (refund.status === 'paid' && !source.voidElsewhere) {
+    const correctable = refund.cancellation_id || refund.credit_note_id || refund.advance_id || refund.supplier_credit_note_id || refund.payment_id;
+    if (correctable) actions.push(correctButtonHtml('refund', refund));
     actions.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   }
 
@@ -254,6 +257,7 @@ export async function render(container, { params } = {}) {
     return render(container, { params: [String(id)] });
   }
 
+  bindCorrections(document, (result) => { location.hash = `#/refunds/${result.id}`; });
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
     button.addEventListener('click', () => window.print());
   });

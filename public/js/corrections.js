@@ -35,6 +35,16 @@ const FORMS = {
     title: 'Correct cash deposit', path: (id) => `/cash/deposits/${id}/correct`,
     date: 'deposit_date', transfer: true, notes: true,
   },
+  refund: {
+    title: 'Correct refund', path: (id) => `/refunds/${id}/correct`,
+    date: 'refund_date', account: 'account_id', accountLabel: 'Bank or cash', methods: MONEY_OUT_METHODS, charges: true, notes: true,
+  },
+  credit_note: {
+    title: 'Correct credit note', path: (id) => `/credits/${id}/correct`, date: 'credit_date', credit: true, notes: true,
+  },
+  supplier_credit: {
+    title: 'Correct supplier credit', path: (id) => `/supplier-credits/${id}/correct`, date: 'credit_date', credit: true, notes: true,
+  },
 };
 
 // The records behind the buttons on the current page, by "kind:id".
@@ -71,17 +81,18 @@ function formBody(form, record) {
         <label for="cx-date">Date</label>
         <input class="input" id="cx-date" name="date" type="date" required value="${esc(record[form.date] || '')}">
       </div>
-      ${form.transfer ? `
+      ${form.credit ? '' : form.transfer ? `
         <div class="field"><label for="cx-from">From</label><select class="input" id="cx-from" name="from_account_id">${accountOptions(record.from_account_id)}</select></div>
         <div class="field"><label for="cx-to">To</label><select class="input" id="cx-to" name="to_account_id">${accountOptions(record.to_account_id)}</select></div>
       ` : `
         <div class="field"><label for="cx-method">Method</label><select class="input" id="cx-method" name="method">${methodOptionsHtml(form.methods, record.method || form.methods[0])}</select></div>
         <div class="field"><label for="cx-account">${form.accountLabel}</label><select class="input" id="cx-account" name="account">${accountOptions(record[form.account])}</select></div>
       `}
-      <div class="field">
-        <label for="cx-reference">Reference</label>
-        <input class="input" id="cx-reference" name="reference" maxlength="200" value="${esc(record.reference || '')}">
-      </div>
+      ${form.credit ? '' : `
+        <div class="field">
+          <label for="cx-reference">Reference</label>
+          <input class="input" id="cx-reference" name="reference" maxlength="200" value="${esc(record.reference || '')}">
+        </div>`}
       ${form.charges ? money('charges', 'Bank charges', record.bank_charges_cents) : ''}
       ${record.cheque_number ? `
         <div class="field"><label for="cx-cheque">Cheque number</label><input class="input" id="cx-cheque" name="cheque_number" maxlength="100" value="${esc(record.cheque_number)}"></div>
@@ -99,9 +110,11 @@ function readValues(form, data) {
   const values = {
     amount_cents: toCents(data.get('amount')),
     [form.date]: data.get('date'),
-    reference: data.get('reference') || '',
   };
-  if (form.transfer) {
+  if (!form.credit) values.reference = data.get('reference') || '';
+  if (form.credit) {
+    // Amount, date and notes only.
+  } else if (form.transfer) {
     values.from_account_id = Number(data.get('from_account_id'));
     values.to_account_id = Number(data.get('to_account_id'));
   } else {

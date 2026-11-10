@@ -1,3 +1,4 @@
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { api } from '../api.js';
 import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { cashAccounts, store } from '../store.js';
@@ -49,6 +50,7 @@ export async function render(container, { params } = {}) {
     badge: statusBadge(credit.status_display),
     actions: `
       ${canApply ? `<button class="btn btn-primary" data-action="apply">${icon('bill', 15)}<span>Apply to bill</span></button>` : ''}
+      ${canVoid && !credit.cancellation_id && !credit.is_opening ? correctButtonHtml('supplier_credit', credit) : ''}
       ${moreMenuHtml([
     canApply ? `<button class="btn btn-ghost" data-action="refund">${icon('arrowUp', 15)}<span>Cash refund</span></button>` : '',
     `<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
@@ -186,6 +188,7 @@ export async function render(container, { params } = {}) {
     return render(container, { params: [String(id)] });
   }
 
+  bindCorrections(document, (result) => { location.hash = `#/supplier-credits/${result.id}`; });
   document.querySelectorAll('[data-action="print"]').forEach((button) => button.addEventListener('click', () => window.print()));
 
   document.querySelectorAll('[data-action="apply"]').forEach((button) => {

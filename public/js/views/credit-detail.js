@@ -1,3 +1,4 @@
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { api } from '../api.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { cashAccounts } from '../store.js';
@@ -39,6 +40,7 @@ export async function render(container, { params = [] } = {}) {
       ${isCancellation ? `<a class="btn btn-secondary" href="#/cancellations/${credit.cancellation_id}">${icon('x', 15)}<span>Cancellation</span></a>` : ''}
       ${canRefund ? `<button class="btn btn-secondary" data-action="refund-credit">${icon('arrowUp', 15)}<span>Refund credit</span></button>` : ''}
       ${canApply ? `<button class="btn btn-primary" data-action="apply-credit">${icon('invoice', 15)}<span>Apply to invoice</span></button>` : ''}
+      ${canVoid && !isCancellation && !credit.is_opening ? correctButtonHtml('credit_note', credit) : ''}
       ${canVoid ? `<button class="icon-btn danger" data-action="void-credit" title="Void credit note">${icon('trash', 17)}</button>` : ''}
     `,
   });
@@ -153,6 +155,7 @@ export async function render(container, { params = [] } = {}) {
       toast(error.message, 'error');
     }
   };
+  bindCorrections(document, (result) => { location.hash = `#/credits/${result.id}`; });
   document.querySelectorAll('[data-action="apply-credit"]').forEach((button) => button.addEventListener('click', apply));
   document.querySelectorAll('[data-action="refund-credit"]').forEach((button) => button.addEventListener('click', () => {
     openRefundModal(credit, () => render(container, { params: [String(id)] }));

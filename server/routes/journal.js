@@ -2,9 +2,10 @@
 
 const router = require('express').Router();
 const db = require('../db');
-const { notFound, str, optionalStr, dateISO } = require('../util');
-const { postEntry, getEntryWithLines, assertManualEntryAccounts } = require('../accounting');
+const { notFound, dateISO } = require('../util');
+const { getEntryWithLines } = require('../accounting');
 const journalService = require('../services/journal');
+const corrections = require('../services/corrections');
 
 router.get('/', (req, res) => {
   const clauses = [];
@@ -41,18 +42,13 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  const body = req.body || {};
-  const memo = str(body.memo, 'Memo', { max: 500 });
-  const lines = Array.isArray(body.lines) ? body.lines : [];
-  assertManualEntryAccounts(db, lines);
-  const entryId = db.transaction(() => postEntry(db, {
-    entry_date: body.entry_date,
-    memo,
-    reference: optionalStr(body.reference, 'Reference', 100),
-    source_type: 'manual',
-    lines,
-  }))();
+  const entryId = db.transaction(() => journalService.createManualEntry(db, req.body || {}))();
   res.status(201).json(getEntryWithLines(db, entryId));
+});
+
+router.post('/:id/correct', (req, res) => {
+  const result = corrections.correct(db, 'journal', req.params.id, req.body || {});
+  res.json({ ...result, entry: getEntryWithLines(db, result.id) });
 });
 
 router.post('/:id/void', (req, res) => {

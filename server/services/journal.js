@@ -1,8 +1,22 @@
 'use strict';
 
-const { bad, notFound, optionalStr } = require('../util');
-const { reverseEntry } = require('../accounting');
+const { bad, notFound, str, optionalStr } = require('../util');
+const { postEntry, reverseEntry, assertManualEntryAccounts } = require('../accounting');
 const audit = require('./audit');
+
+// Posts a manual journal entry; the caller runs it in a transaction.
+function createManualEntry(db, payload = {}) {
+  const memo = str(payload.memo, 'Memo', { max: 500 });
+  const lines = Array.isArray(payload.lines) ? payload.lines : [];
+  assertManualEntryAccounts(db, lines);
+  return postEntry(db, {
+    entry_date: payload.entry_date,
+    memo,
+    reference: optionalStr(payload.reference, 'Reference', 100),
+    source_type: 'manual',
+    lines,
+  });
+}
 
 function deleteManualEntry(db, id, payload = {}) {
   return db.transaction(() => {
@@ -89,4 +103,4 @@ function voidManualEntry(db, id, payload = {}) {
   })();
 }
 
-module.exports = { deleteManualEntry, voidManualEntry };
+module.exports = { createManualEntry, deleteManualEntry, voidManualEntry };

@@ -92,6 +92,50 @@ const KINDS = {
       return db.prepare('SELECT * FROM customer_advances WHERE customer_id = ? ORDER BY id DESC LIMIT 1').get(row.customer_id);
     },
   },
+  // A refund is posted again from where it came: the payment, the
+  // cancellation note, the credit note, the advance or the supplier credit.
+  refund: {
+    table: 'refunds',
+    label: 'Refund',
+    fields: ['amount_cents', 'refund_date', 'method', 'reference', 'notes', 'account_id', 'bank_charges_cents'],
+    check(row) {
+      if (row.deposit_id) throw bad('This refund is part of a visa security deposit. Undo it on the deposit card instead.');
+    },
+    void(db, row, remarks) {
+      require('./refunds').voidRefund(db, row.id, { remarks });
+    },
+    post(db, row, values) {
+      if (row.cancellation_id) require('./cancellations').refundCancellation(db, row.cancellation_id, values);
+      else if (row.credit_note_id) require('./credits').refundCredit(db, row.credit_note_id, values);
+      else if (row.advance_id) require('./advances').refundAdvance(db, row.advance_id, { ...values, payment_account_id: values.account_id });
+      else if (row.supplier_credit_note_id) require('./supplier-credits').refundSupplierCredit(db, row.supplier_credit_note_id, values);
+      else if (row.payment_id) require('./refunds').createRefund(db, { ...values, refund_type: 'customer', payment_id: row.payment_id });
+      else throw bad('This refund cannot be corrected here. Void it and record it again.');
+      return db.prepare('SELECT * FROM refunds ORDER BY id DESC LIMIT 1').get();
+    },
+  },
+  // A manual journal entry; entries posted by documents are corrected there.
+  journal: {
+    table: 'journal_entries',
+    label: 'Journal entry',
+    fields: ['entry_date', 'memo', 'reference', 'lines'],
+    entry: (row) => row.id,
+    check(row) {
+      if (row.source_type !== 'manual') throw bad('This entry was posted by a document. Correct the document instead.');
+    },
+    defaults(db, row) {
+      return {
+        lines: db.prepare('SELECT account_id, debit_cents, credit_cents, description FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(row.id),
+      };
+    },
+    void(db, row, remarks) {
+      require('./journal').voidManualEntry(db, row.id, { remarks });
+    },
+    post(db, row, values) {
+      const id = require('./journal').createManualEntry(db, values);
+      return db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(id);
+    },
+  },
   cash_deposit: {
     table: 'cash_deposits',
     label: 'Cash deposit',
@@ -130,11 +174,12 @@ function correct(db, kind, id, payload = {}) {
     config.check?.(row);
 
     const sent = payload.values && typeof payload.values === 'object' ? payload.values : {};
+    const base = { ...row, ...config.defaults?.(db, row) };
     const values = {};
-    for (const field of config.fields) values[field] = sent[field] !== undefined ? sent[field] : row[field];
+    for (const field of config.fields) values[field] = sent[field] !== undefined ? sent[field] : base[field];
 
     config.void(db, row, `Corrected · ${reason}`);
-    reverseOnOriginalDate(db, row.journal_entry_id);
+    reverseOnOriginalDate(db, config.entry ? config.entry(row) : row.journal_entry_id);
     const posted = config.post(db, row, values);
     audit.record(db, {
       entity_type: kind,
@@ -143,7 +188,7 @@ function correct(db, kind, id, payload = {}) {
       action: 'correct',
       remarks: `${row.number || `#${row.id}`} → ${posted.number || `#${posted.id}`} · ${reason}`,
       amount_cents: posted.amount_cents ?? 0,
-      metadata: { corrected_id: posted.id, before: Object.fromEntries(config.fields.map((field) => [field, row[field]])), after: values },
+      metadata: { corrected_id: posted.id, before: Object.fromEntries(config.fields.map((field) => [field, base[field]])), after: values },
     });
     return { kind, original_id: row.id, original_number: row.number || null, id: posted.id, number: posted.number || null };
   })();
@@ -234,4 +279,128 @@ function correctDocument(db, kind, id, payload = {}) {
   })();
 }
 
-module.exports = { correct, correctDocument, reverseOnOriginalDate, KINDS };
+// Credit notes and supplier credits. The old one is reversed on its own date
+// and voided; the new one is posted for the same customer or supplier, with
+// the same booking, visa and bill links. Where it was used (applied to
+// invoices or bills, refunded, or moved to a portal wallet) those steps move
+// to the new one unchanged, so the new amount must cover them and its date
+// cannot be after the first of them. Credits from a cancellation note and
+// opening balances are changed where they were made.
+const CREDITS = {
+  credit_note: {
+    table: 'credit_notes',
+    label: 'credit note',
+    entity: 'credit_note',
+    fields: ['credit_date', 'amount_cents', 'notes', 'revenue_account_id'],
+    used: (row) => row.applied_cents + row.refunded_cents,
+    moves: [['credit_applications', 'credit_note_id', 'applied_date'], ['refunds', 'credit_note_id', 'refund_date']],
+    check(db, row, values) {
+      for (const column of ['booking_id', 'visa_id']) {
+        if (!row[column]) continue;
+        const table = column === 'booking_id' ? 'bookings' : 'visa_applications';
+        const invoice = db.prepare(`SELECT i.* FROM ${table} j JOIN invoices i ON i.id = j.invoice_id WHERE j.id = ?`).get(row[column]);
+        if (!invoice) continue;
+        const others = db.prepare(`SELECT COALESCE(SUM(amount_cents), 0) AS total FROM credit_notes WHERE ${column} = ? AND status = 'issued' AND id <> ?`)
+          .get(row[column], row.id).total;
+        const limit = invoice.total_cents - others;
+        if (Number(values.amount_cents) > limit) throw bad(`The refund cannot be more than ${money(limit)} (the invoice less other refunds)`);
+        if (values.credit_date < invoice.issue_date) throw bad('The date cannot be before the invoice date');
+      }
+    },
+    post(db, row, values) {
+      const credit = require('./credits').createCredit(db, { ...values, customer_id: row.customer_id });
+      db.prepare('UPDATE credit_notes SET booking_id = ?, visa_id = ? WHERE id = ?').run(row.booking_id, row.visa_id, credit.id);
+      return db.prepare('SELECT * FROM credit_notes WHERE id = ?').get(credit.id);
+    },
+    settle(db, row, id) {
+      db.prepare('UPDATE credit_notes SET applied_cents = ?, refunded_cents = ? WHERE id = ?').run(row.applied_cents, row.refunded_cents, id);
+    },
+    get: (db, id) => require('./credits').getCredit(db, id),
+  },
+  supplier_credit: {
+    table: 'supplier_credit_notes',
+    label: 'supplier credit',
+    entity: 'supplier_credit',
+    fields: ['credit_date', 'amount_cents', 'notes'],
+    used: (row) => row.applied_cents + row.refunded_cents + row.portal_settled_cents,
+    moves: [
+      ['supplier_credit_applications', 'credit_note_id', 'applied_date'],
+      ['refunds', 'supplier_credit_note_id', 'refund_date'],
+      ['portal_credits', 'supplier_credit_note_id', 'credit_date'],
+    ],
+    post(db, row, values) {
+      const amount = Number(values.amount_cents);
+      const old = db.prepare('SELECT description, amount_cents, account_id FROM supplier_credit_items WHERE credit_note_id = ? ORDER BY sort_order, id').all(row.id);
+      let items;
+      if (amount === row.amount_cents) items = old;
+      else if (row.bill_id) items = require('./supplier-credits').itemsFromBill(db, row.bill_id, amount);
+      else if (old.length === 1) items = [{ ...old[0], amount_cents: amount }];
+      else throw bad('This supplier credit has several lines. Void it and record it again.');
+      const credit = require('./supplier-credits').createSupplierCredit(db, {
+        vendor_id: row.vendor_id, bill_id: row.bill_id, booking_id: row.booking_id, visa_id: row.visa_id,
+        credit_date: values.credit_date, notes: values.notes, items,
+      });
+      return db.prepare('SELECT * FROM supplier_credit_notes WHERE id = ?').get(credit.id);
+    },
+    settle(db, row, id) {
+      db.prepare('UPDATE supplier_credit_notes SET applied_cents = ?, refunded_cents = ?, portal_settled_cents = ? WHERE id = ?')
+        .run(row.applied_cents, row.refunded_cents, row.portal_settled_cents, id);
+    },
+    get: (db, id) => require('./supplier-credits').getSupplierCredit(db, id),
+  },
+};
+
+const money = (value) => (value / 100).toFixed(2);
+
+function correctCredit(db, kind, id, payload = {}) {
+  const config = CREDITS[kind];
+  if (!config) throw bad('This record cannot be corrected here');
+  const { reverseEntry } = require('../accounting');
+  const { cents, dateISO } = require('../util');
+  return db.transaction(() => {
+    const old = db.prepare(`SELECT * FROM ${config.table} WHERE id = ?`).get(Number(id));
+    if (!old) throw notFound(`The ${config.label} was not found`);
+    if (old.status !== 'issued') throw bad(`This ${config.label} is void`);
+    if (old.is_opening) throw bad('Opening balances are corrected in Opening balances');
+    if (old.cancellation_id) throw bad(`This ${config.label} came from a cancellation note. Void the note and cancel again.`);
+    const reason = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });
+
+    const sent = payload.values && typeof payload.values === 'object' ? payload.values : {};
+    const values = {};
+    for (const field of config.fields) values[field] = sent[field] !== undefined ? sent[field] : old[field];
+    values.amount_cents = cents(values.amount_cents, 'Amount', { min: 1 });
+    values.credit_date = dateISO(values.credit_date, 'Date');
+    const used = config.used(old);
+    if (values.amount_cents < used) {
+      throw bad(`The new amount (${money(values.amount_cents)}) is less than what was already used from ${old.number} (${money(used)}). Void that first.`);
+    }
+    for (const [table, column, dateColumn] of config.moves) {
+      const first = db.prepare(`SELECT MIN(${dateColumn}) AS date FROM ${table} WHERE ${column} = ?`).get(old.id).date;
+      if (first && values.credit_date > first) throw bad(`The date cannot be after ${first}, when ${old.number} was first used`);
+    }
+    config.check?.(db, old, values);
+
+    let voidEntryId = null;
+    if (old.journal_entry_id) {
+      voidEntryId = reverseEntry(db, old.journal_entry_id, { entry_date: old.credit_date, memo: `Corrected · ${reason} · ${config.label} ${old.number}`, source_type: 'void' });
+    }
+    db.prepare(`UPDATE ${config.table} SET status = 'void', void_entry_id = ?, applied_cents = 0, refunded_cents = 0${kind === 'supplier_credit' ? ', portal_settled_cents = 0' : ''} WHERE id = ?`)
+      .run(voidEntryId, old.id);
+    const created = config.post(db, old, values);
+    for (const [table, column] of config.moves) db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`).run(created.id, old.id);
+    config.settle(db, old, created.id);
+
+    audit.record(db, {
+      entity_type: config.entity,
+      entity_id: old.id,
+      entity_number: old.number,
+      action: 'correct',
+      remarks: `${old.number} → ${created.number} · ${reason}`,
+      amount_cents: created.amount_cents,
+      metadata: { corrected_id: created.id, amount_before: old.amount_cents, amount_after: created.amount_cents, date_before: old.credit_date, date_after: created.credit_date, moved_used_cents: used },
+    });
+    return config.get(db, created.id);
+  })();
+}
+
+module.exports = { correct, correctDocument, correctCredit, reverseOnOriginalDate, KINDS };

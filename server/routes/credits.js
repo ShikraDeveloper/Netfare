@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const db = require('../db');
+const corrections = require('../services/corrections');
 const service = require('../services/credits');
 
 router.get('/', (req, res) => {
@@ -26,6 +27,10 @@ router.post('/:id/apply', (req, res) => {
 
 router.post('/:id/refund', (req, res) => {
   res.status(201).json(service.refundCredit(db, Number(req.params.id), req.body || {}));
+});
+
+router.post('/:id/correct', (req, res) => {
+  res.json(corrections.correctCredit(db, 'credit_note', req.params.id, req.body || {}));
 });
 
 router.post('/:id/void', (req, res) => {

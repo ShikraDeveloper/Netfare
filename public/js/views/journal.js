@@ -37,6 +37,7 @@ function entryRow(entry) {
       <td>
         <div class="row-actions">
           <button class="icon-btn" data-view="${entry.id}" title="View entry">${icon('chevron', 16)}</button>
+          ${entry.source_type === 'manual' && !entry.voided_at ? `<button class="icon-btn" data-action="correct" data-correct-entry="${entry.id}" title="Correct" aria-label="Correct entry #${entry.id}">${icon('edit', 16)}</button>` : ''}
           ${entry.source_type === 'manual' && !entry.voided_at ? `<button class="icon-btn danger" data-void="${entry.id}" title="Void manual entry">${icon('trash', 16)}</button>` : ''}
         </div>
       </td>
@@ -144,30 +145,37 @@ function mountJournalLines(root, accounts) {
   };
 }
 
-function openNewEntryModal(onSaved) {
-  const accounts = store.accounts.filter((account) => account.is_active);
+// New entry, or (admin) Correct an existing manual entry: the form opens with
+// its date, memo and lines; saving voids it and posts the corrected one.
+function openNewEntryModal(onSaved, original = null) {
+  const accounts = store.accounts.filter((account) => account.is_active || original?.lines.some((line) => line.account_id === account.id));
   if (accounts.length < 2) {
     toast('Add at least two active accounts before making a journal entry.', 'error');
     return;
   }
 
   openModal({
-    title: 'New journal entry',
+    title: original ? `Correct journal entry #${original.id}` : 'New journal entry',
     size: 'modal-xl',
     body: `
       <div class="form-grid">
         <div class="field">
           <label for="entry-date">Date</label>
-          <input class="input" id="entry-date" name="entry_date" type="date" value="${todayISO()}" required>
+          <input class="input" id="entry-date" name="entry_date" type="date" value="${esc(original?.entry_date || todayISO())}" required>
         </div>
         <div class="field">
           <label for="entry-reference">Reference</label>
-          <input class="input" id="entry-reference" name="reference" placeholder="Optional reference" autocomplete="off">
+          <input class="input" id="entry-reference" name="reference" placeholder="Optional reference" autocomplete="off" value="${esc(original?.reference || '')}">
         </div>
         <div class="field full">
           <label for="entry-memo">Memo</label>
-          <input class="input" id="entry-memo" name="memo" placeholder="What is this entry for?" required>
+          <input class="input" id="entry-memo" name="memo" placeholder="What is this entry for?" required value="${esc(original?.memo || '')}">
         </div>
+        ${original ? `
+          <div class="field full">
+            <label for="entry-reason">Why</label>
+            <input class="input" id="entry-reason" name="remarks" maxlength="500" required placeholder="Amount entered wrong">
+          </div>` : ''}
         <div class="field full" style="margin-top:2px">
           <label>Lines</label>
           <div class="line-items-wrap">
@@ -180,8 +188,7 @@ function openNewEntryModal(onSaved) {
                 <div></div>
               </div>
               <div data-journal-lines>
-                ${journalLineRow(accounts)}
-                ${journalLineRow(accounts)}
+                ${original ? original.lines.map((line) => journalLineRow(accounts, line)).join('') : `${journalLineRow(accounts)}${journalLineRow(accounts)}`}
               </div>
             </div>
             <div class="line-actions">
@@ -192,7 +199,7 @@ function openNewEntryModal(onSaved) {
         </div>
       </div>
     `,
-    submitLabel: 'Post entry',
+    submitLabel: original ? 'Save correction' : 'Post entry',
     onMount(overlay) {
       overlay.querySelector('form').journalEditor = mountJournalLines(overlay, accounts);
     },
@@ -206,13 +213,19 @@ function openNewEntryModal(onSaved) {
       if (debits !== credits) throw new Error('Debits and credits must match before posting');
       if (debits === 0) throw new Error('Entry total must be greater than zero');
       if (lines.some((line) => !line.account_id)) throw new Error('Every line needs an account');
-      await api.post('/journal-entries', {
+      const entry = {
         entry_date: values.get('entry_date'),
         memo: values.get('memo'),
         reference: values.get('reference'),
         lines,
-      });
-      toast('Journal entry posted');
+      };
+      if (original) {
+        const result = await api.post(`/journal-entries/${original.id}/correct`, { remarks: values.get('remarks'), values: entry });
+        toast(`Entry #${original.id} corrected by #${result.id}`);
+      } else {
+        await api.post('/journal-entries', entry);
+        toast('Journal entry posted');
+      }
       onSaved();
     },
   });
@@ -361,6 +374,16 @@ export async function render(container, { query } = {}) {
   });
 
   body.addEventListener('click', async (event) => {
+    const correctButton = event.target.closest('[data-correct-entry]');
+    if (correctButton) {
+      event.stopPropagation();
+      try {
+        openNewEntryModal(refresh, await api.get(`/journal-entries/${correctButton.dataset.correctEntry}`));
+      } catch (error) {
+        toast(error.message, 'error');
+      }
+      return;
+    }
     const voidButton = event.target.closest('[data-void]');
     if (voidButton) {
       event.stopPropagation();
