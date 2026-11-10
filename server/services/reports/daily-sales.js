@@ -47,7 +47,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     JOIN customers c ON c.id = i.customer_id
     LEFT JOIN bookings b ON b.id = i.booking_id
     LEFT JOIN visa_applications v ON v.id = i.visa_id
-    LEFT JOIN cancellations x ON x.invoice_id = i.id
+    LEFT JOIN cancellations x ON x.invoice_id = i.id AND x.voided_at IS NULL
     -- A sale cancelled later stays on the day it was made; the cancellation
     -- appears as its own line on the cancellation date. Invoices voided as
     -- mistakes are left out.
@@ -75,7 +75,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     LEFT JOIN visa_applications v ON cc.source_type = 'visa' AND v.id = cc.source_id
     LEFT JOIN invoices ci ON ci.id = cc.cancellation_invoice_id
     LEFT JOIN invoices oi ON oi.id = cc.invoice_id
-    WHERE cc.cancellation_date >= ? AND cc.cancellation_date <= ?
+    WHERE cc.cancellation_date >= ? AND cc.cancellation_date <= ? AND cc.voided_at IS NULL
     ORDER BY cc.cancellation_date, cc.id
   `).all(start, end);
 

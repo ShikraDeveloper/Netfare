@@ -65,7 +65,7 @@ function serializeVisa(row) {
   return {
     ...visa,
     margin_cents: visa.sale_total_cents - visa.cost_total_cents,
-    status_display: visa.status,
+    status_display: visa.voided_at ? 'void' : visa.status,
     is_open: OPEN_STATUSES.includes(visa.status),
     passport_warning: passportWarning(visa),
   };

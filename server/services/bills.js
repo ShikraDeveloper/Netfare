@@ -284,14 +284,16 @@ function finalizeBill(db, id) {
   })();
 }
 
-function voidBill(db, id, payload = {}) {
+// fromWorkflow: the booking or visa that owns the bill is itself being
+// voided (job-void.js), so the owner check below does not apply.
+function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
   return db.transaction(() => {
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
     if (!bill) throw notFound('Bill not found');
     if (bill.status === 'void') throw bad('Bill is already void');
     // A booking or visa bill is part of the job's margin. Supplier changes go
     // through a supplier credit, or the job is cancelled.
-    if (bill.booking_id || bill.visa_id) {
+    if ((bill.booking_id || bill.visa_id) && !fromWorkflow) {
       throw bad(`This bill belongs to a ${bill.booking_id ? 'booking' : 'visa application'}. Record a supplier credit for the amount the supplier returns, or cancel the ${bill.booking_id ? 'booking' : 'visa application'}.`);
     }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);

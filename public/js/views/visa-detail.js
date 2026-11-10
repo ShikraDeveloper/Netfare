@@ -42,6 +42,7 @@ function escapeHtml(value) {
 // The note for a cancellation (and rejections before 1.0.13); otherwise the
 // rejection date and reason from the status history.
 function outcomeLine(visa, rejected) {
+  if (visa.voided_at) return escapeHtml(visa.void_remarks || 'Entered by mistake');
   if (visa.cancellation) {
     return `<a href="#/cancellations/${visa.cancellation.id}">${rejected ? 'Rejection' : 'Cancellation'} ${escapeHtml(visa.cancellation.number)}</a>`;
   }
@@ -57,7 +58,7 @@ function statusSteps(visa) {
       <div class="visa-outcome ${rejected ? 'rejected' : 'cancelled'}">
         <div class="visa-outcome-icon">${icon(rejected ? 'alert' : 'x', 18)}</div>
         <div>
-          <strong>${rejected ? 'Application rejected' : 'Application cancelled'}</strong>
+          <strong>${visa.voided_at ? 'Application void' : rejected ? 'Application rejected' : 'Application cancelled'}</strong>
           <p>${outcomeLine(visa, rejected)}</p>
         </div>
       </div>
@@ -190,10 +191,15 @@ export async function render(container, { params } = {}) {
   if (!isCancelled && !isRejected) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
   }
+  // Admin only: undo an application entered by mistake (a cancelled one has
+  // a note to void instead).
+  if (!isDraft && !isCancelled && !visa.cancellation) {
+    menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
+  }
   pageRecord(visa);
   setHeader({
     title: visa.number,
-    badge: statusBadge(visa.status),
+    badge: statusBadge(visa.status_display || visa.status),
     actions: actions.join('') + moreMenuHtml(menu),
   });
 
@@ -349,7 +355,7 @@ export async function render(container, { params } = {}) {
           <div class="doc-meta">
             <div class="doc-kind">Visa application</div>
             <div class="doc-number">${esc(visa.number)}</div>
-            <div class="doc-status">${statusBadge(visa.status)}</div>
+            <div class="doc-status">${statusBadge(visa.status_display || visa.status)}</div>
             <dl class="doc-meta-grid">
               <dt>Application date</dt><dd>${esc(fmtDate(visa.application_date))}</dd>
               <dt>Travel date</dt><dd>${visa.travel_date ? esc(fmtDate(visa.travel_date)) : '—'}</dd>
@@ -610,6 +616,22 @@ export async function render(container, { params } = {}) {
   on('[data-action="add-reminder"]', () => openReminderForm({
     link: { type: 'visa', id: visa.id, label: [visa.number, visa.applicant_name || visa.customer_name].filter(Boolean).join(' · ') },
   }));
+
+  on('[data-action="void-job"]', async () => {
+    const result = await voidDialog({
+      title: `Void ${visa.number}?`,
+      message: 'For an application entered by mistake. Its invoice and the payments on it, refunds, supplier bills and supplier credits are all reversed. No cancellation note or charges are made.',
+      confirmLabel: 'Void application',
+    });
+    if (!result.confirmed) return;
+    try {
+      await api.post(`/visas/${id}/void`, { remarks: result.remarks });
+      toast(`${visa.number} voided`);
+      refresh();
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  });
 
   const cancelButton = document.querySelector('[data-action="cancel"]');
   if (cancelButton) {

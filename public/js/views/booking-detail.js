@@ -99,10 +99,15 @@ export async function render(container, { params } = {}) {
   if (!isCancelled) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
   }
+  // Admin only: undo a booking entered by mistake (a cancelled one has a note
+  // to void instead).
+  if (!isDraft && !isCancelled) {
+    menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
+  }
   pageRecord(booking);
   setHeader({
     title: booking.number,
-    badge: statusBadge(booking.status),
+    badge: statusBadge(booking.status_display || booking.status),
     actions: actions.join('') + moreMenuHtml(menu),
   });
 
@@ -239,7 +244,7 @@ export async function render(container, { params } = {}) {
           <div class="doc-meta">
             <div class="doc-kind">Booking confirmation</div>
             <div class="doc-number">${esc(booking.number)}</div>
-            <div class="doc-status">${statusBadge(booking.status)}</div>
+            <div class="doc-status">${statusBadge(booking.status_display || booking.status)}</div>
             <dl class="doc-meta-grid">
               <dt>Booking date</dt><dd>${esc(fmtDate(booking.booking_date))}</dd>
               <dt>Travel date</dt><dd>${booking.travel_date ? esc(fmtDate(booking.travel_date)) : '—'}</dd>
@@ -431,6 +436,22 @@ export async function render(container, { params } = {}) {
       }
     });
   }
+
+  document.querySelector('[data-action="void-job"]')?.addEventListener('click', async () => {
+    const result = await voidDialog({
+      title: `Void ${booking.number}?`,
+      message: 'For a booking entered by mistake. Its invoice and the payments on it, refunds, supplier bills and supplier credits are all reversed. No cancellation note or charges are made.',
+      confirmLabel: 'Void booking',
+    });
+    if (!result.confirmed) return;
+    try {
+      await api.post(`/bookings/${id}/void`, { remarks: result.remarks });
+      toast(`${booking.number} voided`);
+      render(container, { params: [String(id)] });
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  });
 
   const cancelButton = document.querySelector('[data-action="cancel"]');
   if (cancelButton) {

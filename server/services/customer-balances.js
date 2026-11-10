@@ -146,7 +146,7 @@ function cancellationRefunds(db, customerId) {
              WHERE cn.cancellation_id = cc.id AND cn.status = 'issued'
            ), 0) AS credited_cents
     FROM cancellations cc
-    WHERE cc.customer_id = ?
+    WHERE cc.customer_id = ? AND cc.voided_at IS NULL
     ORDER BY cc.cancellation_date, cc.id
   `).all(customerId).map((row) => ({
     ...row,

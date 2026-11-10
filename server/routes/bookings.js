@@ -4,6 +4,7 @@ const router = require('express').Router();
 const db = require('../db');
 const service = require('../services/bookings');
 const jobRefunds = require('../services/job-refunds');
+const { voidJob } = require('../services/job-void');
 
 router.get('/', (req, res) => {
   res.json(service.listBookings(db, req.query));
@@ -39,6 +40,12 @@ router.post('/:id/refund-customer', (req, res) => {
 
 router.post('/:id/supplier-refund', (req, res) => {
   res.status(201).json(jobRefunds.supplierRefund(db, 'booking', Number(req.params.id), req.body || {}));
+});
+
+// Admin only (permissions.js): undo a booking entered by mistake.
+router.post('/:id/void', (req, res) => {
+  voidJob(db, 'booking', Number(req.params.id), req.body || {});
+  res.json(service.getBooking(db, Number(req.params.id)));
 });
 
 router.post('/:id/cancel', (req, res) => {

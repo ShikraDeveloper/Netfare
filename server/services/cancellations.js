@@ -3,6 +3,7 @@
 const {
   bad,
   notFound,
+  str,
   optionalStr,
   cents,
   dateISO,
@@ -98,7 +99,7 @@ function getCancellation(db, id) {
 
 function getCancellationForSource(db, sourceType, sourceId) {
   const row = db.prepare(
-    'SELECT id FROM cancellations WHERE source_type = ? AND source_id = ? ORDER BY id DESC LIMIT 1',
+    'SELECT id FROM cancellations WHERE source_type = ? AND source_id = ? AND voided_at IS NULL ORDER BY id DESC LIMIT 1',
   ).get(sourceType, Number(sourceId));
   return row ? getCancellation(db, row.id) : null;
 }
@@ -195,7 +196,7 @@ function cancelSource(db, { sourceType, sourceId, payload = {} } = {}) {
       throw bad(sourceType === 'booking' ? 'Booking is already cancelled' : 'Visa application is already cancelled or rejected');
     }
     const existing = db.prepare(
-      'SELECT id FROM cancellations WHERE source_type = ? AND source_id = ?',
+      'SELECT id FROM cancellations WHERE source_type = ? AND source_id = ? AND voided_at IS NULL',
     ).get(sourceType, Number(sourceId));
     if (existing) throw bad('This job already has a cancellation record');
 
@@ -445,7 +446,105 @@ function convertCancellationToCredit(db, id, payload = {}) {
   })();
 }
 
+// Undoing a cancellation (or a rejection under the old note) entered by
+// mistake: admin only (see permissions.js). Everything the note did is
+// reversed: refunds paid and credit notes made from it, its charges invoice,
+// the supplier credits it raised and its own entries. The original invoice
+// comes back with its payments, and the booking or visa returns to the status
+// it had before. Credits that were applied to the original invoice were
+// released at cancellation; they stay free to apply again. The note is kept,
+// marked void with its amounts cleared (the audit log keeps them).
+function voidCancellation(db, id, payload = {}) {
+  const refundService = require('./refunds');
+  return db.transaction(() => {
+    const note = db.prepare('SELECT * FROM cancellations WHERE id = ?').get(Number(id));
+    if (!note) throw notFound('Cancellation not found');
+    if (note.voided_at) throw bad('This cancellation note is already void');
+    const remarks = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });
+    const why = `${remarks} · void ${note.number}`;
+    const job = sourceRow(db, note.source_type, note.source_id);
+    if (job.voided_at) throw bad('The booking or visa of this note is void');
+
+    const refunds = db.prepare("SELECT id FROM refunds WHERE cancellation_id = ? AND status = 'paid' ORDER BY id").all(note.id);
+    for (const refund of refunds) refundService.voidRefund(db, refund.id, { remarks: why });
+    const credits = db.prepare("SELECT id FROM credit_notes WHERE cancellation_id = ? AND status = 'issued' ORDER BY id").all(note.id);
+    for (const credit of credits) creditService.voidCredit(db, credit.id, { remarks: why });
+
+    const charges = note.cancellation_invoice_id
+      ? db.prepare('SELECT id, status FROM invoices WHERE id = ?').get(note.cancellation_invoice_id)
+      : null;
+    if (charges && charges.status === 'sent') invoiceService.voidInvoice(db, charges.id, { remarks: why }, { fromWorkflow: true });
+
+    const supplierCredits = db.prepare("SELECT id FROM supplier_credit_notes WHERE cancellation_id = ? AND status = 'issued' ORDER BY id").all(note.id);
+    for (const credit of supplierCredits) supplierCreditService.voidSupplierCredit(db, credit.id, { remarks: why });
+
+    // The note's own entries: money held as refund payable, and the charges.
+    const entries = db.prepare(`
+      SELECT id FROM journal_entries
+      WHERE source_type IN ('cancellation_received', 'cancellation_charge') AND source_id = ?
+        AND id NOT IN (SELECT reversal_of_id FROM journal_entries WHERE reversal_of_id IS NOT NULL)
+      ORDER BY id
+    `).all(note.id);
+    for (const entry of entries) reverseEntry(db, entry.id, { memo: `Void ${note.number}`, source_type: 'void' });
+
+    // The original invoice, if this note voided it.
+    let restored = null;
+    const invoice = note.invoice_id ? db.prepare('SELECT * FROM invoices WHERE id = ?').get(note.invoice_id) : null;
+    if (invoice && invoice.status === 'void' && invoice.journal_entry_id) {
+      const reversal = db.prepare(`
+        SELECT id FROM journal_entries WHERE reversal_of_id = ? AND memo LIKE ? ORDER BY id DESC LIMIT 1
+      `).get(invoice.journal_entry_id, `Cancellation ${note.number}%`);
+      if (reversal) {
+        reverseEntry(db, reversal.id, { memo: `Restore invoice ${invoice.number} · void ${note.number}`, source_type: 'void' });
+        db.prepare(`UPDATE invoices SET status = 'sent', updated_at = datetime('now') WHERE id = ?`).run(invoice.id);
+        restored = invoice.number;
+      }
+    }
+
+    // Back to the status the job had before it was cancelled.
+    const before = db.prepare(`
+      SELECT from_status FROM job_status_history
+      WHERE source_type = ? AND source_id = ? AND to_status = ? ORDER BY id DESC LIMIT 1
+    `).get(note.source_type, job.id, job.status);
+    const previous = before?.from_status && before.from_status !== 'draft'
+      ? before.from_status
+      : (note.source_type === 'booking' ? 'confirmed' : 'submitted');
+    db.prepare(`UPDATE ${SOURCE_TABLES[note.source_type].table} SET status = ?, updated_at = datetime('now') WHERE id = ?`)
+      .run(previous, job.id);
+    jobs.recordStatus(db, note.source_type, job.id, { from: job.status, to: previous, eventDate: todayISO(), remarks: `Void ${note.number} · ${remarks}` });
+
+    db.prepare(`
+      UPDATE cancellations SET voided_at = datetime('now'), void_remarks = ?, customer_charges_cents = 0,
+        received_cents = 0, refund_due_cents = 0, supplier_credit_total_cents = 0
+      WHERE id = ?
+    `).run(remarks, note.id);
+    audit.record(db, {
+      entity_type: 'cancellation',
+      entity_id: note.id,
+      entity_number: note.number,
+      action: 'void',
+      remarks,
+      amount_cents: note.customer_charges_cents,
+      metadata: {
+        source_type: note.source_type,
+        source_id: job.id,
+        status_restored: previous,
+        invoice_restored: restored,
+        customer_charges_cents: note.customer_charges_cents,
+        received_cents: note.received_cents,
+        refund_due_cents: note.refund_due_cents,
+        refunds_voided: refunds.length,
+        credit_notes_voided: credits.length,
+        supplier_credits_voided: supplierCredits.length,
+        charges_invoice_voided: Boolean(charges && charges.status === 'sent'),
+      },
+    });
+    return getCancellation(db, note.id);
+  })();
+}
+
 module.exports = {
+  voidCancellation,
   cancelSource,
   getCancellation,
   getCancellationForSource,

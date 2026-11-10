@@ -467,6 +467,13 @@ db.prepare("UPDATE accounts SET name = 'Tour & Package Sales' WHERE code = '4100
 db.prepare("UPDATE accounts SET name = 'Cost of Sales – Air Tickets' WHERE code = '5000' AND name IN ('Cost of Goods Sold', 'Air Ticket Cost')").run();
 db.prepare("UPDATE accounts SET is_system = 1 WHERE code = '1400' AND is_system = 0").run();
 
+// A booking, visa or cancellation note voided by the admin (job-void.js,
+// cancellations.voidCancellation): when, and why. The record stays.
+for (const table of ['bookings', 'visa_applications', 'cancellations']) {
+  ensureColumn(table, 'voided_at', 'TEXT');
+  ensureColumn(table, 'void_remarks', "TEXT NOT NULL DEFAULT ''");
+}
+
 // Customer and supplier numbers (CUS-0001, SUP-0001): see party-numbers.js.
 for (const table of ['customers', 'vendors']) {
   ensureColumn(table, 'number', "TEXT NOT NULL DEFAULT ''");

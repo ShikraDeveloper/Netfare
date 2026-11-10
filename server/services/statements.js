@@ -13,7 +13,7 @@ function normalizeRange({ from, to } = {}) {
 // the customer (the cancellation appears as its own line). Invoices voided as
 // mistakes are left out.
 const ON_STATEMENT = `(i.status = 'sent'
-  OR (i.status = 'void' AND EXISTS (SELECT 1 FROM cancellations x WHERE x.invoice_id = i.id)))`;
+  OR (i.status = 'void' AND EXISTS (SELECT 1 FROM cancellations x WHERE x.invoice_id = i.id AND x.voided_at IS NULL)))`;
 
 // Same-day order: the sale, then money in, then the cancellation and its follow-ups.
 const KIND_ORDER = {
@@ -27,7 +27,7 @@ function customerTransactions(db, customerId) {
   const rows = db.prepare(`
     SELECT 'invoice' AS kind, i.id, i.number AS reference, i.issue_date AS date,
            i.due_date, i.total_cents AS amount_cents, i.status,
-           '' AS method, COALESCE((SELECT x.number FROM cancellations x WHERE x.invoice_id = i.id), '') AS related,
+           '' AS method, COALESCE((SELECT x.number FROM cancellations x WHERE x.invoice_id = i.id AND x.voided_at IS NULL), '') AS related,
            i.cancellation_id AS charge_of, i.created_at AS created_at
     FROM invoices i
     WHERE i.customer_id = ? AND ${ON_STATEMENT}
@@ -40,13 +40,13 @@ function customerTransactions(db, customerId) {
     SELECT 'cancellation', x.id, x.number, x.cancellation_date, NULL, i.total_cents, 'cancelled', '', i.number, NULL, x.created_at AS created_at
     FROM cancellations x
     JOIN invoices i ON i.id = x.invoice_id
-    WHERE x.customer_id = ? AND i.status = 'void'
+    WHERE x.customer_id = ? AND i.status = 'void' AND x.voided_at IS NULL
     UNION ALL
     SELECT 'cancellation_charge', x.id, x.number, x.cancellation_date, NULL,
            MIN(x.received_cents, x.customer_charges_cents), 'charged', '', COALESCE(i.number, ''), NULL, x.created_at AS created_at
     FROM cancellations x
     LEFT JOIN invoices i ON i.id = x.invoice_id
-    WHERE x.customer_id = ? AND MIN(x.received_cents, x.customer_charges_cents) > 0
+    WHERE x.customer_id = ? AND MIN(x.received_cents, x.customer_charges_cents) > 0 AND x.voided_at IS NULL
     UNION ALL
     SELECT 'cancellation_credit', cn.id, cn.number, cn.credit_date, NULL, cn.amount_cents, 'issued', '', x.number, NULL, cn.created_at AS created_at
     FROM credit_notes cn

@@ -20,4 +20,9 @@ router.post('/:id/convert-to-credit', (req, res) => {
   res.status(201).json(service.convertCancellationToCredit(db, Number(req.params.id), req.body || {}));
 });
 
+// Admin only (permissions.js): undo a cancellation entered by mistake.
+router.post('/:id/void', (req, res) => {
+  res.json(service.voidCancellation(db, Number(req.params.id), req.body || {}));
+});
+
 module.exports = router;

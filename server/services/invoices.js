@@ -140,7 +140,7 @@ function getInvoice(db, id) {
   attachVisaDetails(db, invoice);
   attachBookingDetails(db, invoice);
   const sourceCancellation = db.prepare(
-    'SELECT id, number FROM cancellations WHERE invoice_id = ?',
+    'SELECT id, number FROM cancellations WHERE invoice_id = ? AND voided_at IS NULL',
   ).get(id);
   invoice.source_cancellation_id = sourceCancellation?.id || null;
   invoice.source_cancellation_number = sourceCancellation?.number || null;
@@ -432,7 +432,9 @@ function finalizeInvoice(db, id) {
   })();
 }
 
-function voidInvoice(db, id, payload = {}) {
+// fromWorkflow: the booking, visa or cancellation that owns the invoice is
+// itself being voided (job-void.js), so the owner checks below do not apply.
+function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!invoice) throw notFound('Invoice not found');
@@ -441,10 +443,10 @@ function voidInvoice(db, id, payload = {}) {
     // would reverse receipts without a refund and leave the job and its
     // supplier bills untouched.
     // Cancellation-charges invoices also carry the job id, so check them first.
-    if (invoice.cancellation_id) {
+    if (invoice.cancellation_id && !fromWorkflow) {
       throw bad('This invoice holds cancellation charges. Issue a customer credit note to waive the charges instead of voiding it.');
     }
-    if (invoice.booking_id || invoice.visa_id) {
+    if ((invoice.booking_id || invoice.visa_id) && !fromWorkflow) {
       throw bad(`This invoice belongs to a ${invoice.booking_id ? 'booking' : 'visa application'}. Cancel the ${invoice.booking_id ? 'booking' : 'visa application'} instead so charges, refunds and supplier credits are handled.`);
     }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);

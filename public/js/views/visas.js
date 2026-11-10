@@ -91,7 +91,7 @@ function visaRow(visa) {
         </div>
       </td>
       <td class="nowrap">${visa.travel_date ? esc(fmtDate(visa.travel_date)) : '—'}</td>
-      <td>${statusBadge(visa.status)}</td>
+      <td>${statusBadge(visa.status_display || visa.status)}</td>
       <td data-payment-status>${paymentBadge(visa)}</td>
       <td class="num">${fmtMoney(visa.result ? visa.result.sale_cents : visa.sale_total_cents)}</td>
       <td class="num">${fmtMoney(visa.result ? visa.result.cost_cents : visa.cost_total_cents)}</td>

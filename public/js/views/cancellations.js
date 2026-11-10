@@ -14,6 +14,7 @@ import {
 } from '../ui.js';
 
 function settlementBadge(cancellation) {
+  if (cancellation.voided_at) return '<span class="badge badge-void">Void</span>';
   if (Number(cancellation.refund_remaining_cents) > 0) {
     return '<span class="badge badge-partial">Refund due</span>';
   }

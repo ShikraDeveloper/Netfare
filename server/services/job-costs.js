@@ -67,7 +67,7 @@ function jobCostCents(db, sourceType, jobId) {
 function cancellationMap(db, sourceType) {
   const map = new Map();
   for (const row of db.prepare(`
-    SELECT * FROM cancellations WHERE source_type = ? ORDER BY id
+    SELECT * FROM cancellations WHERE source_type = ? AND voided_at IS NULL ORDER BY id
   `).all(sourceType)) {
     map.set(row.source_id, row);
   }

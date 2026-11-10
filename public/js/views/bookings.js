@@ -60,7 +60,7 @@ function bookingRow(booking) {
         </div>
       </td>
       <td class="nowrap">${booking.travel_date ? esc(fmtDate(booking.travel_date)) : '—'}</td>
-      <td>${statusBadge(booking.status)}</td>
+      <td>${statusBadge(booking.status_display || booking.status)}</td>
       <td data-payment-status>${paymentBadge(booking)}</td>
       <td class="num">${fmtMoney(booking.result ? booking.result.sale_cents : booking.sale_total_cents)}</td>
       <td class="num">${fmtMoney(booking.result ? booking.result.cost_cents : booking.cost_total_cents)}</td>

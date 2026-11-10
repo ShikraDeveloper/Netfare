@@ -34,7 +34,7 @@ function serializeBooking(row) {
   return {
     ...booking,
     margin_cents: booking.sale_total_cents - booking.cost_total_cents,
-    status_display: booking.status,
+    status_display: booking.voided_at ? 'void' : booking.status,
   };
 }
 

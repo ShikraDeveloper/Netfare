@@ -4,6 +4,7 @@ const router = require('express').Router();
 const db = require('../db');
 const service = require('../services/visas');
 const jobRefunds = require('../services/job-refunds');
+const { voidJob } = require('../services/job-void');
 
 router.get('/', (req, res) => {
   res.json(service.listVisas(db, req.query));
@@ -47,6 +48,12 @@ router.post('/:id/issue', (req, res) => {
 
 router.post('/:id/reject', (req, res) => {
   res.json(service.rejectVisa(db, Number(req.params.id), req.body || {}));
+});
+
+// Admin only (permissions.js): undo a visa application entered by mistake.
+router.post('/:id/void', (req, res) => {
+  voidJob(db, 'visa', Number(req.params.id), req.body || {});
+  res.json(service.getVisa(db, Number(req.params.id)));
 });
 
 router.post('/:id/refund-customer', (req, res) => {

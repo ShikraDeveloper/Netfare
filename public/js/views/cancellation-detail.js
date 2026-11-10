@@ -16,7 +16,8 @@ import {
   toast,
   toCents,
   todayISO,
-  pageRecord
+  pageRecord,
+  voidDialog,
 } from '../ui.js';
 
 function sourceHref(cancellation) {
@@ -26,6 +27,7 @@ function sourceHref(cancellation) {
 }
 
 function statusLabel(cancellation) {
+  if (cancellation.voided_at) return statusBadge('void');
   const status = cancellation.source_type === 'visa'
     ? cancellation.visa_status
     : cancellation.booking_status;
@@ -45,17 +47,19 @@ export async function render(container, { params, query } = {}) {
   const sourceLabel = cancellation.source_type === 'booking' ? 'Booking' : 'Visa application';
   // A visa rejected by immigration uses the same note, worded as a rejection.
   const isRejected = cancellation.source_type === 'visa' && cancellation.visa_status === 'rejected';
+  const isVoid = Boolean(cancellation.voided_at);
 
   pageRecord(cancellation);
   setHeader({
     title: cancellation.number,
-    badge: statusBadge(isRejected ? 'rejected' : 'cancelled'),
+    badge: statusBadge(isVoid ? 'void' : isRejected ? 'rejected' : 'cancelled'),
     actions: `
       <a class="btn btn-ghost" href="#/audit-chain/cancellation/${id}">${icon('shield', 15)}<span>Audit chain</span></a>
       <a class="btn btn-ghost" href="${href}"><span>${sourceLabel}</span></a>
       <button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>
       ${canSettle ? `<button class="btn btn-primary" data-action="refund">${icon('arrowUp', 15)}<span>Pay refund</span></button>` : ''}
       ${canSettle ? `<button class="btn btn-secondary" data-action="convert">${icon('invoice', 15)}<span>Convert to credit</span></button>` : ''}
+      ${isVoid ? '' : `<button class="btn btn-danger-ghost" data-action="void-cancellation"><span>Void</span></button>`}
     `,
   });
 
@@ -369,6 +373,23 @@ export async function render(container, { params, query } = {}) {
       },
     });
   }
+
+  // Admin only: undo a cancellation entered by mistake.
+  document.querySelector('[data-action="void-cancellation"]')?.addEventListener('click', async () => {
+    const result = await voidDialog({
+      title: `Void ${cancellation.number}?`,
+      message: `For a cancellation entered by mistake. Refunds and credit notes made from it, its charges invoice and supplier credits are reversed; the original invoice comes back and the ${sourceLabel.toLowerCase()} returns to its status before the cancellation.`,
+      confirmLabel: 'Void cancellation',
+    });
+    if (!result.confirmed) return;
+    try {
+      await api.post(`/cancellations/${id}/void`, { remarks: result.remarks });
+      toast(`${cancellation.number} voided`);
+      location.hash = href;
+    } catch (error) {
+      toast(error.message, 'error');
+    }
+  });
 
   return () => {};
 }
