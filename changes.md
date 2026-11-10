@@ -2992,11 +2992,27 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Not covered yet (void and record again for now):** credit notes, refunds, supplier credits, journal entries, cheques, card settlements, petty cash counts and portal credits.
 - **Not pushed or released.**
 
+### Correct, part 3d — credit notes, supplier credits, refunds, journal entries — code commit `54b7158`
+
+- **`correctCredit` (`POST /credits/:id/correct`, `/supplier-credits/:id/correct`):**
+  - the old credit is reversed on its own date and voided;
+  - the new one is posted for the same customer or supplier, keeping its booking, visa and bill links (supplier credit lines are split from the bill again, or the single line is rescaled);
+  - its applications, refunds and portal-wallet credits move to the new one unchanged.
+- **Refused:** a new amount below what was already used, a date after the first use, a job refund above the invoice less other refunds, credits from a cancellation note, and opening balances.
+- **`refund` kind (`POST /refunds/:id/correct`):** voided and posted again from where it came (payment, cancellation note, credit note, advance or supplier credit). Visa deposit refunds stay on the deposit card.
+- **`journal` kind (`POST /journal-entries/:id/correct`):** manual entries only; lines not sent are kept. The create moved into `journalService.createManualEntry`.
+- **Cheques:** nothing new; they are already edited in place, and a cheque on a payment is corrected through the payment.
+- **App:** Correct (admin) on the credit note, supplier credit and refund pages, and on manual rows in the General journal (the entry form opens filled, with Why).
+- **Tests:** `test/credit-corrections.test.js` (4): credit note with its application and refund moved, supplier credit with its application moved, a credit-note refund moved to the bank, journal lines and memo with a document entry refused; all with ledger checks. `npm test` 312 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo (admin):** visa refund CR-2026-0001 → CR-2026-0002 (250, the 200 applied kept; 99,999 refused by the invoice limit); visa supplier refund SCN-2026-0003 → SCN-2026-0006 (220, the 200 in the wallet kept); REF-2026-0001 → REF-2026-0002; journal entry #94 corrected to 350 by #96 through the form. Ledger checks matched after each.
+- **Not covered (void and record again):** card settlements, petty cash counts and portal credits.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Not released yet: admin-only void/correct/delete (`c4a5732`) and Void for bookings, visas and cancellation notes (`be7d268`). Correct for payments, top-ups, advances, deposits (`814eb64`), invoices and bills (`3825e3e`), bookings and visas with Edit details (`bb0d8a8`). Still to add: Correct for credit notes, refunds, supplier credits, journal, cheques. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
+3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Not released yet: admin-only void/correct/delete (`c4a5732`) and Void for bookings, visas and cancellation notes (`be7d268`). Correct for payments, top-ups, advances, deposits (`814eb64`), invoices and bills (`3825e3e`), bookings and visas with Edit details (`bb0d8a8`), credit notes, supplier credits, refunds and journal entries (`54b7158`). Next: release 1.0.16 when the user agrees. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
