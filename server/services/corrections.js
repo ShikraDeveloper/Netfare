@@ -212,7 +212,10 @@ const DOCUMENTS = {
     date: 'issue_date',
     fields: ['customer_id', 'issue_date', 'due_date', 'notes', 'terms', 'beneficiary_is_customer', 'beneficiary_name', 'beneficiary_nationality', 'beneficiary_passport'],
     items: 'invoice_items',
-    moves: [['payments', 'invoice_id', "status = 'posted'"], ['credit_applications', 'invoice_id', '1 = 1'], ['refunds', 'invoice_id', '1 = 1']],
+    moves: [
+      ['payments', 'invoice_id', "status = 'posted'"], ['credit_applications', 'invoice_id', '1 = 1'],
+      ['refunds', 'invoice_id', '1 = 1'], ['visa_deposit_events', 'invoice_id', '1 = 1'],
+    ],
     post: (db, values) => require('./invoices').createInvoice(db, { ...values, status: 'sent' }),
     get: (db, id) => require('./invoices').getInvoice(db, id),
   },

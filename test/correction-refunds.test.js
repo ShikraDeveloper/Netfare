@@ -56,6 +56,18 @@ function correctLatest(direction, bankBefore, amount, extra = {}) {
   return fresh;
 }
 
+test('correcting a service invoice moves the visa deposit link to the new invoice', () => {
+  const customerId = customer();
+  const inv = serviceInvoice(customerId, 5_000);
+  const visaId = Number(db.prepare("INSERT INTO visa_applications (number, customer_id, application_date, status) VALUES ('VCR-1', ?, '2026-10-01', 'submitted')")
+    .run(customerId).lastInsertRowid);
+  const deposit = deposits.collectDeposit(db, { visa_id: visaId, amount_cents: 2_000, deposit_date: '2026-10-01', account_id: account('1010').id });
+  deposits.applyToInvoice(db, deposit.id, { invoice_id: inv.id, amount_cents: 2_000, event_date: '2026-10-02' });
+  const fixed = correctDocument(db, 'invoice', inv.id, { remarks: 'Typo', values: { notes: 'Fixed' } });
+  const event = db.prepare("SELECT invoice_id FROM visa_deposit_events WHERE deposit_id = ? AND event_type = 'apply'").get(deposit.id);
+  assert.equal(event.invoice_id, fixed.id);
+});
+
 test('a refund of a customer payment', () => {
   const inv = serviceInvoice(customer(), 5_000);
   invoices.recordInvoicePayment(db, inv.id, { amount_cents: 5_000, payment_date: '2026-10-01', deposit_account_id: account('1010').id });
