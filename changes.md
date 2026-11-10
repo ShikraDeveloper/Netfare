@@ -2941,11 +2941,62 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Not done yet (part 3):** Correct (void and re-post in one step) on every transaction, and Edit details on posted bookings and visas.
 - **Not pushed or released.**
 
+### Correct, part 3a — payments, top-ups, advances, cash deposits — code commit `814eb64`
+
+- **Why:** Part 3 of the admin plan: correct any posted transaction in one step.
+- **`corrections.js` `correct(db, kind, id, payload)`:** voids the original (reason "Corrected · …") and posts the corrected one in one database transaction. If the new one cannot post, nothing changes.
+  - Values not sent keep the original's.
+  - The audit action is `correct`, with both numbers, the reason and the values before and after.
+- **Kinds and routes:**
+  - `payment` (`POST /invoices/payments/:id/correct`) and `bill_payment` (`/bills/payments/:id/correct`);
+  - `topup` and `portal_refund` (`/portals/topups/:id/correct`, `/portals/refunds/:id/correct`);
+  - `advance` (`/advances/:id/correct`) and `cash_deposit` (`/cash/deposits/:id/correct`).
+- **Refused (void and record again instead):** a payment made from an advance or a visa deposit, a bill paid from a portal wallet, an advance already used or refunded, and a customer receipt.
+- **App:** `public/js/corrections.js` adds a Correct form (amount, date, method, account, reference, bank charges, cheque, notes, Why) next to Void on invoice and bill payments, portal top-ups and withdrawals, booking and visa advances, and Banking deposits.
+
+### Correct, part 3b — invoices and bills — code commit `3825e3e`
+
+- **`correctDocument` (`POST /invoices/:id/correct`, `/bills/:id/correct`):**
+  - the old document is reversed on its own date and voided;
+  - the corrected one is posted (same date unless changed);
+  - payments, credit applications, supplier credits and refunds move across unchanged, so receipt and payment numbers stay the same.
+- **Refused:** a new total below what was paid or credited; a customer or supplier change while money sits on it; job, cancellation-charges and opening documents.
+- **All corrections now reverse the original on its own date** (`reverseOnOriginalDate`), so that day and month show only the corrected amount. The test checks cash and bank as of the payment date.
+- **App:** the invoice and bill forms have a Correct mode (title "Correct …", Why, Save correction), opened from More → Correct (`data-action="correct-document"`, admin-only).
+
+### Correct and Edit details for bookings and visas — code commit `bb0d8a8`
+
+- **`job-correct.js` `correctJob` (`POST /bookings/:id/correct`, `/visas/:id/correct`):**
+  - the job keeps its number and status;
+  - its invoice and bills are reversed on their own dates and voided;
+  - the corrected lines are written and new documents posted on the job's date;
+  - payments, credit applications, refunds and deposit steps move to the new invoice, and each bill's payments, applications, supplier credits and refunds move to the new bill of the same supplier;
+  - a prepaid portal then settles only what is still due (`postJobDocuments` has a new `autoSettle` option).
+- **Refused with nothing changed:** a total or supplier cost below what was paid, a paid supplier dropped, or a customer change while money sits on the invoice.
+- **Refactor:** `writeBooking` and `postBookingDocuments`, and `writeVisa` and `postVisaDocuments`, are shared by the draft edit, confirm or submit, and the correction.
+- **`job-details.js` (`POST /bookings/:id/details`, `/visas/:id/details`, Edit rights, not admin-only):**
+  - covers travel and return dates, destination, PNR, reference, notes, passenger names, supplier references and passport details;
+  - nothing is posted, and the audit log keeps each change before and after;
+  - an invoice already printed keeps its text.
+- **App:** booking and visa pages have More → Edit details, and Correct (admin), which opens the full form with Why.
+- **Tests:**
+  - `test/corrections.test.js` (6): payment amount and account with as-of dates, all or nothing, bill payment, top-up, withdrawal, advance and cash deposit, invoice and bill;
+  - `test/job-correct.test.js` (4): booking fare and cost with payment numbers kept and the DSR on its day; refusals with nothing changed; a visa on a prepaid wallet charging only the extra; edit details.
+
+  `npm test` 308 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo (admin):**
+  - PMT-2026-0011 corrected to 400 by PMT-2026-0020;
+  - service invoice INV-2026-0015 corrected to 250 by INV-2026-0016, with its payment PMT-2026-0021 kept;
+  - BK-2026-0002's service charge corrected 250 → 300: invoice INV-2026-0017, three bills re-posted with their payments (the wallet was not charged again), ledger checks matched;
+  - Edit details changed the PNR without a new invoice.
+- **Not covered yet (void and record again for now):** credit notes, refunds, supplier credits, journal entries, cheques, card settlements, petty cash counts and portal credits.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Not released yet: admin-only void/correct/delete (`c4a5732`) and Void for bookings, visas and cancellation notes (`be7d268`). Next: part 3, Correct on every transaction. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
+3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Not released yet: admin-only void/correct/delete (`c4a5732`) and Void for bookings, visas and cancellation notes (`be7d268`). Correct for payments, top-ups, advances, deposits (`814eb64`), invoices and bills (`3825e3e`), bookings and visas with Edit details (`bb0d8a8`). Still to add: Correct for credit notes, refunds, supplier credits, journal, cheques. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
