@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { centsToInput, currencySymbol, esc, fmtMoney, openModal, optionsHtml, todayISO, toast, toCents } from '../ui.js';
+import { centsToInput, currencySymbol, esc, fmtDate, fmtMoney, openModal, optionsHtml, todayISO, toast, toCents, voidDialog } from '../ui.js';
 import { depositAccounts } from './job-modals.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
@@ -194,4 +194,31 @@ export function openReceivePayment(customer, invoices, onDone) {
       onDone(receipt);
     },
   });
+}
+
+// Void (admin only): reverses the advance and everything it paid for.
+export async function voidAdvance(advance, onDone) {
+  const result = await voidDialog({
+    title: `Void ${advance.number}?`,
+    message: 'The advance will be reversed. Any refunds or invoice applications funded by this advance will also be reversed.',
+    warning: 'This cannot be undone. The advance stays in history as void and the reversal is written to the audit log.',
+    preview: {
+      heading: 'Void preview',
+      items: [
+        { label: `Advance ${advance.number}`, value: fmtMoney(advance.amount_cents), note: `${fmtDate(advance.advance_date)} · ${advance.method || 'Advance'}` },
+        { label: 'Applied to invoices', value: fmtMoney(advance.applied_cents), note: 'Invoice applications will be reversed' },
+        { label: 'Refunded to customer', value: fmtMoney(advance.refunded_cents), note: 'Advance refunds will be reversed' },
+      ],
+      note: 'The advance stays in history as void and the reversal is written to the audit log.',
+    },
+    confirmLabel: 'Void advance',
+  });
+  if (!result.confirmed) return;
+  try {
+    await api.post(`/advances/${advance.id}/void`, { remarks: result.remarks });
+    toast('Advance voided with a reversing entry');
+    onDone();
+  } catch (error) {
+    toast(error.message, 'error');
+  }
 }

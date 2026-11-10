@@ -1,3 +1,4 @@
+import { voidAdvance } from './customer-advance-modals.js';
 import { api } from '../api.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { store } from '../store.js';
@@ -598,43 +599,9 @@ export async function render(container, { params } = {}) {
   });
 
   document.querySelectorAll('[data-void-advance]').forEach((button) => {
-    button.addEventListener('click', async () => {
+    button.addEventListener('click', () => {
       const advance = booking.advances.find((item) => item.id === Number(button.dataset.voidAdvance));
-      const result = await voidDialog({
-        title: `Void ${advance ? advance.number : 'this advance'}?`,
-        message: 'The advance will be reversed. Any refunds or invoice applications funded by this advance will also be reversed.',
-        warning: 'This cannot be undone. The advance stays in history as void and the reversal is written to the audit log.',
-        preview: advance ? {
-          heading: 'Void preview',
-          items: [
-            {
-              label: `Advance ${advance.number}`,
-              value: fmtMoney(advance.amount_cents),
-              note: `${fmtDate(advance.advance_date)} · ${advance.method || 'Advance'}`,
-            },
-            {
-              label: 'Applied to invoices',
-              value: fmtMoney(advance.applied_cents),
-              note: 'Invoice applications will be reversed',
-            },
-            {
-              label: 'Refunded to customer',
-              value: fmtMoney(advance.refunded_cents),
-              note: 'Advance refunds will be reversed',
-            },
-          ],
-          note: 'The advance stays in history as void and the reversal is written to the audit log.',
-        } : null,
-        confirmLabel: 'Void advance',
-      });
-      if (!result.confirmed) return;
-      try {
-        await api.post(`/advances/${button.dataset.voidAdvance}/void`, { remarks: result.remarks });
-        toast('Advance voided with a reversing entry');
-        refresh();
-      } catch (error) {
-        toast(error.message, 'error');
-      }
+      if (advance) voidAdvance(advance, refresh);
     });
   });
 

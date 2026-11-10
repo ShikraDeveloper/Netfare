@@ -147,7 +147,8 @@ test('customer balances derive receivables, credits and advances from live docum
   assert.equal(balance.summary.net_balance_cents, 40_000, 'settlement does not change the net position');
   assert.equal(balance.open_invoices[0].balance_cents, 45_000);
   assert.equal(balance.credits[0].remaining_cents, 5_000);
-  assert.equal(balance.advances.length, 0);
+  // A used advance stays listed (so the admin can void it), with nothing left.
+  assert.deepEqual(balance.advances.map((advance) => advance.remaining_cents), [0]);
 
   const listed = customerBalances.listCustomerBalances(db);
   const listedRow = listed.find((row) => row.id === customerId);

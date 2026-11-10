@@ -1,7 +1,8 @@
 import { api } from '../api.js';
 import { can } from '../store.js';
 import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
-import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance } from './customer-advance-modals.js';
+import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance, voidAdvance } from './customer-advance-modals.js';
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import {
   emptyState,
   esc,
@@ -72,7 +73,7 @@ function advanceRows(advances) {
         : '<span class="muted">Unallocated</span>';
     return `
       <tr>
-        <td><div class="cell-main">${advance.is_receipt ? `<a href="#/customer-receipts/${advance.id}">${esc(advance.number)}</a>` : esc(advance.number)}</div><div class="cell-sub">${advance.is_receipt ? 'Left from a receipt · ' : ''}${esc(fmtDate(advance.advance_date))}</div></td>
+        <td><div class="cell-main">${advance.is_receipt ? `<a href="#/customer-receipts/${advance.id}">${esc(advance.number)}</a>` : esc(advance.number)}</div><div class="cell-sub">${advance.is_receipt ? (advance.remaining_cents > 0 ? 'Left from a receipt · ' : 'Receipt · ') : ''}${esc(fmtDate(advance.advance_date))}</div></td>
         <td>${source}</td>
         <td class="num">${fmtMoney(advance.amount_cents)}</td>
         <td class="num">${fmtMoney(advance.applied_cents)}</td>
@@ -80,7 +81,9 @@ function advanceRows(advances) {
         <td class="num amount-ok">${fmtMoney(advance.remaining_cents)}</td>
         <td class="nowrap">${advance.remaining_cents > 0 ? `
           <button class="btn btn-ghost btn-sm" data-advance-apply="${advance.id}">Use for invoice</button>
-          <button class="btn btn-ghost btn-sm" data-advance-refund="${advance.id}">Refund</button>` : ''}</td>
+          <button class="btn btn-ghost btn-sm" data-advance-refund="${advance.id}">Refund</button>` : ''}
+          ${!advance.applied_cents && !advance.refunded_cents && !advance.is_receipt ? correctButtonHtml('advance', advance) : ''}
+          <button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance" aria-label="Void ${esc(advance.number)}">${icon('trash', 16)}</button></td>
       </tr>
     `;
   }).join('');
@@ -205,11 +208,14 @@ export async function render(container, { params } = {}) {
     (receipt) => { location.hash = `#/customer-receipts/${receipt.id}`; },
   ));
   const advanceById = new Map(data.advances.map((advance) => [String(advance.id), advance]));
+  bindCorrections(container, refresh);
   container.onclick = (event) => {
     const apply = event.target.closest('[data-advance-apply]');
     if (apply) return openApplyAdvance(advanceById.get(apply.dataset.advanceApply), customer.id, refresh);
     const refund = event.target.closest('[data-advance-refund]');
     if (refund) return openRefundAdvance(advanceById.get(refund.dataset.advanceRefund), refresh);
+    const voidButton = event.target.closest('[data-void-advance]');
+    if (voidButton) return voidAdvance(advanceById.get(voidButton.dataset.voidAdvance), refresh);
     if (event.target.closest('a, button')) return;
     const row = event.target.closest('tr[data-href]');
     if (row) location.hash = row.dataset.href;

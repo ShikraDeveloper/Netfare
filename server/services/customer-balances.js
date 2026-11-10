@@ -121,15 +121,14 @@ function customerCredits(db, customerId) {
 
 function customerAdvances(db, customerId) {
   return db.prepare(`
-    SELECT a.id, a.number, a.advance_date, a.amount_cents, a.applied_cents, a.refunded_cents, a.is_receipt,
-           a.booking_id, a.visa_id, b.number AS booking_number, v.number AS visa_number,
+    SELECT a.*, b.number AS booking_number, v.number AS visa_number,
            (a.amount_cents - a.applied_cents - a.refunded_cents) AS remaining_cents
     FROM customer_advances a
     LEFT JOIN bookings b ON b.id = a.booking_id
     LEFT JOIN visa_applications v ON v.id = a.visa_id
     WHERE a.customer_id = ? AND a.voided_at IS NULL
-      AND a.amount_cents > a.applied_cents + a.refunded_cents
-    ORDER BY a.advance_date, a.id
+    -- Used ones too, so the admin can still void or check them here.
+    ORDER BY (a.amount_cents > a.applied_cents + a.refunded_cents) DESC, a.advance_date, a.id
   `).all(customerId);
 }
 
