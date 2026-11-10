@@ -3019,10 +3019,9 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Pushed:** `main` and `v1.0.16` on the first try.
 - **Release run** 42799783634 succeeded.
 - **Assets:**
-  - latest.json, 0 MB;
   - Netfare-mac-arm64.dmg, 135 MB;
   - Netfare-mac-x64.dmg, 141 MB;
-  - Netfare-windows-x64.exe, 124 MB
+  - Netfare-windows-x64.exe, 124 MB;
   - latest.json (version 1.0.16, dated 2026-11-10, four notes).
 - **`releases/latest`** points at v1.0.16.
 
