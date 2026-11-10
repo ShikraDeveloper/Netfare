@@ -14,6 +14,7 @@ import {
   voidDialog,
   entryTimeHtml,
 } from '../ui.js';
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openCashDepositModal } from './cash-deposit.js';
 
 function rowHtml(deposit) {
@@ -39,6 +40,7 @@ function rowHtml(deposit) {
       </td>
       <td>
         <div class="row-actions">
+          ${deposit.status === 'posted' ? correctButtonHtml('cash_deposit', deposit) : ''}
           ${deposit.status === 'posted' ? `<button class="icon-btn danger" data-void="${deposit.id}" title="Void deposit">${icon('x', 15)}</button>` : ''}
         </div>
       </td>
@@ -166,6 +168,7 @@ export async function render(container, { query } = {}) {
       return;
     }
     body.innerHTML = filtered.map(rowHtml).join('');
+    bindCorrections(body, () => render(container, { query }));
   }
 
   searchInput.addEventListener('input', applyFilters);

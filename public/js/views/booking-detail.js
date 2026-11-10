@@ -21,6 +21,7 @@ import {
   voidDialog,
   pageRecord
 } from '../ui.js';
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openBookingModal } from './bookings.js';
 import { openCancellationModal } from './cancellation-modal.js';
 import { attachmentSection, bindAttachmentSection, loadAttachments } from '../attachments.js';
@@ -142,6 +143,7 @@ export async function render(container, { params } = {}) {
       <div class="payment-amount">${fmtMoney(advance.remaining_cents)} <small class="muted">left</small></div>
       <div style="display:flex;gap:4px">
         ${advance.remaining_cents > 0 ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
+        ${!advance.voided && !advance.applied_cents && !advance.refunded_cents && !advance.is_receipt ? correctButtonHtml('advance', advance) : ''}
         ${!advance.voided ? `<button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance">${icon('trash', 16)}</button>` : ''}
       </div>
     </div>
@@ -360,6 +362,7 @@ export async function render(container, { params } = {}) {
   `;
 
   bindAttachmentSection(container, { entityType: 'booking', entityId: id });
+  bindCorrections(container, () => render(container, { params: [String(id)] }));
   bindRefunds(container, booking, 'booking', () => render(container, { params: [String(id)] }));
   document.querySelector('[data-action="add-reminder"]')?.addEventListener('click', () => openReminderForm({
     link: { type: 'booking', id: booking.id, label: [booking.number, booking.customer_name].filter(Boolean).join(' · ') },

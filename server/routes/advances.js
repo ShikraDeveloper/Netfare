@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const db = require('../db');
+const corrections = require('../services/corrections');
 const service = require('../services/advances');
 
 router.get('/', (req, res) => {
@@ -31,6 +32,11 @@ router.post('/:id/apply', (req, res) => {
 
 router.post('/:id/refund', (req, res) => {
   res.json(service.refundAdvance(db, Number(req.params.id), req.body || {}));
+});
+
+// Admin only (permissions.js): void and re-post with corrected values.
+router.post('/:id/correct', (req, res) => {
+  res.json(corrections.correct(db, 'advance', Number(req.params.id), req.body || {}));
 });
 
 router.post('/:id/void', (req, res) => {

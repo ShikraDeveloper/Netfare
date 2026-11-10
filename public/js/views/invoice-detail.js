@@ -25,6 +25,7 @@ import {
   voidDialog,
   pageRecord
 } from '../ui.js';
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { amountInWords } from '../amount-words.js';
 import { invoiceMessage, mailtoUrl, whatsappNumber, whatsappUrl } from '../share-links.js';
 import { openInvoiceModal } from './invoices.js';
@@ -374,6 +375,7 @@ export async function render(container, { params } = {}) {
           </div>
           <a class="icon-btn" href="#/receipts/${payment.id}" data-receipt-link title="Print receipt ${esc(payment.number)}" aria-label="Print receipt ${esc(payment.number)}">${icon('print', 16)}</a>
           ${refundable > 0 && invoice.status === 'sent' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Refund payment">${icon('arrowUp', 16)}</button>` : ''}
+          ${refunded > 0 || invoice.status !== 'sent' || payment.deposit_id || payment.advance_id || payment.status === 'void' ? '' : correctButtonHtml('payment', payment)}
           ${refunded > 0 || invoice.status !== 'sent' || payment.deposit_id ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;
@@ -515,6 +517,7 @@ export async function render(container, { params } = {}) {
   `;
 
   bindAttachmentSection(container, { entityType: 'invoice', entityId: id });
+  bindCorrections(container, () => render(container, { params: [String(id)] }));
 
   function refresh() {
     return render(container, { params: [String(id)] });

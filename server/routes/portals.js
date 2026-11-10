@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const db = require('../db');
+const corrections = require('../services/corrections');
 const service = require('../services/portals');
 const reconcile = require('../services/reconcile');
 const partyOpening = require('../services/party-opening');
@@ -26,6 +27,16 @@ router.post('/', (req, res) => {
 // Settle an existing bill using a portal balance.
 router.post('/settle-bill', (req, res) => {
   res.json(service.settleBillFromPortal(db, req.body || {}));
+});
+
+// Admin only (permissions.js): void and re-post with corrected values.
+router.post('/topups/:id/correct', (req, res) => {
+  res.json(corrections.correct(db, 'topup', Number(req.params.id), req.body || {}));
+});
+
+// Admin only (permissions.js): void and re-post with corrected values.
+router.post('/refunds/:id/correct', (req, res) => {
+  res.json(corrections.correct(db, 'portal_refund', Number(req.params.id), req.body || {}));
 });
 
 router.post('/topups/:id/void', (req, res) => {

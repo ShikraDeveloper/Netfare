@@ -16,6 +16,7 @@ import {
   numberCardHtml,
   entryTimeHtml,
 } from '../ui.js';
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
 
@@ -111,6 +112,7 @@ export async function render(container, { params, query } = {}) {
       source: 'portal_topup',
       voidKind: 'topup',
       voidId: topup.id,
+      correct: ['topup', topup],
     })),
     ...portal.credits.map((credit) => ({
       date: credit.credit_date,
@@ -140,6 +142,7 @@ export async function render(container, { params, query } = {}) {
       source: 'portal_refund',
       voidKind: 'refund',
       voidId: refund.id,
+      correct: ['portal_refund', refund],
     })),
     ...portal.settlements.map((settlement) => ({
       date: settlement.payment_date,
@@ -243,6 +246,7 @@ export async function render(container, { params, query } = {}) {
           <span>${esc(fmtDate(row.date))} · ${esc(row.detail)}</span>
         </div>
         <div class="payment-amount ${row.inCents ? 'margin-positive' : ''}">${row.inCents ? `+${fmtMoney(row.inCents)}` : `−${fmtMoney(row.outCents)}`}</div>
+        ${row.correct ? correctButtonHtml(...row.correct) : ''}
         ${row.voidKind ? `<button class="icon-btn danger" data-void-portal="${row.voidId}" data-void-kind="${row.voidKind}" title="Void ${row.voidKind === 'topup' ? 'top-up' : row.voidKind}">${icon('trash', 16)}</button>` : ''}
       </div>
     `).join('');
@@ -529,6 +533,7 @@ export async function render(container, { params, query } = {}) {
   function refresh() {
     return render(container, { params: [String(id)], query });
   }
+  bindCorrections(container, refresh);
 
   // After a movement, keep the chosen statement period but widen it when the
   // new movement falls outside, so the user can see what they just recorded.

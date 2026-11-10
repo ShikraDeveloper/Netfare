@@ -24,6 +24,7 @@ import {
   voidDialog,
   pageRecord
 } from '../ui.js';
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openBillModal } from './bills.js';
 import { openRefundModal } from './refund-modal.js';
 import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
@@ -187,6 +188,7 @@ export async function render(container, { params } = {}) {
             ${refunded > 0 ? `<div class="cell-sub">net ${fmtMoney(payment.amount_cents - refunded)}</div>` : ''}
           </div>
           ${refundable > 0 && bill.status === 'received' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Record supplier refund">${icon('arrowUp', 16)}</button>` : ''}
+          ${refunded > 0 || bill.status !== 'received' || payment.portal_id || payment.status === 'void' ? '' : correctButtonHtml('bill_payment', payment)}
           ${refunded > 0 || bill.status !== 'received' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;
@@ -326,6 +328,7 @@ export async function render(container, { params } = {}) {
   `;
 
   bindAttachmentSection(container, { entityType: 'bill', entityId: id });
+  bindCorrections(container, () => render(container, { params: [String(id)] }));
 
   function refresh() {
     return render(container, { params: [String(id)] });
