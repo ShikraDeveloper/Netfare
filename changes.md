@@ -3008,11 +3008,29 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Not covered (void and record again):** card settlements, petty cash counts and portal credits.
 - **Not pushed or released.**
 
+### Release 1.0.16 — `5f81c48`, tag `v1.0.16`
+
+- **Why:** The user said "Release 1.0.16".
+- **Version:** 1.0.16 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`. The commit is `5f81c48 Version 1.0.16`, with an annotated tag whose four lines are the notes:
+  - void, correct and delete for the admin only;
+  - void bookings, visas and cancellation notes;
+  - Correct on every posted transaction;
+  - Edit details on posted bookings and visas.
+- **Pushed:** `main` and `v1.0.16` on the first try.
+- **Release run** 42799783634 succeeded.
+- **Assets:**
+  - latest.json, 0 MB;
+  - Netfare-mac-arm64.dmg, 135 MB;
+  - Netfare-mac-x64.dmg, 141 MB;
+  - Netfare-windows-x64.exe, 124 MB
+  - latest.json (version 1.0.16, dated 2026-11-10, four notes).
+- **`releases/latest`** points at v1.0.16.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.15** is published (2026-11-09): customer and supplier numbers (CUS-, SUP-, lists by number), date-and-time order in statements, ledgers and the DSR, entry times on lists, and Customer balances by oldest debt. Before that, 1.0.14 brought Reminders and 1.0.13 the simple visa rejection and Refunds cards. Not released yet: admin-only void/correct/delete (`c4a5732`) and Void for bookings, visas and cancellation notes (`be7d268`). Correct for payments, top-ups, advances, deposits (`814eb64`), invoices and bills (`3825e3e`), bookings and visas with Edit details (`bb0d8a8`), credit notes, supplier credits, refunds and journal entries (`54b7158`). Next: release 1.0.16 when the user agrees. Ask the user to check reminders (sound, notification), refunds and the new numbers in the office.
+3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
