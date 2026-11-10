@@ -3082,11 +3082,26 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked in the demo (admin), on Corporate Travel Co's page:** ADV-2026-0003 (fully used on an invoice) voided with its application reversed; ADV-2026-0002 corrected 300 → 250 by ADV-2026-0004. Ledger checks matched.
 - **Not pushed or released.**
 
+### Opening balance editable after creation, locked by the closing date — code commit `7ad7e30`
+
+- **Why:** The user could not change a supplier's opening balance after creating the supplier. It could only be entered on the New form; Correct on the opening bill was hidden and its message pointed to the Opening balances page, which does not take customer or supplier accounts. The user chose the closing date as the lock.
+- **`party-opening.js`:** `openingStatus(db, kind, id)` (amount, side, date, document, paid or used, locked) and `setOpening(db, kind, id, {opening, remarks})` for customers and suppliers:
+  - add when there is none; change amount, date or side; or remove (empty amount);
+  - the old opening document is reversed on its own date and voided; payments, credit applications, supplier credits, refunds and portal credits on it move to the new one;
+  - refused: no reason, a new amount below what was paid or used, a side change or removal while something is paid or used, a date after the first payment or use;
+  - **lock:** `assertOpenDate` on the old and the new date, so an opening dated on or before **Books closed through** cannot be added, changed or removed.
+- **Routes:** `GET` and `POST /vendors/:id/opening`, `/customers/:id/opening` (POST admin only).
+- **App:** the Edit customer or supplier form (admin) shows the Opening balance section, filled in, with a warning and a Why field; when locked it shows 🔒 "Locked. The books are closed through …" and no fields. The Correct message on opening invoices and bills now points to the Edit form.
+- **Not covered:** portal opening balances (a portal top-up or a portal bill) are unchanged.
+- **Tests:** `test/party-opening-edit.test.js` (3): a supplier opening bill changed after a payment (payment moved, October shows only the new amount), refusals; a customer opening added, switched side, removed; the closing-date lock. `npm test` 335 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Checked in the demo (admin):** Opening Test Supplier 1,000 → 1,200 from the Edit form (BILL-2026-0015 → BILL-2026-0016; refused first without a reason); with Books closed through 31 Oct the form shows the lock and no fields. Ledger checks matched.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) `1dc3b46`, and Correct for card settlements, petty cash counts and portal credits (`6ca6d1c`), and Void/Correct for advances on the customer page (`025249c`). Ask the user to try Restore from backup once in the built app.
+3. **Release 1.0.16** is published (2026-11-10): void, correct and delete for the admin only; Void for bookings, visas and cancellation notes; Correct on every posted transaction (payments, top-ups, advances, deposits, invoices, bills, bookings, visas, credit notes, supplier credits, refunds, journal entries); Edit details on posted bookings and visas. Before that, 1.0.15 brought customer and supplier numbers and date-and-time order, 1.0.14 Reminders and 1.0.13 the simple visa rejection. Ask the user to check reminders (sound, notification), refunds, the new numbers and Correct in the office. Not released yet: the two audits' 17 commits (closing date, desktop Restore from backup, past-date aging, wallet checks and more) `1dc3b46`, and Correct for card settlements, petty cash counts and portal credits (`6ca6d1c`), and Void/Correct for advances on the customer page (`025249c`), and opening balances editable after creation (`7ad7e30`). Ask the user to try Restore from backup once in the built app.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
