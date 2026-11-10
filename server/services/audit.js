@@ -67,11 +67,11 @@ function list(db, {
     params.push(String(action));
   }
   if (from) {
-    clauses.push('date(created_at) >= date(?)');
+    clauses.push("date(created_at, 'localtime') >= date(?)");
     params.push(String(from));
   }
   if (to) {
-    clauses.push('date(created_at) <= date(?)');
+    clauses.push("date(created_at, 'localtime') <= date(?)");
     params.push(String(to));
   }
   if (search) {
