@@ -1,3 +1,4 @@
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { api } from '../api.js';
 import { cashAccounts } from '../store.js';
 import {
@@ -41,7 +42,7 @@ function settlementRow(row) {
       <td class="num">${row.fee_cents ? fmtMoney(row.fee_cents) : '—'}</td>
       <td class="num">${fmtMoney(row.net_cents)}</td>
       <td>${statusBadge(row.status)}</td>
-      <td>${row.status === 'posted' ? `<button class="icon-btn danger" data-void-settlement="${row.id}" title="Void settlement" aria-label="Void ${esc(row.number)}">${icon('x', 15)}</button>` : ''}</td>
+      <td>${row.status === 'posted' ? correctButtonHtml('card_settlement', row) : ''}${row.status === 'posted' ? `<button class="icon-btn danger" data-void-settlement="${row.id}" title="Void settlement" aria-label="Void ${esc(row.number)}">${icon('x', 15)}</button>` : ''}</td>
     </tr>`;
 }
 
@@ -121,6 +122,7 @@ export async function render(container) {
       toast(error.message, 'error');
     }
   });
+  bindCorrections(container, refresh);
   container.querySelectorAll('[data-void-settlement]').forEach((button) => button.addEventListener('click', async () => {
     const row = data.settlements.find((item) => item.id === Number(button.dataset.voidSettlement));
     const result = await voidDialog({

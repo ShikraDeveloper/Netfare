@@ -169,10 +169,11 @@ function voidPortalCredit(db, id, payload = {}) {
     if (!credit) throw notFound('Portal credit not found');
     if (credit.status === 'void') throw bad('This portal credit is already void');
     const balance = lockBalance(db, credit.portal_id);
-    if (balance < credit.amount_cents) {
+    // A correction checks the wallet itself once the new credit is posted.
+    if (!payload.correcting && balance < credit.amount_cents) {
       throw bad('This portal credit has already been used. Void the bill settlements from this wallet first.');
     }
-    if (!canRemoveCredit(db, credit)) {
+    if (!payload.correcting && !canRemoveCredit(db, credit)) {
       throw bad('Voiding this portal credit would make the wallet negative on a past date. Void the bill settlements from this wallet first.');
     }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);

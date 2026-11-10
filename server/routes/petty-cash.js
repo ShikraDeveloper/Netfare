@@ -2,6 +2,7 @@
 
 const router = require('express').Router();
 const db = require('../db');
+const corrections = require('../services/corrections');
 const service = require('../services/petty-cash');
 
 router.get('/', (req, res) => {
@@ -18,6 +19,10 @@ router.post('/top-up', (req, res) => {
 
 router.post('/counts', (req, res) => {
   res.status(201).json(service.recordCount(db, req.body || {}));
+});
+
+router.post('/counts/:id/correct', (req, res) => {
+  res.json(corrections.correct(db, 'petty_cash_count', req.params.id, req.body || {}));
 });
 
 router.post('/counts/:id/void', (req, res) => {

@@ -40,10 +40,21 @@ const FORMS = {
     date: 'refund_date', account: 'account_id', accountLabel: 'Bank or cash', methods: MONEY_OUT_METHODS, charges: true, notes: true,
   },
   credit_note: {
-    title: 'Correct credit note', path: (id) => `/credits/${id}/correct`, date: 'credit_date', credit: true, notes: true,
+    title: 'Correct credit note', path: (id) => `/credits/${id}/correct`, date: 'credit_date', simple: true, notes: true,
   },
   supplier_credit: {
-    title: 'Correct supplier credit', path: (id) => `/supplier-credits/${id}/correct`, date: 'credit_date', credit: true, notes: true,
+    title: 'Correct supplier credit', path: (id) => `/supplier-credits/${id}/correct`, date: 'credit_date', simple: true, notes: true,
+  },
+  card_settlement: {
+    title: 'Correct card settlement', path: (id) => `/card-settlements/${id}/correct`, date: 'settlement_date',
+    amountField: 'net_cents', amountLabel: 'Received in the bank', account: 'bank_account_id', accountLabel: 'Bank', bank: true, notes: true,
+  },
+  petty_cash_count: {
+    title: 'Correct petty cash count', path: (id) => `/petty-cash/counts/${id}/correct`, date: 'count_date',
+    amountField: 'counted_cents', amountLabel: 'Cash counted', simple: true, notes: true,
+  },
+  portal_credit: {
+    title: 'Correct portal credit', path: (id) => `/portals/credits/${id}/correct`, date: 'credit_date', simple: true, notes: true,
   },
 };
 
@@ -76,19 +87,21 @@ function money(name, label, cents, required = false) {
 function formBody(form, record) {
   return `
     <div class="form-grid">
-      ${money('amount', 'Amount', record.amount_cents, true)}
+      ${money('amount', form.amountLabel || 'Amount', record[form.amountField || 'amount_cents'], !form.amountField)}
       <div class="field">
         <label for="cx-date">Date</label>
         <input class="input" id="cx-date" name="date" type="date" required value="${esc(record[form.date] || '')}">
       </div>
-      ${form.credit ? '' : form.transfer ? `
+      ${form.simple ? '' : form.bank ? `
+        <div class="field"><label for="cx-account">${form.accountLabel}</label><select class="input" id="cx-account" name="account">${accountOptions(record[form.account])}</select></div>
+      ` : form.transfer ? `
         <div class="field"><label for="cx-from">From</label><select class="input" id="cx-from" name="from_account_id">${accountOptions(record.from_account_id)}</select></div>
         <div class="field"><label for="cx-to">To</label><select class="input" id="cx-to" name="to_account_id">${accountOptions(record.to_account_id)}</select></div>
       ` : `
         <div class="field"><label for="cx-method">Method</label><select class="input" id="cx-method" name="method">${methodOptionsHtml(form.methods, record.method || form.methods[0])}</select></div>
         <div class="field"><label for="cx-account">${form.accountLabel}</label><select class="input" id="cx-account" name="account">${accountOptions(record[form.account])}</select></div>
       `}
-      ${form.credit ? '' : `
+      ${form.simple ? '' : `
         <div class="field">
           <label for="cx-reference">Reference</label>
           <input class="input" id="cx-reference" name="reference" maxlength="200" value="${esc(record.reference || '')}">
@@ -108,12 +121,14 @@ function formBody(form, record) {
 
 function readValues(form, data) {
   const values = {
-    amount_cents: toCents(data.get('amount')),
+    [form.amountField || 'amount_cents']: toCents(data.get('amount')),
     [form.date]: data.get('date'),
   };
-  if (!form.credit) values.reference = data.get('reference') || '';
-  if (form.credit) {
+  if (!form.simple) values.reference = data.get('reference') || '';
+  if (form.simple) {
     // Amount, date and notes only.
+  } else if (form.bank) {
+    values[form.account] = Number(data.get('account'));
   } else if (form.transfer) {
     values.from_account_id = Number(data.get('from_account_id'));
     values.to_account_id = Number(data.get('to_account_id'));

@@ -141,6 +141,56 @@ const KINDS = {
       return db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(id);
     },
   },
+  // The same card or payment-link items, with the amount that reached the bank corrected.
+  card_settlement: {
+    table: 'card_settlements',
+    label: 'Card settlement',
+    fields: ['net_cents', 'settlement_date', 'bank_account_id', 'reference', 'notes', 'line_ids'],
+    defaults(db, row) {
+      return { line_ids: db.prepare('SELECT journal_line_id FROM card_settlement_lines WHERE settlement_id = ?').all(row.id).map((line) => line.journal_line_id) };
+    },
+    void(db, row, remarks) {
+      require('./card-settlements').voidSettlement(db, row.id, { remarks });
+    },
+    post(db, row, values) {
+      return require('./card-settlements').createSettlement(db, values);
+    },
+  },
+  // Only the latest count: every later count was measured against this one's result.
+  petty_cash_count: {
+    table: 'petty_cash_counts',
+    label: 'Petty cash count',
+    fields: ['count_date', 'counted_cents', 'notes'],
+    check(row, values, db) {
+      const later = db.prepare("SELECT 1 FROM petty_cash_counts WHERE status = 'posted' AND id <> ? AND (count_date > ? OR (count_date = ? AND id > ?))")
+        .get(row.id, row.count_date, row.count_date, row.id);
+      if (later) throw bad('A later count was made after this one. Void the later counts first, or correct the latest count.');
+    },
+    void(db, row, remarks) {
+      require('./petty-cash').voidCount(db, row.id, { remarks });
+    },
+    post(db, row, values) {
+      return require('./petty-cash').recordCount(db, values);
+    },
+  },
+  // A credit already spent from the wallet may still be corrected, as long as
+  // the wallet does not end up lower than zero on any date.
+  portal_credit: {
+    table: 'portal_credits',
+    label: 'Portal credit',
+    fields: ['amount_cents', 'credit_date', 'notes'],
+    void(db, row, remarks) {
+      row.walletBefore = require('./portals/common').walletLow(db, row.portal_id);
+      require('./portals/transactions').voidPortalCredit(db, row.id, { remarks, correcting: true });
+    },
+    post(db, row, values) {
+      const credit = require('./portals/transactions').recordPortalCredit(db, {
+        ...values, portal_id: row.portal_id, bill_id: row.bill_id, supplier_credit_note_id: row.supplier_credit_note_id,
+      });
+      require('./portals/common').assertWalletNotLower(db, row.portal_id, row.walletBefore);
+      return credit;
+    },
+  },
   cash_deposit: {
     table: 'cash_deposits',
     label: 'Cash deposit',
@@ -182,7 +232,7 @@ function correct(db, kind, id, payload = {}) {
     const base = { ...row, ...config.defaults?.(db, row) };
     const values = {};
     for (const field of config.fields) values[field] = sent[field] !== undefined ? sent[field] : base[field];
-    config.check?.(row, values);
+    config.check?.(row, values, db);
 
     config.void(db, row, `Corrected · ${reason}`);
     reverseOnOriginalDate(db, config.entry ? config.entry(row) : row.journal_entry_id);

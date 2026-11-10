@@ -129,6 +129,7 @@ export async function render(container, { params, query } = {}) {
       source: 'portal_credit',
       voidKind: 'credit',
       voidId: credit.id,
+      correct: ['portal_credit', credit],
     })),
     ...portal.refunds.map((refund) => ({
       date: refund.refund_date,

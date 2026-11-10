@@ -1,3 +1,4 @@
+import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { api } from '../api.js';
 import { cashAccounts } from '../store.js';
 import {
@@ -145,7 +146,7 @@ function countRow(count) {
       <td class="num">${fmtMoney(count.book_cents)}</td>
       <td class="num"><span style="color:var(--${tone})">${count.difference_cents ? fmtMoney(count.difference_cents) : 'Matched'}</span></td>
       <td>${esc(count.notes || '')}${count.status === 'void' ? ' <span class="muted">(void)</span>' : ''}</td>
-      <td>${count.status === 'posted' && count.difference_cents ? `<button class="icon-btn danger" data-void-count="${count.id}" title="Void count" aria-label="Void count">${icon('x', 15)}</button>` : ''}</td>
+      <td>${count.status === 'posted' ? correctButtonHtml('petty_cash_count', count) : ''}${count.status === 'posted' && count.difference_cents ? `<button class="icon-btn danger" data-void-count="${count.id}" title="Void count" aria-label="Void count">${icon('x', 15)}</button>` : ''}</td>
     </tr>`;
 }
 
@@ -198,6 +199,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
   document.querySelector('[data-action="pc-count"]')?.addEventListener('click', () => openCount(data, refresh));
   document.querySelector('[data-action="pc-spend"]')?.addEventListener('click', () => openQuickExpenseModal({ paidFromCode: '1020', onSaved: refresh }));
   container.querySelectorAll('[data-action="pc-float"]').forEach((button) => button.addEventListener('click', () => openFloat(data, refresh)));
+  bindCorrections(container, refresh);
   container.querySelectorAll('[data-void-count]').forEach((button) => button.addEventListener('click', async () => {
     const count = data.counts.find((row) => row.id === Number(button.dataset.voidCount));
     const result = await voidDialog({
