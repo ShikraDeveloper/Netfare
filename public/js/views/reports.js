@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { store } from '../store.js';
 import { esc, icon, setHeader, todayISO } from '../ui.js';
 import { incomeStatement, balanceSheet, trialBalance } from './reports/financials.js';
 import { dailySales, rememberProfit } from './reports/daily-sales.js';
@@ -87,6 +88,13 @@ function lastMonthRange(iso) {
   const end = new Date(first.getTime() - 86_400_000);
   const toIso = (date) => date.toISOString().slice(0, 10);
   return { from: `${toIso(end).slice(0, 7)}-01`, to: toIso(end) };
+}
+
+// The start of the financial year that holds `iso` (Settings → fiscal year start month).
+function yearStart(iso) {
+  const month = Number(store.settings?.fiscal_year_start_month) || 1;
+  const year = Number(iso.slice(0, 4)) - (Number(iso.slice(5, 7)) < month ? 1 : 0);
+  return `${year}-${String(month).padStart(2, '0')}-01`;
 }
 
 // Quick ranges first, exact dates after.
@@ -211,7 +219,7 @@ export async function render(container, { params } = {}) {
       if (preset === 'today') { set('report-from', today); set('report-to', today); }
       if (preset === 'month') { set('report-from', monthStart(today)); set('report-to', today); }
       if (preset === 'last-month') { const range = lastMonthRange(today); set('report-from', range.from); set('report-to', range.to); }
-      if (preset === 'year') { set('report-from', `${today.slice(0, 4)}-01-01`); set('report-to', today); }
+      if (preset === 'year') { set('report-from', yearStart(today)); set('report-to', today); }
       if (preset === 'as-today') set('report-as-of', today);
       if (preset === 'as-month-end') set('report-as-of', lastMonthRange(today).to);
       container.querySelectorAll('[data-preset]').forEach((other) => other.classList.toggle('active', other === button));
