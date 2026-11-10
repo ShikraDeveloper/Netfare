@@ -37,6 +37,16 @@ router.post('/:id/receive-refund', (req, res) => {
   res.status(201).json(require('../services/supplier-credits').receiveVendorRefund(db, Number(req.params.id), req.body || {}));
 });
 
+// The opening balance after the record exists: shown to all, changed by the admin only.
+router.get('/:id/opening', (req, res) => {
+  res.json(partyOpening.openingStatus(db, 'vendor', Number(req.params.id)));
+});
+
+router.post('/:id/opening', (req, res) => {
+  if (!req.user?.is_admin) throw bad('Only the admin can change an opening balance');
+  res.json(partyOpening.setOpening(db, 'vendor', Number(req.params.id), req.body || {}));
+});
+
 router.post('/', (req, res) => {
   const body = req.body || {};
   if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');

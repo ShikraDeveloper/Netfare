@@ -38,6 +38,16 @@ router.get('/:id/statement', (req, res) => {
 });
 
 // Only the admin may give a new record an opening balance.
+// The opening balance after the record exists: shown to all, changed by the admin only.
+router.get('/:id/opening', (req, res) => {
+  res.json(partyOpening.openingStatus(db, 'customer', Number(req.params.id)));
+});
+
+router.post('/:id/opening', (req, res) => {
+  if (!req.user?.is_admin) throw bad('Only the admin can change an opening balance');
+  res.json(partyOpening.setOpening(db, 'customer', Number(req.params.id), req.body || {}));
+});
+
 router.post('/', (req, res) => {
   const body = req.body || {};
   if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');

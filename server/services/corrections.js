@@ -297,7 +297,7 @@ function correctDocument(db, kind, id, payload = {}) {
     if (old.status !== posted) throw bad(`Only a posted ${config.label} can be corrected; a draft is edited`);
     if (old.booking_id || old.visa_id) throw bad(`This ${config.label} belongs to a ${old.booking_id ? 'booking' : 'visa'}: correct it there`);
     if (old.cancellation_id) throw bad('This invoice holds cancellation charges. Issue a credit note to change them.');
-    if (old.is_opening) throw bad('Opening balances are corrected in Opening balances');
+    if (old.is_opening) throw bad("Change an opening balance from the customer's or supplier's Edit form.");
     const reason = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });
 
     const sent = payload.values && typeof payload.values === 'object' ? payload.values : {};
@@ -420,7 +420,7 @@ function correctCredit(db, kind, id, payload = {}) {
     const old = db.prepare(`SELECT * FROM ${config.table} WHERE id = ?`).get(Number(id));
     if (!old) throw notFound(`The ${config.label} was not found`);
     if (old.status !== 'issued') throw bad(`This ${config.label} is void`);
-    if (old.is_opening) throw bad('Opening balances are corrected in Opening balances');
+    if (old.is_opening) throw bad("Change an opening balance from the customer's or supplier's Edit form.");
     if (old.cancellation_id) throw bad(`This ${config.label} came from a cancellation note. Void the note and cancel again.`);
     const reason = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });
 

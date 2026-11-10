@@ -1,7 +1,7 @@
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
-import { openingFieldsHtml, readOpening } from '../opening-balance.js';
+import { canEnterOpening, openingChanged, openingFieldsHtml, readOpening } from '../opening-balance.js';
 import { refreshMeta } from '../store.js';
 import {
   avatar,
@@ -76,8 +76,9 @@ function partyRow(party, config) {
   `;
 }
 
-function partyModal({ party = null, config, onSaved }) {
+async function partyModal({ party = null, config, onSaved }) {
   const isEdit = Boolean(party);
+  const opening = isEdit && canEnterOpening() ? await api.get(`${config.base}/${party.id}/opening`) : null;
   openModal({
     title: isEdit ? `Edit ${party.name}` : config.addLabel,
     body: `
@@ -107,7 +108,7 @@ function partyModal({ party = null, config, onSaved }) {
           <label for="party-notes">Notes</label>
           <textarea class="input" id="party-notes" name="notes" rows="2" placeholder="Optional internal notes">${esc(party?.notes || '')}</textarea>
         </div>
-        ${isEdit ? '' : openingFieldsHtml(config.singular)}
+        ${isEdit ? (opening ? openingFieldsHtml(config.singular, opening, party.name) : '') : openingFieldsHtml(config.singular)}
       </div>
       ${isEdit ? recordMetaHtml(party) : ''}
     `,
@@ -127,6 +128,10 @@ function partyModal({ party = null, config, onSaved }) {
       const saved = isEdit
         ? await api.put(`${config.base}/${party.id}`, payload)
         : await api.post(config.base, payload);
+      // After the save: changing the opening balance gives the record a new version.
+      if (opening && !opening.locked && openingChanged(form, opening)) {
+        await api.post(`${config.base}/${party.id}/opening`, { opening: readOpening(form), remarks: values.get('opening_reason') || '' });
+      }
       toast(isEdit ? `${config.singular === 'customer' ? 'Customer' : 'Supplier'} updated` : `${config.singular === 'customer' ? 'Customer' : 'Supplier'} added`);
       await refreshMeta();
       window.dispatchEvent(new Event('meta-changed'));
