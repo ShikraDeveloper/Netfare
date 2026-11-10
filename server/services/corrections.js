@@ -302,7 +302,7 @@ const CREDITS = {
     entity: 'credit_note',
     fields: ['credit_date', 'amount_cents', 'notes', 'revenue_account_id'],
     used: (row) => row.applied_cents + row.refunded_cents,
-    moves: [['credit_applications', 'credit_note_id', 'applied_date'], ['refunds', 'credit_note_id', 'refund_date']],
+    moves: [['credit_applications', 'credit_note_id', 'applied_date'], ['refunds', 'credit_note_id', 'refund_date', "status = 'paid'"]],
     check(db, row, values) {
       for (const column of ['booking_id', 'visa_id']) {
         if (!row[column]) continue;
@@ -334,8 +334,8 @@ const CREDITS = {
     used: (row) => row.applied_cents + row.refunded_cents + row.portal_settled_cents,
     moves: [
       ['supplier_credit_applications', 'credit_note_id', 'applied_date'],
-      ['refunds', 'supplier_credit_note_id', 'refund_date'],
-      ['portal_credits', 'supplier_credit_note_id', 'credit_date'],
+      ['refunds', 'supplier_credit_note_id', 'refund_date', "status = 'paid'"],
+      ['portal_credits', 'supplier_credit_note_id', 'credit_date', "status = 'posted'"],
     ],
     post(db, row, values) {
       const amount = Number(values.amount_cents);
@@ -383,8 +383,9 @@ function correctCredit(db, kind, id, payload = {}) {
     if (values.amount_cents < used) {
       throw bad(`The new amount (${money(values.amount_cents)}) is less than what was already used from ${old.number} (${money(used)}). Void that first.`);
     }
-    for (const [table, column, dateColumn] of config.moves) {
-      const first = db.prepare(`SELECT MIN(${dateColumn}) AS date FROM ${table} WHERE ${column} = ?`).get(old.id).date;
+    // Only uses still in force count; a voided refund no longer uses the credit.
+    for (const [table, column, dateColumn, live = '1 = 1'] of config.moves) {
+      const first = db.prepare(`SELECT MIN(${dateColumn}) AS date FROM ${table} WHERE ${column} = ? AND ${live}`).get(old.id).date;
       if (first && values.credit_date > first) throw bad(`The date cannot be after ${first}, when ${old.number} was first used`);
     }
     config.check?.(db, old, values);

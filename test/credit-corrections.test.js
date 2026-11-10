@@ -134,3 +134,35 @@ test('a manual journal entry: lines corrected; a document entry is refused', () 
   assert.throws(() => correct(db, 'journal', document.id, { remarks: 'x' }), /posted by a document/);
   checksMatch();
 });
+
+test('a voided refund no longer holds back the credit date', () => {
+  const customer = party('customers', 'Date Fix');
+  const credit = credits.createCredit(db, { customer_id: customer, revenue_account_id: account('4300'), credit_date: '2026-11-02', amount_cents: 5_000 });
+  credits.refundCredit(db, credit.id, { amount_cents: 1_000, refund_date: '2026-11-03', account_id: account('1000') });
+  const refund = db.prepare('SELECT id FROM refunds WHERE credit_note_id = ?').get(credit.id);
+  assert.throws(() => correctCredit(db, 'credit_note', credit.id, { remarks: 'x', values: { credit_date: '2026-11-05' } }), /cannot be after 2026-11-03/);
+  require('../server/services/refunds').voidRefund(db, refund.id, { remarks: 'Entered by mistake' });
+  const fixed = correctCredit(db, 'credit_note', credit.id, { remarks: 'Issued on the 5th', values: { credit_date: '2026-11-05' } });
+  assert.equal(fixed.credit_date, '2026-11-05');
+  checksMatch();
+});
+
+test('a payment into an archived account can still be voided; new ones are refused', () => {
+  const oldBank = Number(db.prepare("INSERT INTO accounts (code, name, type, normal_balance, is_cash, is_active) VALUES ('1098', 'Closed bank', 'asset', 'debit', 1, 1)").run().lastInsertRowid);
+  const customer = party('customers', 'Archived Bank');
+  const invoice = invoices.createInvoice(db, {
+    customer_id: customer, issue_date: '2026-11-01', due_date: '2026-11-01', status: 'sent',
+    items: [{ description: 'Service', quantity: 1, unit_price_cents: 10_000, account_id: account('4300') }],
+  });
+  invoices.recordInvoicePayment(db, invoice.id, { amount_cents: 10_000, payment_date: '2026-11-02', method: 'Bank transfer', deposit_account_id: oldBank });
+  const payment = db.prepare('SELECT id FROM payments WHERE invoice_id = ?').get(invoice.id);
+  db.prepare('UPDATE accounts SET is_active = 0 WHERE id = ?').run(oldBank);
+
+  invoices.deleteInvoicePayment(db, payment.id, { remarks: 'Paid into the wrong bank' });
+  assert.equal(db.prepare('SELECT status FROM payments WHERE id = ?').get(payment.id).status, 'void');
+  assert.equal(balance('1098'), 0);
+  assert.throws(() => invoices.recordInvoicePayment(db, invoice.id, {
+    amount_cents: 10_000, payment_date: '2026-11-03', method: 'Bank transfer', deposit_account_id: oldBank,
+  }), /archived/);
+  checksMatch();
+});

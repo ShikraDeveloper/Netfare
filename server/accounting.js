@@ -86,7 +86,8 @@ function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'm
     const accountId = Number(line.account_id);
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(accountId);
     if (!account) throw bad(`Line ${index + 1}: account not found`);
-    if (!account.is_active) throw bad(`Line ${index + 1}: account "${account.name}" is archived`);
+    // A reversal may touch an archived account, so old mistakes stay fixable.
+    if (!account.is_active && !reversal_of_id) throw bad(`Line ${index + 1}: account "${account.name}" is archived`);
 
     const debit = cents(line.debit_cents ?? 0, `Line ${index + 1} debit`);
     const credit = cents(line.credit_cents ?? 0, `Line ${index + 1} credit`);
