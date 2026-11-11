@@ -898,6 +898,8 @@ body.modal-open { overflow: hidden; }
 .doc-terms-foot { margin-top: 14px; font-size: 10.5px; color: var(--muted-2); line-height: 1.6; white-space: pre-line; max-width: 620px; }
 .brand-logo { height: 52px; width: auto; max-width: 180px; object-fit: contain; object-position: left center; flex: none; }
 .doc-brand:has(.brand-logo) { align-items: center; gap: 16px; }
+/* The logo carries the company's name; the address and contact lines stay. */
+.doc-brand:has(.brand-logo) .doc-company-name { display: none; }
 .logo-field { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .logo-preview { height: 44px; max-width: 160px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; }
 .deposit-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
