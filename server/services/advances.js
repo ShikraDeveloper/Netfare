@@ -211,8 +211,7 @@ function applyAdvance(db, id, payload = {}) {
       invoice.id,
       paymentDate,
       amount,
-      // A receipt's share of an invoice reads like the payment it was.
-      advance.is_receipt ? advance.method : 'Advance applied',
+      'Advance applied',
       advance.number,
       advancesAccount.id,
       advance.id,

@@ -879,3 +879,22 @@ test('only the admin can change the bank details printed on invoices, and each c
   const rows = log.data.rows || log.data;
   assert.ok(rows.some((row) => /iban: .* → AE11 2222 3333/.test(row.remarks)), 'the IBAN change is in the audit log');
 });
+
+test('voiding a payment ignores internal switches sent in the request', async () => {
+  const put = (method, pathname, body) => postAs(cookie, pathname, body, method);
+  const accounts = (await jsonRequest('/api/accounts')).data;
+  const code = (c) => accounts.find((row) => row.code === c).id;
+  const customer = (await put('POST', '/api/customers', { name: 'Switch Test' })).data;
+  const invoice = (await put('POST', '/api/invoices', {
+    customer_id: customer.id, issue_date: '2026-11-01', due_date: '2026-11-01',
+    items: [{ description: 'Consultancy', quantity: 1, unit_price_cents: 10_000, account_id: code('4300') }],
+  })).data;
+  const receipt = (await put('POST', '/api/advances/receipts', {
+    customer_id: customer.id, amount_cents: 10_000, receipt_date: '2026-11-02', deposit_account_id: code('1010'),
+    allocations: [{ invoice_id: invoice.id, amount_cents: 10_000 }],
+  })).data;
+  const voided = await put('DELETE', `/api/invoices/payments/${receipt.invoices[0].payment_id}`, { remarks: 'Wrong invoice', withReceipt: true, fromDeposit: true });
+  assert.equal(voided.status, 200);
+  const checks = (await jsonRequest('/api/reports/reconciliation')).data.checks;
+  assert.deepEqual(checks.filter((check) => !check.matched).map((check) => check.key), [], 'the books still match');
+});

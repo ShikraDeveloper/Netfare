@@ -55,8 +55,9 @@ router.post('/payments/:paymentId/correct', (req, res) => {
   res.json(corrections.correct(db, 'payment', Number(req.params.paymentId), req.body || {}));
 });
 
+// Only the reason comes from the request; the other options are for server code.
 router.delete('/payments/:paymentId', (req, res) => {
-  res.json(service.deleteInvoicePayment(db, Number(req.params.paymentId), req.body || {}));
+  res.json(service.deleteInvoicePayment(db, Number(req.params.paymentId), { remarks: req.body?.remarks ?? req.body?.reason }));
 });
 
 module.exports = router;
