@@ -3136,6 +3136,13 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked in the demo:** INV-2026-0014 (BK-2026-0009, Corporate Travel Co) shows the logo, customer TRN, Trip, Ali Khan with 176-2401234567, Sara Khan with the booking PNR K7QX2M, the service fee ×2 with Qty and Unit price, two payments (cash; payment link with reference), Balance due 2,000, the bank line and the terms.
 - **Not pushed or released.**
 
+### Invoice follow-ups: logo, no Qty on ticket invoices — code commits `deae565`, `2081f99`, `fff6aa7`
+
+- **Logo** (`deae565`, `fff6aa7`): centered beside the contact lines and a little larger (52 px high, up to 180 px wide). When a logo is set, every printed document shows the logo with the address, email and phone, and no company-name text (the user: "logo and rest of details except company name"); the logo's alt text carries the name.
+- **Ticket invoices** (`2081f99`): never show Qty or Unit price; a line with another quantity prints "Service fee · 2 × AED 50.00" in the Route / service column. Service invoices keep Qty and Unit price when some quantity is not 1.
+- **Tests:** `npm test` 339 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Checked in the demo on INV-2026-0014.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
