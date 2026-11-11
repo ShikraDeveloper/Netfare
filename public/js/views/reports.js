@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { esc, icon, setHeader, todayISO } from '../ui.js';
+import { esc, icon, printPage, setHeader, todayISO } from '../ui.js';
 import { incomeStatement, balanceSheet, trialBalance } from './reports/financials.js';
 import { dailySales, rememberProfit } from './reports/daily-sales.js';
 import { agingReport } from './reports/aging.js';
@@ -182,6 +182,14 @@ export async function render(container, { params } = {}) {
     rememberProfit(event.target.checked);
   });
 
+  // DSR sections fold open and shut (print shows them all).
+  body.addEventListener('click', (event) => {
+    const fold = event.target.closest('[data-dsr-fold]');
+    if (!fold) return;
+    const open = fold.closest('[data-dsr-section]').classList.toggle('is-open');
+    fold.setAttribute('aria-expanded', String(open));
+  });
+
   // DSR staff picker: one staff member's sales, or everyone's.
   body.addEventListener('change', (event) => {
     if (!event.target.matches('[data-dsr-staff]')) return;
@@ -227,7 +235,7 @@ export async function render(container, { params } = {}) {
     });
   });
 
-  const print = () => window.print();
+  const print = () => printPage();
   container.querySelectorAll('[data-action="print"]').forEach((button) => button.addEventListener('click', print));
   document.querySelectorAll('#page-actions [data-action="print"]').forEach((button) => button.addEventListener('click', print));
 

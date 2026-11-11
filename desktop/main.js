@@ -103,7 +103,8 @@ function fromNetfarePage(event) {
 const pdfFolder = () => path.join(app.getPath('temp'), `netfare-pdf-${process.pid}`);
 
 function printPdf() {
-  return mainWindow.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
+  // The page's own print rules decide the size, margins and page numbers.
+  return mainWindow.webContents.printToPDF({ pageSize: 'A4', printBackground: true, preferCSSPageSize: true });
 }
 
 // In the private folder a PDF is simply replaced; in Downloads a file that is

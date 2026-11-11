@@ -1540,6 +1540,7 @@ test('a cancelled sale stays on its day in the DSR and statement, with its own c
   await openRoute('/reports/daily-sales');
   await setReportPeriod('2026-10-01');
   await page.locator('[data-dsr]').waitFor();
+  await page.locator('[data-dsr-section="cancellations"] [data-dsr-fold]').click();
   const tickets = page.locator('[data-dsr-table="tickets"]');
   const saleRow = tickets.locator('tr', { has: page.locator(`a[href="#/invoices/${confirmed.invoice_id}"]`) });
   assert.match(await saleRow.innerText(), /Cancelled/);
@@ -1577,13 +1578,18 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   }
   const row = page.locator('[data-dsr-table="services"] tr', { has: page.locator(`a[href="#/invoices/${service.id}"]`) });
   const cells = (await row.locator('td').allInnerTexts()).map((text) => text.trim());
-  assert.deepEqual(cells.slice(3), ['300.00', '100.00', '—', '—', '—', '200.00'], 'total, cash, card, bank, other, credit');
+  assert.deepEqual(cells.slice(3), ['300.00', 'Cash 100.00', '200.00'], 'total, paid by, due');
+  assert.equal(await page.locator('[data-dsr-section="collections"] .dsr-section-body').isVisible(), false, 'smaller sections start folded');
+  await page.locator('[data-dsr-section="collections"] [data-dsr-fold]').click();
+  assert.equal(await page.locator('[data-dsr-section="collections"] .dsr-section-body').isVisible(), true, 'and open on a click');
 
   assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Gross profit")').first().isVisible(), false, 'profit hidden by default');
   await page.locator('[data-dsr-profit]').check();
   assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Gross profit")').first().isVisible(), true);
   await page.locator('[data-dsr-profit]').uncheck();
-  assert.match(await page.locator('[data-dsr-summary]').innerText(), /Collected by mode[\s\S]*Cash[\s\S]*Opening[\s\S]*Closing/i);
+  const overview = await page.locator('[data-dsr-summary]').innerText();
+  assert.match(overview, /Total sales[\s\S]*Received[\s\S]*On credit/i, 'the totals come first');
+  assert.match(overview, /How the money came in[\s\S]*Cash[\s\S]*Opening[\s\S]*Closing/i);
   assertNoConsoleErrors();
 });
 
