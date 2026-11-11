@@ -110,12 +110,14 @@ function beneficiaryHtml(invoice) {
 }
 
 // The table: a ticket invoice lists each passenger with their ticket number
-// (or the booking PNR when there is none); every invoice shows Qty and Unit
-// price only when some line has a quantity other than 1.
+// (or the booking PNR when there is none) and never shows Qty or Unit price:
+// a line with another quantity says "2 × 50.00" beside its name. Other
+// invoices show Qty and Unit price only when some line's quantity is not 1.
 function itemsTableHtml(invoice) {
   const items = invoice.items || [];
   const passengers = ['ticket', 'booking'].includes(invoice.document_kind) && items.some((item) => item.passenger_name);
-  const qty = items.some((item) => Number(item.quantity) !== 1);
+  const qty = !passengers && items.some((item) => Number(item.quantity) !== 1);
+  const times = (item) => (Number(item.quantity) !== 1 ? ` · ${fmtNumber(item.quantity)} × ${fmtMoney(item.unit_price_cents)}` : '');
   const route = (item) => {
     const name = item.passenger_name;
     if (!name) return item.description;
@@ -132,7 +134,7 @@ function itemsTableHtml(invoice) {
     return `<tr>
       ${passengers
     ? `<td class="doc-passenger">${item.passenger_name ? esc(item.passenger_name) : '<span class="muted">—</span>'}</td>
-         <td class="muted">${esc(route(item))}</td>
+         <td class="muted">${esc(route(item) + times(item))}</td>
          <td class="doc-ref">${ref ? esc(ref) : '<span class="muted">—</span>'}</td>`
     : `<td>${esc(item.description)}</td>`}
       ${qty ? `<td class="num">${fmtNumber(item.quantity)}</td><td class="num">${fmtMoney(item.unit_price_cents)}</td>` : ''}
