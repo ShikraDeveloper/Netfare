@@ -138,3 +138,23 @@ test('isVoid reads both ways a void is stored, and a void record allows nothing'
     assert.deepEqual(allowedActions(kind, { status: 'void', total_cents: 100 }), [], kind);
   }
 });
+
+test('Mark travelled waits for the travel date, and Void waits for a visa deposit to be gone', () => {
+  assert.ok(!allowedActions('booking', { status: 'confirmed', travel_date: '2099-01-01' }).includes('travel'), 'not before the travel date');
+  assert.ok(allowedActions('booking', { status: 'confirmed', travel_date: '2000-01-01' }).includes('travel'));
+  assert.ok(allowedActions('booking', { status: 'confirmed' }).includes('travel'), 'no travel date: any day');
+  assert.ok(!allowedActions('visa', { status: 'submitted', holds_deposit: 1 }).includes('void'));
+
+  const visa = visas.createVisa(db, {
+    customer_id: customer, application_date: '2026-11-01', applicant_name: 'Deposit Holder', destination_country: 'UAE', visa_type: 'tourist',
+    sale_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 30_000, account_id: account('4320') }],
+    cost_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 25_000, account_id: account('5120'), vendor_id: vendor }],
+  });
+  visas.submitVisa(db, visa.id);
+  assert.ok(visas.getVisa(db, visa.id).allowed_actions.includes('void'));
+  require('../server/services/visa-deposits').collectDeposit(db, {
+    visa_id: visa.id, amount_cents: 100_000, deposit_date: '2026-11-02', method: 'Cash', account_id: account('1000'),
+  });
+  assert.ok(!visas.getVisa(db, visa.id).allowed_actions.includes('void'), 'the visa page');
+  assert.ok(!visas.listVisas(db).find((row) => row.id === visa.id).allowed_actions.includes('void'), 'the visa list');
+});

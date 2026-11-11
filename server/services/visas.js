@@ -26,6 +26,7 @@ const visaSelect = `
          c.phone AS customer_phone, c.address AS customer_address,
          g.number AS group_number,
          (SELECT COUNT(*) FROM visa_applications x WHERE x.group_id = v.group_id) AS group_size,
+         EXISTS (SELECT 1 FROM visa_deposits d WHERE d.visa_id = v.id AND d.voided_at IS NULL) AS holds_deposit,
          ${jobs.JOB_INVOICE_COLUMNS}
   FROM visa_applications v
   JOIN customers c ON c.id = v.customer_id

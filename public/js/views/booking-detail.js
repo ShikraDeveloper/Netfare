@@ -18,7 +18,6 @@ import {
   summaryStripHtml,
   toast,
   toCents,
-  todayISO,
   voidDialog,
   pageRecord,
   printPage,
@@ -88,9 +87,11 @@ export async function render(container, { params } = {}) {
   if (allowed.has('edit')) actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
   if (allowed.has('delete')) actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
   if (allowed.has('confirm')) actions.push(`<button class="btn btn-primary" data-action="confirm">${icon('check', 15)}<span>Confirm &amp; post</span></button>`);
-  if (allowed.has('travel')) {
-    const travelAhead = booking.travel_date && booking.travel_date > todayISO();
-    actions.push(`<button class="btn btn-secondary" data-action="travel" ${travelAhead ? `disabled title="Available from the travel date (${esc(fmtDate(booking.travel_date))})"` : ''}>${icon('check', 15)}<span>Mark travelled</span></button>`);
+  // A confirmed booking whose travel date is still ahead shows the button
+  // greyed out with the reason; the server decides when it is allowed.
+  const travelWaiting = !allowed.has('travel') && booking.status === 'confirmed' && !booking.voided_at;
+  if (allowed.has('travel') || travelWaiting) {
+    actions.push(`<button class="btn btn-secondary" data-action="travel" ${travelWaiting ? `disabled title="Available from the travel date (${esc(fmtDate(booking.travel_date))})"` : ''}>${icon('check', 15)}<span>Mark travelled</span></button>`);
   }
   if (invoice && invoice.status === 'sent' && invoice.balance_cents > 0) {
     actions.push(`<a class="btn btn-primary" href="#/invoices/${invoice.id}">${icon('plus', 15)}<span>Record payment</span></a>`);

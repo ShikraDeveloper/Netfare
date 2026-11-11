@@ -191,9 +191,9 @@ export async function render(container, { params } = {}) {
     menu.push(`<button class="btn btn-ghost" data-action="edit-details">${icon('edit', 15)}<span>Edit details</span></button>`);
   }
   // Admin only: correct the lines, or undo an application entered by mistake
-  // (one with a cancellation note has the note to void instead).
-  if (allowed.has('correct') && !visa.cancellation) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
-  if (allowed.has('void') && !visa.cancellation) menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
+  // (a cancelled one has its cancellation note to void instead).
+  if (allowed.has('correct')) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
+  if (allowed.has('void')) menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
   pageRecord(visa);
   setHeader({
     title: visa.number,
