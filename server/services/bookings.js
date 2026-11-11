@@ -35,7 +35,7 @@ function serializeBooking(row) {
   return {
     ...booking,
     margin_cents: booking.sale_total_cents - booking.cost_total_cents,
-    status_display: booking.voided_at ? 'void' : booking.status,
+    status_display: workflows.isVoid(booking) ? 'void' : booking.status,
     allowed_actions: workflows.allowedActions('booking', booking),
   };
 }
@@ -129,7 +129,7 @@ function getBooking(db, id) {
     WHERE booking_id = ?
     ORDER BY advance_date, id
   `).all(id).map((advance) => {
-    const voided = Boolean(advance.voided_at);
+    const voided = workflows.isVoid(advance);
     return {
       ...advance,
       status_display: voided ? 'void' : advance.status,

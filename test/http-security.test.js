@@ -898,3 +898,16 @@ test('voiding a payment ignores internal switches sent in the request', async ()
   const checks = (await jsonRequest('/api/reports/reconciliation')).data.checks;
   assert.deepEqual(checks.filter((check) => !check.matched).map((check) => check.key), [], 'the books still match');
 });
+
+test('the workflow rules can be read by anyone signed in, as plain data', async () => {
+  const rules = await jsonRequest('/api/workflows');
+  assert.equal(rules.status, 200);
+  assert.deepEqual(rules.data.booking.actions.confirm, { from: ['draft'], to: 'confirmed', message: 'Only draft bookings can be confirmed' });
+  assert.match(rules.data.invoice.actions.record_payment.condition, /due/);
+  assert.deepEqual(Object.keys(rules.data).sort(), ['advance', 'bill', 'booking', 'invoice', 'visa']);
+  const created = await postAs(cookie, '/api/users', { full_name: 'Rules Reader', username: 'rulesreader', password: 'rules-pass-1', permissions: {} });
+  assert.equal(created.status, 201);
+  const staff = await signIn('rulesreader', 'rules-pass-1');
+  const asStaff = await jsonRequest('/api/workflows', { headers: { Cookie: staff.cookie } });
+  assert.equal(asStaff.status, 200, 'staff with no rights still read the rules');
+});

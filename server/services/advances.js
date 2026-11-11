@@ -35,8 +35,8 @@ function remainingCents(advance) {
 function serializeAdvance(advance) {
   return {
     ...advance,
-    status_display: advance.voided_at ? 'void' : advance.status,
-    voided: Boolean(advance.voided_at),
+    status_display: workflows.isVoid(advance) ? 'void' : advance.status,
+    voided: workflows.isVoid(advance),
     remaining_cents: remainingCents(advance),
     allowed_actions: workflows.allowedActions('advance', advance),
   };

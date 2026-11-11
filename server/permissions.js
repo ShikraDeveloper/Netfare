@@ -45,7 +45,7 @@ const WRITE_ALSO = {
 };
 
 // Lists every screen loads for its pickers; reading them needs no right.
-const SHARED_READS = new Set(['/settings', '/accounts', '/customers', '/vendors', '/portals']);
+const SHARED_READS = new Set(['/settings', '/accounts', '/customers', '/vendors', '/portals', '/workflows']);
 const DASHBOARD_READS = new Set(['/reports/dashboard', '/reports/reconciliation']);
 
 const ATTACHMENT_AREAS = {

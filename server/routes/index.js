@@ -109,6 +109,13 @@ function adminOnly(req, res, next) {
   return res.status(403).json({ error: 'Only the admin can do this' });
 }
 
+// The workflow rules as plain data: what each status of a booking, visa,
+// invoice, bill or advance allows (server/workflows.js). Records carry their
+// own allowed_actions; this is the whole map, for agents and API users.
+router.get('/workflows', (req, res) => {
+  res.json(require('../workflows').publicWorkflows());
+});
+
 router.use('/accounts', require('./accounts'));
 router.use('/customers', require('./customers'));
 router.use('/customer-balances', require('./customer-balances'));

@@ -211,7 +211,7 @@ function describe(type, row, maps) {
     case 'payment':
       return { ...base, date: row.payment_date, amount_cents: row.amount_cents, party: customer(row.customer_id), href: `#/invoices/${row.invoice_id}`, detail: [row.method, maps.invoices.get(row.invoice_id)?.number].filter(Boolean).join(' · ') };
     case 'advance':
-      return { ...base, date: row.advance_date, status: row.voided_at ? 'void' : row.status, amount_cents: row.amount_cents, party: customer(row.customer_id), href: row.booking_id ? `#/bookings/${row.booking_id}` : row.visa_id ? `#/visas/${row.visa_id}` : `#/customer-balances/${row.customer_id}`, detail: row.method || '' };
+      return { ...base, date: row.advance_date, status: require('../workflows').isVoid(row) ? 'void' : row.status, amount_cents: row.amount_cents, party: customer(row.customer_id), href: row.booking_id ? `#/bookings/${row.booking_id}` : row.visa_id ? `#/visas/${row.visa_id}` : `#/customer-balances/${row.customer_id}`, detail: row.method || '' };
     case 'credit':
       return { ...base, date: row.credit_date, amount_cents: row.amount_cents, party: customer(row.customer_id), href: `#/credits/${row.id}`, detail: row.cancellation_id ? 'From cancellation' : 'Standalone credit' };
     case 'credit_application':

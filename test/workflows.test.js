@@ -14,7 +14,7 @@ const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-workflows-test-'
 process.env.LEDGERLY_DATA_DIR = tempDir;
 
 const db = require('../server/db');
-const { allowedActions } = require('../server/workflows');
+const { allowedActions, isVoid } = require('../server/workflows');
 const bookings = require('../server/services/bookings');
 const visas = require('../server/services/visas');
 
@@ -128,4 +128,13 @@ test('invoices, bills and advances carry allowed_actions from the server', () =>
   assert.deepEqual(advance.allowed_actions, ['apply', 'refund', 'correct', 'void']);
   const page = require('../server/services/customer-balances').getCustomerBalance(db, customer);
   assert.deepEqual(page.advances.find((row) => row.id === advance.id).allowed_actions, ['apply', 'refund', 'correct', 'void']);
+});
+
+test('isVoid reads both ways a void is stored, and a void record allows nothing', () => {
+  assert.equal(isVoid({ status: 'void' }), true);
+  assert.equal(isVoid({ status: 'cancelled', voided_at: '2026-11-12 10:00:00' }), true);
+  assert.equal(isVoid({ status: 'sent' }), false);
+  for (const kind of ['booking', 'visa', 'invoice', 'bill', 'advance']) {
+    assert.deepEqual(allowedActions(kind, { status: 'void', total_cents: 100 }), [], kind);
+  }
 });

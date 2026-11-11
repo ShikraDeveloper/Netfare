@@ -66,7 +66,7 @@ function serializeVisa(row) {
   return {
     ...visa,
     margin_cents: visa.sale_total_cents - visa.cost_total_cents,
-    status_display: visa.voided_at ? 'void' : visa.status,
+    status_display: workflows.isVoid(visa) ? 'void' : visa.status,
     is_open: OPEN_STATUSES.includes(visa.status),
     allowed_actions: workflows.allowedActions('visa', visa),
     passport_warning: passportWarning(visa),
@@ -190,7 +190,7 @@ function getVisa(db, id) {
     WHERE visa_id = ?
     ORDER BY advance_date, id
   `).all(id).map((advance) => {
-    const voided = Boolean(advance.voided_at);
+    const voided = workflows.isVoid(advance);
     return {
       ...advance,
       status_display: voided ? 'void' : advance.status,
