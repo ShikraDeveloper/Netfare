@@ -13,6 +13,7 @@ const { allocateNumber } = require('./numbering');
 const { markCreated } = require('../created-by');
 const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
+const workflows = require('../workflows');
 const jobCosts = require('./job-costs');
 const audit = require('./audit');
 const jobRefunds = require('./job-refunds');
@@ -67,6 +68,7 @@ function serializeVisa(row) {
     margin_cents: visa.sale_total_cents - visa.cost_total_cents,
     status_display: visa.voided_at ? 'void' : visa.status,
     is_open: OPEN_STATUSES.includes(visa.status),
+    allowed_actions: workflows.allowedActions('visa', visa),
     passport_warning: passportWarning(visa),
   };
 }
@@ -348,7 +350,7 @@ function updateVisa(db, id, payload) {
   return db.transaction(() => {
     const existing = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!existing) throw notFound('Visa application not found');
-    if (existing.status !== 'draft') throw bad('Only draft visa applications can be edited');
+    workflows.assertCan('visa', 'edit', existing);
     writeVisa(db, existing, payload);
     return getVisa(db, id);
   })();
@@ -358,7 +360,7 @@ function deleteVisa(db, id) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
-    if (visa.status !== 'draft') throw bad('Only draft visa applications can be deleted. Cancel it instead.');
+    workflows.assertCan('visa', 'delete', visa);
     db.prepare("DELETE FROM attachments WHERE entity_type = 'visa' AND entity_id = ?").run(id);
     jobs.deleteStatusHistory(db, 'visa', id);
     db.prepare('DELETE FROM visa_applications WHERE id = ?').run(id);
@@ -398,7 +400,7 @@ function submitVisa(db, id, options = {}) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
-    if (visa.status !== 'draft') throw bad('Only draft visa applications can be submitted');
+    workflows.assertCan('visa', 'submit', visa);
     const { invoice, warnings } = postVisaDocuments(db, visa);
     db.prepare("UPDATE visa_applications SET status = 'submitted', invoice_id = ?, updated_at = datetime('now') WHERE id = ?")
       .run(invoice.id, id);
@@ -416,7 +418,7 @@ function approveVisa(db, id) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
-    if (visa.status !== 'submitted') throw bad('Only submitted applications can be approved');
+    workflows.assertCan('visa', 'approve', visa);
     db.prepare("UPDATE visa_applications SET status = 'approved', updated_at = datetime('now') WHERE id = ?").run(id);
     jobs.recordStatus(db, 'visa', id, { from: 'submitted', to: 'approved' });
     return getVisa(db, id);
@@ -427,7 +429,7 @@ function issueVisa(db, id) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(id);
     if (!visa) throw notFound('Visa application not found');
-    if (visa.status !== 'approved') throw bad('Only approved applications can be marked as issued');
+    workflows.assertCan('visa', 'issue', visa);
     db.prepare("UPDATE visa_applications SET status = 'issued', updated_at = datetime('now') WHERE id = ?").run(id);
     jobs.recordStatus(db, 'visa', id, { from: 'approved', to: 'issued' });
     return getVisa(db, id);
@@ -442,9 +444,7 @@ function rejectVisa(db, id, payload = {}) {
   return db.transaction(() => {
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(Number(id));
     if (!visa) throw notFound('Visa application not found');
-    if (!['submitted', 'approved'].includes(visa.status)) {
-      throw bad('Only submitted or approved applications can be rejected');
-    }
+    workflows.assertCan('visa', 'reject', visa);
     const date = dateISO(payload.rejection_date || todayISO(), 'Rejection date');
     const reason = optionalStr(payload.reason, 'Reason', 500) || 'Rejected by immigration';
     db.prepare("UPDATE visa_applications SET status = 'rejected', updated_at = datetime('now') WHERE id = ?").run(visa.id);

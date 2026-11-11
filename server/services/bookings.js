@@ -11,6 +11,7 @@ const { allocateNumber } = require('./numbering');
 const { markCreated } = require('../created-by');
 const cancellationService = require('./cancellations');
 const jobs = require('./jobs');
+const workflows = require('../workflows');
 const jobCosts = require('./job-costs');
 const jobRefunds = require('./job-refunds');
 
@@ -35,6 +36,7 @@ function serializeBooking(row) {
     ...booking,
     margin_cents: booking.sale_total_cents - booking.cost_total_cents,
     status_display: booking.voided_at ? 'void' : booking.status,
+    allowed_actions: workflows.allowedActions('booking', booking),
   };
 }
 
@@ -251,7 +253,7 @@ function updateBooking(db, id, payload) {
   return db.transaction(() => {
     const existing = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!existing) throw notFound('Booking not found');
-    if (existing.status !== 'draft') throw bad('Only draft bookings can be edited');
+    workflows.assertCan('booking', 'edit', existing);
     writeBooking(db, existing, payload);
     return getBooking(db, id);
   })();
@@ -261,7 +263,7 @@ function deleteBooking(db, id) {
   return db.transaction(() => {
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!booking) throw notFound('Booking not found');
-    if (booking.status !== 'draft') throw bad('Only draft bookings can be deleted. Cancel it instead.');
+    workflows.assertCan('booking', 'delete', booking);
     db.prepare("DELETE FROM attachments WHERE entity_type = 'booking' AND entity_id = ?").run(id);
     jobs.deleteStatusHistory(db, 'booking', id);
     db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
@@ -292,7 +294,7 @@ function confirmBooking(db, id, options = {}) {
   return db.transaction(() => {
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!booking) throw notFound('Booking not found');
-    if (booking.status !== 'draft') throw bad('Only draft bookings can be confirmed');
+    workflows.assertCan('booking', 'confirm', booking);
     const { invoice, warnings } = postBookingDocuments(db, booking);
 
     db.prepare("UPDATE bookings SET status = 'confirmed', invoice_id = ?, updated_at = datetime('now') WHERE id = ?").run(invoice.id, id);
@@ -309,7 +311,7 @@ function markTravelled(db, id) {
   return db.transaction(() => {
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id);
     if (!booking) throw notFound('Booking not found');
-    if (booking.status !== 'confirmed') throw bad('Only confirmed bookings can be marked as travelled');
+    workflows.assertCan('booking', 'travel', booking);
     if (booking.travel_date && booking.travel_date > todayISO()) {
       throw bad(`The travel date is ${booking.travel_date}. Mark the booking as travelled on or after that date.`);
     }

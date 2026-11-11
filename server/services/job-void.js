@@ -15,10 +15,11 @@
 const { bad, notFound, str, todayISO } = require('../util');
 const audit = require('./audit');
 const jobs = require('./jobs');
+const workflows = require('../workflows');
 
 const JOBS = {
-  booking: { table: 'bookings', column: 'booking_id', label: 'booking', open: ['confirmed', 'travelled'] },
-  visa: { table: 'visa_applications', column: 'visa_id', label: 'visa application', open: ['submitted', 'approved', 'issued', 'rejected'] },
+  booking: { table: 'bookings', column: 'booking_id', label: 'booking' },
+  visa: { table: 'visa_applications', column: 'visa_id', label: 'visa application' },
 };
 
 function voidJob(db, sourceType, jobId, payload = {}) {
@@ -37,7 +38,7 @@ function voidJob(db, sourceType, jobId, payload = {}) {
       SELECT number FROM cancellations WHERE source_type = ? AND source_id = ? AND voided_at IS NULL
     `).get(sourceType, job.id);
     if (note) throw bad(`Void cancellation note ${note.number} first; that puts the ${config.label} back as it was`);
-    if (!config.open.includes(job.status)) throw bad(`This ${config.label} cannot be voided`);
+    workflows.assertCan(sourceType, 'void', job);
     if (sourceType === 'visa') {
       const deposit = db.prepare('SELECT number FROM visa_deposits WHERE visa_id = ? AND voided_at IS NULL').get(job.id);
       if (deposit) throw bad(`Security deposit ${deposit.number} belongs to this visa. Settle or void it first.`);

@@ -147,11 +147,10 @@ export async function render(container, { params } = {}) {
   const attachments = await loadAttachments('visa', id);
 
   const isDraft = visa.status === 'draft';
-  const isSubmitted = visa.status === 'submitted';
-  const isApproved = visa.status === 'approved';
-  const isIssued = visa.status === 'issued';
   const isRejected = visa.status === 'rejected';
   const isCancelled = visa.status === 'cancelled';
+  // Which moves the application allows comes from the server (server/workflows.js).
+  const allowed = new Set(visa.allowed_actions || []);
   const invoice = visa.invoice;
 
   const canApplyAdvance = Boolean(invoice && invoice.status === 'sent' && invoice.balance_cents > 0 && visa.advances.some((advance) => advance.remaining_cents > 0));
@@ -170,19 +169,12 @@ export async function render(container, { params } = {}) {
     `<a class="btn btn-ghost" href="#/visas"><span>All visas</span></a>`,
     `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
   ];
-  if (isDraft) {
-    actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
-    actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
-    actions.push(`<button class="btn btn-primary" data-action="submit">${icon('check', 15)}<span>Submit &amp; post</span></button>`);
-  }
-  if (isSubmitted) {
-    actions.push(`<button class="btn btn-danger-ghost" data-action="reject"><span>Reject</span></button>`);
-    actions.push(`<button class="btn btn-primary" data-action="approve">${icon('check', 15)}<span>Mark approved</span></button>`);
-  }
-  if (isApproved) {
-    actions.push(`<button class="btn btn-danger-ghost" data-action="reject"><span>Reject</span></button>`);
-    actions.push(`<button class="btn btn-primary" data-action="issue">${icon('check', 15)}<span>Mark issued</span></button>`);
-  }
+  if (allowed.has('edit')) actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
+  if (allowed.has('delete')) actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
+  if (allowed.has('submit')) actions.push(`<button class="btn btn-primary" data-action="submit">${icon('check', 15)}<span>Submit &amp; post</span></button>`);
+  if (allowed.has('reject')) actions.push(`<button class="btn btn-danger-ghost" data-action="reject"><span>Reject</span></button>`);
+  if (allowed.has('approve')) actions.push(`<button class="btn btn-primary" data-action="approve">${icon('check', 15)}<span>Mark approved</span></button>`);
+  if (allowed.has('issue')) actions.push(`<button class="btn btn-primary" data-action="issue">${icon('check', 15)}<span>Mark issued</span></button>`);
   if (visa.invoice && visa.invoice.status === 'sent' && visa.invoice.balance_cents > 0) {
     actions.push(`<a class="btn btn-secondary" href="#/invoices/${visa.invoice.id}">${icon('plus', 15)}<span>Record payment</span></a>`);
   }
@@ -191,19 +183,17 @@ export async function render(container, { params } = {}) {
   menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
   menu.push(`<button class="btn btn-ghost" data-action="add-reminder">${icon('clock', 15)}<span>Add reminder</span></button>`);
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/visa/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
-  if (!isCancelled && !isRejected) {
+  if (allowed.has('cancel')) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel application</span></button>`);
   }
   // Details that do not touch money: anyone with Edit rights.
-  if (!isDraft && !visa.voided_at) {
+  if (allowed.has('edit_details')) {
     menu.push(`<button class="btn btn-ghost" data-action="edit-details">${icon('edit', 15)}<span>Edit details</span></button>`);
   }
   // Admin only: correct the lines, or undo an application entered by mistake
-  // (a cancelled one has a note to void instead).
-  if (!isDraft && !isCancelled && !visa.cancellation) {
-    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
-    menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
-  }
+  // (one with a cancellation note has the note to void instead).
+  if (allowed.has('correct') && !visa.cancellation) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
+  if (allowed.has('void') && !visa.cancellation) menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
   pageRecord(visa);
   setHeader({
     title: visa.number,

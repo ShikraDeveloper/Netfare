@@ -9,6 +9,7 @@
 
 const { bad, notFound, dateISO, optionalStr } = require('../util');
 const audit = require('./audit');
+const workflows = require('../workflows');
 
 const dateOrNull = (value, label) => (value ? dateISO(value, label) : null);
 
@@ -68,8 +69,8 @@ function updateJobDetails(db, sourceType, jobId, payload = {}) {
   return db.transaction(() => {
     const job = db.prepare(`SELECT * FROM ${config.table} WHERE id = ?`).get(Number(jobId));
     if (!job) throw notFound(`The ${config.label} was not found`);
-    if (job.status === 'draft') throw bad(`A draft ${config.label} is edited in full`);
     if (job.voided_at) throw bad(`This ${config.label} is void`);
+    workflows.assertCan(sourceType, 'edit_details', job);
 
     const changed = {};
     for (const [field, clean] of Object.entries(config.fields)) {

@@ -65,8 +65,9 @@ export async function render(container, { params } = {}) {
   const attachments = await loadAttachments('booking', id);
 
   const isDraft = booking.status === 'draft';
-  const isConfirmed = booking.status === 'confirmed';
   const isCancelled = booking.status === 'cancelled';
+  // Which moves the booking allows comes from the server (server/workflows.js).
+  const allowed = new Set(booking.allowed_actions || []);
   const invoice = booking.invoice;
   const canApplyAdvance = Boolean(invoice && invoice.status === 'sent' && invoice.balance_cents > 0 && booking.advances.some((advance) => advance.remaining_cents > 0));
 
@@ -84,12 +85,10 @@ export async function render(container, { params } = {}) {
     `<a class="btn btn-ghost" href="#/bookings"><span>All bookings</span></a>`,
     `<button class="btn btn-secondary" data-action="print">${icon('print', 15)}<span>Print</span></button>`,
   ];
-  if (isDraft) {
-    actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
-    actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
-    actions.push(`<button class="btn btn-primary" data-action="confirm">${icon('check', 15)}<span>Confirm &amp; post</span></button>`);
-  }
-  if (isConfirmed) {
+  if (allowed.has('edit')) actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
+  if (allowed.has('delete')) actions.push(`<button class="icon-btn danger" data-action="delete" title="Delete draft">${icon('trash', 17)}</button>`);
+  if (allowed.has('confirm')) actions.push(`<button class="btn btn-primary" data-action="confirm">${icon('check', 15)}<span>Confirm &amp; post</span></button>`);
+  if (allowed.has('travel')) {
     const travelAhead = booking.travel_date && booking.travel_date > todayISO();
     actions.push(`<button class="btn btn-secondary" data-action="travel" ${travelAhead ? `disabled title="Available from the travel date (${esc(fmtDate(booking.travel_date))})"` : ''}>${icon('check', 15)}<span>Mark travelled</span></button>`);
   }
@@ -99,19 +98,17 @@ export async function render(container, { params } = {}) {
   menu.push(`<button class="btn btn-ghost" data-action="toggle-accounting">${icon('accounts', 15)}<span>Show or hide account codes</span></button>`);
   menu.push(`<button class="btn btn-ghost" data-action="add-reminder">${icon('clock', 15)}<span>Add reminder</span></button>`);
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/booking/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
-  if (!isCancelled) {
+  if (allowed.has('cancel')) {
     menu.push(`<button class="btn btn-danger-ghost" data-action="cancel"><span>Cancel booking</span></button>`);
   }
   // Details that do not touch money: anyone with Edit rights.
-  if (!isDraft && !booking.voided_at) {
+  if (allowed.has('edit_details')) {
     menu.push(`<button class="btn btn-ghost" data-action="edit-details">${icon('edit', 15)}<span>Edit details</span></button>`);
   }
   // Admin only: correct the lines, or undo a booking entered by mistake (a
   // cancelled one has a note to void instead).
-  if (!isDraft && !isCancelled) {
-    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
-    menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
-  }
+  if (allowed.has('correct')) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
+  if (allowed.has('void')) menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
   pageRecord(booking);
   setHeader({
     title: booking.number,

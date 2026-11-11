@@ -17,13 +17,13 @@ const { reverseOnOriginalDate } = require('./corrections');
 const audit = require('./audit');
 const { moveLinks } = require('./document-moves');
 const jobs = require('./jobs');
+const workflows = require('../workflows');
 
 const JOBS = {
   booking: {
     table: 'bookings',
     column: 'booking_id',
     label: 'booking',
-    open: ['confirmed', 'travelled'],
     date: 'booking_date',
     write: (db, job, values) => require('./bookings').writeBooking(db, job, values),
     post: (db, job) => require('./bookings').postBookingDocuments(db, job, { autoSettle: false }),
@@ -33,7 +33,6 @@ const JOBS = {
     table: 'visa_applications',
     column: 'visa_id',
     label: 'visa application',
-    open: ['submitted', 'approved', 'issued', 'rejected'],
     date: 'application_date',
     write: (db, job, values) => require('./visas').writeVisa(db, job, values),
     post: (db, job) => require('./visas').postVisaDocuments(db, job, { autoSettle: false }),
@@ -65,7 +64,7 @@ function correctJob(db, sourceType, jobId, payload = {}) {
       SELECT number FROM cancellations WHERE source_type = ? AND source_id = ? AND voided_at IS NULL
     `).get(sourceType, job.id);
     if (note) throw bad(`This ${config.label} has cancellation note ${note.number}. Void the note first.`);
-    if (!config.open.includes(job.status)) throw bad(`This ${config.label} cannot be corrected`);
+    workflows.assertCan(sourceType, 'correct', job);
     const reason = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });
     const values = payload.values && typeof payload.values === 'object' ? payload.values : {};
 

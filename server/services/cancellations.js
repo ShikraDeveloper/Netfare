@@ -193,9 +193,7 @@ function cancelSource(db, { sourceType, sourceId, payload = {} } = {}) {
   return db.transaction(() => {
     const source = sourceRow(db, sourceType, sourceId);
     const expected = 'cancelled';
-    if (source.status === 'cancelled' || (sourceType === 'visa' && source.status === 'rejected')) {
-      throw bad(sourceType === 'booking' ? 'Booking is already cancelled' : 'Visa application is already cancelled or rejected');
-    }
+    require('../workflows').assertCan(sourceType, 'cancel', source);
     const existing = db.prepare(
       'SELECT id FROM cancellations WHERE source_type = ? AND source_id = ? AND voided_at IS NULL',
     ).get(sourceType, Number(sourceId));
