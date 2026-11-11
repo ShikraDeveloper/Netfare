@@ -274,6 +274,20 @@ ensureColumn('supplier_credit_notes', 'is_opening', 'INTEGER NOT NULL DEFAULT 0'
 // A customer receipt is an advance shared out over invoices at once
 // (receivePayment in services/advances.js); bank charges as on payments.
 ensureColumn('customer_advances', 'is_receipt', 'INTEGER NOT NULL DEFAULT 0');
+// A receipt's share of an invoice is a payment, not an advance used. Receipts
+// made before this column existed shared out in the same moment they were saved.
+if (!hasColumn('payments', 'from_receipt')) {
+  ensureColumn('payments', 'from_receipt', 'INTEGER NOT NULL DEFAULT 0');
+  db.exec(`
+    UPDATE payments SET from_receipt = 1
+    WHERE advance_id IN (SELECT id FROM customer_advances WHERE is_receipt = 1)
+      AND EXISTS (
+        SELECT 1 FROM customer_advances a WHERE a.id = payments.advance_id
+          AND a.advance_date = payments.payment_date
+          AND ABS(strftime('%s', a.created_at) - strftime('%s', payments.created_at)) <= 5
+      )
+  `);
+}
 // A customer's nationality, offered for visas and invoices made for them.
 ensureColumn('customers', 'nationality', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('customer_advances', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');

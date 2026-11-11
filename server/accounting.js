@@ -158,7 +158,7 @@ function settledCardNumber(db, entryId) {
   `).get(entryId)?.number || null;
 }
 
-function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void', allowClosed = false } = {}) {
+function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void', allowClosed = false, extraLines = [] } = {}) {
   const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(entryId);
   if (!entry) return null;
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entryId);
@@ -178,12 +178,12 @@ function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void', all
     source_id: entry.source_id,
     reversal_of_id: entryId,
     allowClosed,
-    lines: lines.map((line) => ({
+    lines: [...lines.map((line) => ({
       account_id: line.account_id,
       debit_cents: line.credit_cents,
       credit_cents: line.debit_cents,
       description: line.description,
-    })),
+    })), ...extraLines],
   });
 }
 

@@ -668,7 +668,25 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
       throw bad('This payment has refunds. Void the refunds before voiding the payment.');
     }
     let voidEntryId = null;
-    if (payment.journal_entry_id) {
+    // A share inside a receipt's entry: the money stays received and becomes
+    // the customer's advance. Voiding the whole receipt reverses its entry.
+    const receiptShare = payment.from_receipt && payment.journal_entry_id
+      && db.prepare('SELECT source_type FROM journal_entries WHERE id = ?').get(payment.journal_entry_id)?.source_type === 'receipt';
+    if (receiptShare) {
+      if (!payload.withReceipt) {
+        voidEntryId = postEntry(db, {
+          entry_date: todayISO(),
+          memo: audit.withRemarks(`Void payment ${payment.number} · kept as advance on ${payment.reference}`, remarks),
+          reference: payment.reference,
+          source_type: 'void',
+          source_id: payment.id,
+          lines: [
+            { account_id: systemAccount(db, '1100', 'Trade Receivables').id, debit_cents: payment.amount_cents, credit_cents: 0, description: `Invoice ${invoice.number}` },
+            { account_id: systemAccount(db, '2400', 'Contract Liabilities (Customer Advances)').id, debit_cents: 0, credit_cents: payment.amount_cents, description: `Advance on ${payment.reference}` },
+          ],
+        });
+      }
+    } else if (payment.journal_entry_id) {
       voidEntryId = reverseEntry(db, payment.journal_entry_id, {
         entry_date: todayISO(),
         memo: audit.withRemarks(`Void payment ${payment.number}`, remarks),

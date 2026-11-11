@@ -34,6 +34,7 @@ const SOURCE_OWNERS = {
   bill_payment: 'bill_payment',
   portal_settle: 'bill_payment',
   advance: 'advance',
+  receipt: 'advance',
   customer_refund: 'refund',
   supplier_refund: 'refund',
   cancellation_refund: 'refund',

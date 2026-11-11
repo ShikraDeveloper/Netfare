@@ -324,13 +324,17 @@ function customerDeposits(db, customerId, range) {
 function customerAdvances(db, customerId, range) {
   const rows = [
     ...db.prepare(`
-      SELECT 'received' AS event_type, a.id, a.number AS reference, a.advance_date AS date, a.amount_cents,
-             b.number AS booking_number, v.number AS visa_number, '' AS invoice_number
+      SELECT * FROM (
+        SELECT 'received' AS event_type, a.id, a.number AS reference, a.advance_date AS date,
+               a.amount_cents - COALESCE((SELECT SUM(p.amount_cents) FROM payments p
+                 WHERE p.advance_id = a.id AND p.from_receipt = 1 AND p.status = 'posted'), 0) AS amount_cents,
+               b.number AS booking_number, v.number AS visa_number, '' AS invoice_number
 , a.created_at AS created_at
-      FROM customer_advances a
-      LEFT JOIN bookings b ON b.id = a.booking_id
-      LEFT JOIN visa_applications v ON v.id = a.visa_id
-      WHERE a.customer_id = ? AND a.voided_at IS NULL
+        FROM customer_advances a
+        LEFT JOIN bookings b ON b.id = a.booking_id
+        LEFT JOIN visa_applications v ON v.id = a.visa_id
+        WHERE a.customer_id = ? AND a.voided_at IS NULL
+      ) WHERE amount_cents > 0
     `).all(customerId),
     ...db.prepare(`
       SELECT 'applied' AS event_type, p.id, a.number AS reference, p.payment_date AS date, p.amount_cents,
@@ -339,7 +343,7 @@ function customerAdvances(db, customerId, range) {
       FROM payments p
       JOIN customer_advances a ON a.id = p.advance_id
       JOIN invoices i ON i.id = p.invoice_id
-      WHERE a.customer_id = ? AND a.voided_at IS NULL AND p.status = 'posted'
+      WHERE a.customer_id = ? AND a.voided_at IS NULL AND p.status = 'posted' AND p.from_receipt = 0
     `).all(customerId),
     ...db.prepare(`
       SELECT 'refunded' AS event_type, r.id, a.number AS reference, r.refund_date AS date, r.amount_cents,

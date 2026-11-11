@@ -127,7 +127,9 @@ function customerAdvances(db, customerId) {
     LEFT JOIN bookings b ON b.id = a.booking_id
     LEFT JOIN visa_applications v ON v.id = a.visa_id
     WHERE a.customer_id = ? AND a.voided_at IS NULL
-    -- Used ones too, so the admin can still void or check them here.
+      -- A fully used receipt is a payment, not an advance; it is voided from its own page.
+      AND NOT (a.is_receipt = 1 AND a.amount_cents <= a.applied_cents + a.refunded_cents)
+    -- Used advances too, so the admin can still void or check them here.
     ORDER BY (a.amount_cents > a.applied_cents + a.refunded_cents) DESC, a.advance_date, a.id
   `).all(customerId);
 }

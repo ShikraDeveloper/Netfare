@@ -2,6 +2,7 @@ import { api } from '../api.js';
 import { store } from '../store.js';
 import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge, pageRecord, printPage } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
+import { voidAdvance } from './customer-advance-modals.js';
 
 // Printable receipt for one customer payment shared over several invoices
 // (Receive payment on the customer's balance page).
@@ -18,6 +19,7 @@ export async function render(container, { params } = {}) {
     title: `Receipt ${receipt.number}`,
     actions: `
       <a class="btn btn-secondary" href="#/customer-balances/${receipt.customer_id}">${icon('wallet', 15)}<span>Customer balance</span></a>
+      ${!isVoid && store.user?.is_admin ? `<button class="btn btn-secondary" data-action="void">${icon('trash', 15)}<span>Void</span></button>` : ''}
       <button class="btn btn-primary" data-action="print">${icon('print', 15)}<span>Print</span></button>
     `,
   });
@@ -97,4 +99,5 @@ export async function render(container, { params } = {}) {
   `;
 
   document.querySelector('#page-actions [data-action="print"]')?.addEventListener('click', () => printPage());
+  document.querySelector('#page-actions [data-action="void"]')?.addEventListener('click', () => voidAdvance(receipt, () => render(container, { params })));
 }

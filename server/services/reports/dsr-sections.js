@@ -20,6 +20,7 @@ const emptySplit = () => ({ cash: 0, card: 0, bank: 0, other: 0, credit: 0 });
 const FLOW_LABELS = {
   payment: 'Customer payments',
   advance: 'Customer advances',
+  receipt: 'Customer receipts',
   advance_refund: 'Advance refunds',
   bill_payment: 'Supplier payments',
   portal_topup: 'Portal top-ups',
@@ -96,11 +97,11 @@ function dsrSections(db, start, end, items) {
   // How each sale was settled by the report's end date.
   const settled = new Map();
   for (const row of db.prepare(`
-    SELECT invoice_id, method, advance_id, amount_cents FROM payments
+    SELECT invoice_id, method, advance_id, from_receipt, amount_cents FROM payments
     WHERE status = 'posted' AND payment_date <= ? AND invoice_id IN (${placeholders})
   `).all(end, ...saleIds)) {
     const split = settled.get(row.invoice_id) || emptySplit();
-    split[row.advance_id ? 'other' : modeOf(row.method)] += row.amount_cents;
+    split[row.advance_id && !row.from_receipt ? 'other' : modeOf(row.method)] += row.amount_cents;
     settled.set(row.invoice_id, split);
   }
   for (const row of db.prepare(`
@@ -223,22 +224,28 @@ function dsrSections(db, start, end, items) {
       FROM payments p
       JOIN invoices i ON i.id = p.invoice_id
       JOIN customers c ON c.id = p.customer_id
-      WHERE p.status = 'posted' AND p.advance_id IS NULL
+      WHERE p.status = 'posted' AND (p.advance_id IS NULL OR p.from_receipt = 1)
         AND p.payment_date >= ? AND p.payment_date <= ?
         ${saleIds.length ? `AND p.invoice_id NOT IN (${placeholders})` : ''}
     `).all(start, end, ...saleIds).map((row) => ({
       ...row, kind: 'payment', against: `Invoice ${row.invoice_number} · ${row.invoice_date}`,
     })),
     ...db.prepare(`
-      SELECT a.id, a.number, a.advance_date AS date, a.created_at, a.amount_cents, a.method,
-             c.name AS customer_name, b.number AS booking_number, v.number AS visa_number
-      FROM customer_advances a
-      JOIN customers c ON c.id = a.customer_id
-      LEFT JOIN bookings b ON b.id = a.booking_id
-      LEFT JOIN visa_applications v ON v.id = a.visa_id
-      WHERE a.voided_at IS NULL AND a.advance_date >= ? AND a.advance_date <= ?
+      SELECT * FROM (
+        SELECT a.id, a.number, a.advance_date AS date, a.created_at, a.method, a.is_receipt,
+               a.amount_cents - COALESCE((SELECT SUM(p.amount_cents) FROM payments p
+                 WHERE p.advance_id = a.id AND p.from_receipt = 1 AND p.status = 'posted'), 0) AS amount_cents,
+               c.name AS customer_name, b.number AS booking_number, v.number AS visa_number
+        FROM customer_advances a
+        JOIN customers c ON c.id = a.customer_id
+        LEFT JOIN bookings b ON b.id = a.booking_id
+        LEFT JOIN visa_applications v ON v.id = a.visa_id
+        WHERE a.voided_at IS NULL AND a.advance_date >= ? AND a.advance_date <= ?
+      ) WHERE amount_cents > 0
     `).all(start, end).map((row) => ({
-      ...row, kind: 'advance', against: ['Advance', row.booking_number || row.visa_number].filter(Boolean).join(' · '),
+      ...row,
+      kind: 'advance',
+      against: row.is_receipt ? `Advance · left from receipt ${row.number}` : ['Advance', row.booking_number || row.visa_number].filter(Boolean).join(' · '),
     })),
     ...depositRows.filter((row) => !shownDeposits.has(row.id)).map((row) => ({
       ...row, kind: 'deposit', against: `Visa deposit · ${row.visa_number}${row.applicant_name ? ` (${row.applicant_name})` : ''}`,

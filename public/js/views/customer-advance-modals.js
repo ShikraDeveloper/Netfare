@@ -200,23 +200,25 @@ export function openReceivePayment(customer, invoices, onDone) {
 export async function voidAdvance(advance, onDone) {
   const result = await voidDialog({
     title: `Void ${advance.number}?`,
-    message: 'The advance will be reversed. Any refunds or invoice applications funded by this advance will also be reversed.',
-    warning: 'This cannot be undone. The advance stays in history as void and the reversal is written to the audit log.',
+    message: advance.is_receipt
+      ? 'The receipt will be reversed: the invoices it paid are unpaid again, and anything kept from it as an advance is undone too.'
+      : 'The advance will be reversed. Any refunds or invoice applications funded by this advance will also be reversed.',
+    warning: `This cannot be undone. The ${advance.is_receipt ? 'receipt' : 'advance'} stays in history as void and the reversal is written to the audit log.`,
     preview: {
       heading: 'Void preview',
       items: [
-        { label: `Advance ${advance.number}`, value: fmtMoney(advance.amount_cents), note: `${fmtDate(advance.advance_date)} · ${advance.method || 'Advance'}` },
-        { label: 'Applied to invoices', value: fmtMoney(advance.applied_cents), note: 'Invoice applications will be reversed' },
+        { label: `${advance.is_receipt ? 'Receipt' : 'Advance'} ${advance.number}`, value: fmtMoney(advance.amount_cents), note: `${fmtDate(advance.advance_date)} · ${advance.method || 'Advance'}` },
+        { label: advance.is_receipt ? 'Paid to invoices' : 'Applied to invoices', value: fmtMoney(advance.applied_cents), note: advance.is_receipt ? 'Those invoices will be unpaid again' : 'Invoice applications will be reversed' },
         { label: 'Refunded to customer', value: fmtMoney(advance.refunded_cents), note: 'Advance refunds will be reversed' },
       ],
-      note: 'The advance stays in history as void and the reversal is written to the audit log.',
+      note: `The ${advance.is_receipt ? 'receipt' : 'advance'} stays in history as void and the reversal is written to the audit log.`,
     },
-    confirmLabel: 'Void advance',
+    confirmLabel: advance.is_receipt ? 'Void receipt' : 'Void advance',
   });
   if (!result.confirmed) return;
   try {
     await api.post(`/advances/${advance.id}/void`, { remarks: result.remarks });
-    toast('Advance voided with a reversing entry');
+    toast(`${advance.is_receipt ? 'Receipt' : 'Advance'} voided with a reversing entry`);
     onDone();
   } catch (error) {
     toast(error.message, 'error');

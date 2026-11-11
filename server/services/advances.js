@@ -83,7 +83,10 @@ function listAdvances(db, { customer_id, booking_id, visa_id, status } = {}) {
   `).all(...params).map(serializeAdvance);
 }
 
-function createAdvance(db, payload, { receipt = false } = {}) {
+// A receipt (receivePayment) pays its invoice shares in the same entry:
+// bank in, Trade Receivables out for each share, and only what is left over
+// as the customer's advance.
+function createAdvance(db, payload, { receipt = false, shares = [] } = {}) {
   return db.transaction(() => {
     const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(Number(payload.customer_id));
     if (!customer) throw bad('Choose a customer');
@@ -136,19 +139,37 @@ function createAdvance(db, payload, { receipt = false } = {}) {
     );
     const advanceId = Number(info.lastInsertRowid);
     markCreated(db, 'customer_advances', advanceId);
+    const shared = shares.reduce((sum, share) => sum + share.amount, 0);
+    const ar = shares.length ? systemAccount(db, AR_ACCOUNT, 'Trade Receivables') : null;
     const entryId = postEntry(db, {
       entry_date: advanceDate,
       memo: `${receipt ? 'Customer receipt' : 'Customer advance'} ${number} — ${customer.name}`,
       reference: number,
-      source_type: 'advance',
+      source_type: receipt ? 'receipt' : 'advance',
       source_id: advanceId,
       lines: [
-        { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Advance ${number}` },
-        { account_id: advancesAccount.id, debit_cents: 0, credit_cents: amount, description: `Advance from ${customer.name}` },
-        ...bankChargeLines(db, charges, account, `advance ${number}`),
+        { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `${receipt ? 'Receipt' : 'Advance'} ${number}` },
+        ...shares.map((share) => ({ account_id: ar.id, debit_cents: 0, credit_cents: share.amount, description: `Invoice ${share.invoice.number}` })),
+        ...(amount > shared ? [{ account_id: advancesAccount.id, debit_cents: 0, credit_cents: amount - shared, description: `Advance from ${customer.name}` }] : []),
+        ...bankChargeLines(db, charges, account, `${receipt ? 'receipt' : 'advance'} ${number}`),
       ],
     });
     db.prepare('UPDATE customer_advances SET journal_entry_id = ? WHERE id = ?').run(entryId, advanceId);
+    for (const share of shares) {
+      const paymentNumber = allocateNumber(db, 'payment', advanceDate);
+      const payment = db.prepare(`
+        INSERT INTO payments (number, customer_id, invoice_id, payment_date, amount_cents, method,
+          reference, deposit_account_id, advance_id, journal_entry_id, from_receipt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `).run(paymentNumber, customer.id, share.invoice.id, advanceDate, share.amount,
+        optionalStr(payload.method, 'Payment method', 100) || 'Bank transfer', number, account.id, advanceId, entryId);
+      markCreated(db, 'payments', Number(payment.lastInsertRowid));
+      db.prepare("UPDATE invoices SET amount_paid_cents = amount_paid_cents + ?, updated_at = datetime('now') WHERE id = ?").run(share.amount, share.invoice.id);
+    }
+    if (shared) {
+      db.prepare('UPDATE customer_advances SET applied_cents = ?, status = ? WHERE id = ?')
+        .run(shared, shared >= amount ? 'applied' : 'open', advanceId);
+    }
     return getAdvance(db, advanceId);
   })();
 }
@@ -314,6 +335,7 @@ function voidAdvance(db, id, payload = {}) {
     for (const payment of payments) {
       invoiceService.deleteInvoicePayment(db, payment.id, {
         remarks: remarks || `Voided with advance ${advance.number}`,
+        withReceipt: true,
       });
     }
 
@@ -323,10 +345,20 @@ function voidAdvance(db, id, payload = {}) {
     }
     let voidEntryId = null;
     if (fresh.journal_entry_id) {
+      // Receipt shares voided on their own earlier already moved to the advance.
+      const moved = db.prepare(`
+        SELECT COALESCE(SUM(amount_cents), 0) AS n FROM payments
+        WHERE advance_id = ? AND journal_entry_id = ? AND status = 'void' AND void_entry_id IS NOT NULL
+      `).get(fresh.id, fresh.journal_entry_id).n;
+      const extraLines = moved ? [
+        { account_id: systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)').id, debit_cents: moved, credit_cents: 0, description: 'Shares voided earlier' },
+        { account_id: systemAccount(db, AR_ACCOUNT, 'Trade Receivables').id, debit_cents: 0, credit_cents: moved, description: 'Shares voided earlier' },
+      ] : [];
       voidEntryId = reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
-        memo: audit.withRemarks(`Void customer advance ${fresh.number}`, remarks),
+        memo: audit.withRemarks(`Void ${fresh.is_receipt ? 'customer receipt' : 'customer advance'} ${fresh.number}`, remarks),
         source_type: 'void',
+        extraLines,
       });
     }
     db.prepare(`
@@ -350,9 +382,9 @@ function voidAdvance(db, id, payload = {}) {
 }
 
 // One payment from a customer for several invoices: one receipt and one
-// bank entry for the full amount, shared out over the chosen invoices (or the
-// oldest first). Anything left stays as the customer's advance. It is an
-// advance applied at once, so voiding the receipt undoes every share.
+// entry for the full amount, shared out over the chosen invoices (or the
+// oldest first). Anything left stays as the customer's advance. Voiding the
+// receipt undoes every share.
 function receivePayment(db, payload = {}) {
   return db.transaction(() => {
     const customerId = Number(payload.customer_id);
@@ -401,10 +433,7 @@ function receivePayment(db, payload = {}) {
       reference: payload.reference,
       deposit_account_id: payload.deposit_account_id,
       bank_charges_cents: payload.bank_charges_cents,
-    }, { receipt: true });
-    for (const share of shares) {
-      applyAdvance(db, receipt.id, { invoice_id: share.invoice.id, amount_cents: share.amount, payment_date: date });
-    }
+    }, { receipt: true, shares });
     return getReceipt(db, receipt.id);
   })();
 }
