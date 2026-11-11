@@ -3303,6 +3303,17 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Next (from the report):** step 2, visa and booking workflow tables with `allowed_actions` driving the buttons; step 3, invoice, bill and advance actions; step 4, `isVoid` and `/api/workflows`.
 - **Not pushed or released** (1.0.18 is tagged and waiting in the GitHub Actions queue; this is not in it).
 
+### State rules, step 2: booking and visa workflows — code commit `0845bda`
+
+- **Why:** Step 2 of the state machine plan; the user said "Haan, step 2".
+- **New `server/workflows.js`:** one table per job with every move (booking: edit, delete, confirm, travel, cancel, edit_details, correct, void; visa: edit, delete, submit, approve, issue, reject, cancel, edit_details, correct, void), the statuses that allow it, and the refusal message. `assertCan`, `can`, `allowedActions`. A void job allows nothing.
+- **Services use it, same messages:** `bookings.js` (edit, delete, confirm, travel), `visas.js` (edit, delete, submit, approve, issue, reject), `cancellations.js` (cancel), `job-details.js` (edit details), `job-void.js` and `job-correct.js` (their own `open` lists are gone). Checks that need data stay where they were: the travel date, an existing cancellation note, a visa security deposit.
+- **Records carry `allowed_actions`;** the booking and visa pages draw their buttons from it (the travel-date and visa cancellation-note conditions stay as extra conditions on the page).
+- **Checked:** `test/workflows.test.js` pins what each status allows and the messages (test 2 failed before the change). On the demo all 16 bookings and visas (every status, void included) show exactly the buttons the old rules showed.
+- **Tests:** `npm test` 354 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Next:** step 3 (invoice, bill and advance actions), step 4 (`isVoid` helper and `/api/workflows`).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
