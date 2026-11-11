@@ -76,6 +76,8 @@ router.put('/', (req, res) => {
     bank_account_name: body.bank_account_name != null ? optionalStr(body.bank_account_name, 'Account name', 160) : (current.bank_account_name || ''),
     bank_iban: body.bank_iban != null ? optionalStr(body.bank_iban, 'IBAN', 42).toUpperCase() : (current.bank_iban || ''),
     invoice_terms: body.invoice_terms != null ? optionalStr(body.invoice_terms, 'Invoice terms', 1000) : (current.invoice_terms || ''),
+    invoice_terms_ticket: body.invoice_terms_ticket != null ? optionalStr(body.invoice_terms_ticket, 'Ticket invoice terms', 1000) : (current.invoice_terms_ticket || ''),
+    invoice_terms_visa: body.invoice_terms_visa != null ? optionalStr(body.invoice_terms_visa, 'Visa invoice terms', 1000) : (current.invoice_terms_visa || ''),
   };
   // Customers pay into this account, so only the admin may change it, and
   // every change is in the audit log.

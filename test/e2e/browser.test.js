@@ -772,17 +772,16 @@ test('visa applicant toggle separates customer and visitor details', async () =>
   assertNoConsoleErrors();
 });
 
-test('invoice shows a separate visa applicant section for a visitor', async () => {
+test('visa invoice names the visitor in its passenger table', async () => {
   const visas = await getJson(baseUrl, '/api/visas');
   const visitor = visas.find((visa) => Number(visa.applicant_is_customer) === 0 && visa.invoice_id);
   assert.ok(visitor, 'Demo data should include a submitted visa for a visitor');
 
   await openRoute(`/invoices/${visitor.invoice_id}`);
-  const section = page.locator('.doc-visa-applicant');
+  const section = page.locator('.doc-items');
   await section.waitFor();
   const applicantText = await section.innerText();
   assert.ok(applicantText.includes(visitor.applicant_name), 'Invoice should name the visa applicant');
-  assert.match(applicantText, /Passport:/i);
   if (visitor.passport_number) {
     assert.ok(applicantText.includes(`•••• ${visitor.passport_number.slice(-4)}`), 'Invoice shows a masked passport');
     assert.ok(!applicantText.includes(visitor.passport_number), 'Invoice never shows the full passport number');
@@ -1427,7 +1426,7 @@ test('ticket, visa and service invoices print with their own heading and details
   await openRoute(`/invoices/${visa.invoice_id}`);
   await page.locator('[data-visa-details]').waitFor();
   assert.equal((await page.locator('.doc-kind').innerText()).trim().toLowerCase(), 'visa invoice');
-  const details = await page.locator('[data-visa-details]').innerText();
+  const details = await page.locator('.doc-items').innerText();
   assert.ok(details.includes('E2E Italy') && details.includes('•••• 2345'), 'visa details show for the customer too');
   assert.ok(!details.includes('E2EV12345'));
 

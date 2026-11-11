@@ -144,8 +144,16 @@ export async function render(container) {
                   <input class="input" id="bank-iban" name="bank_iban" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
                 </div>
                 <div class="field full">
-                  <label for="invoice-terms">Terms under every invoice</label>
-                  <textarea class="input" id="invoice-terms" name="invoice_terms" rows="3" maxlength="1000" placeholder="Tickets follow the airline's fare rules; changes and refunds carry charges.">${esc(settings.invoice_terms || '')}</textarea>
+                  <label for="invoice-terms-ticket">Terms under ticket invoices</label>
+                  <textarea class="input" id="invoice-terms-ticket" name="invoice_terms_ticket" rows="2" maxlength="1000" placeholder="Tickets follow the airline's fare rules; changes and refunds carry airline and service charges.">${esc(settings.invoice_terms_ticket || '')}</textarea>
+                </div>
+                <div class="field full">
+                  <label for="invoice-terms-visa">Terms under visa invoices</label>
+                  <textarea class="input" id="invoice-terms-visa" name="invoice_terms_visa" rows="2" maxlength="1000" placeholder="Visa approval is decided by the authorities. Visa fees are not refundable once submitted.">${esc(settings.invoice_terms_visa || '')}</textarea>
+                </div>
+                <div class="field full">
+                  <label for="invoice-terms">Terms under other invoices <span class="label-note">· also used when the two above are empty</span></label>
+                  <textarea class="input" id="invoice-terms" name="invoice_terms" rows="2" maxlength="1000" placeholder="Services once delivered are not refundable.">${esc(settings.invoice_terms || '')}</textarea>
                 </div>
               </div>
             </div>
@@ -338,6 +346,8 @@ export async function render(container) {
         bank_account_name: values.get('bank_account_name'),
         bank_iban: values.get('bank_iban'),
         invoice_terms: values.get('invoice_terms'),
+        invoice_terms_ticket: values.get('invoice_terms_ticket'),
+        invoice_terms_visa: values.get('invoice_terms_visa'),
       });
       store.settings = updated;
       window.dispatchEvent(new Event('meta-changed'));

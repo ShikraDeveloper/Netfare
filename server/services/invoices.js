@@ -91,7 +91,32 @@ function attachVisaDetails(db, invoice) {
   // The invoice is a customer document: show a masked passport number and no
   // date of birth. The visa application keeps the full details.
   const { visa_passport_number: passportNumber, ...details } = visa;
-  return Object.assign(invoice, details, { visa_passport_masked: maskPassport(passportNumber) });
+  return Object.assign(invoice, details, {
+    visa_passport_masked: maskPassport(passportNumber),
+    visa_deposit: depositSummary(db, invoice.visa_id),
+  });
+}
+
+// The refundable security deposit taken with a visa, for its own box on the
+// invoice. It is not part of the invoice total.
+function depositSummary(db, visaId) {
+  const row = db.prepare('SELECT id FROM visa_deposits WHERE visa_id = ? AND voided_at IS NULL ORDER BY id DESC LIMIT 1').get(visaId);
+  if (!row) return null;
+  const deposit = require('./visa-deposits').getDeposit(db, row.id);
+  const live = deposit.events.filter((event) => !event.voided_at);
+  const collect = live.find((event) => event.event_type === 'collect');
+  return {
+    number: deposit.number,
+    amount_cents: deposit.collected_cents,
+    received_date: collect?.event_date || deposit.deposit_date,
+    received_method: collect?.method || '',
+    status: deposit.status,
+    held_cents: deposit.held_cents,
+    applied_cents: deposit.applied_cents,
+    kept_cents: deposit.forfeited_cents,
+    returned: live.filter((event) => event.event_type === 'refund')
+      .map((event) => ({ date: event.event_date, method: event.method, amount_cents: event.amount_cents })),
+  };
 }
 
 // Trip details for an invoice made from a booking, and the ticket number of

@@ -882,12 +882,17 @@ body.modal-open { overflow: hidden; }
 /* ---------- Invoice / bill document ---------- */
 .doc-wrap { max-width: 920px; margin: 0 auto; }
 .doc {
+  position: relative;
+  overflow: hidden;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 40px 44px;
   box-shadow: var(--shadow-sm);
 }
+/* Every printed document: a thin brand line along the top. */
+.doc::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: linear-gradient(90deg, #0b1b2e 0 70%, #4fb3e8 70% 100%); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc-brand > div { max-width: 270px; }
 .doc-head { display: flex; justify-content: space-between; gap: 36px; margin-bottom: 34px; }
 .doc-brand { display: flex; gap: 12px; align-items: flex-start; }
 .doc-brand .brand-mark { width: 42px; height: 42px; border-radius: 12px; font-size: 21px; }
@@ -916,8 +921,31 @@ body.modal-open { overflow: hidden; }
 .doc-trip-grid dd { margin: 0; font-weight: 600; text-align: right; }
 .doc-item-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
 .doc-amount-words { font-size: 12px; color: var(--muted); }
+.doc-amount-words .doc-label { margin-right: 8px; }
 .doc-note { margin-top: 10px; }
-.doc-dates { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.doc-dates { display: grid; grid-template-columns: auto auto; justify-content: end; gap: 2px 14px; margin: 8px 0 0; font-size: 12px; }
+.doc-dates dt { color: var(--muted); }
+.doc-dates dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.doc-number .badge { font-size: 10.5px; vertical-align: middle; margin-left: 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc-items-wrap { border: 1px solid #eef1f5; border-radius: 10px; overflow: hidden; }
+.doc-items-wrap .doc-items { margin: 0; }
+.doc-items-wrap .doc-items th { background: #f6f8fb; padding: 9px 10px; border: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc-items-wrap .doc-items td { padding-left: 10px; padding-right: 10px; }
+.doc-items-wrap .doc-items tr:last-child td { border-bottom: 0; }
+.doc-foot-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 16px 28px; margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--border); align-items: start; }
+.doc-foot-grid:empty { display: none; }
+.doc-foot-grid .doc-howto { margin: 0; padding: 0; border: 0; }
+.doc-foot-grid .doc-terms-foot { margin: 0; text-align: right; grid-column: 2; }
+.doc-deposit { margin-top: 20px; border: 1px solid #d6e8f5; border-radius: 10px; padding: 12px 14px; page-break-inside: avoid; }
+.doc-deposit-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.doc-deposit-amount { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.doc-deposit-status { display: inline-block; font-size: 10.5px; font-weight: 600; border-radius: 999px; padding: 1px 9px; margin-left: 6px; background: #fdf1dc; color: #8a5a00; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc-deposit.is-settled .doc-deposit-status { background: #e3f6ec; color: #1d6b45; }
+.doc-deposit-line { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 11.5px; }
+.doc-deposit-dot { width: 10px; height: 10px; border-radius: 50%; background: #2b8fcb; flex: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc-deposit-dot.is-end { background: #dfe5ec; }
+.doc-deposit.is-settled .doc-deposit-dot.is-end, .doc-deposit.is-settled .doc-deposit-track { background: #1d9e75; }
+.doc-deposit-track { flex: 1; height: 2px; background: #dfe5ec; min-width: 30px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .doc-parties-right { text-align: right; }
 .doc-passenger { font-weight: 600; }
 .doc-ref { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; }
@@ -1067,7 +1095,7 @@ html:not(.show-accounting) .acct-col { display: none; }
 .doc-total-area { display: flex; justify-content: space-between; gap: 32px; align-items: flex-start; }
 .doc-notes { max-width: 410px; font-size: 11.5px; color: var(--muted); line-height: 1.65; white-space: pre-line; }
 .doc-notes strong { display: block; color: var(--text-soft); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
-.doc-totals { width: 290px; flex: none; }
+.doc-totals { width: 300px; flex: none; background: #f6f8fb; border-radius: 10px; padding: 12px 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .doc-totals .totals-row { padding: 5px 0; border: none; }
 .doc-totals .totals-row.total { font-size: 15px; }
 .doc-totals .totals-row.total span:last-child { font-size: 16px; }
@@ -1356,6 +1384,8 @@ html:not(.show-accounting) .acct-col { display: none; }
   .doc-visa-application { flex: none; text-align: left; }
   .doc-total-area { flex-direction: column-reverse; gap: 20px; }
   .doc-totals { width: 100%; }
+  .doc-foot-grid { grid-template-columns: 1fr; }
+  .doc-foot-grid .doc-terms-foot { grid-column: auto; text-align: left; }
   .account-summary { grid-template-columns: repeat(2, 1fr); }
   .report-card { padding: 22px 16px 26px; }
   .report-title { font-size: 19px; }
@@ -1532,6 +1562,8 @@ tr.open .statement-extra-wrap, .show-details .statement-extra-wrap { display: bl
   .dsr-tile-value { font-size: 12pt; }
   .dsr-pay { background: #fff; font-size: 7.5px; padding: 0 4px; }
   a { color: inherit !important; text-decoration: none !important; }
+  /* On paper the brand line sits above the content, not over it. */
+  .doc::before { position: static; display: block; margin: 0 0 18px; }
   .doc-items thead { display: table-header-group; }
   .doc-items tr, .doc-parties, .doc-visa-applicant, .doc-total-area, .doc-foot, .doc-howto, .doc-terms-foot { page-break-inside: avoid; }
   /* Tighter rows on paper: about 20 passengers fit on the first page. */

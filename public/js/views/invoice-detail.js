@@ -96,16 +96,10 @@ function beneficiaryHtml(invoice) {
     invoice.beneficiary_passport_masked ? `Passport: ${invoice.beneficiary_passport_masked}` : '',
   ].filter(Boolean);
   return `
-    <div class="doc-visa-applicant" data-beneficiary>
-      <div>
-        <div class="doc-label">Service for</div>
-        <div class="doc-party-name">${esc(name)}</div>
-        ${details.length ? `<div class="doc-party-detail">${esc(details.join('\n'))}</div>` : ''}
-      </div>
-      <div>
-        <div class="doc-label">Paid by</div>
-        <div class="doc-party-detail">${esc(invoice.customer_name || '')}</div>
-      </div>
+    <div class="doc-parties-right" data-beneficiary>
+      <div class="doc-label">Service for</div>
+      <div class="doc-party-name">${esc(name)}</div>
+      ${details.length ? `<div class="doc-party-detail">${esc(details.join(' · '))}</div>` : ''}
     </div>
   `;
 }
@@ -116,6 +110,7 @@ function beneficiaryHtml(invoice) {
 // invoices show Qty and Unit price only when some line's quantity is not 1.
 function itemsTableHtml(invoice) {
   const items = invoice.items || [];
+  if (invoice.document_kind === 'visa') return visaTableHtml(invoice, items);
   const passengers = ['ticket', 'booking'].includes(invoice.document_kind) && items.some((item) => item.passenger_name);
   const qty = !passengers && items.some((item) => Number(item.quantity) !== 1);
   const times = (item) => (Number(item.quantity) !== 1 ? ` · ${fmtNumber(item.quantity)} × ${fmtMoney(item.unit_price_cents)}` : '');
@@ -145,6 +140,55 @@ function itemsTableHtml(invoice) {
   return `<table class="doc-items"><caption class="sr-only">Invoice line items</caption><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+// A visa invoice: the applicant, passport and visa on the first line (the
+// visa itself); the lines after it are services for the same application.
+function visaTableHtml(invoice, items) {
+  const times = (item) => (Number(item.quantity) !== 1 ? ` · ${fmtNumber(item.quantity)} × ${fmtMoney(item.unit_price_cents)}` : '');
+  const dash = '<span class="muted">—</span>';
+  const rows = items.map((item, index) => {
+    const first = index === 0;
+    const passport = invoice.visa_passport_masked
+      ? `<span class="doc-ref">${esc(invoice.visa_passport_masked)}</span>${invoice.visa_passport_expiry ? `<div class="doc-item-sub">exp. ${esc(fmtDate(invoice.visa_passport_expiry))}</div>` : ''}`
+      : dash;
+    return `<tr>
+      <td class="doc-passenger">${first && invoice.visa_applicant_name ? `${esc(invoice.visa_applicant_name)}${invoice.visa_nationality ? `<div class="doc-item-sub">${esc(invoice.visa_nationality)}</div>` : ''}` : dash}</td>
+      <td>${first ? passport : dash}</td>
+      <td>${first && invoice.visa_destination_country && !item.description.toLowerCase().includes(invoice.visa_destination_country.toLowerCase()) ? `${esc(invoice.visa_destination_country)} · ` : ''}${esc(item.description + times(item))}${first && invoice.visa_duration_days && !/\bdays?\b/i.test(item.description) ? ` · ${esc(visaDurationLabel(invoice.visa_duration_days))}` : ''}</td>
+      <td class="num amount">${fmtMoney(item.amount_cents)}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="doc-items"><caption class="sr-only">Invoice line items</caption><thead><tr>
+    <th scope="col">Passenger</th><th scope="col">Passport no.</th><th scope="col">Visa type</th><th scope="col" class="num">Amount</th>
+  </tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// The refundable security deposit: its own card, never part of the total.
+function depositCardHtml(invoice) {
+  const deposit = invoice.visa_deposit;
+  if (!deposit) return '';
+  const returned = deposit.returned.reduce((sum, row) => sum + row.amount_cents, 0);
+  const settled = deposit.held_cents <= 0;
+  const status = settled ? (returned ? 'Returned' : 'Settled') : 'Held';
+  const second = deposit.returned.length
+    ? deposit.returned.map((row) => `<strong>Returned</strong> ${esc(fmtDate(row.date))}${row.method ? ` · ${esc(row.method)}` : ''} · ${fmtMoney(row.amount_cents)}`).join('<br>')
+    : '<span class="muted">Returned when the visitor leaves on time, less any fines</span>';
+  return `
+    <div class="doc-deposit ${settled ? 'is-settled' : ''}" data-visa-deposit>
+      <div class="doc-deposit-head">
+        <div><strong>Refundable security deposit</strong> <span class="doc-deposit-status">${status}</span>
+          <div class="doc-item-sub">${esc(deposit.number)} · not part of this invoice</div></div>
+        <div class="doc-deposit-amount">${fmtMoney(deposit.amount_cents)}</div>
+      </div>
+      <div class="doc-deposit-line">
+        <span class="doc-deposit-dot"></span><span><strong>Received</strong> ${esc(fmtDate(deposit.received_date))}${deposit.received_method ? ` · ${esc(deposit.received_method)}` : ''}</span>
+        <span class="doc-deposit-track"></span>
+        <span class="doc-deposit-dot is-end"></span><span>${second}</span>
+      </div>
+      ${deposit.applied_cents ? `<div class="doc-item-sub">Used for an invoice: ${fmtMoney(deposit.applied_cents)}</div>` : ''}
+      ${deposit.kept_cents ? `<div class="doc-item-sub">Kept for fines or charges: ${fmtMoney(deposit.kept_cents)}</div>` : ''}
+    </div>`;
+}
+
 // Right of Bill to: the trip of a ticket invoice, or a service invoice's own terms.
 function partiesRightHtml(invoice, hasJobDetails) {
   if (['ticket', 'booking'].includes(invoice.document_kind)) {
@@ -158,6 +202,15 @@ function partiesRightHtml(invoice, hasJobDetails) {
       <div class="doc-party-detail">${esc([dates, people].filter(Boolean).join(' · '))}${invoice.booking_number ? `\nBooking ${esc(invoice.booking_number)}` : ''}</div>
     </div>`;
   }
+  if (invoice.document_kind === 'visa') {
+    return `<div class="doc-parties-right" data-visa-details>
+      <div class="doc-label">Application</div>
+      <div class="doc-party-name">${esc(invoice.visa_number || '—')}</div>
+      <div class="doc-party-detail">${esc([invoice.visa_reference ? `Ref ${invoice.visa_reference}` : '', invoice.visa_group_number ? `Group ${invoice.visa_group_number}` : ''].filter(Boolean).join('\n'))}</div>
+    </div>`;
+  }
+  const beneficiary = beneficiaryHtml(invoice);
+  if (beneficiary) return beneficiary;
   if (!hasJobDetails && invoice.terms) {
     return `<div class="doc-parties-right"><div class="doc-label">Payment terms</div><div class="doc-terms">${esc(invoice.terms)}</div></div>`;
   }
@@ -184,17 +237,19 @@ function paidLinesHtml(invoice) {
 function howToPayHtml(invoice, settings) {
   if (invoice.status !== 'sent' || invoice.balance_cents <= 0) return '';
   const bank = settings.bank_iban
-    ? `Pay by bank: ${[settings.bank_name, settings.bank_account_name, `IBAN ${settings.bank_iban}`].filter(Boolean).join(' · ')}`
+    ? `<div>Pay by bank: ${esc([settings.bank_name, settings.bank_account_name].filter(Boolean).join(' · '))}</div><div class="nowrap">IBAN ${esc(settings.bank_iban)}</div>`
     : '';
   if (!bank && !invoice.payment_link) return '';
   return `<div class="doc-howto" data-pay-online>
-    ${bank ? `<div>${esc(bank)}</div>` : ''}
+    ${bank}
     ${invoice.payment_link ? `<div>Pay online: <a href="${esc(invoice.payment_link)}" target="_blank" rel="noopener noreferrer">${esc(invoice.payment_link)}</a></div>` : ''}
   </div>`;
 }
 
-function termsHtml(settings) {
-  const terms = String(settings.invoice_terms || '').trim();
+function termsHtml(invoice, settings) {
+  const own = ['ticket', 'booking'].includes(invoice.document_kind) ? settings.invoice_terms_ticket
+    : invoice.document_kind === 'visa' ? settings.invoice_terms_visa : '';
+  const terms = String(own || settings.invoice_terms || '').trim();
   return terms ? `<div class="doc-terms-foot">${esc(terms)}</div>` : '';
 }
 
@@ -511,9 +566,8 @@ export async function render(container, { params } = {}) {
           </div>
           <div class="doc-meta">
             <div class="doc-kind" data-document-kind="${esc(invoice.document_kind || 'service')}">${esc(DOCUMENT_TITLES[invoice.document_kind] || 'Invoice')}</div>
-            <div class="doc-number">${esc(invoice.number)}</div>
-            <div class="doc-dates">${esc(fmtDate(invoice.issue_date))} · due ${esc(fmtDate(invoice.due_date))}</div>
-            ${isVoid || isDraft ? `<div class="doc-status">${statusBadge(invoice.status_display)}</div>` : ''}
+            <div class="doc-number">${esc(invoice.number)} ${statusBadge(invoice.status_display)}</div>
+            <dl class="doc-dates"><dt>Issued</dt><dd>${esc(fmtDate(invoice.issue_date))}</dd><dt>Due</dt><dd>${esc(fmtDate(invoice.due_date))}</dd></dl>
           </div>
         </div>
 
@@ -526,8 +580,7 @@ export async function render(container, { params } = {}) {
           ${partiesRightHtml(invoice, hasJobDetails)}
         </div>
 
-        ${visaApplicantHtml(invoice)}
-        ${beneficiaryHtml(invoice)}
+        ${invoice.document_kind === 'visa' ? '' : visaApplicantHtml(invoice)}
 
         <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
           ${itemsTableHtml(invoice)}
@@ -546,8 +599,11 @@ export async function render(container, { params } = {}) {
           </div>
         </div>
 
-        ${howToPayHtml(invoice, settings)}
-        ${termsHtml(settings)}
+        ${depositCardHtml(invoice)}
+        <div class="doc-foot-grid">
+          ${howToPayHtml(invoice, settings)}
+          ${termsHtml(invoice, settings)}
+        </div>
       </div>
     </div>
 
