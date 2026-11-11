@@ -1664,6 +1664,30 @@ test('a visa security deposit is taken with the application, shown apart from sa
     assert.match(depositText, /Returned .*AED 1,500\.00/);
     assert.match((await page.locator('.doc-total-area').innerText()).replace(/\s+/g, ' '), /AED 350\.00/, 'the total is the sale only');
     assert.equal((await page.locator('.doc-terms-foot').innerText()).trim(), 'E2E visa terms');
+
+    // Dark screen: the document stays white paper with readable text; the amount keeps a gap from the box edge.
+    const looks = await page.evaluate(() => {
+      document.documentElement.dataset.theme = 'dark';
+      const light = (color) => { const [r, g, b] = color.match(/\d+/g).map(Number); return (r + g + b) / 3 > 128; };
+      const style = (selector) => getComputedStyle(document.querySelector(selector));
+      const result = {
+        paper: light(style('.doc').backgroundColor),
+        totals: light(style('.doc-totals').backgroundColor),
+        header: light(style('.doc-items-wrap th').backgroundColor),
+        text: light(style('.doc-company-name').color),
+        gap: parseFloat(style('.doc-items-wrap tbody td:last-child').paddingRight),
+      };
+      document.documentElement.dataset.theme = 'light';
+      return result;
+    });
+    assert.deepEqual([looks.paper, looks.totals, looks.header, looks.text], [true, true, true, false], 'white paper with dark text in dark mode');
+    assert.ok(looks.gap > 0, 'the amount does not touch the table edge');
+    // Paper stays light even when the screen is dark (the margins too).
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; document.documentElement.style.colorScheme = 'dark'; });
+    await page.emulateMedia({ media: 'print' });
+    assert.equal(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'light');
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; document.documentElement.style.colorScheme = 'light'; });
   } finally {
     await putSettings({ invoice_terms_visa: before.invoice_terms_visa || '', invoice_terms_ticket: before.invoice_terms_ticket || '' });
   }

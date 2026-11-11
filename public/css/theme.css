@@ -80,6 +80,42 @@
   --t-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Documents are paper: they stay white with the light colours in dark mode too. */
+html[data-theme="dark"] :is(.doc, .statement-card) {
+  color-scheme: light;
+  --surface: #ffffff;
+  --surface-2: #f5f8fb;
+  --surface-3: #e9eff5;
+  --border: #dce4ec;
+  --border-strong: #c3cfdb;
+  --text: #0b1b2e;
+  --text-soft: #24384d;
+  --muted: #55657a;
+  --muted-2: #5f7086;
+  --primary: #0b1b2e;
+  --primary-dark: #061422;
+  --primary-soft: #dceefa;
+  --primary-contrast: #ffffff;
+  --accent: #4fb3e8;
+  --accent-dark: #2b8fcb;
+  --accent-soft: #e3f3fc;
+  --accent-ink: #0b1b2e;
+  --green: #1c7a5a;
+  --green-soft: #e7f6ee;
+  --red: #c0392b;
+  --red-soft: #fdeceb;
+  --amber: #8a5a00;
+  --amber-soft: #fff4dc;
+  --blue: #25638f;
+  --blue-soft: #e8f2f9;
+  --slate: #45525f;
+  --input-bg: #ffffff;
+  --input-border: #cbd6e1;
+  --input-placeholder: #8494a6;
+  background: #ffffff;
+  color: var(--text);
+}
+
 html[data-theme="dark"] {
   --bg: #07111d;
   --bg-dots: rgba(79, 179, 232, 0.045);
@@ -562,6 +598,8 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 
 /* ---------- Print: always light paper ---------- */
 @media print {
+  /* A dark colour scheme (set inline by theme.js) would paint the page margins dark on paper. */
+  html[data-theme="dark"] { color-scheme: light !important; }
   :root,
   html[data-theme="dark"] {
     --bg: #ffffff;

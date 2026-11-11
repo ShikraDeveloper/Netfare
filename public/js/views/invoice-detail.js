@@ -561,7 +561,7 @@ export async function render(container, { params } = {}) {
             ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
-              <div class="doc-company-detail">${esc([settings.company_address, [settings.company_email, settings.company_phone].filter(Boolean).join(' · ')].filter(Boolean).join('\n'))}</div>
+              <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>
             </div>
           </div>
           <div class="doc-meta">
