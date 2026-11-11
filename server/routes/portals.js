@@ -47,6 +47,16 @@ router.post('/refunds/:id/void', (req, res) => {
   res.json(service.voidPortalRefund(db, Number(req.params.id), req.body || {}));
 });
 
+// The opening balance after the portal exists: shown to all, changed by the admin only.
+router.get('/:id/opening', (req, res) => {
+  res.json(partyOpening.openingStatus(db, 'portal', Number(req.params.id)));
+});
+
+router.post('/:id/opening', (req, res) => {
+  if (!req.user?.is_admin) throw bad('Only the admin can change an opening balance');
+  res.json(partyOpening.setOpening(db, 'portal', Number(req.params.id), req.body || {}));
+});
+
 router.post('/credits/:id/correct', (req, res) => {
   res.json(corrections.correct(db, 'portal_credit', req.params.id, req.body || {}));
 });

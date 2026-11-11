@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
-import { openingFieldsHtml, readOpening } from '../opening-balance.js';
+import { canEnterOpening, openingChanged, openingFieldsHtml, readOpening } from '../opening-balance.js';
 import { activeVendors } from '../store.js';
 import {
   avatar,
@@ -52,8 +52,9 @@ function portalRow(portal) {
   `;
 }
 
-export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
+export async function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
   const isEdit = Boolean(portal);
+  const opening = isEdit && canEnterOpening() && portal.vendor_id ? await api.get(`/portals/${portal.id}/opening`) : null;
   const vendors = activeVendors();
 
   const body = `
@@ -99,7 +100,7 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
         <label for="pt-notes">Notes</label>
         <textarea class="input" id="pt-notes" name="notes" rows="2" placeholder="Internal note">${esc(portal?.notes || '')}</textarea>
       </div>
-      ${isEdit ? '' : openingFieldsHtml('portal')}
+      ${isEdit ? (opening ? openingFieldsHtml('portal', opening, portal.name) : '') : openingFieldsHtml('portal')}
     </div>
     ${isEdit ? recordMetaHtml(portal) : ''}
   `;
@@ -165,6 +166,10 @@ export function openPortalModal({ portal = null, onSaved = () => {} } = {}) {
       const saved = isEdit
         ? await api.put(`/portals/${portal.id}`, payload)
         : await api.post('/portals', payload);
+      // After the save: changing the opening balance gives the portal a new version.
+      if (opening && !opening.locked && openingChanged(form, opening)) {
+        await api.post(`/portals/${portal.id}/opening`, { opening: readOpening(form), remarks: new FormData(form).get('opening_reason') || '' });
+      }
       toast(isEdit ? 'Portal updated' : `Portal ${saved.name} created`);
       onSaved(saved);
     },

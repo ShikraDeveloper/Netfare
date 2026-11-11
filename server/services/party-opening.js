@@ -203,21 +203,21 @@ function forPortal(db, portal, input) {
 // opening balance dated on or before it cannot be changed.
 const DOCUMENTS = {
   invoice: {
-    table: 'invoices', date: 'issue_date', live: "status = 'sent'",
+    table: 'invoices', date: 'issue_date',
     used: (row) => row.amount_paid_cents + row.credit_applied_cents,
     moves: [['payments', 'invoice_id', 'payment_date', "status = 'posted'"], ['credit_applications', 'invoice_id', 'applied_date', '1 = 1'], ['refunds', 'invoice_id', 'refund_date', "status = 'paid'"]],
     settle: 'amount_paid_cents = ?, credit_applied_cents = ?', settled: (row) => [row.amount_paid_cents, row.credit_applied_cents],
     retire: "status = 'void', amount_paid_cents = 0, credit_applied_cents = 0",
   },
   credit_note: {
-    table: 'credit_notes', date: 'credit_date', live: "status = 'issued'",
+    table: 'credit_notes', date: 'credit_date',
     used: (row) => row.applied_cents + row.refunded_cents,
     moves: [['credit_applications', 'credit_note_id', 'applied_date', '1 = 1'], ['refunds', 'credit_note_id', 'refund_date', "status = 'paid'"]],
     settle: 'applied_cents = ?, refunded_cents = ?', settled: (row) => [row.applied_cents, row.refunded_cents],
     retire: "status = 'void', applied_cents = 0, refunded_cents = 0",
   },
   bill: {
-    table: 'bills', date: 'bill_date', live: "status = 'received' AND portal_id IS NULL",
+    table: 'bills', date: 'bill_date',
     used: (row) => row.amount_paid_cents + row.credit_applied_cents,
     moves: [['bill_payments', 'bill_id', 'payment_date', "status = 'posted'"], ['supplier_credit_applications', 'bill_id', 'applied_date', '1 = 1'],
       ['supplier_credit_notes', 'bill_id', 'credit_date', "status = 'issued'"], ['refunds', 'bill_id', 'refund_date', "status = 'paid'"]],
@@ -225,7 +225,7 @@ const DOCUMENTS = {
     retire: "status = 'void', amount_paid_cents = 0, credit_applied_cents = 0",
   },
   supplier_credit: {
-    table: 'supplier_credit_notes', date: 'credit_date', live: "status = 'issued'",
+    table: 'supplier_credit_notes', date: 'credit_date',
     used: (row) => row.applied_cents + row.refunded_cents + row.portal_settled_cents,
     moves: [['supplier_credit_applications', 'credit_note_id', 'applied_date', '1 = 1'], ['refunds', 'supplier_credit_note_id', 'refund_date', "status = 'paid'"], ['portal_credits', 'supplier_credit_note_id', 'credit_date', "status = 'posted'"]],
     settle: 'applied_cents = ?, refunded_cents = ?, portal_settled_cents = ?', settled: (row) => [row.applied_cents, row.refunded_cents, row.portal_settled_cents],
@@ -233,16 +233,43 @@ const DOCUMENTS = {
   },
 };
 
+DOCUMENTS.portal_topup = {
+  table: 'portal_topups', date: 'topup_date', used: () => 0, moves: [],
+  settle: null, settled: () => [],
+  retire: "status = 'void', voided_at = datetime('now')",
+};
+
+const OPENING_TOPUP = "method = 'Opening balance' AND deposit_account_id = (SELECT id FROM accounts WHERE code = '3900')";
+
 const PARTIES = {
-  customer: { table: 'customers', column: 'customer_id', docs: { they_owe: 'invoice', we_owe: 'credit_note' }, make: { invoice: openingInvoice, credit_note: openingCredit } },
-  vendor: { table: 'vendors', column: 'vendor_id', docs: { we_owe: 'bill', they_owe: 'supplier_credit' }, make: { bill: openingBill, supplier_credit: openingSupplierCredit } },
+  customer: {
+    table: 'customers', docs: { they_owe: 'invoice', we_owe: 'credit_note' },
+    find: { invoice: "customer_id = ? AND is_opening = 1 AND status = 'sent'", credit_note: "customer_id = ? AND is_opening = 1 AND status = 'issued'" },
+    make: { invoice: openingInvoice, credit_note: openingCredit },
+  },
+  vendor: {
+    table: 'vendors', docs: { we_owe: 'bill', they_owe: 'supplier_credit' },
+    find: { bill: "vendor_id = ? AND is_opening = 1 AND status = 'received' AND portal_id IS NULL", supplier_credit: "vendor_id = ? AND is_opening = 1 AND status = 'issued'" },
+    make: { bill: openingBill, supplier_credit: openingSupplierCredit },
+  },
+  // Money held on the portal is an opening top-up; what we owe its supplier
+  // is an opening bill on the portal. A change may not take the wallet below zero.
+  portal: {
+    table: 'supplier_portals', docs: { they_owe: 'portal_topup', we_owe: 'bill' },
+    find: { portal_topup: `portal_id = ? AND status = 'posted' AND ${OPENING_TOPUP}`, bill: "portal_id = ? AND is_opening = 1 AND status = 'received'" },
+    make: {
+      portal_topup: openingTopup,
+      bill: (db, portal, opening) => openingBill(db, db.prepare('SELECT * FROM vendors WHERE id = ?').get(portal.vendor_id), opening, portal.id),
+    },
+    wallet: true,
+  },
 };
 
 function currentOpening(db, kind, partyId) {
   const party = PARTIES[kind];
   for (const [direction, docKind] of Object.entries(party.docs)) {
     const doc = DOCUMENTS[docKind];
-    const row = db.prepare(`SELECT * FROM ${doc.table} WHERE ${party.column} = ? AND is_opening = 1 AND ${doc.live} ORDER BY id DESC LIMIT 1`).get(partyId);
+    const row = db.prepare(`SELECT * FROM ${doc.table} WHERE ${party.find[docKind]} ORDER BY id DESC LIMIT 1`).get(partyId);
     if (row) return { direction, docKind, row };
   }
   return null;
@@ -262,7 +289,7 @@ function openingStatus(db, kind, partyId) {
   return {
     opening: {
       kind: found.docKind, id: found.row.id, number: found.row.number, direction: found.direction,
-      amount_cents: found.docKind === 'invoice' || found.docKind === 'bill' ? found.row.total_cents : found.row.amount_cents,
+      amount_cents: found.row.total_cents ?? found.row.amount_cents,
       as_of: date, used_cents: doc.used(found.row),
     },
     closed_through: closed,
@@ -272,10 +299,12 @@ function openingStatus(db, kind, partyId) {
 
 function setOpening(db, kind, partyId, payload = {}) {
   const party = PARTIES[kind];
-  if (!party) throw bad('Opening balances here are for customers and suppliers');
+  if (!party) throw bad('Opening balances here are for customers, suppliers and portals');
   return db.transaction(() => {
     const record_ = db.prepare(`SELECT * FROM ${party.table} WHERE id = ?`).get(Number(partyId));
-    if (!record_) throw bad(`The ${kind === 'vendor' ? 'supplier' : 'customer'} was not found`);
+    if (!record_) throw bad(`The ${{ vendor: 'supplier', customer: 'customer', portal: 'portal' }[kind]} was not found`);
+    if (kind === 'portal' && !record_.vendor_id) throw bad('Link the portal to a supplier to give it an opening balance');
+    const walletBefore = party.wallet ? require('./portals/common').walletLow(db, record_.id) : null;
     const opening = parseOpening(payload.opening);
     const old = currentOpening(db, kind, record_.id);
     if (!old && !opening) throw bad('Enter the opening balance amount');
@@ -308,7 +337,7 @@ function setOpening(db, kind, partyId, payload = {}) {
         const voidEntryId = reverseEntry(db, old.row.journal_entry_id, {
           entry_date: old.row[doc.date], memo: `Opening balance changed · ${reason} · ${old.row.number}`, source_type: 'void',
         });
-        if (old.docKind === 'credit_note' || old.docKind === 'supplier_credit') {
+        if (['credit_note', 'supplier_credit', 'portal_topup'].includes(old.docKind)) {
           db.prepare(`UPDATE ${doc.table} SET void_entry_id = ? WHERE id = ?`).run(voidEntryId, old.row.id);
         }
       }
@@ -318,8 +347,9 @@ function setOpening(db, kind, partyId, payload = {}) {
     if (old && created && newKind === old.docKind) {
       const doc = DOCUMENTS[old.docKind];
       for (const [table, column] of doc.moves) db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`).run(created.id, old.row.id);
-      db.prepare(`UPDATE ${doc.table} SET ${doc.settle} WHERE id = ?`).run(...doc.settled(old.row), created.id);
+      if (doc.settle) db.prepare(`UPDATE ${doc.table} SET ${doc.settle} WHERE id = ?`).run(...doc.settled(old.row), created.id);
     }
+    if (party.wallet) require('./portals/common').assertWalletNotLower(db, record_.id, walletBefore);
     if (old) {
       audit.record(db, {
         entity_type: kind, entity_id: record_.id, entity_number: record_.number || record_.name,

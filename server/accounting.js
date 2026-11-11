@@ -75,8 +75,21 @@ function assertOpenDate(db, date) {
   }
 }
 
-function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'manual', source_id = null, reversal_of_id = null, lines }) {
+function assertNotClosed(db, entryId) {
+  const closed = db.prepare('SELECT books_closed_through FROM settings WHERE id = 1').get()?.books_closed_through;
+  if (!closed) return;
+  const original = db.prepare('SELECT entry_date, reference FROM journal_entries WHERE id = ?').get(entryId);
+  if (original && original.entry_date <= closed) {
+    throw bad(`Locked: ${original.reference || 'this entry'} is dated ${original.entry_date} and the books are closed through ${closed}. To void or change it, move the closing date in Settings first.`);
+  }
+}
+
+function postEntry(db, { entry_date, memo = '', reference = '', source_type = 'manual', source_id = null, reversal_of_id = null, lines, allowClosed = false }) {
   const date = dateISO(entry_date, 'Entry date');
+  // The lock: nothing dated on or before the closing date is voided,
+  // corrected or deleted. Only a real cancellation (allowClosed), a new
+  // event dated today, may reverse an older sale.
+  if (reversal_of_id && !allowClosed) assertNotClosed(db, reversal_of_id);
   assertOpenDate(db, date);
   if (!Array.isArray(lines) || lines.length < 2) {
     throw bad('A journal entry needs at least two lines');
@@ -145,7 +158,7 @@ function settledCardNumber(db, entryId) {
   `).get(entryId)?.number || null;
 }
 
-function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void' } = {}) {
+function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void', allowClosed = false } = {}) {
   const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(entryId);
   if (!entry) return null;
   const lines = db.prepare('SELECT * FROM journal_lines WHERE entry_id = ? ORDER BY sort_order, id').all(entryId);
@@ -164,6 +177,7 @@ function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void' } = 
     source_type,
     source_id: entry.source_id,
     reversal_of_id: entryId,
+    allowClosed,
     lines: lines.map((line) => ({
       account_id: line.account_id,
       debit_cents: line.credit_cents,

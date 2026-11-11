@@ -179,6 +179,10 @@ function voidReconciliation(db, id, payload = {}) {
       ORDER BY statement_date DESC, id DESC LIMIT 1
     `).get(rec.account_id, rec.statement_date, rec.statement_date, rec.id);
     if (later) throw bad(`Reopen the later reconciliation from ${later.statement_date} first`);
+    const closed = db.prepare('SELECT books_closed_through FROM settings WHERE id = 1').get()?.books_closed_through;
+    if (closed && rec.statement_date <= closed) {
+      throw bad(`Locked: this reconciliation is dated ${rec.statement_date} and the books are closed through ${closed}. Move the closing date in Settings first.`);
+    }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
     db.prepare('DELETE FROM bank_reconciliations WHERE id = ?').run(rec.id);
     audit.record(db, {

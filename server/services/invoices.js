@@ -529,6 +529,7 @@ function voidInvoiceForCancellation(db, id, { entryDate, memo } = {}) {
       entry_date: entryDate || todayISO(),
       memo: memo || `Cancel invoice ${invoice.number}`,
       source_type: 'void',
+      allowClosed: true,
     });
   }
   db.prepare(`UPDATE invoices SET status = 'void', updated_at = datetime('now') WHERE id = ?`).run(id);

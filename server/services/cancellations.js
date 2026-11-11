@@ -149,6 +149,7 @@ function reverseInvoiceCredits(db, invoice, entryDate, cancellationNumber) {
         entry_date: entryDate,
         memo: `Cancellation ${cancellationNumber} reversed credit ${application.credit_number}`,
         source_type: 'void',
+        allowClosed: true,
       });
     }
     db.prepare('DELETE FROM credit_applications WHERE id = ?').run(application.id);
