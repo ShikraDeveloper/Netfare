@@ -3344,6 +3344,17 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `test/workflows.test.js` (failed before the fix). `npm test` 359 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### Simple design, phase 4 — code commit `a76a789`
+
+- **Why:** The user asked for Linear / Apple Notes simplicity ("cut taglines, helper text and secondary labels"); report first, then "Do all six".
+- **Check:** `scripts/copy-budget.js` also counts grey prose, paragraphs, callout text, sentence placeholders (not "e.g. …") and long tooltips. Counted that way: 46.
+- **Settings:** backup rows are a title and a button; the Danger zone tagline, bank-detail tooltips and label notes are gone; "Terms under other invoices" is "Default terms".
+- **One menu:** the top menu is removed (`menu.js`, `app.js`, `index.html`, `theme-boot.js`, `theme.css`, Settings). Anyone who chose it gets the side menu.
+- **Pop-ups:** void asks only for a Reason; refund and cancellation keep the money notes only.
+- **Code:** `.callout.warning/.danger/.success` and `.form-note.danger` replace inline colours; `internalNotesHtml()` in `ui.js` is shared by bookings and visas; DESIGN.md updated.
+- **Tests:** `npm test` 359 passed, `npm run test:e2e` 43 passed, `npm run check` OK; Settings, void pop-up and callouts looked at in light and dark.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
