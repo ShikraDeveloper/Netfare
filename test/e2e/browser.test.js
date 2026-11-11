@@ -1407,11 +1407,13 @@ test('ticket, visa and service invoices print with their own heading and details
   await openRoute(`/invoices/${confirmed.invoice_id}`);
   await page.locator('[data-trip-details]').waitFor();
   assert.equal((await page.locator('.doc-kind').innerText()).trim().toLowerCase(), 'ticket invoice');
-  assert.ok((await page.locator('.doc-meta-grid').innerText()).includes(booking.number));
   const trip = await page.locator('[data-trip-details]').innerText();
-  assert.ok(trip.includes('E2E Dubai–Rome return') && trip.includes('E2EROM'));
-  assert.match(await page.locator('.doc-items').innerText(), /Ticket 176-5550001112/);
-  assert.doesNotMatch(await page.locator('.doc-terms').innerText(), /Destination:/, 'no repeated destination in terms');
+  assert.ok(trip.includes('E2E Dubai–Rome return') && trip.includes(booking.number));
+  const table = await page.locator('.doc-items').innerText();
+  assert.match(table, /Passenger/i);
+  assert.match(table, /E2E Rome One[\s\S]*176-5550001112/, 'each passenger with their ticket number');
+  assert.doesNotMatch(table, /Unit price/i, 'no Qty or Unit price when every quantity is 1');
+  assert.doesNotMatch(await page.locator('.doc').innerText(), /Destination:/, 'no repeated destination in terms');
   assert.doesNotMatch(await page.locator('.doc').innerText(), /1,500\.00/, 'supplier cost is never printed');
 
   const visas = await postJson(baseUrl, '/api/visas/groups', {

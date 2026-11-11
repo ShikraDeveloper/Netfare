@@ -247,6 +247,23 @@ test('currency cannot be changed away from AED', async () => {
   assert.equal(settings.data.currency, 'AED');
 });
 
+test('invoice print settings: only a PNG, JPG or WebP logo is kept; bank and terms are saved', async () => {
+  const put = (body) => jsonRequest('/api/settings', {
+    method: 'PUT',
+    headers: { Origin: baseUrl, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  for (const logo of ['data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', 'javascript:alert(1)', 'data:text/html;base64,PGI+eDwvYj4=', `data:image/png;base64,${'A'.repeat(400_001)}`]) {
+    const refused = await put({ company_logo: logo });
+    assert.equal(refused.status, 400, `refused: ${logo.slice(0, 30)}`);
+  }
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const saved = await put({ company_logo: png, bank_name: 'Test Bank', bank_iban: 'ae07 0331 2345', invoice_terms: 'Fares follow airline rules.' });
+  assert.equal(saved.status, 200);
+  assert.deepEqual([saved.data.company_logo, saved.data.bank_name, saved.data.bank_iban, saved.data.invoice_terms], [png, 'Test Bank', 'AE07 0331 2345', 'Fares follow airline rules.']);
+  assert.equal((await put({ company_logo: '' })).data.company_logo, '', 'the logo can be removed');
+});
+
 test('other sites and local ports cannot read the API, and nothing is embeddable cross-origin', async () => {
   for (const site of ['cross-site', 'same-site']) {
     const backup = await rawRequest('/api/admin/backup', { headers: { 'Sec-Fetch-Site': site } });

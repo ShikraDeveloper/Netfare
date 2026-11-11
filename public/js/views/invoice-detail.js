@@ -41,40 +41,6 @@ const DOCUMENT_TITLES = {
   service: 'Invoice',
 };
 
-// The booking or visa the invoice was made from, shown in the header.
-function sourceMetaHtml(invoice) {
-  const kind = invoice.document_kind;
-  if ((kind === 'ticket' || kind === 'booking') && invoice.booking_number) {
-    return `<dt>Booking</dt><dd>${esc(invoice.booking_number)}</dd>`;
-  }
-  if (kind === 'visa' && invoice.visa_number) {
-    return `<dt>Visa application</dt><dd>${esc(invoice.visa_number)}</dd>${invoice.visa_group_number ? `<dt>Group</dt><dd>${esc(invoice.visa_group_number)}</dd>` : ''}`;
-  }
-  return '';
-}
-
-// Ticket and booking invoices: route, PNR and travel dates.
-function tripDetailsHtml(invoice) {
-  if (!['ticket', 'booking'].includes(invoice.document_kind)) return '';
-  const dates = invoice.booking_travel_date
-    ? `${fmtDate(invoice.booking_travel_date)}${invoice.booking_return_date ? ` → ${fmtDate(invoice.booking_return_date)}` : ''}`
-    : '';
-  if (!invoice.booking_destination && !invoice.booking_pnr && !dates) return '';
-  return `
-    <div class="doc-visa-applicant doc-trip" data-trip-details>
-      <div>
-        <div class="doc-label">Trip details</div>
-        <div class="doc-party-name">${esc(invoice.booking_destination || '—')}</div>
-        ${invoice.booking_passenger_count ? `<div class="doc-party-detail">${invoice.booking_passenger_count} passenger${invoice.booking_passenger_count === 1 ? '' : 's'}</div>` : ''}
-      </div>
-      <dl class="doc-trip-grid">
-        ${invoice.booking_pnr ? `<dt>PNR</dt><dd>${esc(invoice.booking_pnr)}</dd>` : ''}
-        ${dates ? `<dt>Travel</dt><dd>${esc(dates)}</dd>` : ''}
-      </dl>
-    </div>
-  `;
-}
-
 // Visa invoices always show who the visa is for; other documents linked to a
 // visa (cancellation charges) only when the applicant is not the customer.
 function visaApplicantHtml(invoice) {
@@ -141,6 +107,92 @@ function beneficiaryHtml(invoice) {
       </div>
     </div>
   `;
+}
+
+// The table: a ticket invoice lists each passenger with their ticket number
+// (or the booking PNR when there is none); every invoice shows Qty and Unit
+// price only when some line has a quantity other than 1.
+function itemsTableHtml(invoice) {
+  const items = invoice.items || [];
+  const passengers = ['ticket', 'booking'].includes(invoice.document_kind) && items.some((item) => item.passenger_name);
+  const qty = items.some((item) => Number(item.quantity) !== 1);
+  const route = (item) => {
+    const name = item.passenger_name;
+    if (!name) return item.description;
+    if (item.description === name) return '—';
+    return item.description.endsWith(` – ${name}`) ? item.description.slice(0, -(name.length + 3)) : item.description;
+  };
+  const head = [
+    ...(passengers ? ['<th scope="col">Passenger</th>', '<th scope="col">Route / service</th>', '<th scope="col">Ticket / PNR</th>'] : ['<th scope="col">Description</th>']),
+    ...(qty ? ['<th scope="col" class="num">Qty</th>', '<th scope="col" class="num">Unit price</th>'] : []),
+    '<th scope="col" class="num">Amount</th>',
+  ].join('');
+  const rows = items.map((item) => {
+    const ref = item.ticket_no || (item.passenger_name ? invoice.booking_pnr || '' : '');
+    return `<tr>
+      ${passengers
+    ? `<td class="doc-passenger">${item.passenger_name ? esc(item.passenger_name) : '<span class="muted">—</span>'}</td>
+         <td class="muted">${esc(route(item))}</td>
+         <td class="doc-ref">${ref ? esc(ref) : '<span class="muted">—</span>'}</td>`
+    : `<td>${esc(item.description)}</td>`}
+      ${qty ? `<td class="num">${fmtNumber(item.quantity)}</td><td class="num">${fmtMoney(item.unit_price_cents)}</td>` : ''}
+      <td class="num amount">${fmtMoney(item.amount_cents)}</td>
+    </tr>`;
+  }).join('');
+  return `<table class="doc-items"><caption class="sr-only">Invoice line items</caption><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// Right of Bill to: the trip of a ticket invoice, or a service invoice's own terms.
+function partiesRightHtml(invoice, hasJobDetails) {
+  if (['ticket', 'booking'].includes(invoice.document_kind)) {
+    const dates = invoice.booking_travel_date
+      ? `${fmtDate(invoice.booking_travel_date)}${invoice.booking_return_date ? ` – ${fmtDate(invoice.booking_return_date)}` : ''}`
+      : '';
+    const people = invoice.booking_passenger_count ? `${invoice.booking_passenger_count} passenger${invoice.booking_passenger_count === 1 ? '' : 's'}` : '';
+    return `<div class="doc-parties-right" data-trip-details>
+      <div class="doc-label">Trip</div>
+      <div class="doc-party-name">${esc(invoice.booking_destination || invoice.booking_number || '—')}</div>
+      <div class="doc-party-detail">${esc([dates, people].filter(Boolean).join(' · '))}${invoice.booking_number ? `\nBooking ${esc(invoice.booking_number)}` : ''}</div>
+    </div>`;
+  }
+  if (!hasJobDetails && invoice.terms) {
+    return `<div class="doc-parties-right"><div class="doc-label">Payment terms</div><div class="doc-terms">${esc(invoice.terms)}</div></div>`;
+  }
+  return '<div></div>';
+}
+
+// What was paid, one line each: date and method, the receipt number small.
+function paidLinesHtml(invoice) {
+  const payments = (invoice.payments || []).filter((payment) => payment.status !== 'void');
+  const credits = invoice.credits || [];
+  const refunded = payments.reduce((sum, payment) => sum + (payment.refunded_cents || 0), 0);
+  if (!payments.length && !credits.length) return '';
+  const short = (date) => fmtDate(date).replace(/,? \d{4}$/, '');
+  const line = (label, sub, cents) => `<div class="doc-paid-line"><span>${esc(label)}<small>${esc(sub)}</small></span><span>−${fmtMoney(cents)}</span></div>`;
+  return `<div class="doc-paid" data-paid-lines>
+    <div class="doc-label">Paid</div>
+    ${payments.map((payment) => line(`${short(payment.payment_date)} · ${payment.method || 'Payment'}`, [payment.number, payment.reference].filter(Boolean).join(' · '), payment.amount_cents)).join('')}
+    ${credits.map((credit) => line(`${short(credit.applied_date)} · Credit note`, credit.credit_number, credit.amount_cents)).join('')}
+    ${refunded ? `<div class="doc-paid-line"><span>Refunded</span><span>+${fmtMoney(refunded)}</span></div>` : ''}
+  </div>`;
+}
+
+// How to pay, while something is still due.
+function howToPayHtml(invoice, settings) {
+  if (invoice.status !== 'sent' || invoice.balance_cents <= 0) return '';
+  const bank = settings.bank_iban
+    ? `Pay by bank: ${[settings.bank_name, settings.bank_account_name, `IBAN ${settings.bank_iban}`].filter(Boolean).join(' · ')}`
+    : '';
+  if (!bank && !invoice.payment_link) return '';
+  return `<div class="doc-howto" data-pay-online>
+    ${bank ? `<div>${esc(bank)}</div>` : ''}
+    ${invoice.payment_link ? `<div>Pay online: <a href="${esc(invoice.payment_link)}" target="_blank" rel="noopener noreferrer">${esc(invoice.payment_link)}</a></div>` : ''}
+  </div>`;
+}
+
+function termsHtml(settings) {
+  const terms = String(settings.invoice_terms || '').trim();
+  return terms ? `<div class="doc-terms-foot">${esc(terms)}</div>` : '';
 }
 
 // Send the invoice from the user's own email or WhatsApp. Nothing is sent by
@@ -415,25 +467,20 @@ export async function render(container, { params } = {}) {
 
   container.innerHTML = `
     <div class="doc-wrap">
-      <div class="doc">
+      <div class="doc doc-invoice">
         <div class="doc-head">
           <div class="doc-brand">
             ${companyMark(company)}
             <div>
               <div class="doc-company-name">${esc(company)}</div>
-              <div class="doc-company-detail">${esc([settings.company_address, settings.company_email, settings.company_phone].filter(Boolean).join('\n'))}</div>
+              <div class="doc-company-detail">${esc([settings.company_address, [settings.company_email, settings.company_phone].filter(Boolean).join(' · ')].filter(Boolean).join('\n'))}</div>
             </div>
           </div>
           <div class="doc-meta">
             <div class="doc-kind" data-document-kind="${esc(invoice.document_kind || 'service')}">${esc(DOCUMENT_TITLES[invoice.document_kind] || 'Invoice')}</div>
             <div class="doc-number">${esc(invoice.number)}</div>
-            <div class="doc-status">${statusBadge(invoice.status_display)}</div>
-            <dl class="doc-meta-grid">
-              <dt>Issue date</dt><dd>${esc(fmtDate(invoice.issue_date))}</dd>
-              <dt>Due date</dt><dd>${esc(fmtDate(invoice.due_date))}</dd>
-              ${sourceMetaHtml(invoice)}
-              <dt>Amount due</dt><dd>${fmtMoney(invoice.balance_cents)}</dd>
-            </dl>
+            <div class="doc-dates">${esc(fmtDate(invoice.issue_date))} · due ${esc(fmtDate(invoice.due_date))}</div>
+            ${isVoid || isDraft ? `<div class="doc-status">${statusBadge(invoice.status_display)}</div>` : ''}
           </div>
         </div>
 
@@ -441,55 +488,33 @@ export async function render(container, { params } = {}) {
           <div>
             <div class="doc-label">Bill to</div>
             <div class="doc-party-name">${esc(invoice.customer_name)}</div>
-            <div class="doc-party-detail">${esc([invoice.customer_number ? `Customer no. ${invoice.customer_number}` : '', invoice.customer_address, invoice.customer_email, invoice.customer_phone].filter(Boolean).join('\n'))}</div>
+            <div class="doc-party-detail">${esc([[invoice.customer_number, invoice.customer_address].filter(Boolean).join(' · '), [invoice.customer_email, invoice.customer_phone].filter(Boolean).join(' · '), invoice.customer_trn ? `TRN ${invoice.customer_trn}` : ''].filter(Boolean).join('\n'))}</div>
           </div>
-          <div>
-            <div class="doc-label">Payment terms</div>
-            <div class="doc-terms">${esc((hasJobDetails ? '' : invoice.terms) || `Payment due by ${fmtDate(invoice.due_date, { long: true })}.`)}</div>
-            ${invoice.payment_link && invoice.balance_cents > 0 ? `<div class="doc-pay-online" data-pay-online>Pay online by card: <a href="${esc(invoice.payment_link)}" target="_blank" rel="noopener noreferrer">${esc(invoice.payment_link)}</a></div>` : ''}
-          </div>
+          ${partiesRightHtml(invoice, hasJobDetails)}
         </div>
 
-        ${tripDetailsHtml(invoice)}
         ${visaApplicantHtml(invoice)}
         ${beneficiaryHtml(invoice)}
 
         <div class="doc-items-wrap" tabindex="0" role="region" aria-label="Line items">
-          <table class="doc-items"><caption class="sr-only">Invoice line items</caption>
-            <thead>
-              <tr>
-                <th scope="col" style="width:46%">Description</th>
-                <th scope="col" class="num">Qty</th>
-                <th scope="col" class="num">Unit price</th>
-                <th scope="col" class="num">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${invoice.items.map((item) => `
-                <tr>
-                  <td>${esc(item.description)}${item.ticket_no ? `<div class="doc-item-sub">Ticket ${esc(item.ticket_no)}</div>` : ''}</td>
-                  <td class="num">${fmtNumber(item.quantity)}</td>
-                  <td class="num">${fmtMoney(item.unit_price_cents)}</td>
-                  <td class="num amount">${fmtMoney(item.amount_cents)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          ${itemsTableHtml(invoice)}
         </div>
 
         <div class="doc-total-area">
           <div class="doc-notes">
-            ${invoice.notes ? `<strong>Notes</strong>${esc(invoice.notes)}` : ''}
+            <div class="doc-amount-words" data-amount-words>${esc(amountInWords(invoice.total_cents))}</div>
+            ${invoice.notes ? `<div class="doc-note"><strong>Notes</strong>${esc(invoice.notes)}</div>` : ''}
           </div>
           <div class="doc-totals">
-            <div class="totals-row"><span>Subtotal</span><span>${fmtMoney(invoice.subtotal_cents)}</span></div>
+            ${invoice.subtotal_cents !== invoice.total_cents ? `<div class="totals-row"><span>Subtotal</span><span>${fmtMoney(invoice.subtotal_cents)}</span></div>` : ''}
             <div class="totals-row total"><span>Total</span><span>${fmtMoney(invoice.total_cents)}</span></div>
-            ${invoice.amount_paid_cents > 0 ? `<div class="totals-row"><span>Paid</span><span>−${fmtMoney(invoice.amount_paid_cents)}</span></div>` : ''}
-            ${invoice.credit_applied_cents > 0 ? `<div class="totals-row"><span>Credits applied</span><span>−${fmtMoney(invoice.credit_applied_cents)}</span></div>` : ''}
+            ${paidLinesHtml(invoice)}
             <div class="totals-row balance"><span>Balance due</span><span>${fmtMoney(invoice.balance_cents)}</span></div>
           </div>
         </div>
-        <div class="doc-amount-words" data-amount-words><span class="doc-label">Amount in words</span>${esc(amountInWords(invoice.total_cents))}</div>
+
+        ${howToPayHtml(invoice, settings)}
+        ${termsHtml(settings)}
       </div>
     </div>
 

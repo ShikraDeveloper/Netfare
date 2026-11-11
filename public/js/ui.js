@@ -673,7 +673,10 @@ export function pageRecord(record, { print = false } = {}) {
   requestAnimationFrame(placePageFooter);
 }
 
+// The company logo from Settings, or its first letter when there is none.
 export function companyMark(company) {
+  const logo = store.settings?.company_logo;
+  if (logo) return `<img class="brand-logo" src="${esc(logo)}" alt="${esc(company || 'Company')} logo">`;
   const initial = String(company || '').trim().charAt(0).toUpperCase() || '·';
   return `<span class="brand-mark" aria-hidden="true">${esc(initial)}</span>`;
 }

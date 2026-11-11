@@ -882,8 +882,23 @@ body.modal-open { overflow: hidden; }
 .doc-trip-grid dt { color: var(--muted); }
 .doc-trip-grid dd { margin: 0; font-weight: 600; text-align: right; }
 .doc-item-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
-.doc-amount-words { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 12.5px; font-weight: 600; color: var(--text-soft); }
-.doc-amount-words .doc-label { display: block; margin-bottom: 3px; }
+.doc-amount-words { font-size: 12px; color: var(--muted); }
+.doc-note { margin-top: 10px; }
+.doc-dates { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.doc-parties-right { text-align: right; }
+.doc-passenger { font-weight: 600; }
+.doc-ref { font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace); font-size: 12px; }
+.doc-paid { margin-top: 10px; }
+.doc-paid .doc-label { margin-bottom: 4px; }
+.doc-paid-line { display: flex; justify-content: space-between; gap: 16px; padding: 3px 0; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.doc-paid-line span:first-child { color: var(--text-soft); }
+.doc-paid-line small { display: block; font-size: 10.5px; color: var(--muted-2); line-height: 1.3; }
+.doc-howto { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); line-height: 1.7; word-break: break-word; }
+.doc-howto a { color: var(--primary); }
+.doc-terms-foot { margin-top: 14px; font-size: 10.5px; color: var(--muted-2); line-height: 1.6; white-space: pre-line; max-width: 620px; }
+.brand-logo { height: 46px; max-width: 160px; object-fit: contain; flex: none; }
+.logo-field { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.logo-preview { height: 44px; max-width: 160px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; }
 .deposit-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .deposit-item:last-child { border-bottom: none; }
 .deposit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -1002,8 +1017,9 @@ html:not(.show-accounting) .acct-col { display: none; }
 .receipt-details dd { margin: 0; }
 
 .doc-items { width: 100%; border-collapse: collapse; font-size: 13px; margin: 4px 0 20px; }
-.doc-items th { text-align: left; background: #f8f9fc; padding: 9px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); font-weight: 700; }
-.doc-items td { padding: 11px 12px; border-bottom: 1px solid #f1f2f6; vertical-align: top; }
+.doc-items th { text-align: left; padding: 0 12px 8px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-2); border-bottom: 1px solid var(--border); font-weight: 600; }
+.doc-items td { padding: 10px 12px 10px 0; border-bottom: 1px solid #f1f2f6; vertical-align: top; }
+.doc-items th:last-child, .doc-items td:last-child { padding-right: 0; }
 .doc-items .num { text-align: right; font-variant-numeric: tabular-nums; }
 .doc-items td.amount { font-weight: 600; }
 

@@ -282,6 +282,15 @@ ensureColumn('settings', 'receipt_prefix', "TEXT NOT NULL DEFAULT 'RCP'");
 ensureColumn('settings', 'next_receipt_number', 'INTEGER NOT NULL DEFAULT 1');
 // The admin's closing date: nothing may be posted on or before it.
 ensureColumn('settings', 'books_closed_through', "TEXT NOT NULL DEFAULT ''");
+// Printed on invoices: the company logo (a small image as a data URL), the
+// bank details for paying, and the terms under every invoice.
+ensureColumn('settings', 'company_logo', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'bank_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'bank_account_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'bank_iban', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'invoice_terms', "TEXT NOT NULL DEFAULT ''");
+// A company customer's tax registration number, printed under Bill to.
+ensureColumn('customers', 'trn', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
 ensureColumn('portal_refunds', 'void_entry_id', 'INTEGER');
 ensureColumn('portal_refunds', 'voided_at', 'TEXT');

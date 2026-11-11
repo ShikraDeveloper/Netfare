@@ -96,8 +96,8 @@ function rowHtml(row = {}, { supplierId = '' } = {}) {
             ${optionsHtml(costs, { selected: row.cost?.account_id ?? accountIdByCode(costs, defaults.cost), placeholder: '', labelKey: (a) => `${a.code} · ${a.name}` })}
           </select>
         </label>
-        <label>${isPassenger ? 'Ticket no.' : 'Supplier ref'}
-          <input class="input px-ref" value="${esc(row.cost?.supplier_ref || '')}" autocomplete="off" placeholder="Optional">
+        <label>${isPassenger ? 'Ticket no. / PNR' : 'Supplier ref'}
+          <input class="input px-ref" value="${esc(row.cost?.supplier_ref || '')}" autocomplete="off" placeholder="${isPassenger ? 'Empty: the booking PNR' : 'Optional'}">
         </label>
       </div>
     </div>

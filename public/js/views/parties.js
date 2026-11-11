@@ -100,6 +100,11 @@ async function partyModal({ party = null, config, onSaved }) {
           <label for="party-nationality">Nationality</label>
           <input class="input" id="party-nationality" name="nationality" maxlength="80" autocomplete="off" value="${esc(party?.nationality || '')}" placeholder="Start typing, e.g. Indian" ${nationalityList()}>
         </div>` : ''}
+        ${config.singular === 'customer' ? `
+        <div class="field">
+          <label for="party-trn">TRN (companies)</label>
+          <input class="input" id="party-trn" name="trn" maxlength="30" autocomplete="off" value="${esc(party?.trn || '')}" placeholder="100123456700003">
+        </div>` : ''}
         <div class="field full">
           <label for="party-address">Address</label>
           <textarea class="input" id="party-address" name="address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(party?.address || '')}</textarea>
@@ -122,7 +127,10 @@ async function partyModal({ party = null, config, onSaved }) {
         address: values.get('address'),
         notes: values.get('notes'),
       };
-      if (config.singular === 'customer') payload.nationality = values.get('nationality');
+      if (config.singular === 'customer') {
+        payload.nationality = values.get('nationality');
+        payload.trn = values.get('trn');
+      }
       if (!isEdit) payload.opening = readOpening(form);
       if (!String(payload.name || '').trim()) throw new Error('Name is required');
       const saved = isEdit

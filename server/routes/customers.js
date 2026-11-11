@@ -53,8 +53,8 @@ router.post('/', (req, res) => {
   if (body.opening && !req.user?.is_admin) throw bad('Only the admin can enter an opening balance');
   const created = db.transaction(() => {
     const info = db.prepare(`
-      INSERT INTO customers (name, email, phone, address, notes, nationality)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO customers (name, email, phone, address, notes, nationality, trn)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       str(body.name, 'Customer name', { max: 160 }),
       optionalStr(body.email, 'Email', 200),
@@ -62,6 +62,7 @@ router.post('/', (req, res) => {
       optionalStr(body.address, 'Address', 500),
       optionalStr(body.notes, 'Notes', 1000),
       optionalStr(body.nationality, 'Nationality', 80),
+      optionalStr(body.trn, 'TRN', 30),
     );
     markCreated(db, 'customers', info.lastInsertRowid);
     assignPartyNumber(db, 'customers', info.lastInsertRowid);
@@ -77,7 +78,7 @@ router.put('/:id', (req, res) => {
   if (!existing) throw notFound('Customer not found');
   const body = req.body || {};
   db.prepare(`
-    UPDATE customers SET name = ?, email = ?, phone = ?, address = ?, notes = ?, nationality = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?
+    UPDATE customers SET name = ?, email = ?, phone = ?, address = ?, notes = ?, nationality = ?, trn = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?
   `).run(
     body.name != null ? str(body.name, 'Customer name', { max: 160 }) : existing.name,
     body.email != null ? optionalStr(body.email, 'Email', 200) : existing.email,
@@ -85,6 +86,7 @@ router.put('/:id', (req, res) => {
     body.address != null ? optionalStr(body.address, 'Address', 500) : existing.address,
     body.notes != null ? optionalStr(body.notes, 'Notes', 1000) : existing.notes,
     body.nationality != null ? optionalStr(body.nationality, 'Nationality', 80) : existing.nationality,
+    body.trn != null ? optionalStr(body.trn, 'TRN', 30) : existing.trn,
     body.is_active != null ? (isTruthy(body.is_active) ? 1 : 0) : existing.is_active,
     id,
   );

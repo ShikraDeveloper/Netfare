@@ -63,6 +63,20 @@ router.put('/', (req, res) => {
   const closedChanged = closed !== (current.books_closed_through || '');
   if (closedChanged && !req.user?.is_admin) throw bad('Only the admin can change the closing date');
   if (closed > todayISO()) throw bad('The closing date cannot be in the future');
+  // What prints on invoices. The logo is a small picture kept in the books.
+  let logo = current.company_logo || '';
+  if (body.company_logo !== undefined) {
+    logo = String(body.company_logo || '');
+    if (logo.length > 400_000) throw bad('The logo is too large. Use a picture under 300 KB.');
+    if (logo && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo)) throw bad('The logo must be a PNG, JPG or WebP picture');
+  }
+  const printed = {
+    company_logo: logo,
+    bank_name: body.bank_name != null ? optionalStr(body.bank_name, 'Bank name', 120) : (current.bank_name || ''),
+    bank_account_name: body.bank_account_name != null ? optionalStr(body.bank_account_name, 'Account name', 160) : (current.bank_account_name || ''),
+    bank_iban: body.bank_iban != null ? optionalStr(body.bank_iban, 'IBAN', 42).toUpperCase() : (current.bank_iban || ''),
+    invoice_terms: body.invoice_terms != null ? optionalStr(body.invoice_terms, 'Invoice terms', 1000) : (current.invoice_terms || ''),
+  };
   const printPreparedBy = body.print_prepared_by != null ? (body.print_prepared_by ? 1 : 0) : (current.print_prepared_by ?? 1);
 
   db.prepare(`
@@ -87,6 +101,8 @@ router.put('/', (req, res) => {
     fiscalMonth,
     printPreparedBy,
   );
+
+  db.prepare(`UPDATE settings SET ${Object.keys(printed).map((key) => `${key} = ?`).join(', ')} WHERE id = 1`).run(...Object.values(printed));
 
   if (closedChanged) {
     db.prepare('UPDATE settings SET books_closed_through = ? WHERE id = 1').run(closed);

@@ -123,6 +123,30 @@ export async function render(container) {
                   <label for="company-address">Address</label>
                   <textarea class="input" id="company-address" name="company_address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(settings.company_address)}</textarea>
                 </div>
+                <div class="field full">
+                  <label for="company-logo">Logo on invoices and receipts</label>
+                  <div class="logo-field">
+                    <img class="logo-preview" data-logo-preview alt="Company logo" ${settings.company_logo ? `src="${esc(settings.company_logo)}"` : 'hidden'}>
+                    <input class="input" id="company-logo" type="file" accept="image/png,image/jpeg,image/webp">
+                    <button type="button" class="btn btn-ghost btn-sm" data-logo-remove ${settings.company_logo ? '' : 'hidden'}>Remove</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="bank-name">Bank</label>
+                  <input class="input" id="bank-name" name="bank_name" value="${esc(settings.bank_name || '')}" placeholder="Emirates NBD" maxlength="120">
+                </div>
+                <div class="field">
+                  <label for="bank-account-name">Account name</label>
+                  <input class="input" id="bank-account-name" name="bank_account_name" value="${esc(settings.bank_account_name || '')}" placeholder="Skyline Travels LLC" maxlength="160">
+                </div>
+                <div class="field full">
+                  <label for="bank-iban">IBAN</label>
+                  <input class="input" id="bank-iban" name="bank_iban" value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
+                </div>
+                <div class="field full">
+                  <label for="invoice-terms">Terms under every invoice</label>
+                  <textarea class="input" id="invoice-terms" name="invoice_terms" rows="3" maxlength="1000" placeholder="Tickets follow the airline's fare rules; changes and refunds carry charges.">${esc(settings.invoice_terms || '')}</textarea>
+                </div>
               </div>
             </div>
             <div class="settings-actions">
@@ -277,6 +301,27 @@ export async function render(container) {
   `;
 
   const companyForm = container.querySelector('#company-form');
+  // The logo is made small (at most 480 px wide) before it is saved.
+  let logo = settings.company_logo || '';
+  const preview = companyForm.querySelector('[data-logo-preview]');
+  const removeLogo = companyForm.querySelector('[data-logo-remove]');
+  const showLogo = () => {
+    preview.hidden = !logo;
+    removeLogo.hidden = !logo;
+    if (logo) preview.src = logo; else preview.removeAttribute('src');
+  };
+  companyForm.querySelector('#company-logo').addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+      logo = await shrinkImage(file, 480);
+      showLogo();
+    } catch {
+      toast('That picture could not be read. Use a PNG or JPG.', 'error');
+    }
+  });
+  removeLogo.addEventListener('click', () => { logo = ''; companyForm.querySelector('#company-logo').value = ''; showLogo(); });
+
   companyForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = companyForm.querySelector('button[type="submit"]');
@@ -288,6 +333,11 @@ export async function render(container) {
         company_email: values.get('company_email'),
         company_phone: values.get('company_phone'),
         company_address: values.get('company_address'),
+        company_logo: logo,
+        bank_name: values.get('bank_name'),
+        bank_account_name: values.get('bank_account_name'),
+        bank_iban: values.get('bank_iban'),
+        invoice_terms: values.get('invoice_terms'),
       });
       store.settings = updated;
       window.dispatchEvent(new Event('meta-changed'));
@@ -421,4 +471,23 @@ export async function render(container) {
   });
 
   return () => {};
+}
+
+function shrinkImage(file, maxWidth) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, maxWidth / image.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(image.width * scale);
+      canvas.height = Math.round(image.height * scale);
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(image.src);
+      const png = canvas.toDataURL('image/png');
+      // A photo saved as PNG can be large; JPG keeps it under the limit.
+      resolve(png.length < 390_000 ? png : canvas.toDataURL('image/jpeg', 0.85));
+    };
+    image.onerror = reject;
+    image.src = URL.createObjectURL(file);
+  });
 }

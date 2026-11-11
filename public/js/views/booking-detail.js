@@ -459,7 +459,7 @@ export async function render(container, { params } = {}) {
           <div class="field"><label for="ed-destination">Destination</label><input class="input" id="ed-destination" name="destination" maxlength="200" value="${esc(booking.destination || '')}"></div>
           <div class="field"><label for="ed-pnr">PNR</label><input class="input" id="ed-pnr" name="pnr" maxlength="60" value="${esc(booking.pnr || '')}"></div>
           ${sale.filter((item) => item.passenger_name).map((item) => `<div class="field full"><label for="ed-pax-${item.id}">Passenger</label><input class="input" id="ed-pax-${item.id}" data-line="${item.id}" data-field="passenger_name" maxlength="160" value="${esc(item.passenger_name || '')}"></div>`).join('')}
-          ${cost.map((item) => `<div class="field full"><label for="ed-ticket-${item.id}">Supplier reference · ${esc(item.passenger_name || item.description)}</label><input class="input" id="ed-ticket-${item.id}" data-line="${item.id}" data-field="supplier_ref" maxlength="120" value="${esc(item.supplier_ref || '')}"></div>`).join('')}
+          ${cost.map((item) => `<div class="field full"><label for="ed-ticket-${item.id}">${item.passenger_name ? 'Ticket no. / PNR' : 'Supplier reference'} · ${esc(item.passenger_name || item.description)}</label><input class="input" id="ed-ticket-${item.id}" data-line="${item.id}" data-field="supplier_ref" maxlength="120" value="${esc(item.supplier_ref || '')}"></div>`).join('')}
           <div class="field full"><label for="ed-notes">Notes</label><textarea class="input" id="ed-notes" name="notes" rows="2" maxlength="2000">${esc(booking.notes || '')}</textarea></div>
         </div>`,
       async onSubmit(form) {
