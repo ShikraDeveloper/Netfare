@@ -3314,6 +3314,17 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Next:** step 3 (invoice, bill and advance actions), step 4 (`isVoid` helper and `/api/workflows`).
 - **Not pushed or released.**
 
+### State rules, step 3: invoices, bills and advances — code commit `78828c7`
+
+- **Why:** Step 3 of the state machine plan; the user said "Haan, step 3".
+- **`server/workflows.js`** now also has invoice (edit, delete, finalize, record_payment, payment_link, correct, void), bill (edit, delete, finalize, record_payment, correct, void) and advance (apply, refund, correct, void). A rule's `when` narrows a move by the record's own fields: money still due, owned by a booking, visa or cancellation, an opening balance, an advance still unused and not a receipt. `when` shapes `allowed_actions`; `assertCan` checks the status only, so every server message stays the same and the services keep their own owner and amount checks.
+- **Services:** `invoices.js` and `bills.js` use `assertCan` for edit, delete, finalize, record payment (and the invoice payment link); invoices, bills and advances carry `allowed_actions` (also the advances listed on bookings, visas and the customer page).
+- **Screens:** the invoice, bill, booking, visa and customer pages draw those buttons from `allowed_actions`; the old `canVoid`/`canRecordPayment` flags are gone.
+- **Checked:** `test/workflows.test.js` pins what each kind of record offered before (19 cases) and that records carry the list (that test failed before the change). On the demo all 33 invoices and bills and every advance show exactly the buttons the old rules showed.
+- **Tests:** `npm test` 356 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Next:** step 4 (`isVoid` helper and `GET /api/workflows` for agents).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
