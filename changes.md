@@ -3143,6 +3143,20 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `npm test` 339 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Checked in the demo on INV-2026-0014.
 - **Not pushed or released.**
 
+### Print preview and PDF sharing in the desktop app — code commit `cacd626`
+
+- **Why:** The user asked for a preview on Print, and for the PDF to go along when sharing to WhatsApp. A wa.me link cannot carry a file, so the desktop app makes the PDF and hands it to the system.
+- **Desktop (`desktop/main.js`, `preload.js`, `config.js`):** a second bridge, `netfareDocs` (`preview`, `save`, `share`), answered only for the main window while it shows Netfare (`fromNetfarePage`). The PDF is the page as it prints (`webContents.printToPDF`, A4).
+  - `docs:preview` writes the PDF to a private temp folder (0700/0600) and opens it in the plain file-preview window (the PDF viewer has print and save);
+  - `docs:save` asks where to save, starting in Downloads;
+  - `docs:share`: on macOS a `ShareMenu` with the PDF and the message (WhatsApp, Mail, Messages, AirDrop); on Windows and Linux the PDF is saved to Downloads and shown, and the WhatsApp chat or email opens (`isShareUrl` allows only `https://wa.me/…?text=` and `mailto:`);
+  - the temp folder is removed when the app quits; `pdfName` turns "INV-2026-0014 · Netfare" into `INV-2026-0014.pdf` with no folders.
+- **App:** `ui.js` `printPage` uses the preview when the bridge is there, else `window.print()`; the Print buttons of invoices, receipts, refunds, cancellations, bills, bookings, visas and supplier credits use it. The invoice Share window shows "INV-….pdf goes with WhatsApp and Email" in the desktop app; WhatsApp and Email close it, then share; "Save PDF" saves. In a browser nothing changes.
+- **Tests:** `test/desktop-config.test.js` (file names, allowed share links). `npm test` 340 passed, `npm run test:e2e` 43 passed, `npm run check` OK; the browser Share window is unchanged.
+- **Not checked:** the preview, Save PDF and the Mac share menu in the built desktop app (they need Electron); try them once in the next build.
+- **Found, not fixed:** `public/js/views/supplier-credits.js` has an inline `onclick` on the bill link, which the CSP blocks (console error on the Supplier credits list).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
