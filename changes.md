@@ -3194,6 +3194,14 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `npm test` 346 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Checked in the demo: "3 sales · 1 cancellation · 2 supplier refunds", Bank accounts with Old ENBD, Money paid out 1,761.00 without the 500 transfer.
 - **Not pushed or released.**
 
+### Invoices on A4 — code commit `8fad410`
+
+- **Why:** The user asked that the invoice fit A4 properly.
+- **Checked first:** invoices printed to A4 PDF with Chrome (Playwright `page.pdf` with the page's own print rules, as the desktop app does): INV-2026-0014 fits one page; a 22-passenger invoice (INV-2026-0015) ran to two pages with the table header repeated and no row cut.
+- **Changed (`styles.css`, print):** tighter rows (6 px), so 21 passengers fit on page one instead of 16; How to pay and the terms are kept whole like the totals; every printed page shows "Page n of m" at the bottom right in a sans font (the DSR's centered page number uses the same font).
+- **Tests:** `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
