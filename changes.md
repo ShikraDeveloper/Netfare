@@ -3169,6 +3169,20 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `npm test` 345 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Demo: changing BK-2026-0009's destination keeps Ali Khan and 176-2401234567 on INV-2026-0014; the Supplier credits page has no inline handlers and its bill link opens the bill; ledger checks matched.
 - **Not pushed or released.**
 
+### Cleaner Daily Sales Report — code commit `2384c8a`
+
+- **Why:** The user asked for a better DSR, approved the mockup and the print preview mockup ("ok do it").
+- **Layout (`public/js/views/reports/daily-sales.js`):**
+  - totals first (`overviewHtml`): tiles for total sales (with counts), received (cash, card and bank, sales and older invoices), on credit, refunds paid, and gross profit (only with Show profit); "How the money came in" as a bar with Cash / Card & payment link / Bank, advance or credit used and visa deposits; "Cash and bank" opening, in, out, closing;
+  - each kind of work is a section that folds (`data-dsr-fold`), with its count and total in the header: tickets and bookings, visas and service income start open; cancellations and refunds, money collected for older invoices, money paid out and by staff start folded;
+  - the five Cash, Card, Bank, Other and Credit columns become **Paid by** (small chips, e.g. "Cash 3,000.00", "Card 1,500.00", "Advance / credit") and **Due**; Fare and Fee columns are gone (fee under the total; a visa deposit as "+ deposit"); collections use the same Paid by chips;
+  - section letters (B–H), the duplicated titles and the long note are gone; the meta line says who printed it;
+  - kept: `data-dsr`, `data-dsr-table`, `data-dsr-section` (summary is the overview), `data-dsr-summary`, the staff picker and Show profit.
+- **Print:** the Print button uses `printPage` (the desktop preview); every section prints open; the DSR page is A4 portrait with "Page n of m" at the bottom (`@page dsr` margin box); the desktop PDF now follows each page's own print rules (`preferCSSPageSize`).
+- **Tests:** the two e2e DSR tests now check Paid by and Due, the totals first, and a folded section opening on a click. `npm test` 345 passed, `npm run test:e2e` 43 passed (including the accessibility audit), `npm run check` OK. Checked in the demo.
+- **Not checked:** the printed DSR and its page numbers in the built desktop app.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
