@@ -3202,6 +3202,13 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### Logo size guide in Settings — code commit `d5f0470`
+
+- **Why:** The user asked to show the best logo dimensions next to the logo field.
+- **Settings:** the label reads "Logo on invoices and receipts · best: PNG, transparent background, 480 × 160 px (3 : 1), under 300 KB" (the print shows it 52 px high and up to 180 px wide; uploads are made at most 480 px wide). The preview, file picker and Remove sit on one line.
+- **Tests:** `npm run test:e2e` 43 passed (including the accessibility audit), `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
