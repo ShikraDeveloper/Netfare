@@ -326,6 +326,14 @@ function updateNav(section) {
   });
 }
 
+// The brand line on documents uses the company's own colours when set.
+function applyDocColors() {
+  const root = document.documentElement.style;
+  for (const [key, cssVar] of [['doc_color_dark', '--doc-dark'], ['doc_color_light', '--doc-light']]) {
+    if (store.settings?.[key]) root.setProperty(cssVar, store.settings[key]); else root.removeProperty(cssVar);
+  }
+}
+
 function updateSidebarFooter() {
   const foot = document.getElementById('sidebar-foot');
   const name = store.settings?.company_name || 'My Company';
@@ -532,6 +540,7 @@ async function boot() {
     return;
   }
   updateSidebarFooter();
+  applyDocColors();
   buildTopMenu();
   renderRoute();
   if (store.user.is_admin) keepCheckingForUpdates();
@@ -541,6 +550,7 @@ async function boot() {
 window.addEventListener('hashchange', renderRoute);
 window.addEventListener('meta-changed', () => {
   updateSidebarFooter();
+  applyDocColors();
 });
 
 initTheme();

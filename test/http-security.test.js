@@ -262,6 +262,11 @@ test('invoice print settings: only a PNG, JPG or WebP logo is kept; bank and ter
   assert.equal(saved.status, 200);
   assert.deepEqual([saved.data.company_logo, saved.data.bank_name, saved.data.bank_iban, saved.data.invoice_terms], [png, 'Test Bank', 'AE07 0331 2345', 'Fares follow airline rules.']);
   assert.equal((await put({ company_logo: '' })).data.company_logo, '', 'the logo can be removed');
+  for (const bad of ['red', '#fff', 'url(x)', '#0b1b2e; color: red']) {
+    assert.equal((await put({ doc_color_dark: bad })).status, 400, `colour refused: ${bad}`);
+  }
+  const colors = (await put({ doc_color_dark: '#1A2B3C', doc_color_light: '' })).data;
+  assert.deepEqual([colors.doc_color_dark, colors.doc_color_light], ['#1a2b3c', '']);
 });
 
 test('other sites and local ports cannot read the API, and nothing is embeddable cross-origin', async () => {

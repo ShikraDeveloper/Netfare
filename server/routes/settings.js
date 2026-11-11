@@ -70,8 +70,16 @@ router.put('/', (req, res) => {
     if (logo.length > 400_000) throw bad('The logo is too large. Use a picture under 300 KB.');
     if (logo && !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo)) throw bad('The logo must be a PNG, JPG or WebP picture');
   }
+  const color = (key, label) => {
+    if (body[key] == null) return current[key] || '';
+    const value = String(body[key]).trim().toLowerCase();
+    if (value && !/^#[0-9a-f]{6}$/.test(value)) throw bad(`${label} must be a colour like #0b1b2e`);
+    return value;
+  };
   const printed = {
     company_logo: logo,
+    doc_color_dark: color('doc_color_dark', 'Main colour'),
+    doc_color_light: color('doc_color_light', 'Second colour'),
     bank_name: body.bank_name != null ? optionalStr(body.bank_name, 'Bank name', 120) : (current.bank_name || ''),
     bank_account_name: body.bank_account_name != null ? optionalStr(body.bank_account_name, 'Account name', 160) : (current.bank_account_name || ''),
     bank_iban: body.bank_iban != null ? optionalStr(body.bank_iban, 'IBAN', 42).toUpperCase() : (current.bank_iban || ''),

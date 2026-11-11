@@ -144,6 +144,15 @@ export async function render(container) {
                   <input class="input" id="bank-iban" name="bank_iban" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
                 </div>
                 <div class="field full">
+                  <label for="doc-color-dark">Brand line on documents <span class="label-note">· main colour and second colour</span></label>
+                  <div class="doc-color-field">
+                    <span class="doc-color-preview" data-doc-color-preview aria-hidden="true"></span>
+                    <input class="input" type="color" id="doc-color-dark" name="doc_color_dark" value="${esc(settings.doc_color_dark || '#0b1b2e')}" aria-label="Main colour">
+                    <input class="input" type="color" id="doc-color-light" name="doc_color_light" value="${esc(settings.doc_color_light || '#4fb3e8')}" aria-label="Second colour">
+                    <button type="button" class="btn btn-ghost btn-sm" data-doc-color-reset>Use Netfare colours</button>
+                  </div>
+                </div>
+                <div class="field full">
                   <label for="invoice-terms-ticket">Terms under ticket invoices</label>
                   <textarea class="input" id="invoice-terms-ticket" name="invoice_terms_ticket" rows="2" maxlength="1000" placeholder="Tickets follow the airline's fare rules; changes and refunds carry airline and service charges.">${esc(settings.invoice_terms_ticket || '')}</textarea>
                 </div>
@@ -330,6 +339,17 @@ export async function render(container) {
   });
   removeLogo.addEventListener('click', () => { logo = ''; companyForm.querySelector('#company-logo').value = ''; showLogo(); });
 
+  const colorInputs = ['#doc-color-dark', '#doc-color-light'].map((id) => companyForm.querySelector(id));
+  const showColors = () => {
+    companyForm.querySelector('[data-doc-color-preview]').style.background = `linear-gradient(90deg, ${colorInputs[0].value} 0 70%, ${colorInputs[1].value} 70% 100%)`;
+  };
+  colorInputs.forEach((input) => input.addEventListener('input', showColors));
+  companyForm.querySelector('[data-doc-color-reset]').addEventListener('click', () => {
+    [colorInputs[0].value, colorInputs[1].value] = ['#0b1b2e', '#4fb3e8'];
+    showColors();
+  });
+  showColors();
+
   companyForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = companyForm.querySelector('button[type="submit"]');
@@ -342,6 +362,9 @@ export async function render(container) {
         company_phone: values.get('company_phone'),
         company_address: values.get('company_address'),
         company_logo: logo,
+        // Netfare's own colours are kept as empty, so a later change of default follows.
+        doc_color_dark: values.get('doc_color_dark') === '#0b1b2e' ? '' : values.get('doc_color_dark'),
+        doc_color_light: values.get('doc_color_light') === '#4fb3e8' ? '' : values.get('doc_color_light'),
         bank_name: values.get('bank_name'),
         bank_account_name: values.get('bank_account_name'),
         bank_iban: values.get('bank_iban'),

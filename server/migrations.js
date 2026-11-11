@@ -292,6 +292,9 @@ ensureColumn('settings', 'invoice_terms', "TEXT NOT NULL DEFAULT ''");
 // Ticket and visa invoices can carry their own terms; empty uses invoice_terms.
 ensureColumn('settings', 'invoice_terms_ticket', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('settings', 'invoice_terms_visa', "TEXT NOT NULL DEFAULT ''");
+// The two colours of the brand line on every document; empty uses Netfare's.
+ensureColumn('settings', 'doc_color_dark', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('settings', 'doc_color_light', "TEXT NOT NULL DEFAULT ''");
 // A company customer's tax registration number, printed under Bill to.
 ensureColumn('customers', 'trn', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('portal_refunds', 'status', "TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void'))");
