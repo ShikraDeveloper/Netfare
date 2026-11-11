@@ -3325,11 +3325,20 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Next:** step 4 (`isVoid` helper and `GET /api/workflows` for agents).
 - **Not pushed or released.**
 
+### State rules, step 4: isVoid and GET /api/workflows — code commit `34a1016`
+
+- **Why:** The last step of the state machine plan; the user said "Haan, step 4".
+- **`isVoid(record)`** (`server/workflows.js`): a void is stored as `status = 'void'` (invoices, bills, payments…) or as a `voided_at` date (bookings, visas, advances, deposits, cancellations). The workflow check and the places that show a booking, visa or advance as void (`bookings.js`, `visas.js`, `advances.js`, `audit-chain.js`) use it. Same results as before.
+- **`GET /api/workflows`** (`server/routes/index.js`): the whole table as plain data, for each of booking, visa, invoice, bill and advance its states and every move (`from`, `to`, `message`, and `condition` in words where a rule has one). The code behind a condition is not sent. Every signed-in user may read it (added to the shared reads in `permissions.js`); the rules are not private.
+- **Tests:** `test/workflows.test.js` (isVoid, a void record allows nothing) and `test/http-security.test.js` (the route as admin and as staff with no rights); both failed before. `npm test` 358 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Checked on the demo: the route answers with the five kinds.
+- **The state machine plan is done:** step 1 (`14653e2`), step 2 (`0845bda`), step 3 (`78828c7`), step 4 (this). Not covered on purpose: post-dated cheques, compliance items, reminders and the desktop setup states.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.17** is published (2026-11-11): the new invoice look with the visa deposit box, terms per invoice kind, brand line colours, the new booking, visa and service forms, print preview and PDF share, A4 page numbers, the cleaner DSR, the closing date, Restore from backup, opening balances changeable later, and fixes from four audits. Not released yet: documents white in dark mode, the amount gap, phone under email and white print margins (`64522af`), Receive payment posting a receipt instead of an advance (`b28f77c`), and the fifth audit fixes (`528ef73`). Ask the user to check in the office: the new invoice and forms, Print preview and Share in the desktop app, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.17** is published (2026-11-11): the new invoice look with the visa deposit box, terms per invoice kind, brand line colours, the new booking, visa and service forms, print preview and PDF share, A4 page numbers, the cleaner DSR, the closing date, Restore from backup, opening balances changeable later, and fixes from four audits. Not released yet: documents white in dark mode, the amount gap, phone under email and white print margins (`64522af`), Receive payment posting a receipt instead of an advance (`b28f77c`), the fifth audit fixes (`528ef73`) and the state rules steps 1 to 4 (`14653e2`, `0845bda`, `78828c7`, `34a1016`). Ask the user to check in the office: the new invoice and forms, Print preview and Share in the desktop app, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
