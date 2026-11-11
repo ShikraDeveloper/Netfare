@@ -3110,6 +3110,15 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked in the demo (admin):** with the books closed through 31 Oct, Void on VIS-2026-0002 showed the Locked message and nothing changed, and correcting its October payment was refused; a portal opening changed 750 → 800 (TOP-2026-0003 → TOP-2026-0004) from the Edit form. Ledger checks matched.
 - **Not pushed or released.**
 
+### No signature lines on printed documents — code commit `15bd208`
+
+- **Why:** The user does not need customers to sign anything ("zarorat nai hy is ki sign etc ki").
+- **Removed:** the "Received by" line under printed invoices, credit notes and refunds (`ui.js` `pageRecord`), and the "Received by" and "Customer signature" lines on both receipt pages, with their CSS.
+- **Kept:** "Prepared by: (staff name)", now small and grey (8pt) in print; Settings → Print "Prepared by" still turns it off.
+- **Tests:** `npm test` 338 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Checked in the demo: INV-2026-0006 and receipt PMT-2026-0002 show only Prepared by.
+- **Invoice redesign (not built yet):** mockups shown for a travel-style table (Passenger, Route, Ticket no., Amount; Qty and Unit price only when a quantity is above 1), logo, customer TRN, How to pay (bank, IBAN, QR), terms; stamp dropped. Waiting for the user to say whether the agency is VAT registered.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
