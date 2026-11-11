@@ -41,7 +41,7 @@ export async function render(container, { params } = {}) {
 
   container.innerHTML = `
     ${isVoid ? `
-      <div class="callout no-print" style="border-color:var(--red-soft)">
+      <div class="callout danger no-print">
         <div class="callout-text"><h3>This payment was voided</h3></div>
       </div>` : ''}
     <div class="doc-wrap">

@@ -31,6 +31,8 @@ Simple purpose, simple layout, simple code. Read this before adding or changing 
 | One number | `numberCardHtml({ label, cents, href, overdue })` in a `.kpi-grid` |
 | Nothing to show | `emptyState({ title })`, with no message |
 | Who made a record | `pageRecord(record)` (detail pages), `recordMetaHtml(record)` (forms) |
+| Staff-only notes on a booking or visa | `internalNotesHtml(notes)` |
+| A coloured callout | `.callout.warning`, `.callout.danger`, `.callout.success`; `.form-note.danger`. Never an inline colour |
 
 ## Tokens
 
@@ -41,3 +43,4 @@ Every token lives in `public/css/theme.css`: colours (light and dark), radius, s
 - Phase 1, 2026-11-04: the Dashboard, the invoice page and the New invoice form.
 - Phase 2, 2026-11-04 to 11-07: every other screen, group by group (helper text 310 → 41).
 - Phase 3, 2026-11-07: one token file, unused CSS rules, functions and imports removed.
+- Phase 4, 2026-11-12: the budget check also counts grey prose, callout and plain paragraphs, sentence placeholders and long tooltips; Settings rows say what they do; one menu (the top menu is gone); the void pop-up asks only for a reason; callout tones are classes. Helper text, counted the wider way: 46.

@@ -62,14 +62,14 @@ export async function render(container, { query } = {}) {
   }
 
   const notice = data.generated?.length
-    ? `<div class="callout" style="border-color:var(--green-soft);background:var(--green-soft)">
-        <div class="callout-icon" style="background:var(--surface);color:var(--green)">${icon('check', 20)}</div>
+    ? `<div class="callout success">
+        <div class="callout-icon">${icon('check', 20)}</div>
         <div class="callout-text"><h3>Bills created</h3><p>${data.generated.map((row) => `<a href="#/bills/${row.bill_id}">${esc(row.bill_number)}</a>`).join(' · ')}</p></div>
       </div>`
     : '';
   const errorNotice = data.errors?.length
-    ? `<div class="callout" style="border-color:var(--red-soft);background:var(--red-soft)">
-        <div class="callout-icon" style="background:var(--surface);color:var(--red)">${icon('alert', 20)}</div>
+    ? `<div class="callout danger">
+        <div class="callout-icon">${icon('alert', 20)}</div>
         <div class="callout-text"><h3>Some bills could not be generated</h3><p>${data.errors.map((row) => `${esc(row.name)}: ${esc(row.error)}`).join(' · ')}</p></div>
       </div>`
     : '';

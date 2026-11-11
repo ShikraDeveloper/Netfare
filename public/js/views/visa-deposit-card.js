@@ -124,7 +124,7 @@ export function depositCardHtml(visa) {
         ${canCollect ? `<button class="btn btn-primary btn-sm" data-deposit-action="collect">${icon('plus', 14)} Take deposit</button>` : ''}
       </div>
       <div class="card-body" ${deposits.length ? 'style="padding:6px 20px"' : ''}>
-        ${deposits.length ? deposits.map(depositHtml).join('') : '<p class="muted" style="margin:0">A refundable deposit is held in 2600 until it is refunded, used for an invoice or forfeited.</p>'}
+        ${deposits.length ? deposits.map(depositHtml).join('') : '<p class="muted" style="margin:0">No deposit taken</p>'}
       </div>
     </div>`;
 }

@@ -171,7 +171,7 @@ function depositCardHtml(invoice) {
   const status = settled ? (returned ? 'Returned' : 'Settled') : 'Held';
   const second = deposit.returned.length
     ? deposit.returned.map((row) => `<strong>Returned</strong> ${esc(fmtDate(row.date))}${row.method ? ` · ${esc(row.method)}` : ''} · ${fmtMoney(row.amount_cents)}`).join('<br>')
-    : '<span class="muted">Returned when the visitor leaves on time, less any fines</span>';
+    : '<span class="muted">Not returned</span>';
   return `
     <div class="doc-deposit ${settled ? 'is-settled' : ''}" data-visa-deposit>
       <div class="doc-deposit-head">
@@ -500,9 +500,9 @@ export async function render(container, { params } = {}) {
             <strong>${esc(payment.method || 'Payment')}</strong>
             <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
-            ${payment.bank_charges_cents ? `<span class="cell-sub">Bank kept ${fmtMoney(payment.bank_charges_cents)} · 6700 Bank Charges</span>` : ''}
-            ${payment.advance_id ? '<span class="cell-sub">Applied from customer advance</span>' : ''}
-            ${payment.deposit_id ? `<span class="cell-sub">Paid from visa deposit ${esc(payment.reference || '')} · undo it on the visa's deposit card</span>` : ''}
+            ${payment.bank_charges_cents ? `<span class="cell-sub">Bank charges ${fmtMoney(payment.bank_charges_cents)}</span>` : ''}
+            ${payment.advance_id ? '<span class="cell-sub">From advance</span>' : ''}
+            ${payment.deposit_id ? `<span class="cell-sub">From deposit ${esc(payment.reference || '')}</span>` : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
           </div>
           <div class="payment-amount">

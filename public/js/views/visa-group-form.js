@@ -168,11 +168,11 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
       </div>
       <div class="field">
         <label for="vg-invoice-notes">Note on invoice</label>
-        <textarea class="input" id="vg-invoice-notes" name="invoice_notes" rows="1" placeholder="Optional. Printed on each invoice."></textarea>
+        <textarea class="input" id="vg-invoice-notes" name="invoice_notes" rows="1"></textarea>
       </div>
       <details class="field full more-details">
         <summary>Internal notes</summary>
-        <textarea class="input" id="vg-notes" name="notes" rows="2" aria-label="Internal notes" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed."></textarea>
+        <textarea class="input" id="vg-notes" name="notes" rows="2" aria-label="Internal notes"></textarea>
       </details>
 
       <div class="field full form-sum" aria-live="polite">

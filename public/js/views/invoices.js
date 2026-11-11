@@ -292,7 +292,7 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
       </div>
       <div class="field full">
         <label for="invoice-notes">Note on invoice</label>
-        <textarea class="input" id="invoice-notes" name="notes" rows="1" placeholder="Optional. Printed on the invoice.">${esc(invoice?.notes || '')}</textarea>
+        <textarea class="input" id="invoice-notes" name="notes" rows="1">${esc(invoice?.notes || '')}</textarea>
       </div>
       <details class="field full more-details"${invoice?.terms ? ' open' : ''}>
         <summary>More details</summary>

@@ -335,6 +335,14 @@ html[data-theme="dark"] .auth-logo-dark { display: block; }
   color: var(--accent-ink);
 }
 .callout-text h3 { font-family: var(--font-display); font-weight: 700; }
+/* Tones: .callout.warning, .danger, .success (and .form-note.danger) */
+.callout.warning { border-color: var(--amber-soft); background: linear-gradient(90deg, var(--amber-soft) 0%, var(--surface) 78%); }
+.callout.danger { border-color: var(--red-soft); background: linear-gradient(90deg, var(--red-soft) 0%, var(--surface) 78%); }
+.callout.success { border-color: var(--green-soft); background: linear-gradient(90deg, var(--green-soft) 0%, var(--surface) 78%); }
+.callout.warning .callout-icon { background: var(--surface); color: var(--amber); }
+.callout.danger .callout-icon { background: var(--surface); color: var(--red); }
+.callout.success .callout-icon { background: var(--surface); color: var(--green); }
+.form-note.danger { border-color: var(--red); color: var(--red); }
 
 .mini-row { border-bottom-color: var(--border); }
 .mini-row:hover { background: var(--surface-2); }
@@ -673,9 +681,8 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 }
 
 /* ---------------------------------------------------------------------------
-   Menu: shared pieces (search, New), the top menu, and the side menu polish.
-   Settings → Appearance → Menu picks Side or Top (html.menu-top); phones keep
-   the side drawer and bottom tab bar in both.
+   Menu: search, New, and the side menu polish. Phones use the side menu as a
+   drawer with a bottom tab bar.
    ------------------------------------------------------------------------ */
 
 /* Search and New, in the side menu */
@@ -687,7 +694,7 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 }
 .side-search:hover, .side-search:focus-visible { background: rgba(255, 255, 255, 0.09); color: var(--sidebar-text-strong); }
 .side-search span { flex: 1; }
-.side-search kbd, .tn-search kbd, .nf-search-box kbd {
+.side-search kbd, .nf-search-box kbd {
   font: 600 10px var(--font-mono, ui-monospace, monospace); padding: 1px 5px; border-radius: 4px;
   border: 1px solid currentColor; opacity: 0.6;
 }
@@ -698,7 +705,7 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 .nav-group[data-nav-group="settings"] { margin-top: auto; padding-top: 10px; }
 .nav { display: flex; flex-direction: column; }
 
-/* Shared popover panel (top menu groups, New, account) */
+/* The New menu's popover */
 .tn-pop { position: relative; }
 .tn-panel {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 60;
@@ -710,94 +717,12 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 .tn-panel-head { font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-2); padding: 2px 8px 6px; }
 .tn-panel-new { padding: 10px; width: 260px; }
 .tn-new-grid { display: grid; gap: 2px; }
-.tn-new-item, .tn-action {
+.tn-new-item {
   display: flex; align-items: center; gap: 8px; padding: 8px 9px; border-radius: 8px;
   color: var(--text); text-decoration: none; font-size: 13px;
 }
-.tn-new-item:hover, .tn-new-item:focus-visible, .tn-action:hover, .tn-action:focus-visible { background: var(--surface-2); }
-.tn-new-item .icon, .tn-action .icon { color: var(--accent); }
-
-/* Top menu bar */
-.topnav { display: none; }
-@media (min-width: 901px) {
-  html.menu-top .sidebar, html.menu-top .sidebar-scrim, html.menu-top .menu-btn { display: none !important; }
-  html.menu-top .main { margin-left: 0 !important; }
-  html.menu-top .topnav {
-    display: flex; align-items: center; gap: 6px; height: 60px; padding: 0 22px;
-    position: sticky; top: 0; z-index: 45;
-    background: var(--surface); border-bottom: 1px solid var(--border);
-  }
-  html.menu-top .topbar { top: 60px; padding-top: 18px; }
-}
-.tn-org { display: flex; align-items: center; gap: 9px; padding: 5px 10px 5px 4px; margin-right: 6px; border-radius: 10px; color: var(--text); text-decoration: none; min-width: 0; }
-.tn-org:hover { background: var(--surface-2); }
-.tn-logo { width: 30px; height: 30px; border-radius: 8px; flex: none; }
-.tn-org-text { line-height: 1.15; min-width: 0; }
-.tn-org-text strong { display: block; font-family: var(--font-display); font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
-.tn-org-text small { display: block; color: var(--muted); font-size: 11px; }
-.tn-groups { display: flex; align-items: center; gap: 2px; min-width: 0; }
-.tn-trigger, .tn-link {
-  display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px;
-  border: 0; border-radius: 9px; background: transparent; color: var(--text-soft);
-  font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; position: relative;
-}
-.tn-trigger .icon, .tn-link .icon { color: var(--muted); }
-.tn-trigger:hover, .tn-link:hover, .tn-pop.open > .tn-trigger { background: var(--surface-2); color: var(--text); }
-.tn-pop.open > .tn-trigger .icon { color: var(--accent); }
-.tn-caret .icon { transform: rotate(90deg); transition: transform 0.15s; opacity: 0.7; }
-.tn-pop.open > .tn-trigger .tn-caret .icon { transform: rotate(-90deg); }
-[data-tn-group].active > .tn-trigger, .tn-link.active { color: var(--text); }
-[data-tn-group].active > .tn-trigger .icon, .tn-link.active .icon { color: var(--accent); }
-[data-tn-group].active > .tn-trigger::after, .tn-link.active::after {
-  content: ""; position: absolute; left: 10px; right: 10px; bottom: -12px; height: 2.5px; border-radius: 2px; background: var(--accent);
-}
-.tn-group .tn-panel { display: flex; min-width: 470px; overflow: hidden; }
-.tn-group .tn-panel[hidden] { display: none; }
-.tn-panel-main { flex: 1; padding: 12px; min-width: 0; }
-.tn-items { display: grid; grid-template-columns: repeat(var(--tn-cols, 2), minmax(180px, 1fr)); gap: 2px; }
-.tn-item { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border-radius: 10px; color: var(--text); text-decoration: none; }
-.tn-item:hover, .tn-item:focus-visible { background: var(--surface-2); }
-.tn-item-icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: none; }
-.tn-item.current { background: var(--accent-soft); }
-.tn-item.current .tn-item-icon { background: var(--accent); color: #fff; }
-.tn-item-text strong { display: block; font-size: 13px; font-weight: 600; }
-.tn-item-text small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 1px; }
-.tn-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
-.tn-actions .tn-action { padding: 6px 9px; font-size: 12.5px; }
-.tn-recent { width: 190px; flex: none; padding: 12px 10px; background: var(--surface-2); border-left: 1px solid var(--border); }
-.tn-recent-item { display: block; padding: 6px 8px; border-radius: 7px; color: var(--text-soft); text-decoration: none; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tn-recent-item:hover, .tn-recent-item:focus-visible { background: var(--surface-3); color: var(--text); }
-.tn-recent-empty { display: block; padding: 4px 8px; color: var(--muted); font-size: 12px; }
-.tn-group[data-pop="books"] .tn-panel, .tn-group:nth-last-of-type(-n+2) .tn-panel { left: auto; right: 0; }
-.tn-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.tn-search {
-  display: flex; align-items: center; gap: 7px; height: 34px; width: 170px; padding: 0 10px;
-  border: 1px solid var(--border); border-radius: 9px; background: var(--surface-2); color: var(--muted);
-  font: inherit; font-size: 12.5px; cursor: pointer;
-}
-.tn-search span { flex: 1; text-align: left; }
-.tn-search:hover, .tn-search:focus-visible { border-color: var(--border-strong); color: var(--text); }
-.tn-tools { display: flex; align-items: center; }
-.tn-tools .topbar-tools { padding-top: 0; }
-.tn-icon.current { color: var(--accent); background: var(--accent-soft); }
-.tn-panel-new { left: auto; right: 0; }
-.tn-account { border: 0; background: transparent; padding: 2px; border-radius: 50%; cursor: pointer; }
-.tn-account:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tn-panel-account { left: auto; right: 0; width: 240px; padding: 8px; }
-.tn-account-head { padding: 6px 8px 10px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
-.tn-account-head strong { display: block; font-size: 13px; }
-.tn-account-head small { display: block; color: var(--muted); font-size: 11.5px; margin-top: 2px; }
-.tn-account-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; text-align: left; }
-.tn-account-item:hover, .tn-account-item:focus-visible { background: var(--surface-2); }
-.tn-account-item .icon { color: var(--muted); }
-@media (max-width: 1180px) {
-  html.menu-top .tn-org-text { display: none; }
-  html.menu-top .tn-search { width: auto; }
-  html.menu-top .tn-search span, html.menu-top .tn-search kbd { display: none; }
-}
-@media (max-width: 1020px) {
-  html.menu-top .tn-trigger .icon:first-child, html.menu-top .tn-link .icon { display: none; }
-}
+.tn-new-item:hover, .tn-new-item:focus-visible { background: var(--surface-2); }
+.tn-new-item .icon { color: var(--accent); }
 
 /* Search box (press /) */
 .nf-search-overlay { position: fixed; inset: 0; z-index: 120; background: rgba(8, 18, 31, 0.42); display: flex; justify-content: center; align-items: flex-start; padding: 12vh 16px 16px; }
@@ -818,16 +743,11 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
 .nav-item { border-radius: 9px; }
 .nav-item.active { background: rgba(79, 179, 232, 0.14); }
 
-/* Settings → Appearance → Menu */
-.menu-picker-label { margin: 18px 0 8px; font-size: 12px; font-weight: 700; color: var(--text-soft); }
-.menu-swatch-top { grid-template-columns: 1fr; grid-template-rows: 14px 1fr; }
-.menu-swatch-top .sw-side { height: 14px; }
-
 @media (prefers-reduced-motion: reduce) {
   .tn-panel, .nf-search { animation: none; }
 }
 @media print {
-  .topnav, .side-tools { display: none !important; }
+  .side-tools { display: none !important; }
 }
 
 /* ------------------------------------------------------------------

@@ -281,12 +281,12 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
       </div>
       <div class="field">
         <label for="bk-invoice-notes">Note on invoice</label>
-        <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="1" placeholder="Optional. Printed on the invoice.">${esc(booking?.invoice_notes || '')}</textarea>
+        <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="1">${esc(booking?.invoice_notes || '')}</textarea>
       </div>
 
       <details class="field full more-details" ${hasMoreDetails ? 'open' : ''}>
         <summary>Internal notes</summary>
-        <textarea class="input" id="bk-notes" name="notes" rows="2" aria-label="Internal notes" placeholder="Only staff see this. Never printed for the customer.">${esc(booking?.notes || '')}</textarea>
+        <textarea class="input" id="bk-notes" name="notes" rows="2" aria-label="Internal notes">${esc(booking?.notes || '')}</textarea>
       </details>
       ${correct ? `<div class="field full">
         <label for="correct-reason">Why</label>

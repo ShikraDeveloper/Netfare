@@ -912,7 +912,7 @@ test('void dialog requires remarks, reverses a paid invoice and records the audi
 
   await dialog.locator('[data-submit]').click();
   await page.waitForTimeout(100);
-  assert.match(await dialog.locator('.modal-error').textContent(), /Enter remarks/i);
+  assert.match(await dialog.locator('.modal-error').textContent(), /Enter a reason/i);
 
   await dialog.locator('#void-remarks').fill('E2E duplicate invoice');
   await dialog.locator('[data-submit]').click();
@@ -1994,7 +1994,7 @@ test('bank charges on a payment, a charge added in bank reconciliation, and pett
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   await page.locator('[data-fold="payments"] > summary').click();
-  await page.locator('.payment-item', { hasText: 'Bank kept' }).waitFor();
+  await page.locator('.payment-item', { hasText: 'Bank charges' }).waitFor();
   const paid = await getJson(baseUrl, `/api/invoices/${invoice.id}`);
   assert.equal(paid.status_display, 'paid');
   assert.equal(paid.payments[0].bank_charges_cents, 1_500);
@@ -2220,28 +2220,8 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
   }
 });
 
-test('menu: Settings switches to the top menu, its panels and search work, and back to the side', async () => {
-  await openRoute('/settings');
-  await page.locator('[data-menu-choice="top"]').click();
-  assert.equal(await page.evaluate(() => document.documentElement.classList.contains('menu-top')), true);
-  assert.equal(await page.locator('#sidebar').isVisible(), false, 'no side menu with the top menu');
-  const topNav = page.locator('#top-nav');
-  assert.equal(await topNav.isVisible(), true);
-  assert.equal(await topNav.locator('#topbar-tools').count(), 1, 'the bell moves into the top menu');
-
-  // A group opens on click with its screens, quick actions and recent records.
-  const money = topNav.locator('[data-pop="money-back"]');
-  await money.locator('.tn-trigger').click();
-  const panel = money.locator('.tn-panel');
-  await panel.waitFor();
-  assert.equal(await money.locator('.tn-trigger').getAttribute('aria-expanded'), 'true');
-  assert.match(await panel.innerText(), /Customer balances/);
-  await page.keyboard.press('Escape');
-  await panel.waitFor({ state: 'hidden' });
-  await money.locator('.tn-trigger').click();
-  await panel.locator('a.tn-item[href="#/customer-balances"]').click();
-  await page.locator('#page-title', { hasText: 'Customer balances' }).waitFor();
-  assert.match(await money.getAttribute('class'), /active/, 'the open screen marks its group');
+test('menu: search jumps to a customer and the New menu lists what may be created', async () => {
+  await openRoute('/dashboard');
 
   // "/" opens search; a customer name jumps to their page.
   const customer = (await getJson(baseUrl, '/api/customers'))[0];
@@ -2255,31 +2235,11 @@ test('menu: Settings switches to the top menu, its panels and search work, and b
   await page.waitForURL(new RegExp(`#/customer-balances/${customer.id}$`));
   await page.locator('#nf-search').waitFor({ state: 'detached' });
 
-  // The New menu lists only what may be created.
-  await topNav.locator('[data-pop="new"] > button').click();
-  assert.match(await topNav.locator('.tn-panel-new').innerText(), /New booking[\s\S]*New invoice/);
+  const tools = page.locator('#side-tools');
+  await tools.locator('[data-pop="new"] > button').click();
+  assert.match(await tools.locator('.tn-panel-new').innerText(), /New booking[\s\S]*New invoice/);
   await page.keyboard.press('Escape');
-
-  // The top menu with a panel open passes axe in both themes.
-  await money.locator('.tn-trigger').click();
-  for (const theme of ['light', 'dark']) {
-    await page.evaluate((name) => { document.documentElement.dataset.theme = name; }, theme);
-    // Let the colour transition finish before checking contrast.
-    await page.waitForTimeout(400);
-    await page.evaluate(AXE_SOURCE);
-    const violations = await page.evaluate(async () => (await window.axe.run(document.getElementById('top-nav'), {
-      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
-    })).violations.map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`));
-    assert.deepEqual(violations, [], `top menu axe (${theme})`);
-  }
-  await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
-  await page.keyboard.press('Escape');
-
-  await openRoute('/settings');
-  await page.locator('[data-menu-choice="side"]').click();
-  assert.equal(await page.locator('#sidebar').isVisible(), true);
-  assert.equal(await topNav.isVisible(), false);
-  assert.equal(await page.locator('.topbar #topbar-tools').count(), 1, 'the bell goes back beside the title');
+  await tools.locator('.tn-panel-new').waitFor({ state: 'hidden' });
   assertNoConsoleErrors();
 });
 

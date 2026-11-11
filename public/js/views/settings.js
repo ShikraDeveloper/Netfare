@@ -1,6 +1,5 @@
 import { api } from '../api.js';
 import { applyTheme, getTheme } from '../theme.js';
-import { getMenuMode, setMenuMode } from '../menu.js';
 import { can, refreshMeta, store } from '../store.js';
 import {
   confirmDialog,
@@ -45,7 +44,6 @@ export async function render(container) {
   });
 
   const theme = getTheme();
-  const menuMode = getMenuMode();
 
   container.innerHTML = `
     <div class="settings-grid">
@@ -85,18 +83,6 @@ export async function render(container) {
                 <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
               </button>
             </div>
-            <div class="menu-picker-label">Menu</div>
-            <div class="theme-picker menu-picker" role="group" aria-label="Menu position">
-              ${[['side', 'sidebar', 'Side', 'Menu down the left'], ['top', 'topbar', 'Top', 'Menu across the top, more room for pages']].map(([value, iconName, label, hint]) => `
-              <button type="button" class="theme-option ${menuMode === value ? 'is-selected' : ''}" data-menu-choice="${value}" aria-pressed="${menuMode === value}">
-                <span class="theme-swatch menu-swatch menu-swatch-${value}" aria-hidden="true">
-                  <span class="sw-side"></span>
-                  <span class="sw-main"><span class="sw-line gold"></span><span class="sw-card"></span><span class="sw-line"></span></span>
-                </span>
-                <span class="theme-option-copy"><strong>${icon(iconName, 14)} ${label}</strong></span>
-                <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
-              </button>`).join('')}
-            </div>
           </div>
         </div>
 
@@ -124,7 +110,7 @@ export async function render(container) {
                   <textarea class="input" id="company-address" name="company_address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(settings.company_address)}</textarea>
                 </div>
                 <div class="field full">
-                  <label for="company-logo">Logo on invoices and receipts <span class="label-note">· best: PNG, transparent background, 480 × 160 px (3 : 1), under 300 KB</span></label>
+                  <label for="company-logo">Logo on invoices and receipts</label>
                   <div class="logo-field">
                     <img class="logo-preview" data-logo-preview alt="Company logo" ${settings.company_logo ? `src="${esc(settings.company_logo)}"` : 'hidden'}>
                     <input class="input" id="company-logo" type="file" accept="image/png,image/jpeg,image/webp">
@@ -133,18 +119,18 @@ export async function render(container) {
                 </div>
                 <div class="field">
                   <label for="bank-name">Bank</label>
-                  <input class="input" id="bank-name" name="bank_name" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_name || '')}" placeholder="Emirates NBD" maxlength="120">
+                  <input class="input" id="bank-name" name="bank_name" ${store.user?.is_admin ? '' : 'disabled'} value="${esc(settings.bank_name || '')}" placeholder="Emirates NBD" maxlength="120">
                 </div>
                 <div class="field">
                   <label for="bank-account-name">Account name</label>
-                  <input class="input" id="bank-account-name" name="bank_account_name" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_account_name || '')}" placeholder="Skyline Travels LLC" maxlength="160">
+                  <input class="input" id="bank-account-name" name="bank_account_name" ${store.user?.is_admin ? '' : 'disabled'} value="${esc(settings.bank_account_name || '')}" placeholder="Skyline Travels LLC" maxlength="160">
                 </div>
                 <div class="field full">
                   <label for="bank-iban">IBAN</label>
-                  <input class="input" id="bank-iban" name="bank_iban" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
+                  <input class="input" id="bank-iban" name="bank_iban" ${store.user?.is_admin ? '' : 'disabled'} value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
                 </div>
                 <div class="field full">
-                  <label for="doc-color-dark">Brand line on documents <span class="label-note">· main colour and second colour</span></label>
+                  <label for="doc-color-dark">Brand line on documents</label>
                   <div class="doc-color-field">
                     <span class="doc-color-preview" data-doc-color-preview aria-hidden="true"></span>
                     <input class="input" type="color" id="doc-color-dark" name="doc_color_dark" value="${esc(settings.doc_color_dark || '#0b1b2e')}" aria-label="Main colour">
@@ -161,7 +147,7 @@ export async function render(container) {
                   <textarea class="input" id="invoice-terms-visa" name="invoice_terms_visa" rows="2" maxlength="1000" placeholder="Visa approval is decided by the authorities. Visa fees are not refundable once submitted.">${esc(settings.invoice_terms_visa || '')}</textarea>
                 </div>
                 <div class="field full">
-                  <label for="invoice-terms">Terms under other invoices <span class="label-note">· also used when the two above are empty</span></label>
+                  <label for="invoice-terms">Default terms</label>
                   <textarea class="input" id="invoice-terms" name="invoice_terms" rows="2" maxlength="1000" placeholder="Services once delivered are not refundable.">${esc(settings.invoice_terms || '')}</textarea>
                 </div>
               </div>
@@ -183,7 +169,7 @@ export async function render(container) {
                   <label>Currency</label>
                   <div class="readonly-box">
                     <strong>AED</strong>
-                    <span>United Arab Emirates dirham. Netfare records every amount in AED.</span>
+                    <span>UAE dirham</span>
                   </div>
                 </div>
                 <div class="field">
@@ -199,8 +185,7 @@ export async function render(container) {
                 ${store.user?.is_admin ? `
                 <div class="field">
                   <label for="books-closed">Books closed through</label>
-                  <input class="input" id="books-closed" name="books_closed_through" type="date" max="${todayISO()}" value="${esc(settings.books_closed_through || '')}"
-                    title="Nothing can be posted on or before this date. Leave empty to keep every period open.">
+                  <input class="input" id="books-closed" name="books_closed_through" type="date" max="${todayISO()}" value="${esc(settings.books_closed_through || '')}">
                 </div>` : ''}
                 <div class="field">
                   <label for="invoice-prefix">Invoice prefix</label>
@@ -246,8 +231,7 @@ export async function render(container) {
           <div class="card-body">
             <div class="danger-row" style="border-color:var(--border)">
               <div>
-                <h4>Full database backup</h4>
-                <p>Download a complete, consistent SQLite backup of the whole ledger. This is the file to use for restore.</p>
+                <h4>Backup</h4>
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a class="btn btn-secondary btn-sm" href="/api/admin/backup/database" download>${icon('download', 15)} Download .db</a>
@@ -256,26 +240,22 @@ export async function render(container) {
             </div>
             <div class="danger-row" style="border-color:var(--border)">
               <div>
-                <h4>Restore a backup</h4>
-                <p>In the Netfare app, on the main computer: <strong>Netfare → Restore from backup…</strong> Without the app, stop Netfare and run the command below. The current books are saved as a backup first.</p>
-                <p class="hint" style="margin-top:4px"><code>npm run restore -- data/backups/&lt;file&gt;.db</code></p>
+                <h4>Restore</h4>
+                <p><strong>Netfare → Restore from backup…</strong></p>
               </div>
             </div>
             <div class="danger-row" style="border-color:var(--border)">
               <div>
-                <h4>JSON data export</h4>
-                <p>Export every table as readable JSON for inspection or migration. Use the full .db backup for recovery.</p>
+                <h4>Export</h4>
               </div>
               <a class="btn btn-ghost btn-sm" href="/api/admin/backup" download>${icon('download', 15)} Export JSON</a>
             </div>
             <div class="danger-row" style="border-color:var(--border)">
               <div>
-                <h4>Load sample data</h4>
-                <p>A demo studio with invoices, bills, payments and six months of history. Only available in an empty ledger.</p>
+                <h4>Sample data</h4>
               </div>
               <button class="btn btn-secondary btn-sm" id="load-demo">${icon('refresh', 15)} Load</button>
             </div>
-            <div class="form-note" style="margin-top:10px">A safety backup is made before Clear all data and Load sample data.</div>
           </div>
         </div>
 
@@ -283,13 +263,12 @@ export async function render(container) {
 
         <div class="card danger-card admin-only">
           <div class="card-head">
-            <div class="card-title"><h2>Danger zone</h2><p>These actions cannot be undone</p></div>
+            <div class="card-title"><h2>Danger zone</h2></div>
           </div>
           <div class="card-body">
             <div class="danger-row">
               <div>
                 <h4>Clear all data</h4>
-                <p>Delete every customer, supplier, invoice, bill, payment and journal entry. Your chart of accounts and settings are kept.</p>
               </div>
               <button class="btn btn-danger btn-sm" id="reset-data">${icon('trash', 15)} Clear</button>
             </div>
@@ -462,18 +441,6 @@ export async function render(container) {
       const next = button.dataset.themeChoice === 'dark' ? 'dark' : 'light';
       applyTheme(next);
       toast(`${next === 'dark' ? 'Dark' : 'Light'} mode on`);
-    });
-  });
-
-  container.querySelectorAll('[data-menu-choice]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const next = setMenuMode(button.dataset.menuChoice);
-      container.querySelectorAll('[data-menu-choice]').forEach((choice) => {
-        const active = choice.dataset.menuChoice === next;
-        choice.classList.toggle('is-selected', active);
-        choice.setAttribute('aria-pressed', String(active));
-      });
-      toast(next === 'top' ? 'Menu moved to the top' : 'Menu moved to the side');
     });
   });
 

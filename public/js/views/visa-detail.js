@@ -22,6 +22,7 @@ import {
   voidDialog,
   pageRecord,
   printPage,
+  internalNotesHtml,
 } from '../ui.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
@@ -327,20 +328,14 @@ export async function render(container, { params } = {}) {
     ${groupCard(visa)}
 
     ${visa.passport_warning ? `
-      <div class="callout no-print" data-passport-warning style="border-color:var(--amber-soft)">
-        <div class="callout-icon" style="background:var(--amber-soft);color:var(--amber)">${icon('alert', 20)}</div>
+      <div class="callout warning no-print" data-passport-warning>
+        <div class="callout-icon">${icon('alert', 20)}</div>
         <div class="callout-text">
           <h3>Check the passport validity</h3>
           <p>${esc(visa.passport_warning)}</p>
         </div>
       </div>` : ''}
-    ${visa.notes ? `
-      <div class="callout internal-notes no-print" data-internal-notes>
-        <div class="callout-text">
-          <h3>Internal notes</h3>
-          <p>${esc(visa.notes)}</p>
-        </div>
-      </div>` : ''}
+    ${internalNotesHtml(visa.notes)}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">

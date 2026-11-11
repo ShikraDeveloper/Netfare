@@ -90,7 +90,7 @@ export async function render(container, { params, query } = {}) {
           <td>${statusBadge(refund.status)}</td>
         </tr>
       `).join('')
-    : `<tr><td colspan="5" class="muted">No refund has been paid yet.</td></tr>`;
+    : `<tr><td colspan="5" class="muted">No refunds yet</td></tr>`;
 
   const creditRows = cancellation.credits.length
     ? cancellation.credits.map((credit) => `
@@ -102,7 +102,7 @@ export async function render(container, { params, query } = {}) {
           <td>${statusBadge(credit.status)}</td>
         </tr>
       `).join('')
-    : `<tr><td colspan="5" class="muted">No part of the refund has been converted to customer credit.</td></tr>`;
+    : `<tr><td colspan="5" class="muted">No credit notes</td></tr>`;
 
   container.innerHTML = `
     ${showSettlementChoice ? `

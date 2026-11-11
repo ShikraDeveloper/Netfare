@@ -21,6 +21,7 @@ import {
   voidDialog,
   pageRecord,
   printPage,
+  internalNotesHtml,
 } from '../ui.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openBookingModal } from './bookings.js';
@@ -222,7 +223,7 @@ export async function render(container, { params } = {}) {
         <a class="icon-btn" href="#/invoices/${invoice.id}" title="Open invoice">${icon('chevron', 16)}</a>
       </div>
     `
-    : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'A customer invoice is created when you confirm this booking.' : 'No customer invoice linked.'}</div>`;
+    : `<div class="muted" style="font-size:12.5px;padding:6px 0">${isDraft ? 'No invoice yet' : 'No customer invoice linked.'}</div>`;
 
   container.innerHTML = `
     ${summaryStripHtml([
@@ -231,13 +232,7 @@ export async function render(container, { params } = {}) {
       { label: 'Balance', value: fmtMoney(booking.balance_cents || 0), tone: booking.balance_cents > 0 && booking.invoice ? 'due' : '' },
       { label: 'Gross profit', value: fmtMoney(booking.margin_cents), tone: booking.margin_cents >= 0 ? 'good' : 'bad' },
     ])}
-    ${booking.notes ? `
-      <div class="callout internal-notes no-print" data-internal-notes>
-        <div class="callout-text">
-          <h3>Internal notes</h3>
-          <p>${esc(booking.notes)}</p>
-        </div>
-      </div>` : ''}
+    ${internalNotesHtml(booking.notes)}
     <div class="doc-wrap">
       <div class="doc">
         <div class="doc-head">

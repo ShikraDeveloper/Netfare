@@ -110,7 +110,7 @@ export async function render(container, { params } = {}) {
         ? '<span class="badge badge-paid">Balanced</span>'
         : '<span class="badge badge-overdue">Not balanced</span>'}</strong></div>
     </div>
-    ${chain.truncated ? '<div class="callout"><div class="callout-text"><p>This chain is very large; only the first 400 linked documents are shown.</p></div></div>' : ''}
+    ${chain.truncated ? '<div class="callout"><div class="callout-text"><p>Showing the first 400 documents.</p></div></div>' : ''}
 
     <div class="card" style="margin-top:16px">
       <div class="card-head"><div class="card-title"><h2>Linked documents</h2></div></div>
@@ -138,7 +138,7 @@ export async function render(container, { params } = {}) {
           <tbody>
             ${chain.timeline.length
               ? chain.timeline.map((item) => timelineRow(item, entriesById)).join('')
-              : '<tr><td colspan="5" class="muted">Nothing has been posted to the ledger for this chain yet.</td></tr>'}
+              : '<tr><td colspan="5" class="muted">Nothing posted yet</td></tr>'}
           </tbody>
         </table>
       </div>

@@ -15,10 +15,6 @@
     if (localStorage.getItem('ledgerly.navCollapsed') === '1') {
       document.documentElement.classList.add('nav-collapsed');
     }
-    // Side or top menu (Settings → Appearance), see menu.js.
-    if (localStorage.getItem('netfare.menu') === 'top') {
-      document.documentElement.classList.add('menu-top');
-    }
   } catch {
     // Storage can be unavailable in private browsing modes.
   }

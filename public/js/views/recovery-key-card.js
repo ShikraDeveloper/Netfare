@@ -7,7 +7,7 @@ import { bindKeyPanel, keyPanelHtml } from '../recovery-key.js';
 import { esc, fmtDate, icon, openModal, toast } from '../ui.js';
 
 function statusHtml(status) {
-  if (!status.exists) return '<p class="muted">No recovery key saved yet. Make one now and keep it somewhere safe.</p>';
+  if (!status.exists) return '<p class="muted">No recovery key yet.</p>';
   const uses = status.uses === 1 ? 'Used once' : status.uses ? `Used ${status.uses} times` : 'Never used';
   return `<p>Made on <strong>${esc(fmtDate(String(status.created_at).slice(0, 10)))}</strong> · ${uses}.</p>`;
 }

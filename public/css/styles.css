@@ -985,7 +985,6 @@ body.modal-open { overflow: hidden; }
 .share-pdf .muted { margin-left: auto; font-size: 12px; }
 .logo-field { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .logo-field .input[type="file"] { flex: 1; min-width: 220px; width: auto; }
-.label-note { font-weight: 400; color: var(--muted); }
 .logo-preview { height: 44px; max-width: 160px; object-fit: contain; border: 1px solid var(--border); border-radius: 8px; padding: 4px; background: #fff; }
 .deposit-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
 .deposit-item:last-child { border-bottom: none; }

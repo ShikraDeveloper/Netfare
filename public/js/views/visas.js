@@ -238,11 +238,11 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
       </div>
       <div class="field">
         <label for="visa-invoice-notes">Note on invoice</label>
-        <textarea class="input" id="visa-invoice-notes" name="invoice_notes" rows="1" placeholder="Optional. Printed on the invoice.">${esc(visa?.invoice_notes || '')}</textarea>
+        <textarea class="input" id="visa-invoice-notes" name="invoice_notes" rows="1">${esc(visa?.invoice_notes || '')}</textarea>
       </div>
       <details class="field full more-details"${visa?.notes ? ' open' : ''}>
         <summary>Internal notes</summary>
-        <textarea class="input" id="visa-notes" name="notes" rows="2" aria-label="Internal notes" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed.">${esc(visa?.notes || '')}</textarea>
+        <textarea class="input" id="visa-notes" name="notes" rows="2" aria-label="Internal notes">${esc(visa?.notes || '')}</textarea>
       </details>
       ${correct ? `<div class="field full">
         <label for="correct-reason">Why</label>

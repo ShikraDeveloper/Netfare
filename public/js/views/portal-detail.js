@@ -266,7 +266,7 @@ export async function render(container, { params, query } = {}) {
           <a class="icon-btn" href="#/bills/${settlement.bill_id}" title="Open bill">${icon('chevron', 16)}</a>
         </div>
       `).join('')
-    : `<div class="muted" style="font-size:12.5px;padding:6px 0">No bills have been settled from this wallet yet.</div>`;
+    : `<div class="muted" style="font-size:12.5px;padding:6px 0">No settlements yet</div>`;
 
   const openBillRows = portal.open_bills.length
     ? portal.open_bills.map((bill) => `

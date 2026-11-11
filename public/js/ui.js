@@ -307,6 +307,17 @@ export function numberCardHtml({ label, cents, href = '', overdue = false }) {
     </${tag}>`;
 }
 
+// Staff-only notes at the top of a booking or visa; never printed.
+export function internalNotesHtml(notes) {
+  return notes ? `
+      <div class="callout internal-notes no-print" data-internal-notes>
+        <div class="callout-text">
+          <h3>Internal notes</h3>
+          <p>${esc(notes)}</p>
+        </div>
+      </div>` : '';
+}
+
 // A section folded to one line: its title and a count, opening on click.
 // Folds stack inside a .folds card, one row each.
 export function foldHtml({ key, title, count = null, body, actions = '', open = false }) {
@@ -598,13 +609,11 @@ export function voidDialog({
       title,
       body: `
         ${message ? `<p class="confirm-text">${esc(message)}</p>` : ''}
-        ${warning ? `<div class="form-note" style="border-color:var(--red);color:var(--red)">${esc(warning)}</div>` : ''}
+        ${warning ? `<div class="form-note danger">${esc(warning)}</div>` : ''}
         ${voidPreviewHtml(preview)}
         <div class="field" style="margin-top:16px">
-          <label for="void-remarks">Remarks <span class="muted">(required)</span></label>
-          <textarea class="input" id="void-remarks" name="remarks" rows="3" maxlength="2000"
-            placeholder="Why is this being voided?" required></textarea>
-          <div class="hint">Void is for a mistake: posted amounts are reversed and the original record is kept for the audit trail. If a customer cancelled a booking or visa, use Cancel instead. This reason is saved in the audit log.</div>
+          <label for="void-remarks">Reason</label>
+          <textarea class="input" id="void-remarks" name="remarks" rows="3" maxlength="2000" required></textarea>
         </div>
       `,
       size: 'modal-sm',
@@ -612,7 +621,7 @@ export function voidDialog({
       danger: true,
       onSubmit: async (form) => {
         const remarks = String(new FormData(form).get('remarks') || '').trim();
-        if (!remarks) throw new Error('Enter remarks before voiding');
+        if (!remarks) throw new Error('Enter a reason before voiding');
         result = { confirmed: true, remarks };
       },
       onClose: () => resolve(result),

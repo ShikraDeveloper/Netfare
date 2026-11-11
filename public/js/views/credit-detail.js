@@ -139,7 +139,7 @@ export async function render(container, { params = [] } = {}) {
                 <td class="num">${fmtMoney(refund.amount_cents)}</td>
                 <td>${statusBadge(refund.status)}</td>
               </tr>
-            `).join('') : '<tr><td colspan="5" class="muted">No cash refund has been paid.</td></tr>'}
+            `).join('') : '<tr><td colspan="5" class="muted">No refunds yet</td></tr>'}
           </tbody>
         </table>
       </div>

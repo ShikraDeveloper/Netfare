@@ -16,6 +16,11 @@ const PATTERNS = {
   tagline: /<div class="card-title">\s*<h2>[^<]*<\/h2>\s*<p>/g,
   subtitle: /\bsubtitle:\s*[`'"]/g,
   menu: /\bdesc: '/g,
+  paragraph: /<p>[A-Z][^<${]{30,}/g,
+  callout: /class="callout-text">\s*<p>/g,
+  muted: /class="[^"]*\bmuted\b[^"]*"[^>]*>[A-Z][^<${ ]*(?: [^<${ ]+){7,}/g,
+  placeholder: /placeholder="[^"$]*[a-z]{2}[.;] [A-Z][^"$]*"/g, // a sentence, not "e.g. …"
+  tooltip: /\btitle="[A-Z][^"$]*(?: [^" $]+){6,}"/g,
 };
 
 function browserFiles(directory = path.join(root, 'public/js'), list = []) {

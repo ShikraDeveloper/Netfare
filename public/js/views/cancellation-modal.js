@@ -54,7 +54,7 @@ export function cancellationModalBody(job) {
       </div>
       <div class="field full">
         <label for="cancel-notes">Notes</label>
-        <textarea class="input" id="cancel-notes" name="notes" rows="2" maxlength="2000" placeholder="Internal notes for the cancellation note"></textarea>
+        <textarea class="input" id="cancel-notes" name="notes" rows="2" maxlength="2000"></textarea>
       </div>
       <div class="field full">
         <div class="form-note">
@@ -127,13 +127,13 @@ export function openCancellationModal({ job, sourceType, onDone = null }) {
         if (summaryRetained) summaryRetained.textContent = fmtMoney(retainedCost);
         if (summaryNote) {
           if (!hasPostedInvoice) {
-            summaryNote.textContent = 'Draft job: nothing has been posted to the ledger. Cancelling will only change the job status.';
+            summaryNote.textContent = 'Draft: nothing is posted.';
           } else if (shortfall > 0) {
             summaryNote.textContent = `Charges exceed money held by ${fmtMoney(shortfall)}. A cancellation invoice will be issued for the shortfall.`;
           } else if (refundDue > 0) {
-            summaryNote.textContent = 'Refund due will be held in 2500 Refund Liabilities. You can pay it or convert it to customer credit after posting.';
+            summaryNote.textContent = 'Refund due is held in 2500 Refund Liabilities.';
           } else {
-            summaryNote.textContent = 'No customer refund is due.';
+            summaryNote.textContent = '';
           }
           if (creditCents > 0) {
             summaryNote.textContent += ' Supplier credits will be created in 1450 Supplier Credits.';

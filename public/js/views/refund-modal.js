@@ -51,8 +51,8 @@ function bodyHtml({ type, source, allowTypeChange }) {
         <div class="field full">
           <label for="refund-type">Refund type</label>
           <select class="input" id="refund-type" name="refund_type">
-            <option value="customer" ${type === 'customer' ? 'selected' : ''}>Customer refund — money paid back to a customer</option>
-            <option value="supplier" ${type === 'supplier' ? 'selected' : ''}>Supplier refund — money returned by a supplier</option>
+            <option value="customer" ${type === 'customer' ? 'selected' : ''}>Customer refund</option>
+            <option value="supplier" ${type === 'supplier' ? 'selected' : ''}>Supplier refund</option>
           </select>
         </div>
       ` : ''}
@@ -104,7 +104,7 @@ function bodyHtml({ type, source, allowTypeChange }) {
       </div>
       <div class="field full">
         <label for="refund-notes">Notes</label>
-        <textarea class="input" id="refund-notes" name="notes" rows="2" placeholder="Reason for the refund, cancellation reference, or internal note"></textarea>
+        <textarea class="input" id="refund-notes" name="notes" rows="2"></textarea>
       </div>
     </div>
   `;
@@ -151,8 +151,8 @@ export function openRefundModal({
         selectedSource = nextSource;
         if (!nextSource) {
           if (amount) amount.value = '';
-          if (available) available.textContent = 'Choose a payment to see the available amount.';
-          if (sourceHint) sourceHint.textContent = 'Choose the payment this refund belongs to.';
+          if (available) available.textContent = '';
+          if (sourceHint) sourceHint.textContent = '';
           return;
         }
         if (amount) amount.value = centsToInput(nextSource.refundable_cents);
@@ -196,7 +196,7 @@ export function openRefundModal({
           if (!currentSources.length) {
             sourceSearchHint.textContent = 'No refundable payments found.';
           } else if (!term) {
-            sourceSearchHint.textContent = `${currentSources.length} refundable payment${currentSources.length === 1 ? '' : 's'}. Type to narrow the list.`;
+            sourceSearchHint.textContent = '';
           } else {
             sourceSearchHint.textContent = `${matches.length} of ${currentSources.length} payment${currentSources.length === 1 ? '' : 's'} match.`;
           }
@@ -233,8 +233,8 @@ export function openRefundModal({
           sourceSearch.value = '';
         }
         sourceSelect.innerHTML = '<option>Loading refundable payments…</option>';
-        if (sourceSearchHint) sourceSearchHint.textContent = 'Loading refundable payments…';
-        if (sourceHint) sourceHint.textContent = 'Choose the payment this refund belongs to.';
+        if (sourceSearchHint) sourceSearchHint.textContent = '';
+        if (sourceHint) sourceHint.textContent = '';
         try {
           const rows = await api.get('/refunds/sources', { type: nextType });
           currentSources = rows;

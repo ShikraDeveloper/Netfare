@@ -22,8 +22,7 @@ export function installSteps() {
       <li>Download the new version and open the downloaded file.</li>
       <li>Quit Netfare, then drag the new Netfare into Applications and choose Replace.</li>
       <li>Open Netfare. If macOS says it cannot check the app, open System Settings → Privacy &amp; Security and choose Open Anyway.</li>
-    </ol>
-    <p class="muted" style="font-size:12px">Your books are kept in Netfare's own folder, not inside the app, and Netfare makes a backup before it updates them.</p>`;
+    </ol>`;
 }
 
 export function showWhatsNew(status) {

@@ -355,7 +355,6 @@ export async function render(container, { params = [], query = new URLSearchPara
       ${heldSectionHtml(data.deposits, { title: 'Security deposits held for you', attr: 'data-statement-deposits', note: 'Deposits are refundable and are not part of the amount due above.' })}
 
       <div class="statement-foot">
-        <p>Please review this statement and contact us if anything looks incorrect.</p>
         <p>${esc([data.company.company_name, data.company.company_email, data.company.company_phone].filter(Boolean).join(' · '))}</p>
       </div>
     </div>
