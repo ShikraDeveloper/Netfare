@@ -590,6 +590,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 textarea.input { height: auto; min-height: 76px; padding: 9px 11px; resize: vertical; line-height: 1.5; }
+textarea.input[rows="1"] { min-height: 38px; padding-top: 8px; padding-bottom: 8px; }
 .input:focus, select.input:focus, textarea.input:focus { border-color: #a5b4fc; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12); }
 .input::placeholder { color: #a6acb8; }
 .input:disabled { background: #f8f9fb; color: var(--muted); }
@@ -608,6 +609,30 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 .field .hint { font-size: 11.5px; color: var(--muted-2); margin-top: 5px; line-height: 1.4; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .field.full { grid-column: 1 / -1; }
+/* Job and invoice forms: titled sections, rows of fields, a summary bar. */
+.form-sec-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0 -6px;
+  font-size: 10.5px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-2);
+}
+.form-sec-title:first-child { margin-top: 0; }
+.form-sec-title { flex-wrap: wrap; }
+.form-sec-title .form-sec-note { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.form-row { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-row.route { grid-template-columns: 2fr 1fr; }
+.form-row.two { grid-template-columns: 1fr 1fr; }
+.customer-hint { font-size: 11.5px; color: var(--muted); margin-top: 5px; min-height: 1em; }
+.form-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.form-card.deposit { background: var(--primary-soft); border-color: transparent; }
+.form-sum {
+  position: sticky; bottom: -20px; z-index: 1; display: flex; align-items: center; gap: 4px 22px; flex-wrap: wrap;
+  margin: 2px -22px -20px; padding: 12px 22px; background: var(--surface-2); border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--muted);
+}
+.form-sum b { margin-left: 6px; color: var(--text); font-weight: 650; font-variant-numeric: tabular-nums; }
+.form-sum b.margin-positive { color: var(--green); }
+.form-sum b.margin-negative { color: var(--red); }
+.form-sum .form-sum-end { margin-left: auto; }
+.form-sec-title[hidden], .form-row[hidden], .form-card[hidden] { display: none; }
 .money-input { position: relative; }
 .money-input > span { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--muted-2); font-size: 13px; pointer-events: none; }
 .money-input .input { padding-left: 42px; }
@@ -618,13 +643,6 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 /* ---------- Line items editor ---------- */
 .line-items-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
 .line-items { min-width: 680px; }
-.line-items.compact { min-width: 0; }
-.line-head.compact, .line-row.compact { display: grid; gap: 8px; align-items: center; grid-template-columns: minmax(180px, 1fr) 150px 32px 30px; }
-.line-details { grid-column: 1 / -1; display: grid; gap: 10px; grid-template-columns: 110px minmax(200px, 1fr) auto; align-items: end; padding: 2px 0 6px; }
-.line-details[hidden] { display: none; }
-.line-details label { display: grid; gap: 4px; font-size: 11.5px; font-weight: 600; color: var(--text-soft); }
-.line-details-total { font-size: 12px; color: var(--muted); padding-bottom: 9px; white-space: nowrap; }
-.line-details-total .line-amount { color: var(--text); font-weight: 600; margin-left: 6px; }
 .line-head {
   display: grid;
   grid-template-columns: minmax(150px, 2.3fr) 0.6fr 1fr 1.8fr 1fr 30px;
@@ -692,7 +710,7 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 .px-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .px-head, .px-row {
   display: grid; gap: 8px; align-items: center; padding: 8px 10px;
-  grid-template-columns: minmax(160px, 2.2fr) 124px 124px minmax(140px, 1.6fr) 32px 30px;
+  grid-template-columns: minmax(150px, 1.6fr) minmax(120px, 1.2fr) minmax(130px, 1.3fr) 118px 118px 32px 30px;
 }
 .px-head {
   font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2);
@@ -704,7 +722,7 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 .px-row[data-kind="item"] .px-label { font-style: italic; }
 .px-details {
   grid-column: 1 / -1; display: grid; gap: 10px;
-  grid-template-columns: 80px minmax(150px, 1fr) minmax(150px, 1fr) minmax(120px, 1fr);
+  grid-template-columns: 80px minmax(150px, 1fr) minmax(150px, 1fr);
   padding: 4px 0 6px;
 }
 .px-details[hidden] { display: none; }
@@ -722,7 +740,7 @@ tr.current-row td { background: var(--surface-2); }
 /* Visa applicant rows */
 .va-head, .va-row {
   display: grid; gap: 8px; align-items: center; padding: 8px 10px;
-  grid-template-columns: minmax(140px, 1.8fr) 110px 132px 104px 104px 104px minmax(120px, 1.4fr) 32px 30px;
+  grid-template-columns: minmax(104px, 1.8fr) 90px 112px 112px 112px 112px minmax(96px, 1.4fr) 32px 30px;
 }
 .va-head {
   font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2);
@@ -1378,6 +1396,7 @@ html:not(.show-accounting) .acct-col { display: none; }
   .page-actions { flex-wrap: wrap; gap: 6px; }
   .page-actions .btn { padding: 0 10px; font-size: 12.5px; }
   .form-grid { grid-template-columns: 1fr; }
+  .form-row, .form-row.route, .form-row.two { grid-template-columns: 1fr; }
   .doc { padding: 22px 18px; border-radius: 12px; }
   .doc-head { flex-direction: column; }
   .doc-meta { text-align: left; }

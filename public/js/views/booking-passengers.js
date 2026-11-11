@@ -69,18 +69,20 @@ function rowHtml(row = {}, { supplierId = '' } = {}) {
       <input class="input px-label" value="${esc(row.label || '')}" autocomplete="off"
         placeholder="${isPassenger ? 'Passenger name' : 'Hotel, service fee, insurance…'}"
         aria-label="${isPassenger ? 'Passenger name' : 'Item description'}">
-      <div class="money-input"><span>${esc(currencySymbol())}</span>
-        <input class="input px-sale" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Sale price"
-          value="${row.sale ? esc(centsToInput(row.sale.unit_price_cents)) : ''}" placeholder="0.00">
-      </div>
+      <input class="input px-ref" value="${esc(row.cost?.supplier_ref || '')}" autocomplete="off"
+        placeholder="${isPassenger ? 'Empty: booking PNR' : 'Supplier ref'}" aria-label="${isPassenger ? 'Ticket no. or PNR' : 'Supplier ref'}">
+      <select class="input px-vendor" aria-label="Supplier">
+        ${optionsHtml(activeVendors(), { selected: row.cost?.vendor_id ?? supplierId, placeholder: 'Supplier…', labelKey: vendorLabel })}
+      </select>
       <div class="money-input"><span>${esc(currencySymbol())}</span>
         <input class="input px-cost" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Supplier cost"
           value="${row.cost ? esc(centsToInput(row.cost.unit_price_cents)) : ''}" placeholder="0.00">
       </div>
-      <select class="input px-vendor" aria-label="Supplier">
-        ${optionsHtml(activeVendors(), { selected: row.cost?.vendor_id ?? supplierId, placeholder: 'Supplier…', labelKey: vendorLabel })}
-      </select>
-      <button type="button" class="icon-btn" data-px-more aria-expanded="false" title="More details for this row" aria-label="More details for this row">${icon('more', 16)}</button>
+      <div class="money-input"><span>${esc(currencySymbol())}</span>
+        <input class="input px-sale" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Sale price"
+          value="${row.sale ? esc(centsToInput(row.sale.unit_price_cents)) : ''}" placeholder="0.00">
+      </div>
+      <button type="button" class="icon-btn" data-px-more aria-expanded="false" title="Quantity and accounts" aria-label="Quantity and accounts">${icon('more', 16)}</button>
       <button type="button" class="icon-btn danger" data-px-remove title="Remove row" aria-label="Remove row">${icon('x', 16)}</button>
       <div class="px-details" hidden>
         <label>Qty
@@ -96,9 +98,6 @@ function rowHtml(row = {}, { supplierId = '' } = {}) {
             ${optionsHtml(costs, { selected: row.cost?.account_id ?? accountIdByCode(costs, defaults.cost), placeholder: '', labelKey: (a) => `${a.code} · ${a.name}` })}
           </select>
         </label>
-        <label>${isPassenger ? 'Ticket no. / PNR' : 'Supplier ref'}
-          <input class="input px-ref" value="${esc(row.cost?.supplier_ref || '')}" autocomplete="off" placeholder="${isPassenger ? 'Empty: the booking PNR' : 'Optional'}">
-        </label>
       </div>
     </div>
   `;
@@ -107,17 +106,17 @@ function rowHtml(row = {}, { supplierId = '' } = {}) {
 export function passengerSectionHtml(rows = []) {
   const list = rows.length ? rows : [{ kind: 'passenger' }];
   return `
-    <div class="field full">
-      <div class="bk-section-title">
-        <label>Passengers</label>
-        <div class="px-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-px-add="passenger">${icon('plus', 14)} Add passenger</button>
-          <button type="button" class="btn btn-ghost btn-sm" data-px-add="item">${icon('plus', 14)} Add other item</button>
-        </div>
+    <div class="field full form-sec-title">
+      <span>Passengers <span class="group-chip" data-px-count>${list.filter((row) => row.kind !== 'item').length}</span></span>
+      <div class="px-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-px-add="passenger">${icon('plus', 14)} Add passenger</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-px-add="item">${icon('plus', 14)} Add other item</button>
       </div>
+    </div>
+    <div class="field full">
       <div class="bk-wrap">
         <div class="px-head" aria-hidden="true">
-          <div>Passenger / item</div><div>Sale price</div><div>Cost</div><div>Supplier</div><div></div><div></div>
+          <div>Passenger / item</div><div>Ticket no. / PNR</div><div>Supplier</div><div>Cost</div><div>Sale</div><div></div><div></div>
         </div>
         <div data-px-rows>${list.map((row) => rowHtml(row)).join('')}</div>
       </div>
@@ -144,6 +143,7 @@ export function mountPassengerEditor(overlay) {
     overlay.querySelector('#bk-sale').textContent = fmtMoney(sale);
     overlay.querySelector('#bk-cost').textContent = fmtMoney(cost);
     overlay.querySelector('#bk-margin-percent').textContent = sale ? `${((margin / sale) * 100).toFixed(1)}% gross margin` : '—';
+    overlay.querySelector('[data-px-count]').textContent = rows().filter((row) => row.dataset.kind === 'passenger').length;
   }
 
   function updateRemoveButtons() {

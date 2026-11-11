@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { activeCustomers, revenueAccounts, store } from '../store.js';
+import { bindCustomerHint } from '../customer-hint.js';
 import { lineItemsHtml, mountLineItems } from '../line-items.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
@@ -250,51 +251,55 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
     { value: 'booking', label: 'Booking', action: 'new-booking' },
     { value: 'visa', label: 'Visa', action: 'new-visa' },
   ], 'service')}</div>`}
-      <div class="field">
-        <label for="invoice-customer">Customer</label>
+      <div class="field full form-sec-title">Customer</div>
+      <div class="field full">
+        <label for="invoice-customer" class="sr-only">Customer</label>
         <select class="input" id="invoice-customer" name="customer_id" required>
-          ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose…' })}
+          ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>
       <div class="field">
-        <label for="invoice-issue">Date</label>
+        <label for="invoice-issue">Invoice date</label>
         <input class="input" id="invoice-issue" name="issue_date" type="date" value="${esc(issueDate)}" required>
       </div>
-      <div class="field full">
-        <label for="invoice-beneficiary">Traveller</label>
-        <input class="input" id="invoice-beneficiary" name="beneficiary_name" maxlength="160" autocomplete="off"
-          value="${esc(forSomeoneElse ? invoice?.beneficiary_name || '' : '')}" placeholder="Same as customer">
+      <div class="field">
+        <label for="invoice-due">Payment due</label>
+        <input class="input" id="invoice-due" name="due_date" type="date" value="${esc(dueDate)}" required>
       </div>
-      <div class="field full">
-        ${lineItemsHtml(invoice?.items || [], accounts, { compact: true })}
-        <div class="totals-panel">
-          <div class="totals-row total"><span>Total</span><span id="sum-total">${fmtMoney(0)}</span></div>
+
+      <div class="field full form-sec-title"><span>Service for <span class="form-sec-note">· leave empty when it is the customer</span></span></div>
+      <div class="field full form-row">
+        <div class="field">
+          <label for="invoice-beneficiary">Name</label>
+          <input class="input" id="invoice-beneficiary" name="beneficiary_name" maxlength="160" autocomplete="off"
+            value="${esc(forSomeoneElse ? invoice?.beneficiary_name || '' : '')}" placeholder="Same as customer">
+        </div>
+        <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+          <label for="invoice-beneficiary-nationality">Nationality</label>
+          <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off" ${nationalityList()}
+            value="${esc(invoice?.beneficiary_nationality || '')}" placeholder="Optional">
+        </div>
+        <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
+          <label for="invoice-beneficiary-passport">Passport no.</label>
+          <input class="input" id="invoice-beneficiary-passport" name="beneficiary_passport" maxlength="60" autocomplete="off"
+            value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional">
         </div>
       </div>
-      <details class="field full more-details"${invoice?.notes || invoice?.terms ? ' open' : ''}>
+
+      <div class="field full form-sec-title">Services</div>
+      <div class="field full">
+        ${lineItemsHtml(invoice?.items || [], accounts, { accountLabel: 'Income type' })}
+      </div>
+      <div class="field full">
+        <label for="invoice-notes">Note on invoice</label>
+        <textarea class="input" id="invoice-notes" name="notes" rows="1" placeholder="Optional. Printed on the invoice.">${esc(invoice?.notes || '')}</textarea>
+      </div>
+      <details class="field full more-details"${invoice?.terms ? ' open' : ''}>
         <summary>More details</summary>
         <div class="form-grid">
-          <div class="field">
-            <label for="invoice-due">Due date</label>
-            <input class="input" id="invoice-due" name="due_date" type="date" value="${esc(dueDate)}" required>
-          </div>
-          <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
-            <label for="invoice-beneficiary-nationality">Nationality</label>
-            <input class="input" id="invoice-beneficiary-nationality" name="beneficiary_nationality" maxlength="80" autocomplete="off" ${nationalityList()}
-              value="${esc(invoice?.beneficiary_nationality || '')}" placeholder="Optional">
-          </div>
-          <div class="field" data-beneficiary-field ${forSomeoneElse ? '' : 'hidden'}>
-            <label for="invoice-beneficiary-passport">Passport number</label>
-            <input class="input" id="invoice-beneficiary-passport" name="beneficiary_passport" maxlength="60" autocomplete="off"
-              value="${esc(invoice?.beneficiary_passport || '')}" placeholder="Optional">
-          </div>
-          <div class="field">
-            <label for="invoice-notes">Notes</label>
-            <textarea class="input" id="invoice-notes" name="notes" rows="3" placeholder="A note shown on the invoice">${esc(invoice?.notes || '')}</textarea>
-          </div>
-          <div class="field">
+          <div class="field full">
             <label for="invoice-terms">Payment terms</label>
-            <textarea class="input" id="invoice-terms" name="terms" rows="3" placeholder="Payment instructions">${esc(invoice?.terms || '')}</textarea>
+            <textarea class="input" id="invoice-terms" name="terms" rows="2" placeholder="Payment instructions">${esc(invoice?.terms || '')}</textarea>
           </div>
           ${isEdit ? '' : `
             <div class="field full">
@@ -310,6 +315,10 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
         <label for="correct-reason">Why</label>
         <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Price entered wrong">
       </div>` : ''}
+      <div class="field full form-sum" aria-live="polite">
+        <span>Total <b id="sum-total">${fmtMoney(0)}</b></span>
+        <span class="form-sum-end" data-line-count></span>
+      </div>
     </div>
   `;
 
@@ -323,8 +332,11 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
         accounts,
         onTotals(totals) {
           overlay.querySelector('#sum-total').textContent = fmtMoney(totals.total_cents);
+          const lines = overlay.querySelectorAll('[data-line]').length;
+          overlay.querySelector('[data-line-count]').textContent = `${lines} ${lines === 1 ? 'line' : 'lines'}`;
         },
       });
+      bindCustomerHint(overlay.querySelector('#invoice-customer'));
       overlay.editor = editor;
 
       // Booking and Visa leave this form for theirs.
@@ -336,7 +348,7 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
         });
       });
 
-      // Nationality and passport (under More details) only matter for a traveller.
+      // Nationality and passport only matter for someone other than the customer.
       const beneficiaryName = overlay.querySelector('#invoice-beneficiary');
       const syncTraveller = () => {
         const isOther = Boolean(beneficiaryName.value.trim());

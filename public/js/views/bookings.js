@@ -8,6 +8,7 @@ import {
   revenueAccounts,
   store,
 } from '../store.js';
+import { bindCustomerHint } from '../customer-hint.js';
 import { mountPassengerEditor, passengerSectionHtml, rowsFromItems } from './booking-passengers.js';
 import {
   addDaysISO,
@@ -69,6 +70,15 @@ function bookingRow(booking) {
     </tr>
   `;
 }
+
+// Sale, cost and profit along the bottom of the booking and visa forms.
+export const summaryBarHtml = () => `
+  <div class="field full form-sum" aria-live="polite">
+    <span>Sale <b id="bk-sale">${fmtMoney(0)}</b></span>
+    <span>Cost <b id="bk-cost">${fmtMoney(0)}</b></span>
+    <span>Profit <b class="margin-positive" id="bk-margin">${fmtMoney(0)}</b></span>
+    <span class="form-sum-end" id="bk-margin-percent">—</span>
+  </div>`;
 
 export function saleRow(item = {}, defaults = {}) {
   return `
@@ -224,70 +234,65 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
   const travelDate = booking?.travel_date || '';
   const returnDate = booking?.return_date || '';
   const rows = rowsFromItems(booking?.sale_items || [], booking?.cost_items || []);
-  const hasMoreDetails = Boolean(booking?.notes || booking?.invoice_notes);
+  const hasMoreDetails = Boolean(booking?.notes);
 
   const body = `
     <div class="form-grid">
+      <div class="field full form-sec-title">Customer</div>
       <div class="field full">
-        <label for="bk-customer">Customer</label>
+        <label for="bk-customer" class="sr-only">Customer</label>
         <select class="input" id="bk-customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: booking?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>
-      <div class="field full">
-        <label for="bk-destination">Destination / description</label>
-        <input class="input" id="bk-destination" name="destination" value="${esc(booking?.destination || '')}"
-          placeholder="e.g. Dubai–London return · Emirates" maxlength="200">
+
+      <div class="field full form-sec-title">Trip</div>
+      <div class="field full form-row">
+        <div class="field">
+          <label for="bk-date">Booking date</label>
+          <input class="input" id="bk-date" name="booking_date" type="date" value="${esc(issueDate)}" required>
+        </div>
+        <div class="field">
+          <label for="bk-travel">Travel date</label>
+          <input class="input" id="bk-travel" name="travel_date" type="date" value="${esc(travelDate)}">
+        </div>
+        <div class="field">
+          <label for="bk-return">Return date</label>
+          <input class="input" id="bk-return" name="return_date" type="date" value="${esc(returnDate)}">
+        </div>
       </div>
-      <div class="field">
-        <label for="bk-pnr">PNR</label>
-        <input class="input" id="bk-pnr" name="pnr" value="${esc(booking?.pnr || '')}" placeholder="Optional" maxlength="60">
-      </div>
-      <div class="field">
-        <label for="bk-date">Booking date</label>
-        <input class="input" id="bk-date" name="booking_date" type="date" value="${esc(issueDate)}" required>
-      </div>
-      <div class="field">
-        <label for="bk-travel">Travel date</label>
-        <input class="input" id="bk-travel" name="travel_date" type="date" value="${esc(travelDate)}">
-      </div>
-      <div class="field">
-        <label for="bk-return">Return date</label>
-        <input class="input" id="bk-return" name="return_date" type="date" value="${esc(returnDate)}">
+      <div class="field full form-row route">
+        <div class="field">
+          <label for="bk-destination">Route</label>
+          <input class="input" id="bk-destination" name="destination" value="${esc(booking?.destination || '')}"
+            placeholder="e.g. Dubai–London return" maxlength="200">
+        </div>
+        <div class="field">
+          <label for="bk-pnr">Booking PNR</label>
+          <input class="input" id="bk-pnr" name="pnr" value="${esc(booking?.pnr || '')}" placeholder="Optional" maxlength="60">
+        </div>
       </div>
 
       ${passengerSectionHtml(rows)}
 
-      <div class="field full">
-        <div class="totals-panel">
-          <div class="totals-row"><span>Total sale</span><span id="bk-sale">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span>Total cost</span><span id="bk-cost">${fmtMoney(0)}</span></div>
-          <div class="totals-row total"><span>Gross profit</span><span class="margin-positive" id="bk-margin">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span class="muted">Gross margin</span><span class="muted" id="bk-margin-percent">—</span></div>
-        </div>
+      <div class="field">
+        <label for="bk-due">Payment due</label>
+        <input class="input" id="bk-due" name="due_date" type="date" value="${esc(dueDate)}" required>
+      </div>
+      <div class="field">
+        <label for="bk-invoice-notes">Note on invoice</label>
+        <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="1" placeholder="Optional. Printed on the invoice.">${esc(booking?.invoice_notes || '')}</textarea>
       </div>
 
       <details class="field full more-details" ${hasMoreDetails ? 'open' : ''}>
-        <summary>More details</summary>
-        <div class="form-grid">
-          <div class="field">
-            <label for="bk-due">Payment due</label>
-            <input class="input" id="bk-due" name="due_date" type="date" value="${esc(dueDate)}" required>
-          </div>
-          <div class="field full">
-            <label for="bk-notes">Internal notes</label>
-            <textarea class="input" id="bk-notes" name="notes" rows="2" placeholder="Only staff see this. Never printed for the customer.">${esc(booking?.notes || '')}</textarea>
-          </div>
-          <div class="field full">
-            <label for="bk-invoice-notes">Note on invoice</label>
-            <textarea class="input" id="bk-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on the customer invoice and booking confirmation.">${esc(booking?.invoice_notes || '')}</textarea>
-          </div>
-        </div>
+        <summary>Internal notes</summary>
+        <textarea class="input" id="bk-notes" name="notes" rows="2" aria-label="Internal notes" placeholder="Only staff see this. Never printed for the customer.">${esc(booking?.notes || '')}</textarea>
       </details>
       ${correct ? `<div class="field full">
         <label for="correct-reason">Why</label>
         <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Fare entered wrong">
       </div>` : ''}
+      ${summaryBarHtml()}
     </div>
   `;
 
@@ -328,6 +333,7 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
       onSaved(saved);
     },
     onMount(overlay) {
+      bindCustomerHint(overlay.querySelector('#bk-customer'));
       overlay._bookingEditor = mountPassengerEditor(overlay);
     },
   });

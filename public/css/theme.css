@@ -348,7 +348,7 @@ html[data-theme="dark"] select.input {
 .totals-row.balance, .totals-row.balance span:last-child { color: var(--primary-dark); }
 
 .bk-wrap { background: var(--surface); border-color: var(--border); }
-.bk-head { background: var(--surface-2); border-bottom-color: var(--border); color: var(--muted-2); }
+.bk-head, .px-head, .va-head { background: var(--surface-2); border-bottom-color: var(--border); color: var(--muted-2); }
 .bk-row { border-bottom-color: var(--border); }
 
 /* ---------- Empty states ---------- */

@@ -21,7 +21,8 @@ import {
   toast,
   fmtEntryTime,
 } from '../ui.js';
-import { costRow, mountBookingLines, saleRow } from './bookings.js';
+import { bindCustomerHint } from '../customer-hint.js';
+import { costRow, mountBookingLines, saleRow, summaryBarHtml } from './bookings.js';
 import { openVisaGroupModal } from './visa-group-form.js';
 
 export const VISA_TYPE_LABELS = {
@@ -124,13 +125,48 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
 
   const body = `
     <div class="form-grid">
+      <div class="field full form-sec-title">Customer</div>
       <div class="field full">
-        <label for="visa-customer">Customer</label>
+        <label for="visa-customer" class="sr-only">Customer</label>
         <select class="input" id="visa-customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: visa?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>
-      <div class="field full">
+
+      <div class="field full form-sec-title">Visa</div>
+      <div class="field full form-row">
+        <div class="field">
+          <label for="visa-date">Application date</label>
+          <input class="input" id="visa-date" name="application_date" type="date" value="${esc(applicationDate)}" required>
+        </div>
+        <div class="field">
+          <label for="visa-country">Country</label>
+          <input class="input" id="visa-country" name="destination_country" value="${esc(visa?.destination_country || '')}" placeholder="e.g. Saudi Arabia">
+        </div>
+        <div class="field">
+          <label for="visa-type">Visa type</label>
+          <select class="input" id="visa-type" name="visa_type">
+            ${optionsHtml(Object.entries(VISA_TYPE_LABELS).map(([value, label]) => ({ value, label })), { selected: visa?.visa_type || 'tourist', valueKey: 'value', labelKey: 'label', placeholder: '' })}
+          </select>
+        </div>
+      </div>
+      <div class="field full form-row">
+        <div class="field">
+          <label for="visa-duration">Duration (days)</label>
+          <input class="input" id="visa-duration" name="duration_days" type="number" min="1" max="3650" step="1" value="${esc(visa?.duration_days || '')}" placeholder="Not fixed">
+        </div>
+        <div class="field">
+          <label for="visa-reference">Embassy / portal ref</label>
+          <input class="input" id="visa-reference" name="reference" value="${esc(visa?.reference || '')}" placeholder="Optional" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="visa-travel">Travel date</label>
+          <input class="input" id="visa-travel" name="travel_date" type="date" value="${esc(visa?.travel_date || '')}">
+        </div>
+      </div>
+
+      <div class="field full form-sec-title">Applicant</div>
+      <div class="field full form-card">
         <label class="checkbox-row" for="visa-applicant-other">
           <input type="checkbox" id="visa-applicant-other" ${applicantIsOther ? 'checked' : ''}>
           <span>
@@ -138,45 +174,39 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
             Turn this on to enter a visitor's name and passport details. Leave it off when the customer is travelling.
           </span>
         </label>
-      </div>
-      <div class="field">
-        <label for="visa-applicant">Applicant name</label>
-        <input class="input" id="visa-applicant" name="applicant_name" value="${esc(visa?.applicant_name || '')}"
-          placeholder="${applicantIsOther ? 'Enter the visitor’s full name' : 'Select a customer to fill this'}"
-          ${applicantIsOther ? 'required' : 'readonly'} autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="visa-passport">Passport number</label>
-        <input class="input" id="visa-passport" name="passport_number" value="${esc(visa?.passport_number || '')}" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="visa-passport-expiry">Passport expiry</label>
-        <input class="input" id="visa-passport-expiry" name="passport_expiry" type="date" value="${esc(visa?.passport_expiry || '')}">
-      </div>
-      <div class="field">
-        <label for="visa-type">Visa type</label>
-        <select class="input" id="visa-type" name="visa_type">
-          ${optionsHtml(Object.entries(VISA_TYPE_LABELS).map(([value, label]) => ({ value, label })), { selected: visa?.visa_type || 'tourist', valueKey: 'value', labelKey: 'label', placeholder: '' })}
-        </select>
-      </div>
-      <div class="field">
-        <label for="visa-country">Destination country</label>
-        <input class="input" id="visa-country" name="destination_country" value="${esc(visa?.destination_country || '')}" placeholder="e.g. Saudi Arabia">
-      </div>
-      <div class="field">
-        <label for="visa-date">Application date</label>
-        <input class="input" id="visa-date" name="application_date" type="date" value="${esc(applicationDate)}" required>
-      </div>
-      <div class="field">
-        <label for="visa-travel">Travel date</label>
-        <input class="input" id="visa-travel" name="travel_date" type="date" value="${esc(visa?.travel_date || '')}">
+        <div class="form-row two" style="margin-top:12px">
+          <div class="field">
+            <label for="visa-applicant">Name (as in passport)</label>
+            <input class="input" id="visa-applicant" name="applicant_name" value="${esc(visa?.applicant_name || '')}"
+              placeholder="${applicantIsOther ? 'Enter the visitor’s full name' : 'Select a customer to fill this'}"
+              ${applicantIsOther ? 'required' : 'readonly'} autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="visa-nationality">Nationality</label>
+            <input class="input" id="visa-nationality" name="nationality" value="${esc(visa?.nationality || '')}" placeholder="Start typing, e.g. Indian" autocomplete="off" ${nationalityList()}>
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:12px">
+          <div class="field">
+            <label for="visa-passport">Passport no.</label>
+            <input class="input" id="visa-passport" name="passport_number" value="${esc(visa?.passport_number || '')}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="visa-passport-expiry">Passport expiry</label>
+            <input class="input" id="visa-passport-expiry" name="passport_expiry" type="date" value="${esc(visa?.passport_expiry || '')}">
+          </div>
+          <div class="field">
+            <label for="visa-dob">Date of birth</label>
+            <input class="input" id="visa-dob" name="date_of_birth" type="date" value="${esc(visa?.date_of_birth || '')}">
+          </div>
+        </div>
       </div>
 
+      <div class="field full form-sec-title">
+        <span>Price · what the customer pays</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-add-sale>${icon('plus', 14)} Add sale</button>
+      </div>
       <div class="field full">
-        <div class="bk-section-title">
-          <label>Sale items — what the customer pays</label>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-sale>${icon('plus', 14)} Add sale</button>
-        </div>
         <div class="bk-wrap">
           <div class="bk-head" data-type="sale">
             <div>Description</div><div>Qty</div><div>Unit price</div><div>Revenue account</div><div style="text-align:right">Amount</div><div></div>
@@ -187,11 +217,11 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
         </div>
       </div>
 
+      <div class="field full form-sec-title">
+        <span>Supplier cost</span>
+        <button type="button" class="btn btn-ghost btn-sm" data-add-cost>${icon('plus', 14)} Add cost</button>
+      </div>
       <div class="field full">
-        <div class="bk-section-title">
-          <label>Costs</label>
-          <button type="button" class="btn btn-ghost btn-sm" data-add-cost>${icon('plus', 14)} Add cost</button>
-        </div>
         <div class="bk-wrap">
           <div class="bk-head" data-type="cost">
             <div>Description</div><div>Qty</div><div>Unit cost</div><div>Cost account</div><div>Supplier</div><div>Supplier ref</div><div style="text-align:right">Amount</div><div></div>
@@ -202,51 +232,23 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
         </div>
       </div>
 
-      <div class="field full">
-        <div class="totals-panel">
-          <div class="totals-row"><span>Total sale</span><span id="bk-sale">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span>Total cost</span><span id="bk-cost">${fmtMoney(0)}</span></div>
-          <div class="totals-row total"><span>Gross profit</span><span class="margin-positive" id="bk-margin">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span class="muted">Gross margin</span><span class="muted" id="bk-margin-percent">—</span></div>
-        </div>
+      <div class="field">
+        <label for="visa-due">Payment due</label>
+        <input class="input" id="visa-due" name="due_date" type="date" value="${esc(dueDate)}" required>
       </div>
-      <details class="field full more-details"${visa?.notes || visa?.invoice_notes ? ' open' : ''}>
-        <summary>More details</summary>
-        <div class="form-grid">
-          <div class="field">
-            <label for="visa-due">Payment due</label>
-            <input class="input" id="visa-due" name="due_date" type="date" value="${esc(dueDate)}" required>
-          </div>
-          <div class="field">
-            <label for="visa-duration">Duration (days)</label>
-            <input class="input" id="visa-duration" name="duration_days" type="number" min="1" max="3650" step="1" value="${esc(visa?.duration_days || '')}" placeholder="Not fixed">
-          </div>
-          <div class="field">
-            <label for="visa-reference">Application / embassy ref</label>
-            <input class="input" id="visa-reference" name="reference" value="${esc(visa?.reference || '')}" placeholder="Optional" autocomplete="off">
-          </div>
-          <div class="field">
-            <label for="visa-nationality">Nationality</label>
-            <input class="input" id="visa-nationality" name="nationality" value="${esc(visa?.nationality || '')}" placeholder="Start typing, e.g. Indian" autocomplete="off" ${nationalityList()}>
-          </div>
-          <div class="field">
-            <label for="visa-dob">Date of birth</label>
-            <input class="input" id="visa-dob" name="date_of_birth" type="date" value="${esc(visa?.date_of_birth || '')}">
-          </div>
-          <div class="field full">
-            <label for="visa-notes">Internal notes</label>
-            <textarea class="input" id="visa-notes" name="notes" rows="2" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed.">${esc(visa?.notes || '')}</textarea>
-          </div>
-          <div class="field full">
-            <label for="visa-invoice-notes">Note on invoice</label>
-            <textarea class="input" id="visa-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on the customer invoice and application summary.">${esc(visa?.invoice_notes || '')}</textarea>
-          </div>
-        </div>
+      <div class="field">
+        <label for="visa-invoice-notes">Note on invoice</label>
+        <textarea class="input" id="visa-invoice-notes" name="invoice_notes" rows="1" placeholder="Optional. Printed on the invoice.">${esc(visa?.invoice_notes || '')}</textarea>
+      </div>
+      <details class="field full more-details"${visa?.notes ? ' open' : ''}>
+        <summary>Internal notes</summary>
+        <textarea class="input" id="visa-notes" name="notes" rows="2" aria-label="Internal notes" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed.">${esc(visa?.notes || '')}</textarea>
       </details>
       ${correct ? `<div class="field full">
         <label for="correct-reason">Why</label>
         <input class="input" id="correct-reason" name="correct_reason" maxlength="500" required placeholder="Fare entered wrong">
       </div>` : ''}
+      ${summaryBarHtml()}
     </div>
   `;
 
@@ -304,6 +306,7 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
     onMount(overlay) {
       overlay._visaEditor = mountBookingLines(overlay, defaults);
       const customerSelect = overlay.querySelector('#visa-customer');
+      bindCustomerHint(customerSelect);
       const applicant = overlay.querySelector('#visa-applicant');
       const otherToggle = overlay.querySelector('#visa-applicant-other');
 

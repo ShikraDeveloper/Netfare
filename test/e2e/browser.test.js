@@ -1169,8 +1169,8 @@ test('an invoice can be marked as for someone else', async () => {
   await openRoute('/invoices?new=1');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
-  // Traveller reads "Same as customer" until a name is typed; then the
-  // traveller's nationality and passport fields appear under More details.
+  // Service for reads "Same as customer" until a name is typed; then the
+  // nationality and passport fields appear next to it.
   const nameInput = dialog.locator('#invoice-beneficiary');
   assert.equal(await nameInput.getAttribute('placeholder'), 'Same as customer');
   const passportField = dialog.locator('[data-beneficiary-field]').last();
@@ -1256,7 +1256,7 @@ test('the booking form takes one row per passenger with sale, cost and supplier'
   await openRoute('/bookings?new=1');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
-  assert.match(await dialog.locator('label[for="bk-destination"]').innerText(), /Destination \/ description/);
+  assert.match(await dialog.locator('label[for="bk-destination"]').innerText(), /Route/);
   assert.equal(await dialog.locator('details.more-details').getAttribute('open'), null, 'More details starts closed');
 
   await dialog.locator('#bk-customer').selectOption({ index: 1 });
@@ -1273,9 +1273,9 @@ test('the booking form takes one row per passenger with sale, cost and supplier'
   await second.locator('.px-label').fill('E2E Passenger Two');
   await second.locator('.px-sale').fill('1500');
   await second.locator('.px-cost').fill('1200');
-  await second.locator('[data-px-more]').click();
-  assert.equal(await second.locator('.px-details').isVisible(), true);
+  assert.equal(await second.locator('.px-qty').isVisible(), false, 'quantity and accounts sit behind ⋯');
   await second.locator('.px-ref').fill('TKT-2');
+  assert.equal(await dialog.locator('[data-px-count]').innerText(), '2');
   assert.equal((await dialog.locator('#bk-margin').innerText()).replace(/\s+/g, ' '), 'AED 600.00');
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
@@ -1350,13 +1350,13 @@ test('a new visa takes several applicants, links them as a group and submits the
   assertNoConsoleErrors();
 });
 
-test('the service invoice form asks for a description and amount, with the rest under More details', async () => {
+test('the service invoice form shows dates, lines with quantity and income type, and a total bar', async () => {
   const customers = await getJson(baseUrl, '/api/customers');
   await openRoute('/invoices?new=1');
   const dialog = page.locator('[role="dialog"]');
   await dialog.waitFor();
-  assert.equal(await dialog.locator('#invoice-due').isVisible(), false, 'due date sits under More details');
-  assert.equal(await dialog.locator('.line-qty').first().isVisible(), false, 'quantity sits behind ⋯');
+  assert.equal(await dialog.locator('#invoice-due').isVisible(), true, 'payment due sits next to the date');
+  assert.equal(await dialog.locator('.line-qty').first().isVisible(), true, 'quantity is a column');
   assert.equal(await dialog.locator('#sum-subtotal').count(), 0, 'a single total');
 
   await dialog.locator('#invoice-customer').selectOption(String(customers[0].id));
@@ -1367,8 +1367,8 @@ test('the service invoice form asks for a description and amount, with the rest 
   const extra = dialog.locator('[data-line]').nth(1);
   await extra.locator('.line-desc').fill('E2E porter');
   await extra.locator('.line-price').fill('40');
-  await extra.locator('[data-line-more]').click();
   await extra.locator('.line-qty').fill('2');
+  assert.equal(await dialog.locator('[data-line-count]').innerText(), '2 lines');
   assert.equal((await dialog.locator('#sum-total').innerText()).replace(/\s+/g, ' '), 'AED 205.00');
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => location.hash.startsWith('#/invoices/'));

@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
+import { bindCustomerHint } from '../customer-hint.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { depositAccounts } from './job-modals.js';
 import { activeCustomers, activeVendors, portalForVendorId, purchaseAccounts, revenueAccounts, store } from '../store.js';
@@ -90,36 +91,51 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
 
   const body = `
     <div class="form-grid">
+      <div class="field full form-sec-title">Customer</div>
       <div class="field full">
-        <label for="vg-customer">Customer</label>
+        <label for="vg-customer" class="sr-only">Customer</label>
         <select class="input" id="vg-customer" name="customer_id" required>
           ${optionsHtml(customers, { placeholder: 'Choose a customer…' })}
         </select>
       </div>
-      <div class="field">
-        <label for="vg-type">Visa type</label>
-        <select class="input" id="vg-type" name="visa_type">
-          ${optionsHtml(Object.entries(visaTypes).map(([value, label]) => ({ value, label })), { selected: 'tourist', valueKey: 'value', labelKey: 'label', placeholder: '' })}
-        </select>
+
+      <div class="field full form-sec-title">Visa</div>
+      <div class="field full form-row">
+        <div class="field">
+          <label for="vg-date">Application date</label>
+          <input class="input" id="vg-date" name="application_date" type="date" value="${esc(applicationDate)}" required>
+        </div>
+        <div class="field">
+          <label for="vg-country">Country</label>
+          <input class="input" id="vg-country" name="destination_country" placeholder="e.g. Saudi Arabia" maxlength="120">
+        </div>
+        <div class="field">
+          <label for="vg-type">Visa type</label>
+          <select class="input" id="vg-type" name="visa_type">
+            ${optionsHtml(Object.entries(visaTypes).map(([value, label]) => ({ value, label })), { selected: 'tourist', valueKey: 'value', labelKey: 'label', placeholder: '' })}
+          </select>
+        </div>
       </div>
-      <div class="field">
-        <label for="vg-country">Destination country</label>
-        <input class="input" id="vg-country" name="destination_country" placeholder="e.g. Saudi Arabia" maxlength="120">
-      </div>
-      <div class="field">
-        <label for="vg-date">Application date</label>
-        <input class="input" id="vg-date" name="application_date" type="date" value="${esc(applicationDate)}" required>
-      </div>
-      <div class="field">
-        <label for="vg-travel">Travel date</label>
-        <input class="input" id="vg-travel" name="travel_date" type="date">
+      <div class="field full form-row">
+        <div class="field">
+          <label for="vg-duration">Duration (days)</label>
+          <input class="input" id="vg-duration" name="duration_days" type="number" min="1" max="3650" step="1" placeholder="e.g. 30">
+        </div>
+        <div class="field">
+          <label for="vg-reference">Embassy / portal ref</label>
+          <input class="input" id="vg-reference" name="reference" placeholder="Optional" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="vg-travel">Travel date</label>
+          <input class="input" id="vg-travel" name="travel_date" type="date">
+        </div>
       </div>
 
+      <div class="field full form-sec-title">
+        <span>Applicants <span class="group-chip" data-va-count>1</span></span>
+        <button type="button" class="btn btn-ghost btn-sm" data-va-add>${icon('plus', 14)} Add applicant</button>
+      </div>
       <div class="field full">
-        <div class="bk-section-title">
-          <label>Applicants</label>
-          <button type="button" class="btn btn-ghost btn-sm" data-va-add>${icon('plus', 14)} Add applicant</button>
-        </div>
         <div class="bk-wrap">
           <div class="va-head" aria-hidden="true">
             <div>Applicant</div><div>Passport no.</div><div>Expiry</div><div>Sale</div><div>Cost</div><div>Sec. deposit</div><div>Supplier</div><div></div><div></div>
@@ -128,57 +144,43 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         </div>
       </div>
 
-      <div class="field full va-deposit-received" data-deposit-received hidden>
-        <div class="form-grid">
-          <div class="field">
-            <label for="vg-deposit-method">Deposit received by</label>
-            <select class="input" id="vg-deposit-method">
-              <option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>Credit card</option><option>Payment link</option><option>Other</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="vg-deposit-account">Deposit received into</label>
-            <select class="input" id="vg-deposit-account">
-              ${optionsHtml(depositAccounts().accounts, { selected: (depositAccounts().accounts.find((a) => a.code === '1000') || depositAccounts().preferred)?.id, placeholder: '', labelKey: (account) => `${account.code} · ${account.name}` })}
-            </select>
-          </div>
+      <div class="field full form-card deposit" data-deposit-received hidden>
+        <div class="form-sec-title"><span>Security deposit <span class="form-sec-note">· refundable, not a sale</span></span></div>
+        <div class="form-row two" style="margin-top:14px">
+        <div class="field">
+          <label for="vg-deposit-method">Received by</label>
+          <select class="input" id="vg-deposit-method">
+            <option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>Credit card</option><option>Payment link</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="vg-deposit-account">Received into</label>
+          <select class="input" id="vg-deposit-account">
+            ${optionsHtml(depositAccounts().accounts, { selected: (depositAccounts().accounts.find((a) => a.code === '1000') || depositAccounts().preferred)?.id, placeholder: '', labelKey: (account) => `${account.code} · ${account.name}` })}
+          </select>
         </div>
       </div>
-
-      <div class="field full">
-        <div class="totals-panel">
-          <div class="totals-row"><span>Total sale</span><span id="vg-sale">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span>Total cost</span><span id="vg-cost">${fmtMoney(0)}</span></div>
-          <div class="totals-row total"><span>Gross profit</span><span class="margin-positive" id="vg-margin">${fmtMoney(0)}</span></div>
-          <div class="totals-row"><span class="muted">Security deposits (not a sale)</span><span class="muted" id="vg-deposits">${fmtMoney(0)}</span></div>
-        </div>
       </div>
 
+      <div class="field">
+        <label for="vg-due">Payment due</label>
+        <input class="input" id="vg-due" name="due_date" type="date" value="${esc(dueDate)}" required>
+      </div>
+      <div class="field">
+        <label for="vg-invoice-notes">Note on invoice</label>
+        <textarea class="input" id="vg-invoice-notes" name="invoice_notes" rows="1" placeholder="Optional. Printed on each invoice."></textarea>
+      </div>
       <details class="field full more-details">
-        <summary>More details</summary>
-        <div class="form-grid">
-          <div class="field">
-            <label for="vg-due">Payment due</label>
-            <input class="input" id="vg-due" name="due_date" type="date" value="${esc(dueDate)}" required>
-          </div>
-          <div class="field">
-            <label for="vg-duration">Duration (days)</label>
-            <input class="input" id="vg-duration" name="duration_days" type="number" min="1" max="3650" step="1" placeholder="e.g. 30">
-          </div>
-          <div class="field">
-            <label for="vg-reference">Application / embassy ref</label>
-            <input class="input" id="vg-reference" name="reference" placeholder="Optional" autocomplete="off">
-          </div>
-          <div class="field full">
-            <label for="vg-notes">Internal notes</label>
-            <textarea class="input" id="vg-notes" name="notes" rows="2" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed."></textarea>
-          </div>
-          <div class="field full">
-            <label for="vg-invoice-notes">Note on invoice</label>
-            <textarea class="input" id="vg-invoice-notes" name="invoice_notes" rows="2" placeholder="Optional. Printed on each customer invoice and application summary."></textarea>
-          </div>
-        </div>
+        <summary>Internal notes</summary>
+        <textarea class="input" id="vg-notes" name="notes" rows="2" aria-label="Internal notes" placeholder="Documents checklist, embassy appointment… Only staff see this; never printed."></textarea>
       </details>
+
+      <div class="field full form-sum" aria-live="polite">
+        <span>Sale <b id="vg-sale">${fmtMoney(0)}</b></span>
+        <span>Cost <b id="vg-cost">${fmtMoney(0)}</b></span>
+        <span>Profit <b class="margin-positive" id="vg-margin">${fmtMoney(0)}</b></span>
+        <span class="form-sum-end">Deposit held <b id="vg-deposits">${fmtMoney(0)}</b></span>
+      </div>
     </div>
   `;
 
@@ -196,6 +198,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
     }
     overlayRef.querySelector('#vg-deposits').textContent = fmtMoney(deposits);
     overlayRef.querySelector('[data-deposit-received]').hidden = deposits <= 0;
+    overlayRef.querySelector('[data-va-count]').textContent = rows().length;
     const margin = sale - cost;
     const marginEl = overlayRef.querySelector('#vg-margin');
     marginEl.textContent = fmtMoney(margin);
@@ -222,6 +225,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
       bindMethodAccount(overlay.querySelector('#vg-deposit-method'), overlay.querySelector('#vg-deposit-account'), depositAccounts().accounts);
       overlayRef = overlay;
       const customerSelect = overlay.querySelector('#vg-customer');
+      bindCustomerHint(customerSelect);
       const wrap = overlay.querySelector('[data-va-rows]');
       let firstNameAuto = true;
 
