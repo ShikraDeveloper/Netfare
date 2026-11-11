@@ -1,6 +1,7 @@
 'use strict';
 
 const { notFound, todayISO } = require('../util');
+const { invoiceDisplayStatus } = require('../accounting');
 
 // Every balance here is derived from the live accounting documents. Nothing is
 // cached, so the page always agrees with the ledger after a refund, credit,
@@ -103,7 +104,7 @@ function openInvoices(db, customerId) {
     WHERE i.customer_id = ? AND i.status = 'sent'
       AND (i.total_cents - i.amount_paid_cents - i.credit_applied_cents) > 0
     ORDER BY i.due_date, i.issue_date, i.id
-  `).all(customerId);
+  `).all(customerId).map((invoice) => ({ ...invoice, status_display: invoiceDisplayStatus(invoice) }));
 }
 
 function customerCredits(db, customerId) {

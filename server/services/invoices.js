@@ -703,9 +703,7 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
       const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(payment.advance_id);
       if (advance) {
         const applied = Math.max(0, advance.applied_cents - payment.amount_cents);
-        let status = 'open';
-        if (advance.refunded_cents > 0 && applied + advance.refunded_cents >= advance.amount_cents) status = 'refunded';
-        else if (applied + advance.refunded_cents >= advance.amount_cents) status = 'applied';
+        const status = require('./advances').advanceStatus({ ...advance, applied_cents: applied });
         db.prepare('UPDATE customer_advances SET applied_cents = ?, status = ? WHERE id = ?').run(applied, status, advance.id);
       }
     }

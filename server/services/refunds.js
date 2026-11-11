@@ -462,10 +462,7 @@ function voidRefund(db, id, payload = {}) {
       const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(refund.advance_id);
       if (!advance) throw notFound('Advance not found');
       const refunded = Math.max(0, advance.refunded_cents - refund.amount_cents);
-      let status = 'open';
-      if (advance.applied_cents + refunded >= advance.amount_cents) {
-        status = refunded > 0 ? 'refunded' : 'applied';
-      }
+      const status = require('./advances').advanceStatus({ ...advance, refunded_cents: refunded });
       db.prepare('UPDATE customer_advances SET refunded_cents = ?, status = ? WHERE id = ?')
         .run(refunded, status, advance.id);
     } else if (refund.refund_type === 'customer') {

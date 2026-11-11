@@ -15,16 +15,8 @@ import {
   numberCardHtml,
   setHeader,
   statusBadge,
-  todayISO,
   pageRecord,
 } from '../ui.js';
-
-function invoiceStatus(invoice) {
-  if (invoice.due_date && invoice.due_date < todayISO()) {
-    return '<span class="badge badge-overdue">Overdue</span>';
-  }
-  return statusBadge('sent');
-}
 
 function invoiceRows(invoices) {
   if (!invoices.length) {
@@ -41,7 +33,7 @@ function invoiceRows(invoices) {
       <td class="num">${fmtMoney(invoice.amount_paid_cents)}</td>
       <td class="num">${fmtMoney(invoice.credit_applied_cents)}</td>
       <td class="num amount-due">${fmtMoney(invoice.balance_cents)}</td>
-      <td>${invoiceStatus(invoice)}</td>
+      <td>${statusBadge(invoice.status_display)}</td>
     </tr>
   `).join('');
 }

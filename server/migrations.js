@@ -288,6 +288,20 @@ if (!hasColumn('payments', 'from_receipt')) {
       )
   `);
 }
+// An advance's status follows from its amounts (advanceStatus in
+// services/advances.js); rows written by older rules are brought in line.
+db.exec(`
+  UPDATE customer_advances SET status = CASE
+    WHEN applied_cents + refunded_cents < amount_cents THEN 'open'
+    WHEN refunded_cents > 0 THEN 'refunded'
+    ELSE 'applied'
+  END
+  WHERE voided_at IS NULL AND status <> CASE
+    WHEN applied_cents + refunded_cents < amount_cents THEN 'open'
+    WHEN refunded_cents > 0 THEN 'refunded'
+    ELSE 'applied'
+  END
+`);
 // A customer's nationality, offered for visas and invoices made for them.
 ensureColumn('customers', 'nationality', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('customer_advances', 'bank_charges_cents', 'INTEGER NOT NULL DEFAULT 0');

@@ -18,6 +18,14 @@ const audit = require('./audit');
 const ADVANCE_ACCOUNT = '2400';
 const AR_ACCOUNT = '1100';
 
+// The stored status follows from the amounts alone, so the order of
+// applications and refunds does not change it: open while money is left;
+// once used up, refunded if any of it went back, otherwise applied.
+function advanceStatus({ amount_cents: amount, applied_cents: applied = 0, refunded_cents: refunded = 0 }) {
+  if (applied + refunded < amount) return 'open';
+  return refunded > 0 ? 'refunded' : 'applied';
+}
+
 function remainingCents(advance) {
   if (!advance || advance.voided_at) return 0;
   return Math.max(0, advance.amount_cents - advance.applied_cents - advance.refunded_cents);
@@ -168,7 +176,7 @@ function createAdvance(db, payload, { receipt = false, shares = [] } = {}) {
     }
     if (shared) {
       db.prepare('UPDATE customer_advances SET applied_cents = ?, status = ? WHERE id = ?')
-        .run(shared, shared >= amount ? 'applied' : 'open', advanceId);
+        .run(shared, advanceStatus({ amount_cents: amount, applied_cents: shared }), advanceId);
     }
     return getAdvance(db, advanceId);
   })();
@@ -232,7 +240,7 @@ function applyAdvance(db, id, payload = {}) {
     db.prepare('UPDATE payments SET journal_entry_id = ? WHERE id = ?').run(entryId, paymentId);
 
     const applied = advance.applied_cents + amount;
-    const status = applied + advance.refunded_cents >= advance.amount_cents ? 'applied' : 'open';
+    const status = advanceStatus({ ...advance, applied_cents: applied });
     db.prepare('UPDATE customer_advances SET applied_cents = ?, status = ? WHERE id = ?').run(applied, status, id);
     db.prepare("UPDATE invoices SET amount_paid_cents = amount_paid_cents + ?, updated_at = datetime('now') WHERE id = ?").run(amount, invoice.id);
 
@@ -279,7 +287,7 @@ function refundAdvance(db, id, payload = {}) {
     });
 
     const refunded = advance.refunded_cents + amount;
-    const status = advance.applied_cents + refunded >= advance.amount_cents ? 'refunded' : 'open';
+    const status = advanceStatus({ ...advance, refunded_cents: refunded });
     db.prepare('UPDATE customer_advances SET refunded_cents = ?, status = ? WHERE id = ?').run(refunded, status, id);
     const number = allocateNumber(db, 'refund', refundDate);
     const refundInfo = db.prepare(`
@@ -464,6 +472,7 @@ function getReceipt(db, id) {
 }
 
 module.exports = {
+  advanceStatus,
   receivePayment,
   getReceipt,
   listAdvances,
