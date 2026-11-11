@@ -3286,11 +3286,19 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** new `test/receipt-entry.test.js` (failed before the fix): one entry, only the leftover through 2400, statement and DSR, share void then receipt void back to the start. `npm test` 348 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### Fifth audit fixes — code commit `528ef73`
+
+- **Why:** `/ponytail-audit` of the dark-mode and receipt changes found 2 things; the user said "Haan, dono fix karo".
+- **1. Payment void route (`server/routes/invoices.js`):** `DELETE /api/invoices/payments/:id` passed the whole request body to `deleteInvoicePayment`, so a request could set `withReceipt` (voids a receipt share without its entry) or `fromDeposit` (skips the visa deposit guard). Shown on a temporary database: the Receivables and Customer Advances checks stopped matching. The route now passes only the reason (`remarks`, or `reason`).
+- **2. Receipt leftover used later (`advances.js` applyAdvance):** the payment copied the receipt's method, so an invoice showed e.g. "Dec 1 · Bank transfer" when the bank money came on Nov 12. It now reads "Advance applied" like every advance (the branch is deleted).
+- **Tests:** `test/http-security.test.js` sends both switches through the real route and checks the books still match; `test/receipt-entry.test.js` checks the later use reads "Advance applied". Both failed before the fix. `npm test` 350 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.17** is published (2026-11-11): the new invoice look with the visa deposit box, terms per invoice kind, brand line colours, the new booking, visa and service forms, print preview and PDF share, A4 page numbers, the cleaner DSR, the closing date, Restore from backup, opening balances changeable later, and fixes from four audits. Not released yet: documents white in dark mode, the amount gap, phone under email and white print margins (`64522af`), and Receive payment posting a receipt instead of an advance (`b28f77c`). Ask the user to check in the office: the new invoice and forms, Print preview and Share in the desktop app, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.17** is published (2026-11-11): the new invoice look with the visa deposit box, terms per invoice kind, brand line colours, the new booking, visa and service forms, print preview and PDF share, A4 page numbers, the cleaner DSR, the closing date, Restore from backup, opening balances changeable later, and fixes from four audits. Not released yet: documents white in dark mode, the amount gap, phone under email and white print margins (`64522af`), Receive payment posting a receipt instead of an advance (`b28f77c`), and the fifth audit fixes (`528ef73`). Ask the user to check in the office: the new invoice and forms, Print preview and Share in the desktop app, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
