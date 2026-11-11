@@ -1277,6 +1277,11 @@ test('the booking form takes one row per passenger with sale, cost and supplier'
   await second.locator('.px-ref').fill('TKT-2');
   assert.equal(await dialog.locator('[data-px-count]').innerText(), '2');
   assert.equal((await dialog.locator('#bk-margin').innerText()).replace(/\s+/g, ' '), 'AED 600.00');
+  // A ticket no. is kept with the cost, so without a cost the form says so instead of dropping it.
+  await second.locator('.px-cost').fill('');
+  await dialog.locator('[data-submit]').click();
+  await dialog.locator('.modal-error:not([hidden])', { hasText: 'enter the supplier cost to keep the ticket no.' }).waitFor();
+  await second.locator('.px-cost').fill('1200');
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
 
@@ -1643,6 +1648,25 @@ test('a visa security deposit is taken with the application, shown apart from sa
   await page.locator('[data-void-elsewhere]').waitFor();
   assert.equal(await page.locator('#page-actions [data-action="void"]').count(), 0);
   assert.equal(await page.locator(`#page-actions a[href="#/visas/${visaId}"]`).count(), 1);
+
+  // The visa invoice shows the deposit in its own card (not in the total) and the visa terms.
+  const putSettings = (body) => fetch(`${baseUrl}/api/settings`, { method: 'PUT', headers: { Origin: baseUrl, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const before = await getJson(baseUrl, '/api/settings');
+  await putSettings({ invoice_terms_visa: 'E2E visa terms', invoice_terms_ticket: 'E2E ticket terms' });
+  try {
+    const submitted = await postJson(baseUrl, `/api/visas/${visaId}/submit`, {}, 200);
+    await openRoute(`/invoices/${submitted.invoice_id}`);
+    const depositCard = page.locator('[data-visa-deposit]');
+    await depositCard.waitFor();
+    const depositText = (await depositCard.innerText()).replace(/\s+/g, ' ');
+    assert.match(depositText, /Held/);
+    assert.match(depositText, /AED 4,000\.00/, 'the amount collected');
+    assert.match(depositText, /Returned .*AED 1,500\.00/);
+    assert.match((await page.locator('.doc-total-area').innerText()).replace(/\s+/g, ' '), /AED 350\.00/, 'the total is the sale only');
+    assert.equal((await page.locator('.doc-terms-foot').innerText()).trim(), 'E2E visa terms');
+  } finally {
+    await putSettings({ invoice_terms_visa: before.invoice_terms_visa || '', invoice_terms_ticket: before.invoice_terms_ticket || '' });
+  }
 
   // A statement with deposits does not scroll sideways on a phone.
   await page.setViewportSize({ width: 375, height: 800 });

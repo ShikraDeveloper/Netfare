@@ -204,6 +204,8 @@ export function mountPassengerEditor(overlay) {
       if (!saleCents && !costCents) problems.push(`${name}: enter a sale price or a cost`);
       const vendorId = Number(row.querySelector('.px-vendor').value);
       if (costCents && !vendorId) problems.push(`${name}: choose the supplier for the cost`);
+      // The ticket no. is kept on the cost line, so it needs a cost to be saved.
+      if (row.querySelector('.px-ref').value.trim() && !costCents) problems.push(`${name}: enter the supplier cost to keep the ${isPassenger ? 'ticket no.' : 'supplier ref'}`);
       const common = {
         description: label,
         passenger_name: isPassenger ? label : '',

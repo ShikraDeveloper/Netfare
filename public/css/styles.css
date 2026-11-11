@@ -679,8 +679,6 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 .totals-row.balance span:last-child { color: var(--primary-dark); font-weight: 700; }
 
 /* ---------- Booking line editor ---------- */
-.bk-section-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 8px; }
-.bk-section-title label { font-size: 12px; font-weight: 650; color: var(--text-soft); letter-spacing: 0.01em; }
 .bk-wrap { border: 1px solid var(--border); border-radius: 12px; overflow-x: auto; background: #fff; }
 .bk-head {
   display: grid; gap: 8px; align-items: center; padding: 9px 10px;
@@ -1397,6 +1395,7 @@ html:not(.show-accounting) .acct-col { display: none; }
   .page-actions .btn { padding: 0 10px; font-size: 12.5px; }
   .form-grid { grid-template-columns: 1fr; }
   .form-row, .form-row.route, .form-row.two { grid-template-columns: 1fr; }
+  .form-sum { margin: 2px -17px -16px; padding: 12px 17px; bottom: -16px; }
   .doc { padding: 22px 18px; border-radius: 12px; }
   .doc-head { flex-direction: column; }
   .doc-meta { text-align: left; }
