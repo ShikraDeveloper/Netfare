@@ -3294,6 +3294,15 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `test/http-security.test.js` sends both switches through the real route and checks the books still match; `test/receipt-entry.test.js` checks the later use reads "Advance applied". Both failed before the fix. `npm test` 350 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### State rules, step 1: one advance status, one invoice status — code commit `14653e2`
+
+- **Why:** The user asked for the app's implicit state machines (report given: bookings, visas, advances, invoices, bills, void stored two ways, deposits and smaller ones) and chose "Step 1 se shuru": the two inconsistencies first.
+- **Advance status (`advances.js` advanceStatus):** written in five places (`advances.js` x3, `invoices.js` deleteInvoicePayment, `refunds.js` voidRefund) with three rules, so 70 applied + 30 refunded read "refunded" or "applied" by order. Now one function: open while money is left; once used up, refunded if any went back, otherwise applied. The migration brings older rows in line with the same rule (voided rows untouched). On a copy of the live books none of the 8 advances changes (copy deleted).
+- **Customer page invoice badge (`customer-balances.js`, `customer-balance-detail.js`):** the page had its own rule (Overdue, else Sent), so a part-paid invoice not yet due read "Sent" there and "Partial" everywhere else. The server now sends `status_display` (from `invoiceDisplayStatus`) and the page shows it. Checked on the demo: INV-2026-0014 and 0015 read Partial, overdue ones Overdue.
+- **Tests:** new `test/state-rules.test.js` (both tests failed before the fix). `npm test` 352 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Next (from the report):** step 2, visa and booking workflow tables with `allowed_actions` driving the buttons; step 3, invoice, bill and advance actions; step 4, `isVoid` and `/api/workflows`.
+- **Not pushed or released** (1.0.18 is tagged and waiting in the GitHub Actions queue; this is not in it).
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
