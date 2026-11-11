@@ -85,10 +85,6 @@ export async function render(container, { params } = {}) {
           <dt>Invoice balance now</dt><dd><strong>${fmtMoney(receipt.invoice_balance_cents)}</strong></dd>
         </dl>
 
-        <div class="receipt-signatures">
-          <div><span></span>Received by</div>
-          <div><span></span>Customer signature</div>
-        </div>
       </div>
     </div>
   `;

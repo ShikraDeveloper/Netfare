@@ -648,7 +648,7 @@ export function recordMetaHtml(record) {
 }
 
 // The record a detail page shows: its meta line goes at the bottom of the
-// page, and on printed customer documents "Prepared by" and "Received by"
+// page, and on printed customer documents a small "Prepared by"
 // (Settings → Print "Prepared by"). It is put back if the page re-renders,
 // and only while the address is still this page's.
 let pageFooter = null;
@@ -662,7 +662,7 @@ function placePageFooter() {
 
 export function pageRecord(record, { print = false } = {}) {
   const prepared = print && record?.created_by && store.settings?.print_prepared_by !== 0
-    ? `<div class="prepared-by print-only"><div>Prepared by: ${esc(record.created_by)}</div><div>Received by:</div></div>`
+    ? `<div class="prepared-by print-only">Prepared by: ${esc(record.created_by)}</div>`
     : '';
   const meta = recordMetaHtml(record);
   pageFooter = meta || prepared ? { hash: location.hash, html: `<div data-page-footer>${meta}${prepared}</div>` } : null;

@@ -184,7 +184,7 @@ export async function render(container) {
                 <div class="field full">
                   <label class="checkbox-row">
                     <input type="checkbox" name="print_prepared_by" ${settings.print_prepared_by === 0 ? '' : 'checked'}>
-                    <span><strong>Print "Prepared by"</strong> on invoices, receipts, credit notes and refunds, with a line for the customer to sign as "Received by".</span>
+                    <span><strong>Print "Prepared by"</strong> on invoices, receipts, credit notes and refunds: the name of the staff member who made it, small, at the bottom.</span>
                   </label>
                 </div>
               </div>

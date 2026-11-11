@@ -92,10 +92,6 @@ export async function render(container, { params } = {}) {
           ${used && used !== receipt.amount_cents ? `<dt>Used for invoices</dt><dd>${fmtMoney(used)}</dd>` : ''}
         </dl>
 
-        <div class="receipt-signatures">
-          <div><span></span>Received by</div>
-          <div><span></span>Customer signature</div>
-        </div>
       </div>
     </div>
   `;
