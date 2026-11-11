@@ -3138,7 +3138,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
 ### Invoice follow-ups: logo, no Qty on ticket invoices — code commits `deae565`, `2081f99`, `fff6aa7`
 
-- **Logo** (`deae565`, `fff6aa7`): centered beside the contact lines and a little larger (52 px high, up to 180 px wide). When a logo is set, every printed document shows the logo with the address, email and phone, and no company-name text (the user: "logo and rest of details except company name"); the logo's alt text carries the name.
+- **Logo** (`deae565`, `fff6aa7`): centered beside the contact lines and a little larger (52 px high, up to 180 px wide). When a logo is set, every printed document shows the logo with the address, email and phone, and no company-name text (the user: "logo and rest of details except company name"); the logo's alt text carries the name. Then (`287f36b`), at the user's request, the address and contact lines sit below the logo instead of beside it.
 - **Ticket invoices** (`2081f99`): never show Qty or Unit price; a line with another quantity prints "Service fee · 2 × AED 50.00" in the Route / service column. Service invoices keep Qty and Unit price when some quantity is not 1.
 - **Tests:** `npm test` 339 passed, `npm run test:e2e` 43 passed, `npm run check` OK. Checked in the demo on INV-2026-0014.
 - **Not pushed or released.**
