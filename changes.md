@@ -3261,11 +3261,24 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Build:** the Release workflow (run 43025354852) passed: Build (win), Build (mac), Publish release.
 - **Checked:** the release is public (not draft or pre-release) with `Netfare-mac-arm64.dmg`, `Netfare-mac-x64.dmg`, `Netfare-windows-x64.exe` and `latest.json`; `releases/latest` is v1.0.17 and `latest.json` says version 1.0.17, released 2026-11-11.
 
+### Documents white in dark mode — code commit `64522af`
+
+- **Why:** The user sent two screenshots of INV-2026-0020 (print preview, and the app in dark mode) and said "check the bugs", then "do test before fix", "Number should below email" and "in dark mode invoices & where ever documents remain in white only".
+- **Tested before the fix (demo, INV-2026-0012):** in dark mode the table header and totals card were near white (rgb 246,248,251) with light text, so "Total AED …" vanished; the table box border was bright; the amount column had 0 px padding and touched the box edge (light mode too); printing from dark mode gave black page margins. The new e2e checks failed on the old CSS.
+- **Fixed:**
+  - `theme.css`: in dark mode `.doc` and `.statement-card` keep the light colours (white paper, dark text). This covers invoices, receipts, refunds, bills, bookings, visas, cancellations, supplier credits, portal ledgers and statements; a script found no unreadable text in any of them.
+  - `styles.css`: the table box, its header and the totals card use theme colours instead of fixed ones; the last column keeps 12 px inside the box.
+  - `theme.css` (print): `color-scheme: light !important`, because `theme.js` sets the colour scheme inline and the dark one painted the page margins black.
+  - `invoice-detail.js`: the company phone is on its own line under the email, like the other documents.
+- **Checked:** A4 prints from light and dark mode match (white margins, one page).
+- **Tests:** `npm test` 346 passed, `npm run test:e2e` 43 passed (the visa deposit test now also checks white paper in dark mode, the amount gap and the light print colour scheme), `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.17** is published (2026-11-11): the new invoice look with the visa deposit box, terms per invoice kind, brand line colours, the new booking, visa and service forms, print preview and PDF share, A4 page numbers, the cleaner DSR, the closing date, Restore from backup, opening balances changeable later, and fixes from four audits. Nothing is waiting to be released. Ask the user to check in the office: the new invoice and forms, Print preview and Share in the desktop app, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.17** is published (2026-11-11): the new invoice look with the visa deposit box, terms per invoice kind, brand line colours, the new booking, visa and service forms, print preview and PDF share, A4 page numbers, the cleaner DSR, the closing date, Restore from backup, opening balances changeable later, and fixes from four audits. Not released yet: documents white in dark mode, the amount gap, phone under email and white print margins (`64522af`). Ask the user to check in the office: the new invoice and forms, Print preview and Share in the desktop app, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
