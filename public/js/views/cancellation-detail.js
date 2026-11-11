@@ -18,6 +18,7 @@ import {
   todayISO,
   pageRecord,
   voidDialog,
+  printPage,
 } from '../ui.js';
 
 function sourceHref(cancellation) {
@@ -250,7 +251,7 @@ export async function render(container, { params, query } = {}) {
   }
 
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
-    button.addEventListener('click', () => window.print());
+    button.addEventListener('click', () => printPage());
   });
 
   document.querySelectorAll('[data-action="refund"], [data-choice="refund"]').forEach((button) => {

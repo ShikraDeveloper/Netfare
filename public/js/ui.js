@@ -681,7 +681,16 @@ export function companyMark(company) {
   return `<span class="brand-mark" aria-hidden="true">${esc(initial)}</span>`;
 }
 
-export function printPage() {
+// Print a document. In the desktop app it opens a preview of the PDF first,
+// with Print and Save; in a browser, the browser's own print dialog.
+export async function printPage() {
+  const docs = window.netfareDocs;
+  if (docs) {
+    try {
+      const result = await docs.preview(document.title);
+      if (!result?.error) return;
+    } catch { /* fall back to the print dialog */ }
+  }
   window.print();
 }
 

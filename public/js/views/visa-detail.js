@@ -20,7 +20,8 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  pageRecord
+  pageRecord,
+  printPage,
 } from '../ui.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openVisaModal, visaDurationLabel, visaTypeLabel } from './visas.js';
@@ -493,7 +494,7 @@ export async function render(container, { params } = {}) {
     document.querySelectorAll(selector).forEach((element) => element.addEventListener('click', handler));
   }
 
-  on('[data-action="print"]', () => window.print());
+  on('[data-action="print"]', () => printPage());
 
   const editButton = document.querySelector('[data-action="edit"]');
   if (editButton) {

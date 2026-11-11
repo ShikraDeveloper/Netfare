@@ -23,7 +23,8 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  pageRecord
+  pageRecord,
+  printPage,
 } from '../ui.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { amountInWords } from '../amount-words.js';
@@ -210,6 +211,8 @@ function openShareModal(invoice, settings) {
   });
   const subject = `${title} ${invoice.number}${settings.company_name ? ` from ${settings.company_name}` : ''}`;
   const hasNumber = Boolean(whatsappNumber(invoice.customer_phone));
+  // The desktop app makes the PDF and sends it with the message.
+  const docs = window.netfareDocs;
   openModal({
     title: `Share ${invoice.number}`,
     size: 'modal-md',
@@ -219,11 +222,12 @@ function openShareModal(invoice, settings) {
         <label for="share-message">Message</label>
         <textarea class="input" id="share-message" rows="10">${esc(message)}</textarea>
       </div>
+      ${docs ? `<div class="share-pdf" data-share-pdf>${icon('file', 16)}<span>${esc(invoice.number)}.pdf</span><span class="muted">goes with WhatsApp and Email</span></div>` : ''}
       <div class="share-actions">
         <a class="btn btn-secondary" data-share="email" target="_blank" rel="noopener">${icon('mail', 15)}<span>Email${invoice.customer_email ? ` ${esc(invoice.customer_email)}` : ''}</span></a>
         <a class="btn btn-secondary" data-share="whatsapp" target="_blank" rel="noopener">${icon('send', 15)}<span>WhatsApp${hasNumber ? ` ${esc(invoice.customer_phone)}` : ''}</span></a>
         <button type="button" class="btn btn-ghost" data-share="copy">Copy text</button>
-        <button type="button" class="btn btn-ghost" data-share="pdf">${icon('print', 15)}<span>PDF</span></button>
+        <button type="button" class="btn btn-ghost" data-share="pdf">${icon('print', 15)}<span>${docs ? 'Save PDF' : 'PDF'}</span></button>
       </div>
     `,
     onMount(overlay) {
@@ -236,11 +240,38 @@ function openShareModal(invoice, settings) {
       };
       text.addEventListener('input', update);
       update();
-      // Print → Save as PDF gives the file to attach.
-      overlay.querySelector('[data-share="pdf"]').addEventListener('click', () => {
+      // The page must be the invoice alone when the PDF is made, so the
+      // window closes first.
+      const closeThen = (work) => {
         overlay.querySelector('[data-close]').click();
-        setTimeout(() => window.print(), 250);
-      });
+        setTimeout(work, 300);
+      };
+      if (docs) {
+        for (const link of [whatsapp, email]) {
+          link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const url = link.href;
+            closeThen(async () => {
+              try {
+                const result = await docs.share(document.title, text.value, url);
+                if (result?.shared === 'file') toast(`${result.file} is in Downloads: drag it into the chat or email`);
+                if (result?.error) throw new Error(result.error);
+              } catch (error) {
+                toast(error.message || 'The PDF could not be made', 'error');
+              }
+            });
+          });
+        }
+      }
+      overlay.querySelector('[data-share="pdf"]').addEventListener('click', () => closeThen(async () => {
+        if (!docs) return window.print();
+        try {
+          const result = await docs.save(document.title);
+          if (result?.saved) toast(`${result.saved} saved`);
+        } catch (error) {
+          toast(error.message || 'The PDF could not be saved', 'error');
+        }
+      }));
       overlay.querySelector('[data-share="copy"]').addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(text.value);
@@ -558,7 +589,7 @@ export async function render(container, { params } = {}) {
   }
 
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
-    button.addEventListener('click', () => window.print());
+    button.addEventListener('click', () => printPage());
   });
 
   document.querySelector('[data-action="share"]')?.addEventListener('click', () => openShareModal(invoice, settings));

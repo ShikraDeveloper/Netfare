@@ -12,7 +12,8 @@ import {
   statusBadge,
   toast,
   voidDialog,
-  pageRecord
+  pageRecord,
+  printPage,
 } from '../ui.js';
 
 function sourceInfo(refund, isCustomer) {
@@ -259,7 +260,7 @@ export async function render(container, { params } = {}) {
 
   bindCorrections(document, (result) => { location.hash = `#/refunds/${result.id}`; });
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
-    button.addEventListener('click', () => window.print());
+    button.addEventListener('click', () => printPage());
   });
 
   const voidButton = document.querySelector('[data-action="void"]');

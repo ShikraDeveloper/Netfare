@@ -83,7 +83,20 @@ function isSameOrigin(target, origin) {
   }
 }
 
+// A document's PDF file name: "INV-2026-0014 · Netfare" → "INV-2026-0014.pdf".
+function pdfName(title) {
+  const base = String(title || '').split(' · ')[0].replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[-.]+|-+$/g, '').slice(0, 60);
+  return `${base || 'Netfare'}.pdf`;
+}
+
+// The only addresses a share may open: a WhatsApp chat or a new email.
+function isShareUrl(url) {
+  return /^https:\/\/wa\.me\/\d*\?text=/.test(String(url || '')) || /^mailto:/.test(String(url || ''));
+}
+
 module.exports = {
+  pdfName,
+  isShareUrl,
   restoreSource,
   relaunchArgs,
   DEFAULT_PORT,

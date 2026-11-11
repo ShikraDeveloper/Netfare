@@ -6,8 +6,9 @@
 // app's own folder; a connected computer just shows the office computer's
 // Netfare. Either way the window shows only Netfare pages.
 
+const fs = require('fs');
 const path = require('path');
-const { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell, ShareMenu } = require('electron');
 const config = require('./config');
 
 app.setName('Netfare');
@@ -69,8 +70,9 @@ function isFilePreview(url) {
 }
 
 // A plain viewer: no bridge, no Node, it cannot go anywhere else or open
-// windows. It shares the main window's sign-in, so the file loads.
-function openFilePreview(url) {
+// windows. It shares the main window's sign-in, so the file loads. A local
+// PDF (the print preview) is opened by its path instead of a URL.
+function openFilePreview(url, file = null) {
   const preview = new BrowserWindow({
     width: 980,
     height: 1000,
@@ -86,8 +88,65 @@ function openFilePreview(url) {
   });
   preview.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   preview.webContents.on('will-navigate', (event) => event.preventDefault());
-  preview.loadURL(url);
+  if (file) preview.loadFile(file); else preview.loadURL(url);
 }
+
+// Print preview, Save PDF and Share for Netfare's documents (preload.js
+// netfareDocs). Only the main window showing Netfare may ask. The PDF is the
+// page as it prints; the copies made for preview and sharing are kept in a
+// private folder that is emptied when the app quits.
+function fromNetfarePage(event) {
+  return Boolean(mainWindow && appOrigin && event.sender === mainWindow.webContents
+    && config.isSameOrigin(String(event.senderFrame?.url || ''), appOrigin));
+}
+
+const pdfFolder = () => path.join(app.getPath('temp'), `netfare-pdf-${process.pid}`);
+
+function printPdf() {
+  return mainWindow.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
+}
+
+async function writePdf(folder, title) {
+  fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
+  const file = path.join(folder, config.pdfName(title));
+  fs.writeFileSync(file, await printPdf(), { mode: 0o600 });
+  return file;
+}
+
+ipcMain.handle('docs:preview', async (event, title) => {
+  if (!fromNetfarePage(event)) return { error: 'Not allowed' };
+  openFilePreview(null, await writePdf(pdfFolder(), title));
+  return { ok: true };
+});
+
+ipcMain.handle('docs:save', async (event, title) => {
+  if (!fromNetfarePage(event)) return { error: 'Not allowed' };
+  const data = await printPdf();
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: path.join(app.getPath('downloads'), config.pdfName(title)),
+    filters: [{ name: 'PDF', extensions: ['pdf'] }],
+  });
+  if (canceled || !filePath) return { canceled: true };
+  fs.writeFileSync(filePath, data);
+  return { saved: path.basename(filePath) };
+});
+
+// On the Mac the system share menu takes the PDF straight to WhatsApp, Mail
+// and the rest. Elsewhere the PDF is saved to Downloads and shown, and the
+// WhatsApp chat or email opens with the message, ready for the file.
+ipcMain.handle('docs:share', async (event, request = {}) => {
+  if (!fromNetfarePage(event)) return { error: 'Not allowed' };
+  const text = String(request.text || '').slice(0, 4000);
+  if (process.platform === 'darwin') {
+    const file = await writePdf(pdfFolder(), request.title);
+    new ShareMenu({ filePaths: [file], texts: text ? [text] : [] }).popup({ window: mainWindow });
+    return { shared: 'menu' };
+  }
+  const file = await writePdf(app.getPath('downloads'), request.title);
+  shell.showItemInFolder(file);
+  if (config.isShareUrl(request.url)) await shell.openExternal(request.url);
+  return { shared: 'file', file: path.basename(file) };
+});
 
 function showSetup(message = '') {
   appOrigin = null;
@@ -332,5 +391,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', () => {
     if (netfareServer) netfareServer.shutdown(0);
+  });
+  app.on('will-quit', () => {
+    try { fs.rmSync(pdfFolder(), { recursive: true, force: true }); } catch { /* already gone */ }
   });
 }

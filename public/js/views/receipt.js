@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { store } from '../store.js';
-import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge, pageRecord } from '../ui.js';
+import { companyMark, esc, fmtDate, fmtMoney, icon, setHeader, statusBadge, pageRecord, printPage } from '../ui.js';
 import { amountInWords } from '../amount-words.js';
 
 // Printable receipt voucher for one customer payment.
@@ -89,5 +89,5 @@ export async function render(container, { params } = {}) {
     </div>
   `;
 
-  document.querySelector('#page-actions [data-action="print"]')?.addEventListener('click', () => window.print());
+  document.querySelector('#page-actions [data-action="print"]')?.addEventListener('click', () => printPage());
 }

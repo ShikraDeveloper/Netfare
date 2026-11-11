@@ -22,7 +22,8 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  pageRecord
+  pageRecord,
+  printPage,
 } from '../ui.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openBillModal } from './bills.js';
@@ -342,7 +343,7 @@ export async function render(container, { params } = {}) {
   }
 
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
-    button.addEventListener('click', () => window.print());
+    button.addEventListener('click', () => printPage());
   });
 
   const editButton = document.querySelector('[data-action="edit"]');

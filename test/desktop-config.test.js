@@ -61,3 +61,15 @@ test('a restore request rides on the restart and is dropped from the next one', 
   assert.equal(config.restoreSource(['exe', ...restart]), '/Users/x/backups/netfare-1.db');
   assert.deepEqual(config.relaunchArgs(['exe', ...restart]), ['--inspect=0'], 'Change setup does not restore again');
 });
+
+test('a document PDF is named after the page, and a share opens only WhatsApp or email', () => {
+  assert.equal(config.pdfName('INV-2026-0014 · Netfare'), 'INV-2026-0014.pdf');
+  assert.equal(config.pdfName('../../etc/passwd'), 'etc-passwd.pdf', 'no folders in the name');
+  assert.equal(config.pdfName(''), 'Netfare.pdf');
+  assert.equal(config.isShareUrl('https://wa.me/971501234567?text=Hello'), true);
+  assert.equal(config.isShareUrl('https://wa.me/?text=Hello'), true);
+  assert.equal(config.isShareUrl('mailto:a@b.ae?subject=x'), true);
+  for (const url of ['https://evil.example/?text=', 'file:///etc/passwd', 'javascript:alert(1)', 'https://wa.me.evil.example/1?text=']) {
+    assert.equal(config.isShareUrl(url), false, url);
+  }
+});

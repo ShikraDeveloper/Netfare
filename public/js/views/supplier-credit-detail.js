@@ -20,7 +20,8 @@ import {
   toCents,
   todayISO,
   voidDialog,
-  pageRecord
+  pageRecord,
+  printPage,
 } from '../ui.js';
 
 export async function render(container, { params } = {}) {
@@ -189,7 +190,7 @@ export async function render(container, { params } = {}) {
   }
 
   bindCorrections(document, (result) => { location.hash = `#/supplier-credits/${result.id}`; });
-  document.querySelectorAll('[data-action="print"]').forEach((button) => button.addEventListener('click', () => window.print()));
+  document.querySelectorAll('[data-action="print"]').forEach((button) => button.addEventListener('click', () => printPage()));
 
   document.querySelectorAll('[data-action="apply"]').forEach((button) => {
     button.addEventListener('click', () => openApply());
