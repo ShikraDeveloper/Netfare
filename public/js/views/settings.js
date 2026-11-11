@@ -133,15 +133,15 @@ export async function render(container) {
                 </div>
                 <div class="field">
                   <label for="bank-name">Bank</label>
-                  <input class="input" id="bank-name" name="bank_name" value="${esc(settings.bank_name || '')}" placeholder="Emirates NBD" maxlength="120">
+                  <input class="input" id="bank-name" name="bank_name" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_name || '')}" placeholder="Emirates NBD" maxlength="120">
                 </div>
                 <div class="field">
                   <label for="bank-account-name">Account name</label>
-                  <input class="input" id="bank-account-name" name="bank_account_name" value="${esc(settings.bank_account_name || '')}" placeholder="Skyline Travels LLC" maxlength="160">
+                  <input class="input" id="bank-account-name" name="bank_account_name" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_account_name || '')}" placeholder="Skyline Travels LLC" maxlength="160">
                 </div>
                 <div class="field full">
                   <label for="bank-iban">IBAN</label>
-                  <input class="input" id="bank-iban" name="bank_iban" value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
+                  <input class="input" id="bank-iban" name="bank_iban" ${store.user?.is_admin ? '' : 'disabled title="Only the admin can change the bank details"'} value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
                 </div>
                 <div class="field full">
                   <label for="invoice-terms">Terms under every invoice</label>

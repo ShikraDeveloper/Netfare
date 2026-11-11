@@ -859,3 +859,18 @@ test('the closing date: only the admin sets it, and nothing posts on or before i
 
   assert.equal((await postAs(cookie, '/api/settings', { books_closed_through: '' }, 'PUT')).data.books_closed_through, '');
 });
+
+test('only the admin can change the bank details printed on invoices, and each change is logged', async () => {
+  const created = await postAs(cookie, '/api/users', { full_name: 'Settings Staff', username: 'setstaff', password: 'set-pass-1', permissions: { settings: 'edit' } });
+  assert.equal(created.status, 201);
+  const staff = await signIn('setstaff', 'set-pass-1');
+  const refused = await postAs(staff.cookie, '/api/settings', { bank_iban: 'AE99 STAFF 0000' }, 'PUT');
+  assert.equal(refused.status, 400);
+  assert.match(String(refused.data.error), /Only the admin/);
+  assert.equal((await postAs(staff.cookie, '/api/settings', { company_phone: '+971 4 000 0000' }, 'PUT')).status, 200, 'staff still edit the rest');
+
+  assert.equal((await postAs(cookie, '/api/settings', { bank_iban: 'AE11 2222 3333' }, 'PUT')).status, 200);
+  const log = await jsonRequest('/api/audit-logs?entity_type=settings', { headers: { Cookie: cookie } });
+  const rows = log.data.rows || log.data;
+  assert.ok(rows.some((row) => /iban: .* → AE11 2222 3333/.test(row.remarks)), 'the IBAN change is in the audit log');
+});

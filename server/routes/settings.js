@@ -77,6 +77,11 @@ router.put('/', (req, res) => {
     bank_iban: body.bank_iban != null ? optionalStr(body.bank_iban, 'IBAN', 42).toUpperCase() : (current.bank_iban || ''),
     invoice_terms: body.invoice_terms != null ? optionalStr(body.invoice_terms, 'Invoice terms', 1000) : (current.invoice_terms || ''),
   };
+  // Customers pay into this account, so only the admin may change it, and
+  // every change is in the audit log.
+  const BANK = ['bank_name', 'bank_account_name', 'bank_iban'];
+  const bankChanged = BANK.filter((key) => printed[key] !== (current[key] || ''));
+  if (bankChanged.length && !req.user?.is_admin) throw bad('Only the admin can change the bank details printed on invoices');
   const printPreparedBy = body.print_prepared_by != null ? (body.print_prepared_by ? 1 : 0) : (current.print_prepared_by ?? 1);
 
   db.prepare(`
@@ -103,6 +108,12 @@ router.put('/', (req, res) => {
   );
 
   db.prepare(`UPDATE settings SET ${Object.keys(printed).map((key) => `${key} = ?`).join(', ')} WHERE id = 1`).run(...Object.values(printed));
+  if (bankChanged.length) {
+    audit.record(db, {
+      entity_type: 'settings', entity_number: 'Bank details', action: 'edit',
+      remarks: bankChanged.map((key) => `${key.replace('bank_', '').replace('_', ' ')}: ${current[key] || '—'} → ${printed[key] || '—'}`).join(' · '),
+    });
+  }
 
   if (closedChanged) {
     db.prepare('UPDATE settings SET books_closed_through = ? WHERE id = 1').run(closed);

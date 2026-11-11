@@ -30,7 +30,7 @@ function creditRow(credit) {
       </td>
       <td>${esc(credit.vendor_name)}</td>
       <td>
-        <div class="cell-main">${credit.bill_number ? `<a href="#/bills/${credit.bill_id}" onclick="event.stopPropagation()">${esc(credit.bill_number)}</a>` : 'Standalone'}</div>
+        <div class="cell-main">${credit.bill_number ? `<a href="#/bills/${credit.bill_id}">${esc(credit.bill_number)}</a>` : 'Standalone'}</div>
         <div class="cell-sub">${esc(credit.booking_number || credit.visa_number || credit.cancellation_number || '')}</div>
       </td>
       <td class="num">${fmtMoney(credit.amount_cents)}</td>

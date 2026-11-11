@@ -87,6 +87,22 @@ function updateJobDetails(db, sourceType, jobId, payload = {}) {
         .run(...Object.values(changed).map((change) => change.after), job.id);
     }
     for (const line of lines) db.prepare(`UPDATE ${config.items} SET ${line.field} = ? WHERE id = ?`).run(line.after, line.id);
+    // A renamed passenger is renamed on the booking's invoice lines too
+    // ("route – name"), so the invoice still finds their ticket number.
+    if (job.invoice_id) {
+      const items = db.prepare('SELECT id, description FROM invoice_items WHERE invoice_id = ?').all(job.invoice_id);
+      for (const change of lines.filter((line) => line.field === 'passenger_name' && line.before && line.after)) {
+        for (const item of items) {
+          const suffix = ` – ${change.before}`;
+          const renamed = item.description === change.before ? change.after
+            : item.description.endsWith(suffix) ? `${item.description.slice(0, -suffix.length)} – ${change.after}` : null;
+          if (renamed) {
+            db.prepare('UPDATE invoice_items SET description = ? WHERE id = ?').run(renamed, item.id);
+            item.description = renamed;
+          }
+        }
+      }
+    }
 
     audit.record(db, {
       entity_type: sourceType,

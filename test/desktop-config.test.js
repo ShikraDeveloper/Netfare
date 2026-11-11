@@ -73,3 +73,9 @@ test('a document PDF is named after the page, and a share opens only WhatsApp or
     assert.equal(config.isShareUrl(url), false, url);
   }
 });
+
+test('a PDF saved to Downloads never replaces a file already there', () => {
+  const taken = new Set(['INV-1.pdf', 'INV-1 (2).pdf']);
+  assert.equal(config.freeName('INV-2.pdf', (name) => taken.has(name)), 'INV-2.pdf');
+  assert.equal(config.freeName('INV-1.pdf', (name) => taken.has(name)), 'INV-1 (3).pdf');
+});

@@ -106,9 +106,14 @@ function printPdf() {
   return mainWindow.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
 }
 
-async function writePdf(folder, title) {
+// In the private folder a PDF is simply replaced; in Downloads a file that is
+// already there is kept and the new one gets "(2)".
+async function writePdf(folder, title, { keepExisting = false } = {}) {
   fs.mkdirSync(folder, { recursive: true, mode: 0o700 });
-  const file = path.join(folder, config.pdfName(title));
+  const name = keepExisting
+    ? config.freeName(config.pdfName(title), (candidate) => fs.existsSync(path.join(folder, candidate)))
+    : config.pdfName(title);
+  const file = path.join(folder, name);
   fs.writeFileSync(file, await printPdf(), { mode: 0o600 });
   return file;
 }
@@ -142,7 +147,7 @@ ipcMain.handle('docs:share', async (event, request = {}) => {
     new ShareMenu({ filePaths: [file], texts: text ? [text] : [] }).popup({ window: mainWindow });
     return { shared: 'menu' };
   }
-  const file = await writePdf(app.getPath('downloads'), request.title);
+  const file = await writePdf(app.getPath('downloads'), request.title, { keepExisting: true });
   shell.showItemInFolder(file);
   if (config.isShareUrl(request.url)) await shell.openExternal(request.url);
   return { shared: 'file', file: path.basename(file) };

@@ -91,3 +91,22 @@ test('the closing date locks an opening balance dated on or before it', () => {
   }
   checksMatch();
 });
+
+test('a portal opening "we owe the supplier" (a bill on the portal) is changed; its payment moves; the supplier\'s own opening is untouched', () => {
+  const portals = require('../server/services/portals');
+  const vendor = party('vendors', 'Portal Owner');
+  partyOpening.forVendor(db, vendor, { direction: 'we_owe', amount_cents: 7_000, as_of: '2026-10-01' });
+  const portal = portals.createPortal(db, { name: 'Credit Portal', portal_type: 'consolidator', settlement: 'credit', vendor_id: vendor.id });
+  let status = partyOpening.setOpening(db, 'portal', portal.id, { opening: { direction: 'we_owe', amount_cents: 30_000, as_of: '2026-10-01' } });
+  assert.equal(status.opening.kind, 'bill');
+  const first = status.opening.id;
+  bills.recordBillPayment(db, first, { amount_cents: 10_000, payment_date: '2026-10-05', method: 'Bank transfer', payment_account_id: account('1010') });
+
+  status = partyOpening.setOpening(db, 'portal', portal.id, { remarks: 'Statement says 350', opening: { direction: 'we_owe', amount_cents: 35_000, as_of: '2026-10-01' } });
+  assert.deepEqual([status.opening.amount_cents, status.opening.used_cents], [35_000, 10_000]);
+  assert.equal(bills.getBill(db, status.opening.id).portal_id, portal.id);
+  assert.equal(bills.getBill(db, first).status, 'void');
+  const own = partyOpening.openingStatus(db, 'vendor', vendor.id).opening;
+  assert.deepEqual([own.kind, own.amount_cents], ['bill', 7_000], "the supplier's own opening bill is a separate one and stays");
+  checksMatch();
+});

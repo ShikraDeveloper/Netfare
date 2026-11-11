@@ -89,6 +89,17 @@ function pdfName(title) {
   return `${base || 'Netfare'}.pdf`;
 }
 
+// A free file name in a folder: "INV-1.pdf", then "INV-1 (2).pdf", and so on,
+// so a file already there is never replaced.
+function freeName(name, exists) {
+  if (!exists(name)) return name;
+  const dot = name.lastIndexOf('.');
+  const [base, ext] = dot > 0 ? [name.slice(0, dot), name.slice(dot)] : [name, ''];
+  let copy = 2;
+  while (exists(`${base} (${copy})${ext}`)) copy += 1;
+  return `${base} (${copy})${ext}`;
+}
+
 // The only addresses a share may open: a WhatsApp chat or a new email.
 function isShareUrl(url) {
   return /^https:\/\/wa\.me\/\d*\?text=/.test(String(url || '')) || /^mailto:/.test(String(url || ''));
@@ -96,6 +107,7 @@ function isShareUrl(url) {
 
 module.exports = {
   pdfName,
+  freeName,
   isShareUrl,
   restoreSource,
   relaunchArgs,

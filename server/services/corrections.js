@@ -13,6 +13,7 @@
 
 const { bad, notFound, str } = require('../util');
 const audit = require('./audit');
+const { moveLinks, firstUse } = require('./document-moves');
 
 const PAYMENT_FIELDS = ['amount_cents', 'payment_date', 'method', 'reference', 'cheque_number', 'cheque_date', 'bank_name', 'bank_charges_cents'];
 
@@ -263,10 +264,6 @@ const DOCUMENTS = {
     date: 'issue_date',
     fields: ['customer_id', 'issue_date', 'due_date', 'notes', 'terms', 'beneficiary_is_customer', 'beneficiary_name', 'beneficiary_nationality', 'beneficiary_passport'],
     items: 'invoice_items',
-    moves: [
-      ['payments', 'invoice_id', "status = 'posted'"], ['credit_applications', 'invoice_id', '1 = 1'],
-      ['refunds', 'invoice_id', '1 = 1'], ['visa_deposit_events', 'invoice_id', '1 = 1'],
-    ],
     post: (db, values) => require('./invoices').createInvoice(db, { ...values, status: 'sent' }),
     get: (db, id) => require('./invoices').getInvoice(db, id),
   },
@@ -277,10 +274,6 @@ const DOCUMENTS = {
     date: 'bill_date',
     fields: ['vendor_id', 'bill_date', 'due_date', 'notes'],
     items: 'bill_items',
-    moves: [
-      ['bill_payments', 'bill_id', "status = 'posted'"], ['supplier_credit_applications', 'bill_id', '1 = 1'],
-      ['supplier_credit_notes', 'bill_id', '1 = 1'], ['refunds', 'bill_id', '1 = 1'],
-    ],
     post: (db, values) => require('./bills').createBill(db, { ...values, status: 'received' }),
     get: (db, id) => require('./bills').getBill(db, id),
   },
@@ -320,9 +313,7 @@ function correctDocument(db, kind, id, payload = {}) {
     if (created.total_cents < settled) {
       throw bad(`The new total (${(created.total_cents / 100).toFixed(2)}) is less than what was paid or credited on ${old.number} (${(settled / 100).toFixed(2)}). Refund or void a payment first.`);
     }
-    for (const [table, column, which] of config.moves) {
-      db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ? AND ${which}`).run(created.id, old.id);
-    }
+    moveLinks(db, kind, old.id, created.id);
     db.prepare(`UPDATE ${config.table} SET amount_paid_cents = ?, credit_applied_cents = ?, updated_at = datetime('now') WHERE id = ?`)
       .run(old.amount_paid_cents, old.credit_applied_cents, created.id);
     audit.record(db, {
@@ -352,7 +343,6 @@ const CREDITS = {
     entity: 'credit_note',
     fields: ['credit_date', 'amount_cents', 'notes', 'revenue_account_id'],
     used: (row) => row.applied_cents + row.refunded_cents,
-    moves: [['credit_applications', 'credit_note_id', 'applied_date'], ['refunds', 'credit_note_id', 'refund_date', "status = 'paid'"]],
     check(db, row, values) {
       for (const column of ['booking_id', 'visa_id']) {
         if (!row[column]) continue;
@@ -382,11 +372,6 @@ const CREDITS = {
     entity: 'supplier_credit',
     fields: ['credit_date', 'amount_cents', 'notes'],
     used: (row) => row.applied_cents + row.refunded_cents + row.portal_settled_cents,
-    moves: [
-      ['supplier_credit_applications', 'credit_note_id', 'applied_date'],
-      ['refunds', 'supplier_credit_note_id', 'refund_date', "status = 'paid'"],
-      ['portal_credits', 'supplier_credit_note_id', 'credit_date', "status = 'posted'"],
-    ],
     post(db, row, values) {
       const amount = Number(values.amount_cents);
       const old = db.prepare('SELECT description, amount_cents, account_id FROM supplier_credit_items WHERE credit_note_id = ? ORDER BY sort_order, id').all(row.id);
@@ -434,10 +419,8 @@ function correctCredit(db, kind, id, payload = {}) {
       throw bad(`The new amount (${money(values.amount_cents)}) is less than what was already used from ${old.number} (${money(used)}). Void that first.`);
     }
     // Only uses still in force count; a voided refund no longer uses the credit.
-    for (const [table, column, dateColumn, live = '1 = 1'] of config.moves) {
-      const first = db.prepare(`SELECT MIN(${dateColumn}) AS date FROM ${table} WHERE ${column} = ? AND ${live}`).get(old.id).date;
-      if (first && values.credit_date > first) throw bad(`The date cannot be after ${first}, when ${old.number} was first used`);
-    }
+    const first = firstUse(db, kind, old.id);
+    if (first && values.credit_date > first) throw bad(`The date cannot be after ${first}, when ${old.number} was first used`);
     config.check?.(db, old, values);
 
     let voidEntryId = null;
@@ -447,7 +430,7 @@ function correctCredit(db, kind, id, payload = {}) {
     db.prepare(`UPDATE ${config.table} SET status = 'void', void_entry_id = ?, applied_cents = 0, refunded_cents = 0${kind === 'supplier_credit' ? ', portal_settled_cents = 0' : ''} WHERE id = ?`)
       .run(voidEntryId, old.id);
     const created = config.post(db, old, values);
-    for (const [table, column] of config.moves) db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`).run(created.id, old.id);
+    moveLinks(db, kind, old.id, created.id);
     config.settle(db, old, created.id);
 
     audit.record(db, {

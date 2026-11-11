@@ -17,6 +17,7 @@ const { assertOpenDate, postEntry, reverseEntry, systemAccount, SYSTEM_CODES } =
 const { markCreated } = require('../created-by');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
+const { moveLinks, firstUse } = require('./document-moves');
 
 const DESCRIPTION = 'Opening balance';
 const DIRECTIONS = ['they_owe', 'we_owe'];
@@ -205,36 +206,31 @@ const DOCUMENTS = {
   invoice: {
     table: 'invoices', date: 'issue_date',
     used: (row) => row.amount_paid_cents + row.credit_applied_cents,
-    moves: [['payments', 'invoice_id', 'payment_date', "status = 'posted'"], ['credit_applications', 'invoice_id', 'applied_date', '1 = 1'], ['refunds', 'invoice_id', 'refund_date', "status = 'paid'"]],
     settle: 'amount_paid_cents = ?, credit_applied_cents = ?', settled: (row) => [row.amount_paid_cents, row.credit_applied_cents],
     retire: "status = 'void', amount_paid_cents = 0, credit_applied_cents = 0",
   },
   credit_note: {
     table: 'credit_notes', date: 'credit_date',
     used: (row) => row.applied_cents + row.refunded_cents,
-    moves: [['credit_applications', 'credit_note_id', 'applied_date', '1 = 1'], ['refunds', 'credit_note_id', 'refund_date', "status = 'paid'"]],
     settle: 'applied_cents = ?, refunded_cents = ?', settled: (row) => [row.applied_cents, row.refunded_cents],
     retire: "status = 'void', applied_cents = 0, refunded_cents = 0",
   },
   bill: {
     table: 'bills', date: 'bill_date',
     used: (row) => row.amount_paid_cents + row.credit_applied_cents,
-    moves: [['bill_payments', 'bill_id', 'payment_date', "status = 'posted'"], ['supplier_credit_applications', 'bill_id', 'applied_date', '1 = 1'],
-      ['supplier_credit_notes', 'bill_id', 'credit_date', "status = 'issued'"], ['refunds', 'bill_id', 'refund_date', "status = 'paid'"]],
     settle: 'amount_paid_cents = ?, credit_applied_cents = ?', settled: (row) => [row.amount_paid_cents, row.credit_applied_cents],
     retire: "status = 'void', amount_paid_cents = 0, credit_applied_cents = 0",
   },
   supplier_credit: {
     table: 'supplier_credit_notes', date: 'credit_date',
     used: (row) => row.applied_cents + row.refunded_cents + row.portal_settled_cents,
-    moves: [['supplier_credit_applications', 'credit_note_id', 'applied_date', '1 = 1'], ['refunds', 'supplier_credit_note_id', 'refund_date', "status = 'paid'"], ['portal_credits', 'supplier_credit_note_id', 'credit_date', "status = 'posted'"]],
     settle: 'applied_cents = ?, refunded_cents = ?, portal_settled_cents = ?', settled: (row) => [row.applied_cents, row.refunded_cents, row.portal_settled_cents],
     retire: "status = 'void', applied_cents = 0, refunded_cents = 0, portal_settled_cents = 0",
   },
 };
 
 DOCUMENTS.portal_topup = {
-  table: 'portal_topups', date: 'topup_date', used: () => 0, moves: [],
+  table: 'portal_topups', date: 'topup_date', used: () => 0,
   settle: null, settled: () => [],
   retire: "status = 'void', voided_at = datetime('now')",
 };
@@ -323,10 +319,8 @@ function setOpening(db, kind, partyId, payload = {}) {
         if (opening.amount < used) {
           throw bad(`The new amount (${(opening.amount / 100).toFixed(2)}) is less than what was already paid or used on ${old.row.number} (${(used / 100).toFixed(2)}). Void a payment first.`);
         }
-        for (const [table, column, dateColumn, live] of doc.moves) {
-          const first = db.prepare(`SELECT MIN(${dateColumn}) AS date FROM ${table} WHERE ${column} = ? AND ${live}`).get(old.row.id).date;
-          if (first && opening.date > first) throw bad(`The date cannot be after ${first}, when ${old.row.number} was first paid or used`);
-        }
+        const first = firstUse(db, old.docKind, old.row.id);
+        if (first && opening.date > first) throw bad(`The date cannot be after ${first}, when ${old.row.number} was first paid or used`);
       }
     }
     if (opening) assertOpenDate(db, opening.date);
@@ -346,7 +340,7 @@ function setOpening(db, kind, partyId, payload = {}) {
     const created = opening ? party.make[newKind](db, record_, opening) : null;
     if (old && created && newKind === old.docKind) {
       const doc = DOCUMENTS[old.docKind];
-      for (const [table, column] of doc.moves) db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`).run(created.id, old.row.id);
+      moveLinks(db, old.docKind, old.row.id, created.id);
       if (doc.settle) db.prepare(`UPDATE ${doc.table} SET ${doc.settle} WHERE id = ?`).run(...doc.settled(old.row), created.id);
     }
     if (party.wallet) require('./portals/common').assertWalletNotLower(db, record_.id, walletBefore);

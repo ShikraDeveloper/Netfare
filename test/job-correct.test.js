@@ -146,3 +146,24 @@ test('edit details: dates, PNR and passenger names change with no money moved; l
   assert.throws(() => updateJobDetails(db, 'booking', booking.id, { travel_date: '2026-12-20' }), /Return date cannot be before/);
   assert.throws(() => updateJobDetails(db, 'booking', booking.id, { items: [{ id: 999_999, passenger_name: 'X' }] }), /not on this booking/);
 });
+
+test('edit details: the invoice keeps each passenger and ticket after the route or a name changes', () => {
+  const { updateJobDetails } = require('../server/services/job-details');
+  const vendor = party('vendors', 'Ticket Air');
+  const pax = (name, group) => ({ description: name, passenger_name: name, line_group: group, quantity: 1 });
+  const booking = bookings.createBooking(db, {
+    customer_id: party('customers', 'Tickets Kept'), booking_date: '2026-11-01', travel_date: '2026-11-20', destination: 'Dubai–London', pnr: 'K7QX2M',
+    sale_items: [{ ...pax('Ali Khan', 1), unit_price_cents: 30_000, account_id: account('4000') }, { ...pax('Mali Khan', 2), unit_price_cents: 30_000, account_id: account('4000') }],
+    cost_items: [{ ...pax('Ali Khan', 1), unit_price_cents: 25_000, account_id: account('5000'), vendor_id: vendor, supplier_ref: '176-2401234567' }, { ...pax('Mali Khan', 2), unit_price_cents: 25_000, account_id: account('5000'), vendor_id: vendor }],
+  });
+  const confirmed = bookings.confirmBooking(db, booking.id, {});
+  const rows = () => invoices.getInvoice(db, confirmed.invoice_id).items.map((item) => [item.passenger_name, item.ticket_no]);
+  assert.deepEqual(rows(), [['Ali Khan', '176-2401234567'], ['Mali Khan', '']]);
+
+  updateJobDetails(db, 'booking', booking.id, { destination: 'Dubai–London return' });
+  assert.deepEqual(rows(), [['Ali Khan', '176-2401234567'], ['Mali Khan', '']], 'a new route keeps the passengers');
+
+  const aliLines = db.prepare("SELECT id FROM booking_items WHERE booking_id = ? AND passenger_name = 'Ali Khan'").all(booking.id);
+  updateJobDetails(db, 'booking', booking.id, { items: aliLines.map((line) => ({ id: line.id, passenger_name: 'Ali Raza Khan' })) });
+  assert.deepEqual(rows(), [['Ali Raza Khan', '176-2401234567'], ['Mali Khan', '']], 'a renamed passenger keeps the ticket; a similar name is untouched');
+});

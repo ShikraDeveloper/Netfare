@@ -15,6 +15,7 @@ const { bad, notFound, str } = require('../util');
 const { reverseEntry } = require('../accounting');
 const { reverseOnOriginalDate } = require('./corrections');
 const audit = require('./audit');
+const { moveLinks } = require('./document-moves');
 const jobs = require('./jobs');
 
 const JOBS = {
@@ -48,21 +49,6 @@ function retire(db, table, row, dateField, reason) {
   }
   db.prepare(`UPDATE ${table} SET status = 'void', amount_paid_cents = 0, credit_applied_cents = 0, updated_at = datetime('now') WHERE id = ?`).run(row.id);
 }
-
-function move(db, moves, fromId, toId) {
-  for (const [table, column, which] of moves) {
-    db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ? AND ${which}`).run(toId, fromId);
-  }
-}
-
-const INVOICE_MOVES = [
-  ['payments', 'invoice_id', "status = 'posted'"], ['credit_applications', 'invoice_id', '1 = 1'],
-  ['refunds', 'invoice_id', '1 = 1'], ['visa_deposit_events', 'invoice_id', '1 = 1'],
-];
-const BILL_MOVES = [
-  ['bill_payments', 'bill_id', "status = 'posted'"], ['supplier_credit_applications', 'bill_id', '1 = 1'],
-  ['supplier_credit_notes', 'bill_id', '1 = 1'], ['refunds', 'bill_id', '1 = 1'],
-];
 
 const money = (cents) => (cents / 100).toFixed(2);
 
@@ -103,7 +89,7 @@ function correctJob(db, sourceType, jobId, payload = {}) {
     if (created.total_cents < invoiceSettled) {
       throw bad(`The new total (${money(created.total_cents)}) is less than what was paid or credited on ${invoice.number} (${money(invoiceSettled)}). Refund or void a payment first.`);
     }
-    move(db, INVOICE_MOVES, invoice.id, created.id);
+    moveLinks(db, 'invoice', invoice.id, created.id);
     db.prepare('UPDATE invoices SET amount_paid_cents = ?, credit_applied_cents = ? WHERE id = ?')
       .run(invoice.amount_paid_cents, invoice.credit_applied_cents, created.id);
 
@@ -124,7 +110,7 @@ function correctJob(db, sourceType, jobId, payload = {}) {
       if (target.total_cents < settled) {
         throw bad(`The new cost for bill ${old.number} (${money(target.total_cents)}) is less than what was paid or credited (${money(settled)}). Void a payment first.`);
       }
-      move(db, BILL_MOVES, old.id, target.id);
+      moveLinks(db, 'bill', old.id, target.id);
       db.prepare('UPDATE bills SET amount_paid_cents = amount_paid_cents + ?, credit_applied_cents = credit_applied_cents + ? WHERE id = ?')
         .run(old.amount_paid_cents, old.credit_applied_cents, target.id);
     }

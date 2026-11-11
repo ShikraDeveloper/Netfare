@@ -115,12 +115,13 @@ function attachBookingDetails(db, invoice) {
     refs.push(line.supplier_ref.trim());
     tickets.set(line.passenger_name, refs);
   }
-  const label = String(booking.booking_destination || '').trim();
   const passengers = [...new Set(lines.map((line) => line.passenger_name))];
   invoice.booking_passenger_count = passengers.length;
+  // A passenger line reads "route – name". Only the name is matched, so the
+  // route can change later (Edit details) without losing the passenger.
   invoice.booking_ticket_lookup = (description) => {
     const name = passengers.find((passenger) => description === passenger
-      || description === [label, passenger].filter(Boolean).join(' – '));
+      || description.endsWith(` – ${passenger}`));
     return name ? { passenger_name: name, ticket_no: (tickets.get(name) || []).join(', ') } : null;
   };
   return Object.assign(invoice, booking);
