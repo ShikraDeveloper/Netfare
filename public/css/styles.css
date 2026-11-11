@@ -501,7 +501,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dsr-report .dsr-table th { white-space: nowrap; }
 @page dsr {
   size: A4 portrait; margin: 12mm 10mm 14mm;
-  @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #888; }
+  @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #888; }
 }
 .badge-prepaid { background: var(--green-soft); color: var(--green); }
 .badge-credit { background: var(--amber-soft); color: var(--amber); }
@@ -1531,7 +1531,9 @@ tr.open .statement-extra-wrap, .show-details .statement-extra-wrap { display: bl
   .dsr-pay { background: #fff; font-size: 7.5px; padding: 0 4px; }
   a { color: inherit !important; text-decoration: none !important; }
   .doc-items thead { display: table-header-group; }
-  .doc-items tr, .doc-parties, .doc-visa-applicant, .doc-total-area, .doc-foot { page-break-inside: avoid; }
+  .doc-items tr, .doc-parties, .doc-visa-applicant, .doc-total-area, .doc-foot, .doc-howto, .doc-terms-foot { page-break-inside: avoid; }
+  /* Tighter rows on paper: about 20 passengers fit on the first page. */
+  .doc-items td { padding-top: 6px; padding-bottom: 6px; }
   .doc-items td, .doc-items th { border-color: #d8dbe2; }
   .doc-items th { background: #f3f4f7 !important; }
   .doc-visa-applicant { background: #f8f9fc !important; border-color: #d8dbe2; }
@@ -1557,7 +1559,10 @@ tr.open .statement-extra-wrap, .show-details .statement-extra-wrap { display: bl
   .recon-table tr { page-break-inside: avoid; }
   .table-wrap { overflow: visible !important; }
   .recon-foot { display: block; }
-  @page { size: A4 portrait; margin: 14mm 15mm; }
+  @page {
+    size: A4 portrait; margin: 14mm 15mm;
+    @bottom-right { content: "Page " counter(page) " of " counter(pages); font-size: 7.5pt; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #999; }
+  }
 }
 
 .sr-only {
