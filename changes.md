@@ -3334,6 +3334,16 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **The state machine plan is done:** step 1 (`14653e2`), step 2 (`0845bda`), step 3 (`78828c7`), step 4 (this). Not covered on purpose: post-dated cheques, compliance items, reminders and the desktop setup states.
 - **Not pushed or released.**
 
+### Sixth audit fixes: allowed_actions keeps its promise — code commit `8ef10cf`
+
+- **Why:** `/ponytail-audit` of the state rules found 3 things; the user said "Haan, teeno fix karo".
+- **1. Mark travelled (`workflows.js`, `booking-detail.js`):** `allowed_actions` listed `travel` before the travel date, but the server refuses it then (BK-2026-0010 on the demo). The rule now has `when` + condition "on or after the travel date". The page no longer checks the date itself: a confirmed booking that may not travel yet shows the button greyed out with "Available from the travel date (…)", as before.
+- **2. Void of a visa with a deposit (`workflows.js`, `visas.js`):** every visa now carries `holds_deposit` (any non-void deposit, the same test `job-void.js` uses). The void rule refuses while it is set, so VIS-2026-0006 (deposit SD-2026-0001) no longer offers Void.
+- **3. Visa page (`visa-detail.js`):** the extra `!visa.cancellation` on Correct and Void is gone; an active cancellation note always means the visa is cancelled, which already removes them.
+- **Checked on the demo:** BK-2026-0010 lists no `travel` and shows the greyed button with the date; VIS-2026-0006 lists no `void` and has no Void button.
+- **Tests:** `test/workflows.test.js` (failed before the fix). `npm test` 359 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
