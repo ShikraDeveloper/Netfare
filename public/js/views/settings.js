@@ -124,7 +124,7 @@ export async function render(container) {
                   <textarea class="input" id="company-address" name="company_address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(settings.company_address)}</textarea>
                 </div>
                 <div class="field full">
-                  <label for="company-logo">Logo on invoices and receipts</label>
+                  <label for="company-logo">Logo on invoices and receipts <span class="label-note">· best: PNG, transparent background, 480 × 160 px (3 : 1), under 300 KB</span></label>
                   <div class="logo-field">
                     <img class="logo-preview" data-logo-preview alt="Company logo" ${settings.company_logo ? `src="${esc(settings.company_logo)}"` : 'hidden'}>
                     <input class="input" id="company-logo" type="file" accept="image/png,image/jpeg,image/webp">
