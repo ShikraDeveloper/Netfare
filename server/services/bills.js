@@ -10,6 +10,7 @@ const {
   dateISO,
   todayISO,
 } = require('../util');
+const workflows = require('../workflows');
 const {
   systemAccount,
   isCashAccount,
@@ -40,6 +41,7 @@ function serializeBill(bill, today = todayISO()) {
     ...bill,
     status_display: billDisplayStatus(bill, today),
     balance_cents: billBalanceCents(bill),
+    allowed_actions: workflows.allowedActions('bill', bill),
   };
 }
 
@@ -240,7 +242,7 @@ function updateBill(db, id, payload) {
   return db.transaction(() => {
     const existing = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
     if (!existing) throw notFound('Bill not found');
-    if (existing.status !== 'draft') throw bad('Only draft bills can be edited');
+    workflows.assertCan('bill', 'edit', existing);
     const vendor = assertVendor(db, payload.vendor_id ?? existing.vendor_id);
     const billDate = dateISO(payload.bill_date ?? existing.bill_date, 'Bill date');
     const dueDate = dateISO(payload.due_date ?? existing.due_date, 'Due date');
@@ -272,7 +274,7 @@ function finalizeBill(db, id) {
   return db.transaction(() => {
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
     if (!bill) throw notFound('Bill not found');
-    if (bill.status !== 'draft') throw bad('Only draft bills can be finalized');
+    workflows.assertCan('bill', 'finalize', bill);
     const items = db.prepare('SELECT * FROM bill_items WHERE bill_id = ? ORDER BY sort_order, id').all(id);
     if (!items.length) throw bad('Add line items before finalizing');
     const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(bill.vendor_id);
@@ -363,7 +365,7 @@ function deleteBill(db, id) {
   return db.transaction(() => {
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
     if (!bill) throw notFound('Bill not found');
-    if (bill.status !== 'draft') throw bad('Only draft bills can be deleted. Void it instead.');
+    workflows.assertCan('bill', 'delete', bill);
     db.prepare("DELETE FROM attachments WHERE entity_type = 'bill' AND entity_id = ?").run(id);
     db.prepare('DELETE FROM bills WHERE id = ?').run(id);
     return { deleted: true };
@@ -374,7 +376,7 @@ function recordBillPayment(db, billId, payload) {
   return db.transaction(() => {
     const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(billId);
     if (!bill) throw notFound('Bill not found');
-    if (bill.status !== 'received') throw bad('Payments can only be recorded against received bills');
+    workflows.assertCan('bill', 'record_payment', bill);
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
     const balance = billBalanceCents(bill);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);

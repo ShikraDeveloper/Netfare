@@ -129,11 +129,9 @@ export async function render(container, { params } = {}) {
   const settings = store.settings || {};
   const company = settings.company_name || 'My Company';
   const isDraft = bill.status === 'draft';
-  const canRecordPayment = bill.status === 'received' && bill.balance_cents > 0;
   // Booking and visa bills are part of the job: adjust them with a supplier
   // credit or by cancelling the job, never by voiding the bill directly.
   const isJobBill = Boolean(bill.booking_id || bill.visa_id);
-  const canVoid = bill.status === 'received' && !isJobBill;
   const canCreditJobBill = bill.status === 'received' && isJobBill;
 
   // One main action; everything else is in the More menu.
@@ -146,25 +144,20 @@ export async function render(container, { params } = {}) {
     menu.push(`<a class="btn btn-ghost" href="#/visas/${bill.visa_id}">${icon('visa', 15)}<span>Visa</span></a>`);
   }
   menu.push(`<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
-  if (isDraft) {
-    actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
-    menu.push(`<button class="btn btn-danger-ghost" data-action="delete">${icon('trash', 15)}<span>Delete draft</span></button>`);
-    actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Receive &amp; post</span></button>`);
-  } else if (canRecordPayment) {
-    actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
-  }
+  // Which moves the bill allows comes from the server (server/workflows.js).
+  const allowed = new Set(bill.allowed_actions || []);
+  if (allowed.has('edit')) actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
+  if (allowed.has('delete')) menu.push(`<button class="btn btn-danger-ghost" data-action="delete">${icon('trash', 15)}<span>Delete draft</span></button>`);
+  if (allowed.has('finalize')) actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Receive &amp; post</span></button>`);
+  if (allowed.has('record_payment')) actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
   // Booking and visa bills are adjusted with a supplier credit or by cancelling the job.
   if (canCreditJobBill) {
     menu.push(`<a class="btn btn-ghost" href="#/supplier-credits?new=1&bill=${bill.id}" data-action="supplier-credit">${icon('invoice', 15)}<span>Supplier credit</span></a>`);
   }
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/bill/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   menu.push(`<a class="btn btn-ghost" href="#/bills"><span>All bills</span></a>`);
-  if (canVoid && !bill.is_opening) {
-    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
-  }
-  if (canVoid) {
-    menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
-  }
+  if (allowed.has('correct')) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
+  if (allowed.has('void')) menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   pageRecord(bill);
   setHeader({
     title: bill.number,

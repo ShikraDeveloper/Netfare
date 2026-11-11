@@ -12,6 +12,7 @@ const {
   maskPassport,
   isTruthy,
 } = require('../util');
+const workflows = require('../workflows');
 const {
   systemAccount,
   isCashAccount,
@@ -43,6 +44,7 @@ function serializeInvoice(invoice, today = todayISO()) {
     beneficiary_passport_masked: maskPassport(passport),
     status_display: invoiceDisplayStatus(invoice, today),
     balance_cents: invoiceBalanceCents(invoice),
+    allowed_actions: workflows.allowedActions('invoice', invoice),
   };
 }
 
@@ -390,7 +392,7 @@ function updateInvoice(db, id, payload) {
   return db.transaction(() => {
     const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!existing) throw notFound('Invoice not found');
-    if (existing.status !== 'draft') throw bad('Only draft invoices can be edited');
+    workflows.assertCan('invoice', 'edit', existing);
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
     const issueDate = dateISO(payload.issue_date ?? existing.issue_date, 'Issue date');
     const dueDate = dateISO(payload.due_date ?? existing.due_date, 'Due date');
@@ -433,7 +435,7 @@ function updateInvoice(db, id, payload) {
 function setPaymentLink(db, id, payload = {}) {
   const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
   if (!invoice) throw notFound('Invoice not found');
-  if (invoice.status === 'void') throw bad('This invoice is void');
+  workflows.assertCan('invoice', 'payment_link', invoice);
   const link = optionalStr(payload.payment_link, 'Payment link', 500);
   if (link && !/^https:\/\/[^\s]+$/i.test(link)) throw bad('The payment link must start with https:// and have no spaces');
   db.prepare("UPDATE invoices SET payment_link = ?, updated_at = datetime('now') WHERE id = ?").run(link, id);
@@ -444,7 +446,7 @@ function finalizeInvoice(db, id) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!invoice) throw notFound('Invoice not found');
-    if (invoice.status !== 'draft') throw bad('Only draft invoices can be finalized');
+    workflows.assertCan('invoice', 'finalize', invoice);
     const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id').all(id);
     if (!items.length) throw bad('Add line items before finalizing');
     // Drafts saved before this rule may still use a ticket or visa account.
@@ -566,7 +568,7 @@ function deleteInvoice(db, id) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
     if (!invoice) throw notFound('Invoice not found');
-    if (invoice.status !== 'draft') throw bad('Only draft invoices can be deleted. Void it instead.');
+    workflows.assertCan('invoice', 'delete', invoice);
     db.prepare("DELETE FROM attachments WHERE entity_type = 'invoice' AND entity_id = ?").run(id);
     db.prepare('DELETE FROM invoices WHERE id = ?').run(id);
     return { deleted: true };
@@ -577,7 +579,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
   return db.transaction(() => {
     const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
     if (!invoice) throw notFound('Invoice not found');
-    if (invoice.status !== 'sent') throw bad('Payments can only be recorded against sent invoices');
+    workflows.assertCan('invoice', 'record_payment', invoice);
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
     const balance = invoiceBalanceCents(invoice);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);

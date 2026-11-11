@@ -134,6 +134,7 @@ function getBooking(db, id) {
       ...advance,
       status_display: voided ? 'void' : advance.status,
       voided,
+      allowed_actions: workflows.allowedActions('advance', advance),
       remaining_cents: voided
         ? 0
         : Math.max(0, advance.amount_cents - advance.applied_cents - advance.refunded_cents),

@@ -71,11 +71,11 @@ function advanceRows(advances) {
         <td class="num">${fmtMoney(advance.applied_cents)}</td>
         <td class="num">${fmtMoney(advance.refunded_cents)}</td>
         <td class="num amount-ok">${fmtMoney(advance.remaining_cents)}</td>
-        <td class="nowrap">${advance.remaining_cents > 0 ? `
-          <button class="btn btn-ghost btn-sm" data-advance-apply="${advance.id}">Use for invoice</button>
+        <td class="nowrap">${advance.allowed_actions.includes('apply') ? `
+          <button class="btn btn-ghost btn-sm" data-advance-apply="${advance.id}">Use for invoice</button>` : ''}${advance.allowed_actions.includes('refund') ? `
           <button class="btn btn-ghost btn-sm" data-advance-refund="${advance.id}">Refund</button>` : ''}
-          ${!advance.applied_cents && !advance.refunded_cents && !advance.is_receipt ? correctButtonHtml('advance', advance) : ''}
-          <button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance" aria-label="Void ${esc(advance.number)}">${icon('trash', 16)}</button></td>
+          ${advance.allowed_actions.includes('correct') ? correctButtonHtml('advance', advance) : ''}
+          ${advance.allowed_actions.includes('void') ? `<button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance" aria-label="Void ${esc(advance.number)}">${icon('trash', 16)}</button>` : ''}</td>
       </tr>
     `;
   }).join('');

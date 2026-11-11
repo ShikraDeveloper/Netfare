@@ -2,6 +2,7 @@
 
 const { notFound, todayISO } = require('../util');
 const { invoiceDisplayStatus } = require('../accounting');
+const workflows = require('../workflows');
 
 // Every balance here is derived from the live accounting documents. Nothing is
 // cached, so the page always agrees with the ledger after a refund, credit,
@@ -132,7 +133,7 @@ function customerAdvances(db, customerId) {
       AND NOT (a.is_receipt = 1 AND a.amount_cents <= a.applied_cents + a.refunded_cents)
     -- Used advances too, so the admin can still void or check them here.
     ORDER BY (a.amount_cents > a.applied_cents + a.refunded_cents) DESC, a.advance_date, a.id
-  `).all(customerId);
+  `).all(customerId).map((advance) => ({ ...advance, allowed_actions: workflows.allowedActions('advance', advance) }));
 }
 
 function cancellationRefunds(db, customerId) {

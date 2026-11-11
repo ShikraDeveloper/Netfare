@@ -14,6 +14,7 @@ const {
 const { markCreated } = require('../created-by');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
+const workflows = require('../workflows');
 
 const ADVANCE_ACCOUNT = '2400';
 const AR_ACCOUNT = '1100';
@@ -37,6 +38,7 @@ function serializeAdvance(advance) {
     status_display: advance.voided_at ? 'void' : advance.status,
     voided: Boolean(advance.voided_at),
     remaining_cents: remainingCents(advance),
+    allowed_actions: workflows.allowedActions('advance', advance),
   };
 }
 

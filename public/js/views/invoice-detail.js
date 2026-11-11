@@ -438,12 +438,10 @@ export async function render(container, { params } = {}) {
   const company = settings.company_name || 'My Company';
   const isDraft = invoice.status === 'draft';
   const isVoid = invoice.status === 'void';
-  const canRecordPayment = invoice.status === 'sent' && invoice.balance_cents > 0;
   // Booking, visa and cancellation invoices are reversed through their own
   // workflow so receipts, charges and supplier bills stay consistent.
   const isCancellationInvoice = Boolean(invoice.cancellation_id);
   const jobType = isCancellationInvoice ? null : invoice.booking_id ? 'booking' : invoice.visa_id ? 'visa' : null;
-  const canVoid = invoice.status === 'sent' && !jobType && !isCancellationInvoice;
 
   // One main action; everything else is in the More menu.
   const actions = [];
@@ -467,24 +465,19 @@ export async function render(container, { params } = {}) {
     menu.push(`<a class="btn btn-ghost" href="#/credits?new=1&customer=${invoice.customer_id}">${icon('invoice', 15)}<span>Credit note</span></a>`);
   }
   menu.push(`<button class="btn btn-ghost" data-action="print">${icon('print', 15)}<span>Print</span></button>`);
-  if (isDraft) {
-    actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
-    menu.push(`<button class="btn btn-danger-ghost" data-action="delete">${icon('trash', 15)}<span>Delete draft</span></button>`);
-    actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Send &amp; post</span></button>`);
-  } else if (canRecordPayment) {
-    actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
-  }
-  if (!isVoid) {
+  // Which moves the invoice allows comes from the server (server/workflows.js).
+  const allowed = new Set(invoice.allowed_actions || []);
+  if (allowed.has('edit')) actions.push(`<button class="btn btn-secondary" data-action="edit">${icon('edit', 15)}<span>Edit</span></button>`);
+  if (allowed.has('delete')) menu.push(`<button class="btn btn-danger-ghost" data-action="delete">${icon('trash', 15)}<span>Delete draft</span></button>`);
+  if (allowed.has('finalize')) actions.push(`<button class="btn btn-primary" data-action="finalize">${icon('check', 15)}<span>Send &amp; post</span></button>`);
+  if (allowed.has('record_payment')) actions.push(`<button class="btn btn-primary" data-action="payment">${icon('plus', 15)}<span>Record payment</span></button>`);
+  if (allowed.has('payment_link')) {
     menu.push(`<button class="btn btn-ghost" data-action="payment-link">${icon('send', 15)}<span>${invoice.payment_link ? 'Change payment link' : 'Add payment link'}</span></button>`);
   }
   menu.push(`<a class="btn btn-ghost" href="#/audit-chain/invoice/${id}">${icon('shield', 15)}<span>Audit chain</span></a>`);
   menu.push(`<a class="btn btn-ghost" href="#/invoices"><span>All invoices</span></a>`);
-  if (canVoid && !invoice.is_opening) {
-    menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
-  }
-  if (canVoid) {
-    menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
-  }
+  if (allowed.has('correct')) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
+  if (allowed.has('void')) menu.push(`<button class="btn btn-danger-ghost" data-action="void"><span>Void</span></button>`);
   if (invoice.status === 'sent' && jobType) {
     menu.push(`<a class="btn btn-danger-ghost" href="#/${jobType === 'booking' ? 'bookings' : 'visas'}/${jobType === 'booking' ? invoice.booking_id : invoice.visa_id}" data-action="cancel-job" title="This invoice belongs to a ${jobType === 'booking' ? 'booking' : 'visa application'}. Cancel the job to reverse it.">${icon('x', 15)}<span>Cancel ${jobType === 'booking' ? 'booking' : 'visa'}</span></a>`);
   }

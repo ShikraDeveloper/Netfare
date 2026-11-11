@@ -40,6 +40,35 @@ const EXPECTED = {
   },
 };
 
+// Invoices, bills and advances: what the screens offered before, by record.
+const DOCUMENTS = [
+  ['invoice', { status: 'draft', total_cents: 100 }, ['edit', 'delete', 'finalize', 'payment_link']],
+  ['invoice', { status: 'sent', total_cents: 100 }, ['record_payment', 'payment_link', 'correct', 'void']],
+  ['invoice', { status: 'sent', total_cents: 100, amount_paid_cents: 60, credit_applied_cents: 40 }, ['payment_link', 'correct', 'void']],
+  ['invoice', { status: 'sent', total_cents: 100, booking_id: 1 }, ['record_payment', 'payment_link']],
+  ['invoice', { status: 'sent', total_cents: 100, visa_id: 1, cancellation_id: 2 }, ['record_payment', 'payment_link']],
+  ['invoice', { status: 'sent', total_cents: 100, is_opening: 1 }, ['record_payment', 'payment_link', 'void']],
+  ['invoice', { status: 'void', total_cents: 100 }, []],
+  ['bill', { status: 'draft', total_cents: 100 }, ['edit', 'delete', 'finalize']],
+  ['bill', { status: 'received', total_cents: 100 }, ['record_payment', 'correct', 'void']],
+  ['bill', { status: 'received', total_cents: 100, amount_paid_cents: 100 }, ['correct', 'void']],
+  ['bill', { status: 'received', total_cents: 100, visa_id: 3 }, ['record_payment']],
+  ['bill', { status: 'received', total_cents: 100, is_opening: 1 }, ['record_payment', 'void']],
+  ['bill', { status: 'void', total_cents: 100 }, []],
+  ['advance', { status: 'open', amount_cents: 100 }, ['apply', 'refund', 'correct', 'void']],
+  ['advance', { status: 'open', amount_cents: 100, applied_cents: 40 }, ['apply', 'refund', 'void']],
+  ['advance', { status: 'open', amount_cents: 100, is_receipt: 1 }, ['apply', 'refund', 'void']],
+  ['advance', { status: 'applied', amount_cents: 100, applied_cents: 100 }, ['void']],
+  ['advance', { status: 'refunded', amount_cents: 100, refunded_cents: 100 }, ['void']],
+  ['advance', { status: 'open', amount_cents: 100, voided_at: '2026-11-12' }, []],
+];
+
+test('invoices, bills and advances offer exactly what their screens offered before', () => {
+  for (const [kind, record, actions] of DOCUMENTS) {
+    assert.deepEqual(allowedActions(kind, record), actions, `${kind} ${JSON.stringify(record)}`);
+  }
+});
+
 test('each status allows exactly the moves it allowed before', () => {
   for (const [kind, states] of Object.entries(EXPECTED)) {
     for (const [status, actions] of Object.entries(states)) {
@@ -78,4 +107,25 @@ test('records carry allowed_actions and refused moves keep their messages', () =
   visas.submitVisa(db, visa.id);
   assert.deepEqual(visas.getVisa(db, visa.id).allowed_actions, EXPECTED.visa.submitted);
   assert.throws(() => visas.issueVisa(db, visa.id), /Only approved applications can be marked as issued/);
+});
+
+test('invoices, bills and advances carry allowed_actions from the server', () => {
+  const invoices = require('../server/services/invoices');
+  const billsService = require('../server/services/bills');
+  const advancesService = require('../server/services/advances');
+  const draft = invoices.createInvoice(db, {
+    customer_id: customer, issue_date: '2026-11-01', due_date: '2026-11-01', status: 'draft',
+    items: [{ description: 'Consultancy', quantity: 1, unit_price_cents: 10_000, account_id: account('4300') }],
+  });
+  assert.deepEqual(invoices.getInvoice(db, draft.id).allowed_actions, ['edit', 'delete', 'finalize', 'payment_link']);
+  assert.ok(invoices.listInvoices(db).find((row) => row.id === draft.id).allowed_actions.includes('finalize'));
+  const bill = billsService.createBill(db, {
+    vendor_id: vendor, bill_date: '2026-11-01', due_date: '2026-11-01',
+    items: [{ description: 'Rent', quantity: 1, unit_price_cents: 5_000, account_id: account('6100') }],
+  });
+  assert.deepEqual(billsService.getBill(db, bill.id).allowed_actions, ['record_payment', 'correct', 'void']);
+  const advance = advancesService.createAdvance(db, { customer_id: customer, amount_cents: 1_000, advance_date: '2026-11-01', deposit_account_id: account('1010') });
+  assert.deepEqual(advance.allowed_actions, ['apply', 'refund', 'correct', 'void']);
+  const page = require('../server/services/customer-balances').getCustomerBalance(db, customer);
+  assert.deepEqual(page.advances.find((row) => row.id === advance.id).allowed_actions, ['apply', 'refund', 'correct', 'void']);
 });

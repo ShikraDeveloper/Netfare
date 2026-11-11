@@ -1,17 +1,22 @@
 'use strict';
 
-// Every move a booking or visa application can make, in one place: which
-// statuses allow it and what to say when it is not allowed. The services
-// check moves with assertCan; each record carries allowed_actions, so the
-// screens (and anyone reading the API) never repeat these rules.
-// A void job is cancelled and has voided_at; it allows nothing more.
-// Checks that need more than the status (the travel date, a cancellation
-// note, a security deposit) stay in the service that does the move.
+// Every move a booking, visa, invoice, bill or customer advance can make, in
+// one place: which statuses allow it and what to say when it is not allowed.
+// The services check the status with assertCan; each record carries
+// allowed_actions, so the screens (and anyone reading the API) never repeat
+// these rules. A record with voided_at allows nothing more.
+// `when` narrows a move by the record's own fields (who owns the document,
+// money still due); it shapes allowed_actions, and the service keeps the
+// matching check with its own message. Checks that need other records (the
+// travel date, a cancellation note, a security deposit) stay in the service.
 
 const { bad } = require('./util');
 
 const BOOKING_OPEN = ['confirmed', 'travelled'];
 const VISA_OPEN = ['submitted', 'approved', 'issued', 'rejected'];
+const due = (row) => row.total_cents - (row.amount_paid_cents || 0) - (row.credit_applied_cents || 0) > 0;
+// Booking, visa and cancellation documents are changed through their job.
+const ownedByJob = (row) => Boolean(row.booking_id || row.visa_id || row.cancellation_id);
 
 const WORKFLOWS = {
   booking: {
@@ -44,6 +49,42 @@ const WORKFLOWS = {
       void: { from: VISA_OPEN, to: 'cancelled', message: 'This visa application cannot be voided' },
     },
   },
+  invoice: {
+    label: 'invoice',
+    states: ['draft', 'sent', 'void'],
+    actions: {
+      edit: { from: ['draft'], message: 'Only draft invoices can be edited' },
+      delete: { from: ['draft'], message: 'Only draft invoices can be deleted. Void it instead.' },
+      finalize: { from: ['draft'], to: 'sent', message: 'Only draft invoices can be finalized' },
+      record_payment: { from: ['sent'], when: due, message: 'Payments can only be recorded against sent invoices' },
+      payment_link: { from: ['draft', 'sent'], message: 'This invoice is void' },
+      correct: { from: ['sent'], when: (row) => !ownedByJob(row) && !row.is_opening, message: 'Only a posted invoice can be corrected; a draft is edited' },
+      void: { from: ['sent'], to: 'void', when: (row) => !ownedByJob(row), message: 'Invoice is already void' },
+    },
+  },
+  bill: {
+    label: 'bill',
+    states: ['draft', 'received', 'void'],
+    actions: {
+      edit: { from: ['draft'], message: 'Only draft bills can be edited' },
+      delete: { from: ['draft'], message: 'Only draft bills can be deleted. Void it instead.' },
+      finalize: { from: ['draft'], to: 'received', message: 'Only draft bills can be finalized' },
+      record_payment: { from: ['received'], when: due, message: 'Payments can only be recorded against received bills' },
+      correct: { from: ['received'], when: (row) => !ownedByJob(row) && !row.is_opening, message: 'Only a posted bill can be corrected; a draft is edited' },
+      void: { from: ['received'], to: 'void', when: (row) => !ownedByJob(row), message: 'Bill is already void' },
+    },
+  },
+  // open: money left (advanceStatus in services/advances.js).
+  advance: {
+    label: 'advance',
+    states: ['open', 'applied', 'refunded'],
+    actions: {
+      apply: { from: ['open'], message: 'This advance has already been applied or refunded' },
+      refund: { from: ['open'], message: 'This advance has already been applied or refunded' },
+      correct: { from: ['open'], when: (row) => !row.applied_cents && !row.refunded_cents && !row.is_receipt, message: 'This advance has been used or refunded. Void it and record it again.' },
+      void: { from: ['open', 'applied', 'refunded'], message: 'This advance is already void' },
+    },
+  },
 };
 
 function actionOf(kind, action) {
@@ -52,12 +93,18 @@ function actionOf(kind, action) {
   return rule;
 }
 
-function can(kind, action, record) {
+function statusAllows(kind, action, record) {
   return !record.voided_at && actionOf(kind, action).from.includes(record.status);
 }
 
+function can(kind, action, record) {
+  const { when } = actionOf(kind, action);
+  return statusAllows(kind, action, record) && (!when || when(record));
+}
+
+// The status part only: the service checks `when` itself, with its own message.
 function assertCan(kind, action, record) {
-  if (!can(kind, action, record)) throw bad(actionOf(kind, action).message);
+  if (!statusAllows(kind, action, record)) throw bad(actionOf(kind, action).message);
 }
 
 function allowedActions(kind, record) {

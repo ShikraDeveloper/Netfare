@@ -146,9 +146,9 @@ export async function render(container, { params } = {}) {
       </div>
       <div class="payment-amount">${fmtMoney(advance.remaining_cents)} <small class="muted">left</small></div>
       <div style="display:flex;gap:4px">
-        ${advance.remaining_cents > 0 ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
-        ${!advance.voided && !advance.applied_cents && !advance.refunded_cents && !advance.is_receipt ? correctButtonHtml('advance', advance) : ''}
-        ${!advance.voided ? `<button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance">${icon('trash', 16)}</button>` : ''}
+        ${advance.allowed_actions.includes('refund') ? `<button class="icon-btn" data-refund-advance="${advance.id}" title="Refund remaining">${icon('arrowUp', 16)}</button>` : ''}
+        ${advance.allowed_actions.includes('correct') ? correctButtonHtml('advance', advance) : ''}
+        ${advance.allowed_actions.includes('void') ? `<button class="icon-btn danger" data-void-advance="${advance.id}" title="Void advance">${icon('trash', 16)}</button>` : ''}
       </div>
     </div>
   `).join('');
