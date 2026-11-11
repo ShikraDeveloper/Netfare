@@ -177,3 +177,18 @@ test('a cancellation and its refund appear in section E on the cancellation day'
   assert.equal(covering.cancelled_by.number, cancellation.number, 'a report covering the cancellation marks it cancelled');
   assert.equal(covering.split.credit, 0);
 });
+
+test('a second bank account counts in the DSR bank figures', () => {
+  const day = '2026-11-20';
+  const second = Number(db.prepare("INSERT INTO accounts (code, name, type, subtype, normal_balance, is_cash, is_system) VALUES ('1011', 'Second Bank', 'asset', 'current_asset', 'debit', 1, 0)").run().lastInsertRowid);
+  const invoice = invoiceService.createInvoice(db, {
+    customer_id: customerId, issue_date: day, due_date: day, status: 'sent',
+    items: [{ description: 'Second bank sale', quantity: 1, unit_price_cents: 7_000, account_id: account('4300').id }],
+  });
+  invoiceService.recordInvoicePayment(db, invoice.id, { amount_cents: 7_000, payment_date: day, method: 'Bank transfer', deposit_account_id: second });
+  const { position, settlement } = dailySales(db, day, day).sections.summary;
+  assert.equal(position.bank.in_cents, settlement.bank, 'the second bank receipt is in Bank');
+  assert.equal(position.bank.in_cents, 7_000);
+  assert.equal(position.bank.label, 'Bank accounts');
+  assert.equal(position.bank.closing_cents, position.bank.opening_cents + position.bank.in_cents - position.bank.out_cents);
+});

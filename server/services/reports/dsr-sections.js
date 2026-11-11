@@ -249,8 +249,16 @@ function dsrSections(db, start, end, items) {
       || ((a.created_at || '') < (b.created_at || '') ? -1 : (a.created_at || '') > (b.created_at || '') ? 1 : 0)
       || (a.kind === b.kind ? a.id - b.id : a.kind === 'payment' ? -1 : b.kind === 'payment' ? 1 : a.kind.localeCompare(b.kind)));
 
-  // Cash (1000) and bank (1010) movements from the ledger, by what caused them.
-  const cashAccounts = db.prepare("SELECT id, code, name FROM accounts WHERE code IN ('1000', '1010')").all();
+  // Cash (1000) and the bank movements from the ledger, by what caused
+  // them. Every bank account counts in Bank (a second bank too); petty cash
+  // (1020) and card clearing (1030) have their own pages.
+  const cashAccounts = db.prepare(`
+    SELECT id, code, name FROM accounts
+    WHERE is_cash = 1 AND code NOT IN ('1020', '1030') ORDER BY code
+  `).all();
+  const keyOf = (code) => (code === '1000' ? 'cash' : 'bank');
+  const codes = cashAccounts.map((account) => account.code);
+  const marks = codes.map(() => '?').join(', ') || "''";
   const balanceBefore = (code, date) => db.prepare(`
     SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS total
     FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
@@ -260,17 +268,20 @@ function dsrSections(db, start, end, items) {
     SELECT a.code, e.source_type, COUNT(DISTINCT e.id) AS entries,
            COALESCE(SUM(l.debit_cents), 0) AS in_cents, COALESCE(SUM(l.credit_cents), 0) AS out_cents
     FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
-    WHERE a.code IN ('1000', '1010') AND e.entry_date >= ? AND e.entry_date <= ?
+    WHERE a.code IN (${marks}) AND e.entry_date >= ? AND e.entry_date <= ?
     GROUP BY a.code, e.source_type
-  `).all(start, end);
+  `).all(...codes, start, end);
   const byType = new Map();
   const position = {};
   for (const account of cashAccounts) {
-    const key = account.code === '1000' ? 'cash' : 'bank';
-    position[key] = { label: account.name, opening_cents: balanceBefore(account.code, start), in_cents: 0, out_cents: 0 };
+    const key = keyOf(account.code);
+    const existing = position[key];
+    position[key] = existing
+      ? { ...existing, label: key === 'bank' ? 'Bank accounts' : existing.label, opening_cents: existing.opening_cents + balanceBefore(account.code, start) }
+      : { label: account.name, opening_cents: balanceBefore(account.code, start), in_cents: 0, out_cents: 0 };
   }
   for (const flow of flows) {
-    const key = flow.code === '1000' ? 'cash' : 'bank';
+    const key = keyOf(flow.code);
     position[key].in_cents += flow.in_cents;
     position[key].out_cents += flow.out_cents;
     const row = byType.get(flow.source_type) || {

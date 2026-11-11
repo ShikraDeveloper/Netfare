@@ -308,6 +308,9 @@ function overviewHtml(data) {
   const tile = (label, cents, sub, className = '') => `
     <div class="dsr-tile ${className}"><span class="dsr-tile-label">${esc(label)}</span><strong class="dsr-tile-value">${amt(cents, { blank: false })}</strong>${sub ? `<span class="dsr-tile-sub">${esc(sub)}</span>` : ''}</div>`;
   const sold = s.tickets.length + s.visas.length + s.services.length;
+  // The cancellations list also carries refunds from suppliers; count them apart.
+  const supplierRefunds = s.cancellations.filter((row) => row.is_refund).length;
+  const cancelled = s.cancellations.length - supplierRefunds;
   const bar = totalIn > 0 ? modes.map(([key]) => `<span class="dsr-bar-${key}" style="width:${((mode(key) / totalIn) * 100).toFixed(2)}%"></span>`).join('') : '';
   const box = (key) => position[key];
   const cashBank = ['cash', 'bank'].filter(box);
@@ -315,7 +318,7 @@ function overviewHtml(data) {
   return `
     <div class="dsr-overview" data-dsr-summary data-dsr-section="summary">
       <div class="dsr-tiles">
-        ${tile('Total sales', sales.total_cents, `${plural(sold, 'sale')}${s.cancellations.length ? ` · ${plural(s.cancellations.length, 'cancellation')}` : ''}`)}
+        ${tile('Total sales', sales.total_cents, [plural(sold, 'sale'), cancelled ? plural(cancelled, 'cancellation') : '', supplierRefunds ? plural(supplierRefunds, 'supplier refund') : ''].filter(Boolean).join(' · '))}
         ${tile('Received', totalIn, 'cash, card and bank')}
         ${tile('On credit', settlement.credit, 'still unpaid', settlement.credit ? 'is-due' : '')}
         ${tile('Gross profit', data.totals.margin_cents, `${data.totals.margin_percent.toFixed(1)}% of sales`, 'dsr-profit')}
@@ -412,7 +415,7 @@ export function dailySales(data) {
       ${section('Service income', serviceTable(s.services), { id: 'services', open: true, count: plural(s.services.length, 'invoice'), total: total(s.services, (r) => r.total_cents) })}
       ${section('Cancellations & refunds', cancellationTables(s.cancellations, s.refunds) + depositKeptTable(s.deposit_kept || []), { id: 'cancellations', count: String(refundsAndCancellations), total: total(s.cancellations, (r) => r.sale_cents) })}
       ${section('Collected for older invoices & advances', collectionsTable(s.collections), { id: 'collections', count: String(s.collections.length), total: total(s.collections, (r) => r.amount_cents) })}
-      ${section('Money paid out', cashOutTable(s.cash_out, s.summary.position), { id: 'cash-out', count: 'cash and bank', total: total(s.cash_out, (r) => r.cash_out_cents + r.bank_out_cents) })}
+      ${section('Money paid out', cashOutTable(s.cash_out, s.summary.position), { id: 'cash-out', count: 'own transfers not counted', total: total(s.cash_out.filter((r) => r.source_type !== 'cash_deposit'), (r) => r.cash_out_cents + r.bank_out_cents) })}
       ${staffRows.length ? section('By staff', staffTable(data), { id: 'staff', count: plural(staffRows.length, 'person', 'people'), total: total(staffRows, (r) => r.sale_cents) }) : ''}
       <div class="dsr-footnote">A sale stays on its own day; a cancellation is a line on its cancellation day. Paid by shows how each sale was settled by the end of the period; Due is still unpaid. Visa deposits are not sales.</div>
     </div>

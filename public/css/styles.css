@@ -499,11 +499,6 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dsr-doc > a, .dsr-table td.nowrap, .dsr-when, .dsr-pnr { white-space: nowrap; }
 .dsr-doc { min-width: 110px; }
 .dsr-report .dsr-table th { white-space: nowrap; }
-.dsr-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
-.dsr-sum-box { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; background: var(--surface-2); }
-.dsr-sum-box h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
-.dsr-sum-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 3px 0; font-variant-numeric: tabular-nums; }
-.dsr-sum-row.total { font-weight: 750; border-top: 1px solid var(--border); margin-top: 3px; padding-top: 5px; }
 @page dsr {
   size: A4 portrait; margin: 12mm 10mm 14mm;
   @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; color: #888; }
@@ -1526,7 +1521,7 @@ tr.open .statement-extra-wrap, .show-details .statement-extra-wrap { display: bl
   .dsr-report .dsr-table th { font-size: 7.5px; padding: 3px; }
   .dsr-report .dsr-table td { padding: 3px; }
   .dsr-table .cell-sub, .dsr-people { font-size: 7.5px; }
-  .dsr-table tr, .dsr-sum-box { page-break-inside: avoid; }
+  .dsr-table tr, .dsr-tile, .dsr-card { page-break-inside: avoid; }
   .dsr-section { margin-top: 10px; break-inside: auto; border: 0; border-radius: 0; background: none; }
   .dsr-section-body { display: block !important; border: 0; padding: 0; }
   .dsr-fold { padding: 6px 0 3px; border-bottom: 1px solid #999; border-radius: 0; }
@@ -1534,7 +1529,6 @@ tr.open .statement-extra-wrap, .show-details .statement-extra-wrap { display: bl
   .dsr-tile, .dsr-card { background: #fff !important; padding: 6px 8px; }
   .dsr-tile-value { font-size: 12pt; }
   .dsr-pay { background: #fff; font-size: 7.5px; padding: 0 4px; }
-  .dsr-sum-box { background: #fff !important; }
   a { color: inherit !important; text-decoration: none !important; }
   .doc-items thead { display: table-header-group; }
   .doc-items tr, .doc-parties, .doc-visa-applicant, .doc-total-area, .doc-foot { page-break-inside: avoid; }

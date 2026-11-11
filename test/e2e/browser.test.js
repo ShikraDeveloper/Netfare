@@ -1590,6 +1590,12 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   const overview = await page.locator('[data-dsr-summary]').innerText();
   assert.match(overview, /Total sales[\s\S]*Received[\s\S]*On credit/i, 'the totals come first');
   assert.match(overview, /How the money came in[\s\S]*Cash[\s\S]*Opening[\s\S]*Closing/i);
+  // Received is every cash, card and bank amount in the legend added up.
+  const toCents = (text) => Math.round(Number(String(text).replace(/[^0-9.-]/g, '')) * 100);
+  const received = toCents(await page.locator('[data-dsr-summary] .dsr-tile', { hasText: 'Received' }).locator('.dsr-tile-value').innerText());
+  const legend = (await page.locator('[data-dsr-summary] .dsr-legend span').allInnerTexts()).map((text) => toCents(text.split(' ').pop()));
+  assert.equal(received, legend.reduce((sum, cents) => sum + cents, 0), 'Received equals cash + card + bank');
+  assert.ok(received >= 10_000, 'it includes the 100.00 cash taken today');
   assertNoConsoleErrors();
 });
 
