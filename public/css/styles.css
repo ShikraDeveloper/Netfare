@@ -897,7 +897,8 @@ body.modal-open { overflow: hidden; }
 .doc-howto a { color: var(--primary); }
 .doc-terms-foot { margin-top: 14px; font-size: 10.5px; color: var(--muted-2); line-height: 1.6; white-space: pre-line; max-width: 620px; }
 .brand-logo { height: 52px; width: auto; max-width: 180px; object-fit: contain; object-position: left center; flex: none; }
-.doc-brand:has(.brand-logo) { align-items: center; gap: 16px; }
+/* With a logo: the logo on top, the address and contact lines below it. */
+.doc-brand:has(.brand-logo) { flex-direction: column; align-items: flex-start; gap: 10px; }
 /* The logo carries the company's name; the address and contact lines stay. */
 .doc-brand:has(.brand-logo) .doc-company-name { display: none; }
 .logo-field { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
