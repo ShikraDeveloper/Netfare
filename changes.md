@@ -3374,6 +3374,14 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Slip, put right:** while adding this entry a script emptied the working `changes.md` (opened for writing before reading). The committed file was restored from git, and another session's unsaved entry ("State rules, step 5") was rebuilt word for word from that session's log; it stays unsaved, as before.
 - **Not pushed or released.**
 
+### Logo lined up with the address on documents — code commit `f478a1e`
+
+- **Why:** The user asked for the Shikra Travel logo for Netfare, then said it should line up properly with the address.
+- **Logo file (for the user, not in the repo):** made from `ShikraTravel Website Final/logo/png/shikratravel-horizontal-transparent-navy-text.png` (the kit says horizontal is for invoices): transparent edges trimmed, 480 × 110 px, transparent PNG, about 13 KB.
+- **Layout (`styles.css`):** on documents the logo kept a fixed 52 px box and a wide logo was drawn 180 × 42 inside it, with empty space above and below. Now `.doc-brand .brand-logo` is `height: auto; max-height: 52px; max-width: 220px`, so the box is the logo. Checked on the demo: the logo starts at the address's left edge (both 49 px), shows 220 × 50, the gap to the address is 13 px; the demo's own 160 × 60 logo still shows 52 px high; the sidebar logo is a different element and does not change. A4 print checked.
+- **Tests:** `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
