@@ -3382,6 +3382,15 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `npm run test:e2e` 43 passed, `npm run check` OK.
 - **Not pushed or released.**
 
+### Release 1.0.20 — `158dea4`, tag `v1.0.20`
+
+- **Why:** The user said "Haan, release karo" after the white-paper print fix and the logo alignment.
+- **Checked first:** the committed code passed `npm run check`, `npm test` (359) and `npm run test:e2e` (43) in a clean worktree; another session's unsaved edits were left out.
+- **Version:** 1.0.20 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`; commit `158dea4 Version 1.0.20`; tag notes: documents print on white paper in the desktop app; the logo lines up with the address and a wide logo shows larger; the letter square prints without a shadow.
+- **Pushed:** `main` and `v1.0.20` on the first try. Run 43201339122 passed (Build mac, Build win, Publish release); the first watcher stopped early on a network hiccup, the build itself was fine. The smoke test printed "prints on white paper" on both Mac and Windows.
+- **Checked:** public release (not draft or pre-release) with both Mac `.dmg`s, the Windows `.exe` and `latest.json`; `releases/latest` is v1.0.20 and `latest.json` says 1.0.20, released 2026-11-12.
+- **Still open:** the ghost 1.0.18 run (43097815041) still shows queued; deleting the `v1.0.18` tag would stop it for good and needs the user's OK.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
