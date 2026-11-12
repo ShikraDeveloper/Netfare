@@ -3364,6 +3364,16 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** the release is public (not draft or pre-release) with `Netfare-mac-arm64.dmg`, `Netfare-mac-x64.dmg`, `Netfare-windows-x64.exe` and `latest.json`; `releases/latest` is v1.0.19 and `latest.json` says 1.0.19, released 2026-11-12.
 - **Open:** the 1.0.18 run (43097815041) still shows queued with no jobs; GitHub refuses cancel and force-cancel ("has not been queued yet"). If it ever ran it would publish 1.0.18 after 1.0.19. Deleting the `v1.0.18` tag would stop it; that needs the user's OK.
 
+### Printed documents on white paper in the desktop app — code commit `b2a8403`
+
+- **Why:** The user sent INV-2026-0033.pdf (printed from the desktop app) and said the invoice print is not good. The A4 margins and the space under the invoice were light blue-grey, and the "S" letter square had a soft shadow.
+- **Cause:** the PDF painted the margins `#f3f6fa`, the desktop window's background colour (`desktop/main.js`). Electron's `printToPDF` fills the margins with the window colour; Chrome uses white, so the earlier Chrome print checks looked fine. Reproduced with this repo's Electron: window `#f3f6fa` gave tinted margins, window white gave white.
+- **Fixed:** `printPdf()` (used by Print preview, Save PDF and Share) sets the window white while the PDF is made and restores `WINDOW_COLOUR` afterwards, also when printing fails. Print CSS (`theme.css`) removes the `.brand-mark` shadow (screen keeps it).
+- **Test:** `scripts/smoke-desktop.js` (run on every release build, Mac and Windows) now calls the app's own Print preview and fails if the PDF has the `#f3f6fa` tint. It failed on the old build and passed after rebuilding the Mac app with the fix. `npm test` 359 passed, `npm run test:e2e` 43 passed.
+- **Not data bugs:** the passenger name on that invoice was typed in small letters, and its Ref says "Urgent".
+- **Slip, put right:** while adding this entry a script emptied the working `changes.md` (opened for writing before reading). The committed file was restored from git, and another session's unsaved entry ("State rules, step 5") was rebuilt word for word from that session's log; it stays unsaved, as before.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
