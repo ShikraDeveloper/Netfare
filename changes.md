@@ -3401,6 +3401,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
    - testing "Start from a backup" in the desktop app by hand.
+   - **Receipts list on the customer page (the user asked to do it later, 2026-11-12):** since `b28f77c` a fully used receipt (RCP-…) is not listed under Advances, so the customer page shows nothing for it and the user could not find it to Void. Today the only way is the 🖨️ icon on the invoice's payment line, which opens `#/customer-receipts/:id`. Add a "Receipts" fold on the customer page (number, date, amount, invoices paid, link to the receipt page with Void); Advances keeps only real advances.
 6. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
 7. **Windows signing (the user decides later):** On a real Windows PC (2026-11-07) the user found that Smart App Control blocks the unsigned Netfare installer; after turning it off, the app works, but the installer shows "Unknown publisher".
    - **Options:** (a) the Microsoft Store, which is free for individuals (ID and selfie check), MSIX signed by Microsoft, with no SAC block or warning; (b) a paid OV code-signing certificate (Sectigo, SSL.com, Certum, about US$100–400 a year) with cloud signing in the release workflow; (c) leave it unsigned, which is not advised.
