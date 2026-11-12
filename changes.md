@@ -3355,6 +3355,15 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Tests:** `npm test` 359 passed, `npm run test:e2e` 43 passed, `npm run check` OK; Settings, void pop-up and callouts looked at in light and dark.
 - **Not pushed or released.**
 
+### Release 1.0.19 — `057e866`, tag `v1.0.19`
+
+- **Why:** The user said "push & Release". 1.0.18 (tag `v1.0.18`, `d23d8ad`) was never built: its run stayed queued during a GitHub Actions incident, so 1.0.19 carries its changes too.
+- **Checked first:** the committed code, including the two "simple design phase 4" commits (`a76a789`, `95e80f1`, made outside this session), passed `npm run check`, `npm test` (359) and `npm run test:e2e` (43) in a clean worktree. Another session's unsaved edits (`visa-detail.js` greyed Void, `changes.md`) were left out and untouched.
+- **Version:** 1.0.19 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`; commit `057e866 Version 1.0.19`; annotated tag with six notes: receipts not advances, buttons from one set of server rules, one menu and less helper text, documents white in dark mode, one advance status and real invoice status, fifth and sixth audit fixes.
+- **Pushed:** `main` and `v1.0.19` on the first try. Build run 43194569606 passed: Build (mac), Build (win), Publish release.
+- **Checked:** the release is public (not draft or pre-release) with `Netfare-mac-arm64.dmg`, `Netfare-mac-x64.dmg`, `Netfare-windows-x64.exe` and `latest.json`; `releases/latest` is v1.0.19 and `latest.json` says 1.0.19, released 2026-11-12.
+- **Open:** the 1.0.18 run (43097815041) still shows queued with no jobs; GitHub refuses cancel and force-cancel ("has not been queued yet"). If it ever ran it would publish 1.0.18 after 1.0.19. Deleting the `v1.0.18` tag would stop it; that needs the user's OK.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
