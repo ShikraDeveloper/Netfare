@@ -653,6 +653,8 @@ html[data-theme="dark"] .source-opening { background: rgba(34, 211, 238, 0.14); 
     box-shadow: none !important;
     color: #111827 !important;
   }
+  /* Shadows blur on paper: the company letter square too. */
+  .brand-mark { box-shadow: none !important; }
   .view, .doc, .doc-wrap, .report-card {
     width: 100% !important;
     max-width: 180mm !important;

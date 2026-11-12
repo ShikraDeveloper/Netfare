@@ -9,10 +9,23 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const zlib = require('zlib');
 const { _electron } = require('playwright-core');
 
 const dist = path.join(__dirname, '..', 'desktop', 'dist');
 const PORT = process.env.SMOKE_PORT || '4397';
+
+// The window's own colour (#f3f6fa) in a PDF's drawing: Electron fills the
+// A4 margins with it unless the app prints on a white window.
+function hasWindowTint(pdf) {
+  const tint = /0?\.9529 0?\.9647 0?\.9804 (?:rg|sc)/;
+  for (const match of pdf.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)endstream/g)) {
+    try {
+      if (tint.test(zlib.inflateSync(Buffer.from(match[1], 'latin1')).toString('latin1'))) return true;
+    } catch { /* not a compressed drawing */ }
+  }
+  return false;
+}
 
 function packagedApp() {
   const candidates = process.platform === 'win32'
@@ -42,7 +55,16 @@ async function main() {
     const health = await win.evaluate(async () => (await fetch('/api/health')).json());
     if (health.app !== 'Netfare' || health.database !== 'ok') throw new Error(`Unexpected health: ${JSON.stringify(health)}`);
     if (!fs.existsSync(path.join(userData, 'data', 'accounting.db'))) throw new Error('The books were not created');
-    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server and created the books.`);
+
+    // Print preview makes the PDF the way every document prints (preview,
+    // Save PDF, Share): its margins must be white paper.
+    const [temp, pid] = await app.evaluate(({ app: electronApp }) => [electronApp.getPath('temp'), process.pid]);
+    const folder = path.join(temp, `netfare-pdf-${pid}`);
+    await win.evaluate(() => window.netfareDocs.preview('Smoke test'));
+    const pdfFile = fs.readdirSync(folder).find((name) => name.endsWith('.pdf'));
+    if (!pdfFile) throw new Error('Print preview made no PDF');
+    if (hasWindowTint(fs.readFileSync(path.join(folder, pdfFile)))) throw new Error('The printed PDF has tinted margins, not white paper');
+    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books and prints on white paper.`);
   } finally {
     await app.close().catch(() => {});
     fs.rmSync(userData, { recursive: true, force: true });

@@ -25,6 +25,9 @@ let mainWindow = null;
 let appOrigin = null;
 let netfareServer = null;
 
+// The window's colour behind the page (the light theme's background).
+const WINDOW_COLOUR = '#f3f6fa';
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1360,
@@ -32,7 +35,7 @@ function createWindow() {
     minWidth: 380,
     minHeight: 560,
     title: 'Netfare',
-    backgroundColor: '#f3f6fa',
+    backgroundColor: WINDOW_COLOUR,
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -102,9 +105,16 @@ function fromNetfarePage(event) {
 
 const pdfFolder = () => path.join(app.getPath('temp'), `netfare-pdf-${process.pid}`);
 
-function printPdf() {
+async function printPdf() {
   // The page's own print rules decide the size, margins and page numbers.
-  return mainWindow.webContents.printToPDF({ pageSize: 'A4', printBackground: true, preferCSSPageSize: true });
+  // Electron fills the A4 margins with the window's colour, so the window is
+  // white while the PDF is made: paper is white.
+  mainWindow.setBackgroundColor('#ffffff');
+  try {
+    return await mainWindow.webContents.printToPDF({ pageSize: 'A4', printBackground: true, preferCSSPageSize: true });
+  } finally {
+    mainWindow.setBackgroundColor(WINDOW_COLOUR);
+  }
 }
 
 // In the private folder a PDF is simply replaced; in Downloads a file that is
