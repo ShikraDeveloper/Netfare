@@ -164,6 +164,20 @@ Verification:
 - Manual disposable-DB pass on `127.0.0.1:4180`: created cancellation `CNC-2026-0001`, cancellation credit `CR-2026-0001`, and cancellation refund `REF-2026-0001`; verified the Settlements nav, cancellation preview, source badges/links/filters, credit warning, refund warning, invoice cancellation action, and the live recovered data at `127.0.0.1:4173`.
 - Live `data/accounting.db` was not modified.
 
+### Backup warning — code commit `f7f7195`
+
+- **Why:** The user asked how to make the app more stable and faster, and said "Haan, dono karo" to the plan. Speed was measured first: every screen answers in under 20 ms, even on a 2-year book, so nothing was changed for speed. Automatic backup failures were only written to the log, so a broken backup went unnoticed.
+- **What:** Settings shows "Last backup <date and time>", "Automatic backup failed: <reason>" or "No backup yet" under Backup, in red when the backup failed, there is none yet, or the last one is 2 or more days old (only when automatic backups are on). The admin's Today box gets a red Backups line for the same three cases, linking to Settings; staff do not see it. New route `GET /api/admin/backups/status`; a working backup clears the remembered failure.
+- **Checked:** `test/backup-status.test.js` (no backup, fresh, 3 days old, staff, failure then recovery); `test/pending.test.js` turns automatic backups off, since its empty-books case now would show "No backup yet". The demo shows "Last backup" in Settings. `npm test` 365, `npm run test:e2e` 44 passed.
+
+### Large photos made smaller before upload — code commit `6533670`
+
+- **Why:** Same request. Attachments are stored inside the database: on the user's books 7 files were 5.3 MB of the 6.2 MB file, and every backup copies them again.
+- **What:** a JPEG, PNG or WebP photo over 1600 px or 500 KB is redrawn in the browser at most 1600 px on its longest side as a JPG (quality 0.85, white background) before upload; the name becomes `.jpg`. PDFs and other files are unchanged, and the original is kept if the result would not be smaller.
+- **Not done:** attachments already in the books are not shrunk.
+- **Checked:** a new browser test uploads a 2000 × 1500 photo-like PNG of several MB and finds a `.jpg` under a third of the size. Tests as above.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
@@ -3446,7 +3460,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.21** is published (2026-11-13): the customer Receipts list, the Bank & card fees report, card and payment-link fees in 6710 with fee shares, bank charges on receipt and refund pages, the top menu back, the greyed visa Void. 1.0.20 before it: white-paper desktop prints and the logo lined up with the address; 1.0.19: receipts instead of advances, buttons from `server/workflows.js`, documents white in dark mode. Nothing is waiting to be released. Ask the user to check in the office: the Shikra Travel logo, Receive payment and the Receipts list, the Bank & card fees report, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.21** is published (2026-11-13): the customer Receipts list, the Bank & card fees report, card and payment-link fees in 6710 with fee shares, bank charges on receipt and refund pages, the top menu back, the greyed visa Void. 1.0.20 before it: white-paper desktop prints and the logo lined up with the address; 1.0.19: receipts instead of advances, buttons from `server/workflows.js`, documents white in dark mode. Waiting to be released: the backup warning and the smaller photo uploads. Ask the user to check in the office: the Shikra Travel logo, Receive payment and the Receipts list, the Bank & card fees report, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
