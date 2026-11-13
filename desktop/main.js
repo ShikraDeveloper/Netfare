@@ -15,6 +15,14 @@ app.setName('Netfare');
 // For testing: keep a test run's books and choice out of the real app folder.
 if (process.env.NETFARE_USER_DATA) app.setPath('userData', process.env.NETFARE_USER_DATA);
 
+// An unexpected error closes the app (the server's own handler closes the
+// books first). Registered before the server, so this message shows first and
+// the app does not just vanish.
+process.on('uncaughtException', (error) => {
+  dialog.showErrorBox('Netfare ran into a problem and will close',
+    `Your books are safe. Open Netfare again to carry on.\n\nIf this happens again, send this to support:\n${error?.stack || error}`);
+});
+
 // The Netfare server and its node_modules (rebuilt for Electron) are staged
 // by scripts/build-desktop.js and shipped as extra resources.
 const SERVER_DIR = process.env.NETFARE_APP_DIR
@@ -59,6 +67,16 @@ function createWindow() {
   });
   mainWindow.webContents.on('will-navigate', (event, url) => {
     if (!appOrigin || !config.isSameOrigin(url, appOrigin)) event.preventDefault();
+  });
+  // A crashed page leaves a blank window: say so and load it again.
+  mainWindow.webContents.on('render-process-gone', async (event, details) => {
+    if (details.reason === 'clean-exit' || !mainWindow) return;
+    await dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      message: 'The Netfare window stopped and will reload',
+      detail: `Your books are safe. Anything not yet saved on this screen must be entered again. (${details.reason})`,
+    });
+    mainWindow?.reload();
   });
   mainWindow.on('closed', () => { mainWindow = null; });
 }
