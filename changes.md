@@ -3435,6 +3435,13 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Pushed:** `main` and `v1.0.21` on the first try. Run 43520010353 passed (Build mac, Build win, Publish release); the smoke test printed "prints on white paper" on both.
 - **Checked:** public release with both Mac `.dmg`s, the Windows `.exe` and `latest.json`; `releases/latest` is v1.0.21 and `latest.json` says 1.0.21.
 
+### Old GitHub releases deleted
+
+- **Why:** The user said "old walay release delete ker do just 5 old release rakho" and confirmed the list.
+- **Deleted (release pages, notes and installers):** v1.0.15, v1.0.14, v1.0.13, v1.0.12, v1.0.11, v1.0.9, v1.0.8, v1.0.7, v1.0.6, v1.0.5, v1.0.4, v1.0.3, v1.0.2, v1.0.1, v1.0.0.
+- **Kept:** v1.0.21 (latest), v1.0.20, v1.0.19, v1.0.17, v1.0.16. All 22 version tags stay, so any old version can be rebuilt from its tag.
+- **Checked first:** the website and the app's update check use `releases/latest` only; after the deletion `latest.json` still says 1.0.21.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
