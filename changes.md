@@ -178,6 +178,14 @@ Verification:
 - **Checked:** a new browser test uploads a 2000 × 1500 photo-like PNG of several MB and finds a `.jpg` under a third of the size. Tests as above.
 - **Not pushed or released.**
 
+### Desktop app: a message instead of vanishing on an unexpected error — code commit `324fecd`
+
+- **Why:** Item 4 of the stability plan; the user said "3 and 4". Inside the desktop app the server's `uncaughtException` handler closes the books and exits within 1.5 s, so the app just disappeared.
+- **What:** `desktop/main.js` registers its own handler before the server starts, so "Netfare ran into a problem and will close" shows first (books are safe; the error to send to support); after OK the server closes the books as before. A crashed window (`render-process-gone`) says "The Netfare window stopped and will reload" and reloads instead of staying blank.
+- **Checked:** the dev desktop app with throwaway books on port 4398: a thrown error showed the message with the error, then the app exited with code 1; a forced window crash showed its message and the login screen came back after the reload. Not added to the release smoke test (it would close the app mid-test).
+- **Item 3 (the stuck `v1.0.18` tag):** not done; deleting the remote tag was blocked by the permission check. Its run 43097815041 has been queued since 2026-11-11 with no release; the user can delete the tag themselves.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
@@ -3460,7 +3468,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.21** is published (2026-11-13): the customer Receipts list, the Bank & card fees report, card and payment-link fees in 6710 with fee shares, bank charges on receipt and refund pages, the top menu back, the greyed visa Void. 1.0.20 before it: white-paper desktop prints and the logo lined up with the address; 1.0.19: receipts instead of advances, buttons from `server/workflows.js`, documents white in dark mode. Waiting to be released: the backup warning and the smaller photo uploads. Ask the user to check in the office: the Shikra Travel logo, Receive payment and the Receipts list, the Bank & card fees report, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.21** is published (2026-11-13): the customer Receipts list, the Bank & card fees report, card and payment-link fees in 6710 with fee shares, bank charges on receipt and refund pages, the top menu back, the greyed visa Void. 1.0.20 before it: white-paper desktop prints and the logo lined up with the address; 1.0.19: receipts instead of advances, buttons from `server/workflows.js`, documents white in dark mode. Waiting to be released: the backup warning, the smaller photo uploads and the desktop crash message. Ask the user to check in the office: the Shikra Travel logo, Receive payment and the Receipts list, the Bank & card fees report, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
