@@ -194,7 +194,11 @@ export async function render(container, { params } = {}) {
   // Admin only: correct the lines, or undo an application entered by mistake
   // (a cancelled one has its cancellation note to void instead).
   if (allowed.has('correct')) menu.push(`<button class="btn btn-ghost" data-action="correct-document">${icon('edit', 15)}<span>Correct</span></button>`);
-  if (allowed.has('void')) menu.push(`<button class="btn btn-danger-ghost" data-action="void-job"><span>Void (entered by mistake)</span></button>`);
+  // An open visa that still holds a deposit shows Void greyed out with the reason.
+  const voidWaiting = !allowed.has('void') && allowed.has('correct') && visa.holds_deposit;
+  if (allowed.has('void') || voidWaiting) {
+    menu.push(`<button class="btn btn-danger-ghost" data-action="void-job" ${voidWaiting ? 'disabled title="Settle or void the security deposit first"' : ''}><span>Void (entered by mistake)</span></button>`);
+  }
   pageRecord(visa);
   setHeader({
     title: visa.number,
