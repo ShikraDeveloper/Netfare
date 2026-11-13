@@ -3427,11 +3427,19 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Checked:** VIS-2026-0006 on the demo shows the greyed button with that reason. Tests as above.
 - **Not pushed or released.**
 
+### Release 1.0.21 — `05da5c1`, tag `v1.0.21`
+
+- **Why:** The user said "Haan, release karo" after all work was committed.
+- **Checked first:** a clean worktree of the committed code passed `npm run check`, `npm test` (363) and `npm run test:e2e` (43).
+- **Version:** 1.0.21 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`; commit `05da5c1 Version 1.0.21`; six tag notes: the customer Receipts list; the Bank & card fees report; card and payment-link fees in 6710 with fee shares; bank charges on receipt and refund pages; the top menu back; the greyed visa Void.
+- **Pushed:** `main` and `v1.0.21` on the first try. Run 43520010353 passed (Build mac, Build win, Publish release); the smoke test printed "prints on white paper" on both.
+- **Checked:** public release with both Mac `.dmg`s, the Windows `.exe` and `latest.json`; `releases/latest` is v1.0.21 and `latest.json` says 1.0.21.
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.20** is published (2026-11-12): desktop prints on white paper, the logo lined up with the address; 1.0.19 before it brought receipts instead of advances, buttons from one set of server rules (`server/workflows.js`), one menu and less helper text, documents white in dark mode, one advance status, and the fifth and sixth audit fixes. Not released yet: the customer Receipts list (`4d66f7f`), the Bank & card fees report with account 6710 and fee shares (`d0b18bc`), the top menu back (`a28218c`) and the greyed visa Void (`3a958a6`). Ask the user to check in the office: the Shikra Travel logo, the new invoice and forms, Receive payment, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.21** is published (2026-11-13): the customer Receipts list, the Bank & card fees report, card and payment-link fees in 6710 with fee shares, bank charges on receipt and refund pages, the top menu back, the greyed visa Void. 1.0.20 before it: white-paper desktop prints and the logo lined up with the address; 1.0.19: receipts instead of advances, buttons from `server/workflows.js`, documents white in dark mode. Nothing is waiting to be released. Ask the user to check in the office: the Shikra Travel logo, Receive payment and the Receipts list, the Bank & card fees report, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
