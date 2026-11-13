@@ -3413,11 +3413,25 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Committed alone:** the uncommitted top-menu work and another session's unsaved edits were left out.
 - **Not pushed or released.**
 
+### Top menu back — code commit `a28218c`
+
+- **Why:** The user asked "top menu q hatam kiya ?" (it was removed in simple design phase 4, `a76a789`, made in another session) and then "Haan, wapas lao".
+- **What came back:** only the menu parts of `a76a789`, reversed: `menu.js`, `app.js`, `index.html`, `theme-boot.js` as they were, the top-menu CSS in `theme.css` (the new callout tones stay), the Side/Top choice in Settings (the other helper-text cuts stay), and the browser test "menu: Settings switches to the top menu…" with its accessibility check. A choice saved before (`netfare.menu`) works again. DESIGN.md now says the choice is back.
+- **Checked:** Top shows Home, Travel, Sales, Money back, Suppliers, Bank and books, Reports with the bell in the bar; a panel opens; Side brings the side menu back. Reviewed with `/ponytail-review` (one finding, the DESIGN.md line, fixed). `npm test` 363, `npm run test:e2e` 43 passed.
+
+### Visa page: Void greyed out while a deposit is held — code commit `3a958a6`
+
+- **Why:** Made in another session as "State rules, step 5", whose unsaved log entry described the same travel-date and deposit rules already recorded under the sixth audit fixes (`8ef10cf`); the user said to include all work. This entry keeps what was new in it.
+- **What:** an open visa that may not be voided only because a security deposit belongs to it shows Void greyed out with "Settle or void the security deposit first" (like Mark travelled before the travel date), instead of no button.
+- **Still outside the workflow table (on purpose):** post-dated cheques (status chosen freely in the edit form; a bounced cheque goes back to issued when presented again), compliance items (active/paused/done), reminders (open/done), refunds (paid/void), and visa deposit status (worked out from its events).
+- **Checked:** VIS-2026-0006 on the demo shows the greyed button with that reason. Tests as above.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.20** is published (2026-11-12): desktop prints on white paper, the logo lined up with the address; 1.0.19 before it brought receipts instead of advances, buttons from one set of server rules (`server/workflows.js`), one menu and less helper text, documents white in dark mode, one advance status, and the fifth and sixth audit fixes. Not released yet: the customer Receipts list (`4d66f7f`). The top menu is being brought back at the user's request (uncommitted). Ask the user to check in the office: the Shikra Travel logo, the new invoice and forms, Receive payment, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.20** is published (2026-11-12): desktop prints on white paper, the logo lined up with the address; 1.0.19 before it brought receipts instead of advances, buttons from one set of server rules (`server/workflows.js`), one menu and less helper text, documents white in dark mode, one advance status, and the fifth and sixth audit fixes. Not released yet: the customer Receipts list (`4d66f7f`), the Bank & card fees report with account 6710 and fee shares (`d0b18bc`), the top menu back (`a28218c`) and the greyed visa Void (`3a958a6`). Ask the user to check in the office: the Shikra Travel logo, the new invoice and forms, Receive payment, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
