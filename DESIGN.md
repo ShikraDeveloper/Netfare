@@ -43,4 +43,4 @@ Every token lives in `public/css/theme.css`: colours (light and dark), radius, s
 - Phase 1, 2026-11-04: the Dashboard, the invoice page and the New invoice form.
 - Phase 2, 2026-11-04 to 11-07: every other screen, group by group (helper text 310 → 41).
 - Phase 3, 2026-11-07: one token file, unused CSS rules, functions and imports removed.
-- Phase 4, 2026-11-12: the budget check also counts grey prose, callout and plain paragraphs, sentence placeholders and long tooltips; Settings rows say what they do; one menu (the top menu is gone); the void pop-up asks only for a reason; callout tones are classes. Helper text, counted the wider way: 46.
+- Phase 4, 2026-11-12: the budget check also counts grey prose, callout and plain paragraphs, sentence placeholders and long tooltips; Settings rows say what they do; one menu (the top menu was removed; on 2026-11-14 the user asked for it back, so Settings → Appearance → Menu again offers Side or Top); the void pop-up asks only for a reason; callout tones are classes. Helper text, counted the wider way: 46.

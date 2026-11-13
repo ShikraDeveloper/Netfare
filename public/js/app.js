@@ -5,7 +5,7 @@ import { openChangePassword } from './views/account.js';
 import { keepCheckingForUpdates } from './updates.js';
 import { startReminderAlerts } from './reminders.js';
 import {
-  MENU_GROUPS, SECTION_AREAS, bindPops, canOpen, newMenuHtml,
+  MENU_GROUPS, SECTION_AREAS, bindPops, buildTopNav, canOpen, getMenuMode, markTopNav, newMenuHtml,
   rememberRecent, searchButtonHtml, visibleGroups,
 } from './menu.js';
 import { icon, esc, avatar, setHeader, toast } from './ui.js';
@@ -240,6 +240,30 @@ function buildNav() {
   });
 }
 
+// Top menu (Settings → Appearance → Menu). The bell moves into it on wide
+// screens; phones keep the side drawer and the bell beside the page title.
+function buildTopMenu() {
+  const root = document.getElementById('top-nav');
+  if (!root) return;
+  buildTopNav(root, { onPassword: () => openChangePassword(), onSignOut: () => signOut() });
+  placeTopbarTools();
+}
+
+function placeTopbarTools() {
+  const tools = document.getElementById('topbar-tools');
+  const slot = document.querySelector('#top-nav [data-tools-slot]');
+  const topbar = document.querySelector('.main > .topbar');
+  if (!tools) return;
+  const useTop = getMenuMode() === 'top' && !mobileNav.matches && slot;
+  if (useTop && tools.parentElement !== slot) slot.appendChild(tools);
+  if (!useTop && topbar && tools.parentElement !== topbar) topbar.appendChild(tools);
+}
+
+window.addEventListener('menu-mode-changed', () => {
+  placeTopbarTools();
+  syncMenuState();
+});
+
 // On phones a bottom tab bar holds the everyday screens; "More" opens the
 // full sidebar.
 const TABBAR_ITEMS = [
@@ -283,6 +307,7 @@ function labelCardTables(root = document) {
 
 function updateNav(section) {
   document.documentElement.dataset.section = section;
+  markTopNav(section);
   document.querySelectorAll('.tab-item[data-section]').forEach((item) => {
     item.classList.toggle('active', item.dataset.section === section);
   });
@@ -395,6 +420,7 @@ document.addEventListener('keydown', (event) => {
 // Crossing the breakpoint should never leave the mobile overlay (or its
 // scroll lock) behind.
 mobileNav.addEventListener('change', () => {
+  placeTopbarTools();
   if (!mobileNav.matches) {
     sidebar.classList.remove('open');
     scrim.classList.remove('visible');
@@ -515,6 +541,7 @@ async function boot() {
   }
   updateSidebarFooter();
   applyDocColors();
+  buildTopMenu();
   renderRoute();
   if (store.user.is_admin) keepCheckingForUpdates();
   startReminderAlerts();

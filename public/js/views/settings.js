@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { applyTheme, getTheme } from '../theme.js';
+import { getMenuMode, setMenuMode } from '../menu.js';
 import { can, refreshMeta, store } from '../store.js';
 import {
   confirmDialog,
@@ -44,6 +45,7 @@ export async function render(container) {
   });
 
   const theme = getTheme();
+  const menuMode = getMenuMode();
 
   container.innerHTML = `
     <div class="settings-grid">
@@ -82,6 +84,18 @@ export async function render(container) {
                 </span>
                 <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
               </button>
+            </div>
+            <div class="menu-picker-label">Menu</div>
+            <div class="theme-picker menu-picker" role="group" aria-label="Menu position">
+              ${[['side', 'sidebar', 'Side', 'Menu down the left'], ['top', 'topbar', 'Top', 'Menu across the top, more room for pages']].map(([value, iconName, label, hint]) => `
+              <button type="button" class="theme-option ${menuMode === value ? 'is-selected' : ''}" data-menu-choice="${value}" aria-pressed="${menuMode === value}">
+                <span class="theme-swatch menu-swatch menu-swatch-${value}" aria-hidden="true">
+                  <span class="sw-side"></span>
+                  <span class="sw-main"><span class="sw-line gold"></span><span class="sw-card"></span><span class="sw-line"></span></span>
+                </span>
+                <span class="theme-option-copy"><strong>${icon(iconName, 14)} ${label}</strong></span>
+                <span class="theme-check" aria-hidden="true">${icon('check', 12)}</span>
+              </button>`).join('')}
             </div>
           </div>
         </div>
@@ -441,6 +455,18 @@ export async function render(container) {
       const next = button.dataset.themeChoice === 'dark' ? 'dark' : 'light';
       applyTheme(next);
       toast(`${next === 'dark' ? 'Dark' : 'Light'} mode on`);
+    });
+  });
+
+  container.querySelectorAll('[data-menu-choice]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const next = setMenuMode(button.dataset.menuChoice);
+      container.querySelectorAll('[data-menu-choice]').forEach((choice) => {
+        const active = choice.dataset.menuChoice === next;
+        choice.classList.toggle('is-selected', active);
+        choice.setAttribute('aria-pressed', String(active));
+      });
+      toast(next === 'top' ? 'Menu moved to the top' : 'Menu moved to the side');
     });
   });
 

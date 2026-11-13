@@ -1,9 +1,10 @@
 import { can, store } from './store.js';
-import { esc, icon } from './ui.js';
+import { avatar, esc, icon } from './ui.js';
 
-// The app's menu: the side menu (a drawer on phones), the New menu and search.
-// Each screen has search keywords (never shown); each group has quick "New …"
-// actions.
+// The app's menu, shared by the side menu and the top menu. Each screen has a
+// one-line description (shown in the top menu's panels and as a tooltip in
+// the side menu); each group has quick "New …" actions. The user picks Side or
+// Top in Settings → Appearance; phones always use the side drawer.
 
 export const MENU_GROUPS = [
   {
@@ -77,6 +78,7 @@ export const MENU_GROUPS = [
     label: 'Bank and books',
     icon: 'bank',
     collapsed: true,
+    columns: 3,
     items: [
       { section: 'banking', href: '#/banking', icon: 'cash', label: 'Banking', keywords: 'Cash and bank' },
       { section: 'petty-cash', href: '#/petty-cash', icon: 'wallet', label: 'Petty cash', keywords: 'Float and counts' },
@@ -105,6 +107,7 @@ export const MENU_GROUPS = [
     key: 'settings',
     label: 'Settings',
     icon: 'settings',
+    sideOnly: true,
     items: [
       { section: 'settings', href: '#/settings', icon: 'settings', label: 'Settings', keywords: 'Company, users, backups' },
     ],
@@ -147,8 +150,9 @@ export function canOpen(section) {
   return !areas || areas.some((area) => can(area));
 }
 
-export function visibleGroups() {
+export function visibleGroups({ top = false } = {}) {
   return MENU_GROUPS
+    .filter((group) => !(top && group.sideOnly))
     .map((group) => ({
       ...group,
       items: group.items.filter((item) => canOpen(item.section)),
@@ -159,6 +163,24 @@ export function visibleGroups() {
 
 export function newActions() {
   return visibleGroups().flatMap((group) => group.actions);
+}
+
+// ---------------------------------------------------------------------------
+// Side or top, per device (like the theme). theme-boot.js sets the class
+// before the first paint so the page does not jump.
+
+const MENU_KEY = 'netfare.menu';
+
+export function getMenuMode() {
+  try { return localStorage.getItem(MENU_KEY) === 'top' ? 'top' : 'side'; } catch { return 'side'; }
+}
+
+export function setMenuMode(mode) {
+  const next = mode === 'top' ? 'top' : 'side';
+  try { localStorage.setItem(MENU_KEY, next); } catch { /* per-device convenience only */ }
+  document.documentElement.classList.toggle('menu-top', next === 'top');
+  window.dispatchEvent(new CustomEvent('menu-mode-changed', { detail: { mode: next } }));
+  return next;
 }
 
 // ---------------------------------------------------------------------------
@@ -182,9 +204,17 @@ export function recentFor(sections, limit = 3) {
 }
 
 // ---------------------------------------------------------------------------
-// The New menu and the search button.
+// Pieces of HTML used by both menus.
 
-function actionLinksHtml(actions, className) {
+function panelItemHtml(item) {
+  return `
+    <a class="tn-item" href="${item.href}" data-section="${item.section}">
+      <span class="tn-item-icon">${icon(item.icon, 16)}</span>
+      <span class="tn-item-text"><strong>${esc(item.label)}</strong></span>
+    </a>`;
+}
+
+function actionLinksHtml(actions, className = 'tn-action') {
   return actions.map((action) => `<a class="${className}" href="${action.href}">${icon('plus', 13)}<span>${esc(action.label)}</span></a>`).join('');
 }
 
@@ -201,8 +231,65 @@ export function newMenuHtml() {
     </div>`;
 }
 
-export function searchButtonHtml(className) {
+export function searchButtonHtml(className = 'tn-search') {
   return `<button type="button" class="${className}" data-open-search aria-label="Search screens, customers and suppliers">${icon('search', 15)}<span>Search</span><kbd>/</kbd></button>`;
+}
+
+// ---------------------------------------------------------------------------
+// The top menu.
+
+export function buildTopNav(root, { onPassword, onSignOut } = {}) {
+  const company = store.settings?.company_name || 'My Company';
+  const user = store.user;
+  const groups = visibleGroups({ top: true });
+  root.innerHTML = `
+    <a class="tn-org" href="#/dashboard" title="Home">
+      <img class="tn-logo" src="/brand/netfare-icon.svg" alt="" width="30" height="30">
+      <span class="tn-org-text"><strong>${esc(company)}</strong><small>Netfare</small></span>
+    </a>
+    <nav class="tn-groups" aria-label="Main navigation">
+      ${groups.map((group) => {
+    if (group.items.length === 1 && !group.actions.length) {
+      const item = group.items[0];
+      return `<a class="tn-link" href="${item.href}" data-tn-group="${group.key}" data-section="${item.section}">${icon(group.icon, 16)}<span>${esc(group.label)}</span></a>`;
+    }
+    return `
+          <div class="tn-pop tn-group" data-pop="${group.key}" data-tn-group="${group.key}">
+            <button type="button" class="tn-trigger" aria-expanded="false" aria-haspopup="true" aria-controls="tn-panel-${group.key}">
+              ${icon(group.icon, 16)}<span>${esc(group.label)}</span><span class="tn-caret">${icon('chevron', 12)}</span>
+            </button>
+            <div class="tn-panel" id="tn-panel-${group.key}" hidden>
+              <div class="tn-panel-main">
+                <div class="tn-panel-head">${esc(group.label)}</div>
+                <div class="tn-items" style="--tn-cols:${group.columns || 2}">${group.items.map(panelItemHtml).join('')}</div>
+                ${group.actions.length ? `<div class="tn-actions">${actionLinksHtml(group.actions)}</div>` : ''}
+              </div>
+              <div class="tn-recent" data-recent-for="${group.items.map((item) => item.section).join(' ')}"></div>
+            </div>
+          </div>`;
+  }).join('')}
+    </nav>
+    <div class="tn-right">
+      ${searchButtonHtml()}
+      ${newMenuHtml()}
+      <div class="tn-tools" data-tools-slot></div>
+      <a class="icon-btn tn-icon" href="#/settings" data-section="settings" aria-label="Settings" title="Settings">${icon('settings', 17)}</a>
+      <div class="tn-pop" data-pop="account">
+        <button type="button" class="tn-account" aria-expanded="false" aria-haspopup="true" title="Your account"><span aria-hidden="true">${avatar(user?.full_name || company, 30)}</span><span class="sr-only">Your account</span></button>
+        <div class="tn-panel tn-panel-account" hidden>
+          <div class="tn-account-head">
+            <strong>${esc(user?.full_name || company)}</strong>
+            <small>${esc(user ? `${user.is_admin ? 'Admin' : 'Staff'} · ${company}` : company)}</small>
+          </div>
+          <button type="button" class="tn-account-item" data-account-action="password">${icon('lock', 15)}<span>Change your password</span></button>
+          <button type="button" class="tn-account-item" data-account-action="signout">${icon('logout', 15)}<span>Sign out</span></button>
+        </div>
+      </div>
+    </div>`;
+
+  root.querySelector('[data-account-action="password"]')?.addEventListener('click', () => { closePops(); onPassword?.(); });
+  root.querySelector('[data-account-action="signout"]')?.addEventListener('click', () => { closePops(); onSignOut?.(); });
+  bindPops(root);
 }
 
 // Panels open on click (not hover), close on Escape, on a click outside and
@@ -215,6 +302,15 @@ function closePops(except = null) {
     const panel = pop.querySelector(':scope > .tn-panel');
     if (panel) panel.hidden = true;
   });
+}
+
+function fillRecent(pop) {
+  const box = pop.querySelector('.tn-recent');
+  if (!box) return;
+  const rows = recentFor(box.dataset.recentFor.split(' '));
+  box.innerHTML = `<div class="tn-panel-head">Recent</div>${rows.length
+    ? rows.map((row) => `<a class="tn-recent-item" href="${esc(row.hash)}">${esc(row.title)}</a>`).join('')
+    : '<span class="tn-recent-empty">Records you open show here.</span>'}`;
 }
 
 export function bindPops(root) {
@@ -230,6 +326,7 @@ export function bindPops(root) {
       pop.classList.toggle('open', opening);
       button.setAttribute('aria-expanded', String(opening));
       panel.hidden = !opening;
+      if (opening) fillRecent(pop);
     });
     panel.addEventListener('click', (event) => {
       if (event.target.closest('a')) closePops();
@@ -247,6 +344,20 @@ document.addEventListener('keydown', (event) => {
   closePops();
   open.querySelector(':scope > button')?.focus();
 });
+
+// Marks the group and item of the screen that is open.
+export function markTopNav(section) {
+  document.querySelectorAll('#top-nav [data-tn-group]').forEach((node) => {
+    const active = node.matches(`[data-section="${section}"]`) || Boolean(node.querySelector(`.tn-item[data-section="${section}"]`));
+    node.classList.toggle('active', active);
+  });
+  document.querySelectorAll('#top-nav .tn-item, #top-nav .tn-link, #top-nav .tn-icon').forEach((node) => {
+    const active = node.dataset.section === section;
+    node.classList.toggle('current', active);
+    if (active) node.setAttribute('aria-current', 'page');
+    else node.removeAttribute('aria-current');
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Search: press "/" (or Ctrl/⌘ K) anywhere to jump to a screen, start a new
