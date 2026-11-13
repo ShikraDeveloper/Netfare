@@ -152,6 +152,17 @@ test('an opening 1030 balance leaves the open items when re-saved, and is guarde
   assert.equal(reconciliation.reconciliationSummary(db).all_matched, true);
 });
 
+test('the dashboard Cash card shows what it is made of, with the card money not yet in the bank', () => {
+  cardPayment(4_500, 'Payment link', '2026-10-28');
+  const data = require('../server/services/reports').dashboard(db);
+  const sum = data.cash_accounts.reduce((total, row) => total + row.balance_cents, 0);
+  assert.equal(sum, data.cash_cents, 'the accounts add up to the card');
+  const clearing = data.cash_accounts.find((row) => row.code === '1030');
+  assert.equal(clearing.balance_cents, balance('1030'));
+  assert.equal(data.card_waiting.reduce((total, item) => total + item.amount_cents, 0), clearing.balance_cents, 'every waiting payment is listed');
+  assert.ok(data.card_waiting.some((item) => item.customer === 'Card Customer' && item.amount_cents === 4_500 && item.date === '2026-10-28'));
+});
+
 test('clear all data removes card settlements and petty cash counts', () => {
   require('../server/services/petty-cash').recordCount(db, { count_date: '2026-10-26', counted_cents: 0 });
   require('../server/services/demo').resetAll(db);

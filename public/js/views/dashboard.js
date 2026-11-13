@@ -6,10 +6,12 @@ import {
   avatar,
   emptyState,
   esc,
+  fmtDate,
   fmtMoney,
   icon,
   monthLabel,
   numberCardHtml,
+  openModal,
   segmentedHtml,
   setHeader,
   statusBadge,
@@ -338,6 +340,42 @@ function ledgerChecksCard(reconciliation) {
   `;
 }
 
+// What the Cash card's total is made of: each money account, and the card
+// and payment-link money still on its way to the bank.
+function openCashBreakdown(data) {
+  const row = (account) => {
+    const waiting = account.code === '1030';
+    const items = waiting && data.card_waiting.length ? `
+      <ul class="cash-waiting">${data.card_waiting.map((item) => `
+        <li><span>${esc(fmtDate(item.date))} · ${esc(item.customer || item.reference || 'Card payment')}${item.customer && item.reference ? ` <span class="muted">${esc(item.reference)}</span>` : ''}</span><span class="num">${fmtMoney(item.amount_cents)}</span></li>`).join('')}
+      </ul>` : '';
+    return `
+      <tr data-cash-account="${esc(account.code)}">
+        <td>
+          <a href="${waiting ? '#/card-settlements' : '#/banking'}">${esc(account.name)}</a> <span class="muted">${esc(account.code)}</span>
+          ${waiting ? '<div class="cell-sub">Not yet in the bank</div>' : ''}
+          ${items}
+        </td>
+        <td class="num">${fmtMoney(account.balance_cents)}</td>
+      </tr>`;
+  };
+  openModal({
+    title: 'Cash',
+    size: 'modal-md',
+    hideFooter: true,
+    body: `
+      <div class="table-wrap" data-cash-breakdown>
+        <table class="report-table"><caption class="sr-only">Money accounts</caption>
+          <thead><tr><th scope="col">Account</th><th scope="col" class="num">Balance</th></tr></thead>
+          <tbody>${data.cash_accounts.map(row).join('')}</tbody>
+          <tfoot><tr><td>Total</td><td class="num">${fmtMoney(data.cash_cents)}</td></tr></tfoot>
+        </table>
+      </div>`,
+    // A link leaves the dashboard, so the box closes with it.
+    onMount: (overlay, close) => overlay.querySelectorAll('a[href^="#/"]').forEach((link) => link.addEventListener('click', () => close())),
+  });
+}
+
 export async function render(container, { query } = {}) {
   destroyCharts();
   const [data, reconciliation, reminders] = await Promise.all([
@@ -393,6 +431,11 @@ export async function render(container, { query } = {}) {
   `;
 
   bindRecent(container);
+  container.querySelector('.kpi-grid a.kpi[href="#/banking"]')?.addEventListener('click', (event) => {
+    if (!data.cash_accounts) return;
+    event.preventDefault();
+    openCashBreakdown(data);
+  });
   container.querySelectorAll('[data-action="new-invoice"]').forEach((button) => {
     button.addEventListener('click', () => { location.hash = '#/invoices?new=1'; });
   });

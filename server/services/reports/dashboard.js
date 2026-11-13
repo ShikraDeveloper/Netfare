@@ -27,24 +27,24 @@ function dashboard(db) {
   const revenueMtd = typeTotal('revenue', start, end);
   const expensesMtd = typeTotal('expense', start, end);
 
-  const cashRow = db.prepare(`
-    SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS total
-    FROM journal_lines l
-    JOIN accounts a ON a.id = l.account_id
+  // Every money account (cash, banks, card money not yet in the bank), so the
+  // Cash card can show what its total is made of.
+  const cashAccounts = db.prepare(`
+    SELECT a.id, a.code, a.name, COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS balance_cents
+    FROM accounts a
+    LEFT JOIN journal_lines l ON l.account_id = a.id
     WHERE a.is_cash = 1
-  `).get();
-  const cashOnlyRow = db.prepare(`
-    SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS total
-    FROM journal_lines l
-    JOIN accounts a ON a.id = l.account_id
-    WHERE a.code = '1000'
-  `).get();
-  const bankOnlyRow = db.prepare(`
-    SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS total
-    FROM journal_lines l
-    JOIN accounts a ON a.id = l.account_id
-    WHERE a.is_cash = 1 AND a.code <> '1000'
-  `).get();
+    GROUP BY a.id
+    HAVING a.is_active = 1 OR balance_cents <> 0
+    ORDER BY a.code
+  `).all();
+  const sumBalances = (rows) => rows.reduce((sum, row) => sum + row.balance_cents, 0);
+  const clearing = cashAccounts.find((account) => account.code === '1030');
+  const cardWaiting = clearing?.balance_cents
+    ? require('../card-settlements').getCardSettlements(db).items.map((item) => ({
+      date: item.entry_date, customer: item.customer_name || '', reference: item.payment_number || item.reference || item.memo || '', amount_cents: item.amount_cents,
+    }))
+    : [];
 
   const ar = db.prepare(`
     SELECT COALESCE(SUM(total_cents - amount_paid_cents - credit_applied_cents), 0) AS total, COUNT(*) AS count
@@ -196,9 +196,11 @@ function dashboard(db) {
     revenue_mtd_cents: revenueMtd,
     expenses_mtd_cents: expensesMtd,
     net_income_mtd_cents: revenueMtd - expensesMtd,
-    cash_cents: cashRow.total,
-    cash_only_cents: cashOnlyRow.total,
-    bank_cents: bankOnlyRow.total,
+    cash_cents: sumBalances(cashAccounts),
+    cash_only_cents: sumBalances(cashAccounts.filter((account) => account.code === '1000')),
+    bank_cents: sumBalances(cashAccounts.filter((account) => account.code !== '1000')),
+    cash_accounts: cashAccounts,
+    card_waiting: cardWaiting,
     ar_outstanding_cents: ar.total,
     ar_count: ar.count,
     ap_outstanding_cents: ap.total,
