@@ -2368,3 +2368,31 @@ test('axe WCAG 2.1 AA audit is clean across light and dark themes', async () => 
 
   await page.evaluate(() => localStorage.removeItem('ledgerly.theme'));
 });
+
+test('a large photo is made smaller before upload; the books keep a small JPG', async () => {
+  const [customer] = await getJson(baseUrl, '/api/customers');
+  await openRoute(`/customer-balances/${customer.id}`);
+  const input = page.locator('[data-attachment-input]').first();
+  await input.waitFor({ state: 'attached' });
+  // A 2000 × 1500 photo-like PNG (noise does not compress), several MB.
+  const base64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2000; canvas.height = 1500;
+    const ctx = canvas.getContext('2d');
+    const image = ctx.createImageData(canvas.width, canvas.height);
+    for (let i = 0; i < image.data.length; i += 4) {
+      image.data[i] = Math.random() * 255; image.data[i + 1] = Math.random() * 255; image.data[i + 2] = Math.random() * 255; image.data[i + 3] = 255;
+    }
+    ctx.putImageData(image, 0, 0);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  const original = Buffer.from(base64, 'base64');
+  assert.ok(original.length > 3_000_000, 'a large photo');
+  await input.setInputFiles({ name: 'passport-scan.png', mimeType: 'image/png', buffer: original });
+  await page.waitForFunction(() => /passport-scan\.jpg/.test(document.body.textContent));
+  const saved = (await getJson(baseUrl, `/api/attachments?entity_type=customer&entity_id=${customer.id}`))
+    .find((row) => row.file_name === 'passport-scan.jpg');
+  assert.equal(saved.mime_type, 'image/jpeg');
+  assert.ok(saved.size_bytes < original.length / 3, `stored ${saved.size_bytes} bytes instead of ${original.length}`);
+  assertNoConsoleErrors();
+});

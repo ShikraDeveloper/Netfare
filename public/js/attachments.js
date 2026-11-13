@@ -3,6 +3,32 @@ import { confirmDialog, esc, fmtDate, foldHtml, icon, toast } from './ui.js';
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
+// Photos (passport and ID scans) are made smaller before upload: longest side
+// 1600 px, saved as JPG. They are kept inside the books, so every backup
+// carries them. PDFs, other files and photos already small go up unchanged.
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const PHOTO_MAX_SIDE = 1600;
+const PHOTO_SMALL_BYTES = 500 * 1024;
+
+async function smallerPhoto(file) {
+  if (!PHOTO_TYPES.includes(file.type)) return file;
+  const bitmap = await createImageBitmap(file).catch(() => null);
+  if (!bitmap) return file;
+  const scale = Math.min(1, PHOTO_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  if (scale === 1 && file.size <= PHOTO_SMALL_BYTES) return file;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#fff'; // a transparent PNG becomes white paper, not black
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  const blob = await new Promise((resolve) => { canvas.toBlob(resolve, 'image/jpeg', 0.85); });
+  if (!blob || blob.size >= file.size) return file;
+  return new File([blob], `${file.name.replace(/\.(png|webp|jpe?g)$/i, '')}.jpg`, { type: 'image/jpeg' });
+}
+
 export async function loadAttachments(entityType, entityId) {
   try {
     return await api.get('/attachments', { entity_type: entityType, entity_id: entityId });
@@ -55,9 +81,10 @@ export function bindAttachmentSection(container, { entityType, entityId }) {
 
   uploadButton.addEventListener('click', () => input.click());
   input.addEventListener('change', async () => {
-    const file = input.files?.[0];
+    const chosen = input.files?.[0];
     input.value = '';
-    if (!file) return;
+    if (!chosen) return;
+    const file = await smallerPhoto(chosen);
     if (file.size > MAX_BYTES) {
       toast('Attachments must be 15 MB or smaller', 'error');
       return;
