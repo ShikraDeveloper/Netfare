@@ -122,6 +122,21 @@ function runAutoBackup(db, { hours = Number(process.env.LEDGERLY_AUTO_BACKUP_HOU
   return createDatabaseBackup(db, 'auto');
 }
 
+// The last automatic backup that failed, kept until one works again, so the
+// admin is told (Today box, Settings) instead of only the server log.
+let lastFailure = null;
+
+function backupStatus() {
+  let latest = null;
+  try { latest = listBackups()[0] || null; } catch { /* no backup folder */ }
+  return {
+    enabled: Number(process.env.LEDGERLY_AUTO_BACKUP_HOURS ?? 24) > 0,
+    latest_at: latest?.created_at || null,
+    latest_name: latest?.name || null,
+    failure: lastFailure,
+  };
+}
+
 function startAutoBackup(db, options = {}) {
   const hours = Number(options.hours ?? process.env.LEDGERLY_AUTO_BACKUP_HOURS ?? 24);
   if (!Number.isFinite(hours) || hours <= 0) return null;
@@ -130,7 +145,9 @@ function startAutoBackup(db, options = {}) {
       const backup = runAutoBackup(db, { hours });
       if (backup) console.log(`  Automatic backup saved: ${backup.name}`);
       else mirror.catchUp(db, listBackups()[0]);
+      lastFailure = null;
     } catch (error) {
+      lastFailure = { at: new Date().toISOString(), message: error.message };
       console.error(`  Automatic backup failed: ${error.message}`);
     }
   };
@@ -141,6 +158,7 @@ function startAutoBackup(db, options = {}) {
 }
 
 module.exports = {
+  backupStatus,
   dataDir,
   backupDir,
   createDatabaseBackup,

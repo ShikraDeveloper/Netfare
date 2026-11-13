@@ -147,6 +147,23 @@ function reconciliations(db, today) {
     }));
 }
 
+// Backups (admin only): a failed automatic backup, none yet, or the newest
+// two days old or more. Nothing while automatic backups are switched off.
+function backups(db, today) {
+  const status = require('../backup').backupStatus();
+  if (!status.enabled) return [];
+  const item = { cents: null, href: '#/settings' };
+  if (status.failure) {
+    return [{ ...item, label: 'Automatic backup failed', sub: status.failure.message, ...since(todayISO(new Date(status.failure.at)), today) }];
+  }
+  if (!status.latest_at) return [{ ...item, label: 'No backup yet', sub: 'Make one in Settings', days: 0 }];
+  // Backup times are UTC; count in the office's own days.
+  const saved = todayISO(new Date(status.latest_at));
+  const age = daysBetween(saved, today);
+  if (age < 2) return [];
+  return [{ ...item, label: `Last backup ${age} days ago`, sub: `Last saved ${nice(saved)}`, days: age }];
+}
+
 const DRAFTS = [
   { area: 'bookings', sql: "SELECT id, number, created_at, sale_total_cents AS cents FROM bookings WHERE status = 'draft'", kind: 'Booking', href: 'bookings' },
   { area: 'visas', sql: "SELECT id, number, created_at, sale_total_cents AS cents FROM visa_applications WHERE status = 'draft'", kind: 'Visa', href: 'visas' },
@@ -180,6 +197,7 @@ function compliance(db, today) {
 }
 
 const GROUPS = [
+  { key: 'backup', label: 'Backups', areas: ['admin'], href: '#/settings', tone: 'red', items: backups },
   { key: 'collect', label: 'To collect from customers', areas: ['sales'], href: '#/invoices', tone: 'red', items: collect },
   { key: 'pay', label: 'To pay suppliers', areas: ['suppliers'], href: '#/bills', tone: 'red', items: pay },
   { key: 'card', label: 'Card and link money not in bank', areas: ['banking'], href: '#/card-settlements', tone: 'amber', items: cardMoney },

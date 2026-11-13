@@ -76,6 +76,10 @@ router.put('/network', (req, res) => {
   res.json(networkStatus());
 });
 
+router.get('/backups/status', (req, res) => {
+  res.json(require('../services/backup').backupStatus());
+});
+
 router.get('/backups', (req, res) => {
   res.json(listBackups());
 });

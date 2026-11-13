@@ -11,6 +11,7 @@ const { test, after } = require('node:test');
 
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ledgerly-pending-test-'));
 process.env.LEDGERLY_DATA_DIR = tempDir;
+process.env.LEDGERLY_AUTO_BACKUP_HOURS = '0'; // the backup line has its own test
 
 const db = require('../server/db');
 const invoiceService = require('../server/services/invoices');

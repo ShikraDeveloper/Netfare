@@ -246,6 +246,7 @@ export async function render(container) {
             <div class="danger-row" style="border-color:var(--border)">
               <div>
                 <h4>Backup</h4>
+                <div class="cell-sub" data-backup-status></div>
               </div>
               <div style="display:flex;gap:6px;flex-wrap:wrap">
                 <a class="btn btn-secondary btn-sm" href="/api/admin/backup/database" download>${icon('download', 15)} Download .db</a>
@@ -417,6 +418,18 @@ export async function render(container) {
       form.querySelectorAll('input, select, textarea, button[type="submit"]').forEach((field) => { field.disabled = true; });
     });
   }
+
+  // When the last backup was made; red when it failed or is two days old.
+  api.get('/admin/backups/status').then((status) => {
+    const line = container.querySelector('[data-backup-status]');
+    if (!line) return;
+    const days = status.latest_at ? Math.floor((Date.now() - Date.parse(status.latest_at)) / 86_400_000) : null;
+    const late = status.enabled && (status.failure || days == null || days >= 2);
+    line.textContent = status.failure ? `Automatic backup failed: ${status.failure.message}`
+      : status.latest_at ? `Last backup ${new Date(status.latest_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`
+        : 'No backup yet';
+    line.classList.toggle('amount-due', Boolean(late));
+  }).catch(() => { /* staff cannot read backups */ });
 
   container.querySelector('#local-backup').addEventListener('click', async (event) => {
     const button = event.currentTarget;
