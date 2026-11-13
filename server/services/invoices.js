@@ -203,6 +203,10 @@ function getInvoice(db, id) {
     refundable_cents: payment.advance_id || payment.deposit_id || payment.status === 'void'
       ? 0
       : Math.max(0, payment.amount_cents - payment.refunded_cents),
+    // Card and payment-link money: the payout it went into and its part of the fee.
+    card_settlement: payment.status === 'posted' && payment.journal_entry_id
+      ? require('./card-settlements').settlementShare(db, payment.journal_entry_id, payment.amount_cents)
+      : null,
   }));
   invoice.credits = db.prepare(`
     SELECT ca.id, ca.amount_cents, ca.applied_date, cn.id AS credit_note_id,

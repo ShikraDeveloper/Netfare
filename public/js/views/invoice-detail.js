@@ -501,7 +501,8 @@ export async function render(container, { params } = {}) {
             <span>${esc(fmtDate(payment.payment_date))} · ${esc(payment.number)}${payment.reference ? ` · ${esc(payment.reference)}` : ''}${payment.status === 'void' ? ` · ${statusBadge('void')}` : ''}</span>
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
             ${payment.bank_charges_cents ? `<span class="cell-sub">Bank charges ${fmtMoney(payment.bank_charges_cents)}</span>` : ''}
-            ${payment.advance_id ? '<span class="cell-sub">From advance</span>' : ''}
+            ${payment.card_settlement ? `<span class="cell-sub">Settled in ${esc(payment.card_settlement.number)} · fee share ${fmtMoney(payment.card_settlement.fee_share_cents)}</span>` : ''}
+            ${payment.advance_id && !payment.from_receipt ? '<span class="cell-sub">From advance</span>' : ''}
             ${payment.deposit_id ? `<span class="cell-sub">From deposit ${esc(payment.reference || '')}</span>` : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
           </div>

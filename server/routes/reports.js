@@ -28,6 +28,12 @@ router.get('/visas', (req, res) => {
   res.json(visas.visaMarginReport(db, req.query.from || start, req.query.to || end));
 });
 
+// Every bank charge and card / payment-link fee in the period (6700, 6710).
+router.get('/bank-charges', (req, res) => {
+  const { start, end } = monthRange(todayISO());
+  res.json(require('../services/reports/bank-charges').bankChargesReport(db, req.query.from || start, req.query.to || end));
+});
+
 router.get('/daily-sales', (req, res) => {
   const { start, end } = monthRange(todayISO());
   res.json(reports.dailySales(db, req.query.from || start, req.query.to || end, { staff: req.query.staff }));

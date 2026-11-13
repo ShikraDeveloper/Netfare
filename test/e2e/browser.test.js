@@ -1855,7 +1855,7 @@ test('the reports home groups reports and each report has quick periods', async 
     (await home.locator('h2').allInnerTexts()).map((text) => text.trim().toLowerCase()),
     ['daily work', 'how the business is doing', 'for your accountant'],
   );
-  assert.equal(await home.locator('[data-report-link]').count(), 10);
+  assert.equal(await home.locator('[data-report-link]').count(), 11);
   await home.locator('[data-report-link="income-statement"]').click();
   await page.locator('[data-profit-or-loss]').waitFor();
   assert.match(await page.locator('#page-title').innerText(), /Statement of Profit or Loss/);

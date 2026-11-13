@@ -40,5 +40,7 @@ module.exports = [
   ['6500', 'Software & Subscriptions', 'expense', 'operating_expense', 'debit', 0, 0],
   ['6600', 'Travel & Meals', 'expense', 'operating_expense', 'debit', 0, 0],
   ['6700', 'Bank Charges', 'expense', 'operating_expense', 'debit', 0, 0],
+  // Fees the card gateway or payment-link provider keeps at the payout.
+  ['6710', 'Card & Payment Link Fees', 'expense', 'operating_expense', 'debit', 0, 1],
   ['6900', 'Other Expenses', 'expense', 'other_expense', 'debit', 0, 0],
 ];

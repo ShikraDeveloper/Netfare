@@ -7,6 +7,7 @@ import { agingReport } from './reports/aging.js';
 import { bookingMargin, visaMargin } from './reports/margins.js';
 import { portalWallets } from './reports/portal-wallets.js';
 import { visaDeposits } from './reports/visa-deposits.js';
+import { bankCharges } from './reports/bank-charges.js';
 
 // Reports grouped by who uses them. `period` reports take a date range,
 // `asOf` reports a single date.
@@ -19,6 +20,7 @@ const REPORTS = [
   { key: 'visa-margin', group: 'performance', label: 'Visa gross profit', title: 'Visa Gross Profit', icon: 'visa', kind: 'period' },
   { key: 'balance-sheet', group: 'accountant', label: 'Financial position', title: 'Statement of Financial Position', icon: 'accounts', kind: 'asOf' },
   { key: 'trial-balance', group: 'accountant', label: 'Trial balance', title: 'Trial Balance', icon: 'journal', kind: 'asOf' },
+  { key: 'bank-charges', group: 'accountant', label: 'Bank & card fees', title: 'Bank Charges & Card Fees', icon: 'cash', kind: 'period' },
   { key: 'ap-aging', group: 'accountant', label: 'What we owe suppliers', title: 'Trade Payables Aging', icon: 'bill', kind: 'asOf' },
   { key: 'portal-wallets', group: 'accountant', label: 'Portal wallets', title: 'Portal Wallets', icon: 'wallet', kind: 'none' },
 ];
@@ -58,6 +60,7 @@ function renderReport(key, data) {
   if (key === 'visa-margin') return visaMargin(data);
   if (key === 'portal-wallets') return portalWallets(data);
   if (key === 'visa-deposits') return visaDeposits(data);
+  if (key === 'bank-charges') return bankCharges(data);
   return agingReport(data, key === 'ar-aging' ? 'ar' : 'ap');
 }
 
@@ -75,6 +78,7 @@ async function fetchReport(key, filters) {
     return api.get('/reports/daily-sales', { from: filters.from, to: filters.to, staff: filters.staff });
   }
   if (key === 'portal-wallets') return api.get('/reports/portals');
+  if (key === 'bank-charges') return api.get('/reports/bank-charges', { from: filters.from, to: filters.to });
   if (key === 'visa-deposits') return api.get('/reports/visa-deposits', { status: filters.depositStatus });
   if (key === 'balance-sheet') return api.get('/reports/balance-sheet', { as_of: filters.asOf });
   if (key === 'trial-balance') return api.get('/reports/trial-balance', { as_of: filters.asOf });

@@ -48,7 +48,7 @@ test('1030 is a cash-type clearing account kept out of the bank total', () => {
   assert.equal(balances.bank_balance_cents, 0);
 });
 
-test('a payout settles chosen items: bank gets the net, the fee goes to 6700', () => {
+test('a payout settles chosen items: bank gets the net, the fee goes to 6710', () => {
   cardPayment(50_000, 'Payment link', '2026-10-11');
   cardPayment(20_000, 'Credit card', '2026-10-12');
   const before = cards.getCardSettlements(db);
@@ -71,7 +71,7 @@ test('a payout settles chosen items: bank gets the net, the fee goes to 6700', (
   assert.match(settlement.number, /^CS-2026-/);
   assert.deepEqual([settlement.gross_cents, settlement.fee_cents, settlement.net_cents], [70_000, 1_750, 68_250]);
   assert.equal(balance('1010'), 68_250);
-  assert.equal(balance('6700'), 1_750);
+  assert.equal(balance('6710'), 1_750);
   assert.equal(balance('1030'), 10_000, 'the first card payment still waits');
   const after = cards.getCardSettlements(db);
   assert.equal(after.items.length, 1);

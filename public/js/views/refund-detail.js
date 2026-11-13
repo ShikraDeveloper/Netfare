@@ -182,6 +182,7 @@ export async function render(container, { params } = {}) {
               <dt>Method</dt><dd>${esc(refund.method || '—')}</dd>
               <dt>Account</dt><dd>${esc(refund.account_name || '—')}</dd>
               <dt>Reference</dt><dd>${esc(refund.reference || '—')}</dd>
+              ${refund.bank_charges_cents ? `<dt>Bank charges</dt><dd>${fmtMoney(refund.bank_charges_cents)}</dd>` : ''}
             </dl>
           </div>
         </div>

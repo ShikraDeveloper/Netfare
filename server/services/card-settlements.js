@@ -3,7 +3,7 @@
 // Card and payment link settlements. Money taken by card or payment link
 // waits in 1030 Card & Payment Link Clearing. When the gateway pays the batch
 // into the bank, less its fee, the chosen items are settled in one entry:
-// Dr bank (net) · Dr 6700 Bank Charges (fee) · Cr 1030 (gross).
+// Dr bank (net) · Dr 6710 Card & Payment Link Fees (fee) · Cr 1030 (gross).
 
 const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../util');
 const { markCreated } = require('../created-by');
@@ -84,8 +84,13 @@ function createSettlement(db, payload = {}) {
     if (date < latest) throw bad(`The settlement date cannot be before the last item (${latest})`);
     const bank = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(payload.bank_account_id));
     if (!isCashAccount(bank) || bank.id === clearing.id) throw bad('Choose the bank account the money arrived in');
-    const feeAccount = fee ? accountByCode(db, SYSTEM_CODES.BANK_CHARGES) : null;
-    if (fee && (!feeAccount || !feeAccount.is_active)) throw bad('Add the 6700 Bank Charges expense account first');
+    // Netfare adds 6710 itself; a 6710 the user made for something else is not used.
+    const feeAccount = fee ? accountByCode(db, SYSTEM_CODES.CARD_FEES) : null;
+    if (fee && (!feeAccount || !feeAccount.is_active || !feeAccount.is_system || feeAccount.type !== 'expense')) {
+      throw bad(feeAccount && !feeAccount.is_system
+        ? `Account 6710 is used by "${feeAccount.name}". Netfare needs 6710 for Card & Payment Link Fees: give that account another code first.`
+        : 'Card and payment link fees need the 6710 Card & Payment Link Fees account. Restore it in Chart of accounts.');
+    }
 
     const number = allocateNumber(db, 'card_settlement', date);
     const info = db.prepare(`
@@ -148,7 +153,34 @@ function voidSettlement(db, id, payload = {}) {
   })();
 }
 
+// The settlement that took a card or payment-link payment's money (by the
+// payment's entry) and the payment's share of that settlement's fee, split by
+// amount; the last line takes the rounding. A receipt's one card line is
+// shared by its invoices, so `amountCents` asks for a part of that line.
+function settlementShare(db, entryId, amountCents) {
+  const found = db.prepare(`
+    SELECT s.id, s.number, s.fee_cents, sl.journal_line_id, sl.amount_cents
+    FROM journal_lines l
+    JOIN card_settlement_lines sl ON sl.journal_line_id = l.id
+    JOIN card_settlements s ON s.id = sl.settlement_id
+    WHERE l.entry_id = ? AND s.status = 'posted'
+  `).get(entryId);
+  if (!found) return null;
+  const lines = db.prepare('SELECT journal_line_id, amount_cents FROM card_settlement_lines WHERE settlement_id = ? ORDER BY journal_line_id').all(found.id);
+  const gross = lines.reduce((sum, row) => sum + row.amount_cents, 0);
+  let given = 0;
+  let lineShare = 0;
+  lines.forEach((row, index) => {
+    const part = index === lines.length - 1 ? found.fee_cents - given : Math.round((found.fee_cents * row.amount_cents) / gross);
+    given += part;
+    if (row.journal_line_id === found.journal_line_id) lineShare = part;
+  });
+  const share = amountCents && amountCents !== found.amount_cents ? Math.round((lineShare * amountCents) / found.amount_cents) : lineShare;
+  return { id: found.id, number: found.number, fee_share_cents: share };
+}
+
 module.exports = {
+  settlementShare,
   openItems,
   getCardSettlements,
   createSettlement,

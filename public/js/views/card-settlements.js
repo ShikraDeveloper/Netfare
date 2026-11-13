@@ -39,7 +39,7 @@ function settlementRow(row) {
       <td class="nowrap">${esc(fmtDate(row.settlement_date))}<div class="cell-sub">${esc(row.number)}</div></td>
       <td>${esc(row.bank_name)}<div class="cell-sub">${row.item_count} item${row.item_count === 1 ? '' : 's'}${row.reference ? ` · ${esc(row.reference)}` : ''}</div></td>
       <td class="num">${fmtMoney(row.gross_cents)}</td>
-      <td class="num">${row.fee_cents ? fmtMoney(row.fee_cents) : '—'}</td>
+      <td class="num">${row.fee_cents ? `${fmtMoney(row.fee_cents)}<div class="cell-sub">${((row.fee_cents / row.gross_cents) * 100).toFixed(2)}%</div>` : '—'}</td>
       <td class="num">${fmtMoney(row.net_cents)}</td>
       <td>${statusBadge(row.status)}</td>
       <td>${row.status === 'posted' ? correctButtonHtml('card_settlement', row) : ''}${row.status === 'posted' ? `<button class="icon-btn danger" data-void-settlement="${row.id}" title="Void settlement" aria-label="Void ${esc(row.number)}">${icon('x', 15)}</button>` : ''}</td>

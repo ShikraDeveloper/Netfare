@@ -28,6 +28,7 @@ export async function render(container, { params } = {}) {
     ['Payment method', receipt.method],
     receipt.reference ? ['Reference', receipt.reference] : null,
     ['Received into', receipt.deposit_account_name],
+    receipt.bank_charges_cents ? ['Bank kept', fmtMoney(receipt.bank_charges_cents)] : null,
   ].filter(Boolean);
 
   const lines = receipt.invoices.map((row) => {
