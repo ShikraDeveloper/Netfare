@@ -136,6 +136,20 @@ function customerAdvances(db, customerId) {
   `).all(customerId).map((advance) => ({ ...advance, allowed_actions: workflows.allowedActions('advance', advance) }));
 }
 
+// Every receipt from Receive payment, newest first: a fully used one is not
+// an advance, so this is where it is found (and voided from its page).
+function customerReceipts(db, customerId) {
+  return db.prepare(`
+    SELECT a.id, a.number, a.advance_date, a.method, a.amount_cents,
+           (a.amount_cents - a.applied_cents - a.refunded_cents) AS remaining_cents,
+           (SELECT GROUP_CONCAT(i.number, ', ') FROM payments p JOIN invoices i ON i.id = p.invoice_id
+            WHERE p.advance_id = a.id AND p.status = 'posted') AS invoice_numbers
+    FROM customer_advances a
+    WHERE a.customer_id = ? AND a.is_receipt = 1 AND a.voided_at IS NULL
+    ORDER BY a.advance_date DESC, a.id DESC
+  `).all(customerId);
+}
+
 function cancellationRefunds(db, customerId) {
   return db.prepare(`
     SELECT cc.id, cc.number, cc.cancellation_date, cc.refund_due_cents,
@@ -184,6 +198,7 @@ function getCustomerBalance(db, customerId) {
     open_invoices: openInvoices(db, id),
     credits: customerCredits(db, id),
     advances: customerAdvances(db, id),
+    receipts: customerReceipts(db, id),
     cancellation_refunds: cancellationRefunds(db, id),
   };
 }

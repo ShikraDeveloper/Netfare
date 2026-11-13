@@ -133,3 +133,25 @@ test('the books balance and every ledger check matches', () => {
   const summary = reconciliation.reconciliationSummary(db);
   assert.deepEqual(summary.checks.filter((check) => !check.matched).map((check) => check.code || check.label), []);
 });
+
+test('the customer page lists receipts: newest first, the invoices each paid, what is left, voided ones left out', () => {
+  const customerId = customer('Receipts List');
+  const a = invoice(customerId, '2026-11-01', 30_000);
+  const b = invoice(customerId, '2026-11-01', 20_000);
+  const first = advances.receivePayment(db, {
+    customer_id: customerId, amount_cents: 60_000, receipt_date: '2026-11-02', method: 'Bank transfer', deposit_account_id: account('1010').id,
+  });
+  const wrong = advances.receivePayment(db, {
+    customer_id: customerId, amount_cents: 5_000, receipt_date: '2026-11-03', deposit_account_id: account('1010').id, allocations: [],
+  });
+  const later = advances.receivePayment(db, {
+    customer_id: customerId, amount_cents: 1_000, receipt_date: '2026-11-04', method: 'Cash', deposit_account_id: account('1000').id, allocations: [],
+  });
+  advances.voidAdvance(db, wrong.id, { remarks: 'Entered twice' });
+
+  const page = require('../server/services/customer-balances').getCustomerBalance(db, customerId);
+  assert.deepEqual(page.receipts.map((row) => [row.number, row.amount_cents, row.remaining_cents, row.invoice_numbers]), [
+    [later.number, 1_000, 1_000, null],
+    [first.number, 60_000, 10_000, `${a.number}, ${b.number}`],
+  ]);
+});

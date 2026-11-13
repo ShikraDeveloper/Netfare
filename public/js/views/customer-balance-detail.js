@@ -56,6 +56,19 @@ function creditRows(credits) {
   `).join('');
 }
 
+// Receipts from Receive payment; a row opens the receipt (Print, Void).
+function receiptRows(receipts) {
+  return receipts.map((receipt) => `
+    <tr class="clickable" data-href="#/customer-receipts/${receipt.id}" tabindex="0">
+      <td><div class="cell-main">${esc(receipt.number)}</div><div class="cell-sub">${esc(fmtDate(receipt.advance_date))}</div></td>
+      <td>${esc(receipt.method || '')}</td>
+      <td>${receipt.invoice_numbers ? esc(receipt.invoice_numbers) : '<span class="muted">—</span>'}</td>
+      <td class="num">${fmtMoney(receipt.amount_cents)}</td>
+      <td class="num ${receipt.remaining_cents > 0 ? 'amount-ok' : 'muted'}">${receipt.remaining_cents > 0 ? fmtMoney(receipt.remaining_cents) : '—'}</td>
+    </tr>
+  `).join('');
+}
+
 function advanceRows(advances) {
   return advances.map((advance) => {
     const source = advance.booking_id
@@ -152,6 +165,17 @@ export async function render(container, { params } = {}) {
     </div>
 
     ${foldsHtml([
+    data.receipts.length && foldHtml({
+      key: 'receipts',
+      title: 'Receipts',
+      count: data.receipts.length,
+      body: `<div class="table-wrap">
+          <table class="data"><caption class="sr-only">Receipts from ${esc(customer.name)}</caption>
+            <thead><tr><th scope="col">Receipt</th><th scope="col">Method</th><th scope="col">Invoices paid</th><th scope="col" class="num">Amount</th><th scope="col" class="num">Left as advance</th></tr></thead>
+            <tbody>${receiptRows(data.receipts)}</tbody>
+          </table>
+        </div>`,
+    }),
     data.credits.length && foldHtml({
       key: 'credits',
       title: 'Credit notes',
