@@ -3401,6 +3401,18 @@ The user asked about moving the side menu to the top with dropdowns. After three
 - **Committed alone:** the uncommitted top-menu restore and another session's unsaved edits were left out of this commit.
 - **Not pushed or released.**
 
+### Bank charges & card fees report; card and payment-link fees in 6710 — code commit `d0b18bc`
+
+- **Why:** From the pending list. The user asked first why the monthly 99 bank fee has a "Bank Account (bank debits)" supplier and how charges are tracked (explained: every expense is a bill and needs a supplier; for a fee the bank takes itself, Netfare makes the bank's own supplier; the bill is paid by "Bank debit" at once, so its balance is always 0), then said "yes alag banao card and payment link and rest".
+- **New account 6710 Card & Payment Link Fees** (`default-accounts.js`, `SYSTEM_CODES.CARD_FEES`): added on start where 6710 is free (it was free in the live books, checked on a deleted copy). Card settlements post the fee there; a 6710 the user made for something else is refused with a clear message, never used. The 5 older live settlements (fees 219.36) stay in 6700; history is not rewritten.
+- **Report (`server/services/reports/bank-charges.js`, `GET /api/reports/bank-charges`, Reports → For your accountant → "Bank & card fees"):** every line on 6700 and 6710 in the period, from the ledger, with what it was on: customer payment, receipt / advance, supplier payment, portal top-up, refund, card & payment-link fee (settlement, payments, fee %), bank fee (bills of the "(bank debits)" supplier: Compliance and Bank reconciliation), expense bill, journal entry. Customer or supplier, bank account, link to the document; totals for 6700, 6710 and both, by kind and by month. An entry and its reversal both in the period are left out (voids and corrections); anything else stays, so the total equals the ledger.
+- **Fee share:** each card or payment-link payment shows "Settled in CS-… · fee share …" (the settlement's fee split by amount, last line takes the rounding; a card receipt's line is split over its invoices). The card settlements list shows the fee as a percent.
+- **Receipt and refund pages** now show their bank charge. Invoice payments from a receipt no longer say "From advance".
+- **Checked on the demo:** 6710 was created on start; a payment-link payment (PMT-2026-0021, 1,500) settled as CS-2026-0003 at 2.5% shows 37.50 in 6710, the report lists it with "1 payment · 1500.00 in, fee 2.50%" (and an older 6700 settlement as a card fee), INV-2026-0014 shows "Settled in CS-2026-0003 · fee share AED 37.50", the settlements list shows 2.50%.
+- **Tests:** new `test/bank-charges-report.test.js` (failed before), `card-settlements.test.js` expects 6710, the reports home now counts 11 reports. `npm test` 363 passed, `npm run test:e2e` 43 passed, `npm run check` OK.
+- **Committed alone:** the uncommitted top-menu work and another session's unsaved edits were left out.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
@@ -3411,7 +3423,6 @@ The user asked about moving the side menu to the top with dropdowns. After three
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
    - testing the installers by hand on Mac and Windows;
    - testing "Start from a backup" in the desktop app by hand.
-   - **Bank charges report (the user asked to do it later, 2026-11-12):** every charge posts to 6700 in the same entry as its payment (invoice payment, Receive payment/advance, bill payment, portal top-up, refund; card settlement fees; Bank reconciliation "Add bank charge" and Compliance "Bank charges" bank-debit bills), but nothing lists them: only the Income statement and Trial balance show the 6700 total, and the journal search does not search line text. Build a "Bank charges" report (date, which payment / top-up / bill / refund / settlement, bank account, amount, month total). Also show the charge on the receipt (RCP) page and the refund page, which record it but do not display it.
 6. Use a disposable database for review; never modify live data. Append the next change under a new date heading before committing.
 7. **Windows signing (the user decides later):** On a real Windows PC (2026-11-07) the user found that Smart App Control blocks the unsigned Netfare installer; after turning it off, the app works, but the installer shows "Unknown publisher".
    - **Options:** (a) the Microsoft Store, which is free for individuals (ID and selfie check), MSIX signed by Microsoft, with no SAC block or warning; (b) a paid OV code-signing certificate (Sectigo, SSL.com, Certum, about US$100–400 a year) with cloud signing in the release workflow; (c) leave it unsigned, which is not advised.
