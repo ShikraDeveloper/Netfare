@@ -315,6 +315,14 @@ Verification:
 - **Checked:** the calendar browser test now checks `parseDate` ("01/05/85" → 1985-05-01, a year three ahead stays 20xx, 31/02/2026 refused, 2029-03-12 read as is); the list test reads "Paid · Bank transfer". On the demo the visa date-of-birth field has today as its maximum. `npm test` 370, `npm run test:e2e` 47 passed.
 - **Not pushed or released.**
 
+### Release 1.0.22 — `0daf9e8`, tag `v1.0.22`
+
+- **Why:** The user said "Push aur release" after the audit fixes.
+- **Checked first:** a clean worktree of the committed code passed `npm run check`, `npm test` (370) and `npm run test:e2e` (47).
+- **Version:** 1.0.22 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`; commit `0daf9e8 Version 1.0.22`; eight tag notes: searchable dropdowns; the calendar and two-line visa applicants; the paid-by filter and list totals; the pending bar and Cash card breakdown; no future dates on money and posted documents; the petty cash count and DSR deposit fixes; the backup warning and smaller photos; the desktop crash message and window reload.
+- **Pushed:** `main` and `v1.0.22`. Run 43596103052 passed (Build mac, Build win, Publish release). The smoke test printed "reloads a crashed window and closes with a message on an error" on both Mac and Windows, the first run of those checks on Windows.
+- **Checked:** public release with both Mac `.dmg`s, the Windows `.exe` and `latest.json`; `releases/latest` is v1.0.22 and `latest.json` says 1.0.22. Six releases are now on GitHub (1.0.22, 1.0.21, 1.0.20, 1.0.19, 1.0.17, 1.0.16).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
@@ -3597,7 +3605,7 @@ The user asked about moving the side menu to the top with dropdowns. After three
 
 1. Start from the latest `main`. The tags `v1.0.0` to `v1.0.12` exist (v1.0.10 has no release). The user's Mac runs the 1.0.2 desktop app; its books are in `~/Library/Application Support/Netfare/data`. Never touch that folder in tests: use `NETFARE_USER_DATA` and `LEDGERLY_DATA_DIR` pointing at temp folders.
 2. The user's Mac runs 1.0.4 (the bell worked); 1.0.5 is published and should show in the bell.
-3. **Release 1.0.21** is published (2026-11-13): the customer Receipts list, the Bank & card fees report, card and payment-link fees in 6710 with fee shares, bank charges on receipt and refund pages, the top menu back, the greyed visa Void. 1.0.20 before it: white-paper desktop prints and the logo lined up with the address; 1.0.19: receipts instead of advances, buttons from `server/workflows.js`, documents white in dark mode. Waiting to be released: the backup warning, the smaller photo uploads, the desktop crash message and the Cash card breakdown. Ask the user to check in the office: the Shikra Travel logo, Receive payment and the Receipts list, the Bank & card fees report, Print preview and Share, reminders, and Restore from backup once in the built app. VAT (Phase B) waits on the user.
+3. **Release 1.0.22** is published (2026-11-14): searchable dropdowns, a calendar for every date field, two-line visa applicants, the paid-by filter and list totals, the pending bar and Cash card breakdown, no future dates on money and posted documents, the petty cash count and DSR deposit fixes, the backup warning, smaller photos, and the desktop crash message. 1.0.21 before it: the customer Receipts list, the Bank & card fees report, card fees in 6710, the top menu back. Nothing is waiting to be released. Ask the user to check in the office: the Shikra Travel logo, the new dropdowns and calendar, the list totals, Print preview and Share, reminders, and Restore from backup once in the built app. Card fees made before 1.0.21 (307.26 on the user's books) are still in 6700; a journal entry Dr 6710 / Cr 6700 would move them if the user wants. VAT (Phase B) waits on the user.
 4. **Website:** live at `shikragroup.com/netfare/`. HTTPS redirect and analytics are fixed. The user keeps the old screenshots live by choice; the repo has new ones (Blue Dune Travel / Karim Aziz) for a later upload. Re-run `npm run website:screens` after more screens are simplified.
 5. **Still open:**
    - the 4 remaining audit leads (see `NEEDS-VALIDATION.md` in run-2; login lockout and restore are fixed);
