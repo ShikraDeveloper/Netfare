@@ -2026,12 +2026,28 @@ test('bank charges on a payment, a charge added in bank reconciliation, and pett
   await clickPageAction('[data-action="pc-count"]');
   const count = page.locator('[role="dialog"]');
   await count.locator('#pc-counted').fill('490');
-  assert.match(await count.locator('[data-count-diff]').innerText(), /Short by/);
+  await count.locator('[data-count-diff]', { hasText: 'Short by' }).waitFor();
   await count.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   await page.locator('[data-petty-counts]').waitFor();
   const petty = await getJson(baseUrl, '/api/petty-cash');
   assert.equal(petty.balance_cents, 49_000);
+
+  // A count dated before today's top-up is checked against the books on that
+  // date, as the server posts it, not against today's 490.00.
+  await clickPageAction('[data-action="pc-count"]');
+  const backdated = page.locator('[role="dialog"]');
+  const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA');
+  const before = await getJson(baseUrl, `/api/petty-cash?to=${yesterday}`);
+  assert.notEqual(before.closing_cents, 49_000);
+  const shown = (before.closing_cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  await backdated.locator('#pc-count-date').fill(yesterday);
+  await backdated.locator('#pc-counted').fill('490');
+  const note = backdated.locator('[data-count-diff]', { hasText: shown });
+  await note.waitFor();
+  assert.match(await note.innerText(), /Over by/, 'not "Matches the books"');
+  await backdated.locator('[data-close]').first().click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   assertNoConsoleErrors();
 });
 

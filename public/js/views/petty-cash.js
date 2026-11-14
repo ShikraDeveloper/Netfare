@@ -85,16 +85,33 @@ function openCount(data, refresh) {
     submitLabel: 'Save count',
     onMount(overlay) {
       const input = overlay.querySelector('#pc-counted');
+      const date = overlay.querySelector('#pc-count-date');
       const note = overlay.querySelector('[data-count-diff]');
-      input.addEventListener('input', () => {
-        if (input.value === '') { note.textContent = 'Enter what is in the box.'; return; }
-        const difference = toCents(input.value) - data.balance_cents;
-        note.textContent = difference === 0
+      // The count is checked against the books on its own date (as the server
+      // does), not today's balance: a later top-up must not change it.
+      let book = null;
+      const show = () => {
+        if (book === null) { note.textContent = ''; return; }
+        const onDate = `In the books on ${fmtDate(date.value)}: ${fmtMoney(book)}.`;
+        if (input.value === '') { note.textContent = onDate; return; }
+        const difference = toCents(input.value) - book;
+        note.textContent = `${onDate} ${difference === 0
           ? 'Matches the books. Nothing is posted.'
           : difference < 0
             ? `Short by ${fmtMoney(-difference)}. Posted as an expense (Dr 6900 Other Expenses · Cr Petty Cash).`
-            : `Over by ${fmtMoney(difference)}. Posted back (Dr Petty Cash · Cr 6900 Other Expenses).`;
-      });
+            : `Over by ${fmtMoney(difference)}. Posted back (Dr Petty Cash · Cr 6900 Other Expenses).`}`;
+      };
+      const loadBook = async () => {
+        const asked = date.value;
+        book = null;
+        show();
+        if (!asked) return;
+        const result = await api.get('/petty-cash', { to: asked }).catch(() => null);
+        if (result && date.value === asked) { book = result.closing_cents; show(); }
+      };
+      input.addEventListener('input', show);
+      date.addEventListener('change', loadBook);
+      loadBook();
     },
     async onSubmit(form) {
       const value = form.querySelector('#pc-counted').value;
