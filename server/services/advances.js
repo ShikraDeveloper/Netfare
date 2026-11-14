@@ -7,6 +7,7 @@ const {
   cents,
   dateISO,
   todayISO,
+  notFuture,
 } = require('../util');
 const {
   systemAccount, isCashAccount, postEntry, reverseEntry, bankChargesCents, bankChargeLines,
@@ -206,7 +207,7 @@ function applyAdvance(db, id, payload = {}) {
 
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
     const ar = systemAccount(db, AR_ACCOUNT, 'Trade Receivables');
-    const paymentDate = dateISO(payload.payment_date || todayISO(), 'Application date');
+    const paymentDate = notFuture(dateISO(payload.payment_date || todayISO(), 'Application date'), 'Application date');
     if (paymentDate < advance.advance_date) throw bad(`The date cannot be before the advance was received (${advance.advance_date})`);
     if (paymentDate < invoice.issue_date) throw bad(`The date cannot be before the invoice date (${invoice.issue_date})`);
     const number = allocateNumber(db, 'payment', paymentDate);
@@ -397,7 +398,7 @@ function voidAdvance(db, id, payload = {}) {
 function receivePayment(db, payload = {}) {
   return db.transaction(() => {
     const customerId = Number(payload.customer_id);
-    const date = dateISO(payload.receipt_date || todayISO(), 'Date received');
+    const date = notFuture(dateISO(payload.receipt_date || todayISO(), 'Date received'), 'Date received');
     const amount = cents(payload.amount_cents, 'Amount received', { min: 1 });
 
     const open = db.prepare(`

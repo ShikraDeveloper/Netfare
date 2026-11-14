@@ -137,22 +137,22 @@ test('charges above what was paid come as a charges invoice on the cancellation 
 
 test('the DSR keeps the sale on its day and nets to the charges less retained cost', () => {
   const customerId = customer('History DSR');
-  const booking = soldAndPaid(customerId, { date: '2026-12-01' });
-  const cancellation = cancel(booking, { date: '2026-12-05' });
-  const rows = dailySales(db, '2026-12-01', '2026-12-31').days.flatMap((day) => day.rows);
+  const booking = soldAndPaid(customerId, { date: '2026-11-01' });
+  const cancellation = cancel(booking, { date: '2026-11-05' });
+  const rows = dailySales(db, '2026-11-01', '2026-11-30').days.flatMap((day) => day.rows);
   const sale = rows.find((row) => !row.is_cancellation && row.id === booking.invoice_id);
   const reversal = rows.find((row) => row.is_cancellation && row.cancellation_id === cancellation.id);
-  assert.equal(sale.issue_date, '2026-12-01');
+  assert.equal(sale.issue_date, '2026-11-01');
   assert.deepEqual([sale.sale_cents, sale.cost_cents, sale.margin_cents, sale.paid_cents], [73_000, 60_000, 13_000, 73_000]);
   assert.equal(sale.status_display, 'cancelled');
   assert.equal(sale.cancelled_by.number, cancellation.number);
-  assert.equal(reversal.issue_date, '2026-12-05');
+  assert.equal(reversal.issue_date, '2026-11-05');
   assert.equal(reversal.number, cancellation.number);
   assert.deepEqual(
     [reversal.sale_cents, reversal.cost_cents, reversal.margin_cents, reversal.paid_cents],
     [-63_000, -55_000, -8_000, -63_000],
   );
-  const totals = dailySales(db, '2026-12-01', '2026-12-31').totals;
+  const totals = dailySales(db, '2026-11-01', '2026-11-30').totals;
   assert.deepEqual([totals.sale_cents, totals.cost_cents, totals.margin_cents], [10_000, 5_000, 5_000]);
 });
 

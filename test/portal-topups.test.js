@@ -84,7 +84,7 @@ test('a credit account top-up pays the oldest open bills, and the rest pays the 
   const a = bill(vendorId, '2026-10-01', 400_000);
   const b = bill(vendorId, '2026-10-05', 600_000);
   const c = bill(vendorId, '2026-10-09', 200_000);
-  const later = bill(vendorId, '2026-11-20', 50_000);
+  const later = bill(vendorId, '2026-11-10', 50_000);
   assert.equal(portalService.getPortal(db, portal.id).outstanding_ap_cents, 1_250_000);
 
   const saved = portalService.topUp(db, {
@@ -110,7 +110,7 @@ test('a credit account top-up pays the oldest open bills, and the rest pays the 
   assert.equal(billPaid(c.id), 200_000);
   assert.equal(second.balance_cents, 200_000, 'the rest waits as an advance');
 
-  const settled = portalService.autoSettleBill(db, later.id, '2026-11-20');
+  const settled = portalService.autoSettleBill(db, later.id, '2026-11-10');
   assert.equal(settled.settled_cents, 50_000, 'the next bill is paid from the advance');
   assert.equal(portalService.getPortal(db, portal.id).balance_cents, 150_000);
 

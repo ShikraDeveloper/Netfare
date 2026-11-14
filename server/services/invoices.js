@@ -11,6 +11,7 @@ const {
   todayISO,
   maskPassport,
   isTruthy,
+  notFuture,
 } = require('../util');
 const workflows = require('../workflows');
 const {
@@ -587,7 +588,7 @@ function recordInvoicePayment(db, invoiceId, payload) {
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
     const balance = invoiceBalanceCents(invoice);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);
-    const paymentDate = dateISO(payload.payment_date || todayISO(), 'Payment date');
+    const paymentDate = notFuture(dateISO(payload.payment_date || todayISO(), 'Payment date'), 'Payment date');
     if (paymentDate < invoice.issue_date) {
       throw bad(`Payment date cannot be before the invoice date (${invoice.issue_date}). Record money received earlier as a customer advance.`);
     }

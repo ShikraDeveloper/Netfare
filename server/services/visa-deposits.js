@@ -1,6 +1,6 @@
 'use strict';
 
-const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../util');
+const { bad, notFound, notFuture, optionalStr, cents, dateISO, todayISO } = require('../util');
 const { systemAccount, isCashAccount, postEntry, reverseEntry, SYSTEM_CODES } = require('../accounting');
 const { allocateNumber } = require('./numbering');
 const audit = require('./audit');
@@ -379,7 +379,7 @@ function applyToInvoice(db, id, payload = {}) {
       throw bad(`Only ${(deposit.in_hand_cents / 100).toFixed(2)} of this deposit can be used now.${stillWithSupplier(deposit)}`);
     }
     if (requested > balance) throw bad(`That invoice only has ${(balance / 100).toFixed(2)} left to pay`);
-    const date = eventDate(deposit, payload.event_date, 'Date');
+    const date = notFuture(eventDate(deposit, payload.event_date, 'Date'), 'Date');
     if (date < invoice.issue_date) throw bad(`The date cannot be before the invoice date (${invoice.issue_date})`);
     const { held, ar } = accounts(db);
     const number = allocateNumber(db, 'payment', date);

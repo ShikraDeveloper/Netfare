@@ -114,11 +114,11 @@ test('voiding one share keeps the money as the customer advance; voiding the rec
 test('money left from a receipt and used later reads as an advance applied, not a bank payment', () => {
   const customerId = customer('Leftover Later');
   const receipt = advances.receivePayment(db, {
-    customer_id: customerId, amount_cents: 25_000, receipt_date: '2026-11-12', method: 'Bank transfer',
+    customer_id: customerId, amount_cents: 25_000, receipt_date: '2026-11-02', method: 'Bank transfer',
     deposit_account_id: account('1010').id, allocations: [],
   });
-  const later = invoice(customerId, '2026-12-01', 25_000);
-  advances.applyAdvance(db, receipt.id, { invoice_id: later.id, payment_date: '2026-12-01' });
+  const later = invoice(customerId, '2026-11-12', 25_000);
+  advances.applyAdvance(db, receipt.id, { invoice_id: later.id, payment_date: '2026-11-12' });
   assert.equal(invoiceService.getInvoice(db, later.id).payments[0].method, 'Advance applied');
   checksMatch();
 });

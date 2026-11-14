@@ -8,6 +8,7 @@ const {
   cents,
   dateISO,
   todayISO,
+  notFuture,
 } = require('../util');
 const {
   systemAccount,
@@ -390,7 +391,7 @@ function applySupplierCredit(db, creditId, payload = {}) {
     if (amount > remaining) throw bad(`Credit amount exceeds the remaining balance of ${(remaining / 100).toFixed(2)}`);
     const balance = billBalanceCents(bill);
     if (amount > balance) throw bad(`Credit amount exceeds the bill balance of ${(balance / 100).toFixed(2)}`);
-    const appliedDate = dateISO(payload.applied_date || todayISO(), 'Applied date');
+    const appliedDate = notFuture(dateISO(payload.applied_date || todayISO(), 'Applied date'), 'Applied date');
     if (appliedDate < credit.credit_date) {
       throw bad('Application date cannot be before the supplier credit date');
     }

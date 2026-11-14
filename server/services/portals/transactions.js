@@ -1,6 +1,6 @@
 'use strict';
 
-const { bad, notFound, optionalStr, cents, dateISO, todayISO } = require('../../util');
+const { bad, notFound, notFuture, optionalStr, cents, dateISO, todayISO } = require('../../util');
 const { markCreated } = require('../../created-by');
 const {
   systemAccount, postEntry, reverseEntry, billBalanceCents, bankChargesCents, bankChargeLines,
@@ -32,7 +32,7 @@ function topUp(db, payload) {
     if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
 
     const amount = cents(payload.amount_cents, 'Top-up amount', { min: 1 });
-    const date = dateISO(payload.topup_date || todayISO(), 'Top-up date');
+    const date = notFuture(dateISO(payload.topup_date || todayISO(), 'Top-up date'), 'Top-up date');
     const account = assertAccount(db, payload.deposit_account_id, 'source account');
     const charges = bankChargesCents(payload);
     const supplierAdvances = systemAccount(db, SUPPLIER_ADVANCES, 'Advances to Suppliers');
@@ -279,7 +279,7 @@ function settleBillFromPortal(db, payload) {
       throw bad(`Portal "${portal.name}" is not linked to this bill's supplier`);
     }
 
-    const date = dateISO(payload.settle_date || todayISO(), 'Settlement date');
+    const date = notFuture(dateISO(payload.settle_date || todayISO(), 'Settlement date'), 'Settlement date');
     if (date < bill.bill_date) throw bad('Settlement date cannot be before the bill date');
 
     const available = Math.min(lockBalance(db, portal.id), balanceAsOf(db, portal.id, date));

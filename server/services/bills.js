@@ -9,6 +9,7 @@ const {
   cents,
   dateISO,
   todayISO,
+  notFuture,
 } = require('../util');
 const workflows = require('../workflows');
 const {
@@ -380,7 +381,7 @@ function recordBillPayment(db, billId, payload) {
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
     const balance = billBalanceCents(bill);
     if (amount > balance) throw bad(`Payment exceeds the outstanding balance of ${(balance / 100).toFixed(2)}`);
-    const paymentDate = dateISO(payload.payment_date || todayISO(), 'Payment date');
+    const paymentDate = notFuture(dateISO(payload.payment_date || todayISO(), 'Payment date'), 'Payment date');
     if (paymentDate < bill.bill_date) {
       throw bad(`Payment date cannot be before the bill date (${bill.bill_date}). Record money paid earlier as a supplier portal top-up.`);
     }

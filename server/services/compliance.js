@@ -428,6 +428,8 @@ function generateBill(db, id, payload = {}) {
     if (dueDate < billDate) throw bad('Due date cannot be before the bill date');
 
     const bankDebit = Boolean(item.auto_debit_account_id);
+    // A bank debit is recorded as paid on its date, which cannot be ahead.
+    if (bankDebit && billDate > todayISO()) throw bad(`The bank takes this on ${billDate}. Record it on or after that date.`);
     const method = bankDebit ? 'Bank debit' : item.payment_method || 'Bank transfer';
     let bill = billService.createBill(db, {
       vendor_id: item.vendor_id,

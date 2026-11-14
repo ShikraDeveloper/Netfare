@@ -60,6 +60,13 @@ function dateISO(value, field) {
   return value;
 }
 
+// A payment or credit marks a document paid at once, while its ledger entry
+// counts only from its date: one dated after today would make the two disagree.
+function notFuture(date, field) {
+  if (date > todayISO()) throw bad(`${field} cannot be in the future`);
+  return date;
+}
+
 function todayISO(d = new Date()) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
@@ -99,6 +106,7 @@ module.exports = {
   HttpError,
   bad,
   notFound,
+  notFuture,
   str,
   optionalStr,
   num,

@@ -179,7 +179,7 @@ test('a cancellation and its refund appear in section E on the cancellation day'
 });
 
 test('a second bank account counts in the DSR bank figures', () => {
-  const day = '2026-11-20';
+  const day = '2026-11-13';
   const second = Number(db.prepare("INSERT INTO accounts (code, name, type, subtype, normal_balance, is_cash, is_system) VALUES ('1011', 'Second Bank', 'asset', 'current_asset', 'debit', 1, 0)").run().lastInsertRowid);
   const invoice = invoiceService.createInvoice(db, {
     customer_id: customerId, issue_date: day, due_date: day, status: 'sent',
