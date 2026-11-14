@@ -257,6 +257,17 @@ Verification:
 - **Done:** the tag is gone from GitHub (deleted by the user; a later delete call answered "Reference does not exist") and from this checkout (`git tag -d v1.0.18`, was `05317c1`). 21 version tags remain.
 - **Checked:** the run is still "queued", but without its tag it cannot fetch the code, so it cannot publish anything. Releases: 1.0.21 (latest), 1.0.20, 1.0.19, 1.0.17, 1.0.16.
 
+### Things pending: the closed bar says what is waiting — code commit `4533578`
+
+- **Why:** The user selected the bar ("27 things pending · 9 older than 30 days · oldest 183 days") and asked for improvements; approved the mockup of points 1–3 ("Haan, bana do"). The bar did not say what was waiting, its red count mixed today's items with late ones, and "oldest 183 days" came from a bank account never reconciled, not from an invoice.
+- **What:**
+  - **Badge:** "9 late" in red (items over 30 days), or the count in amber when nothing is late.
+  - **Line:** "27 things pending" and under it "8 to collect · 12 to pay · 7 other · oldest: bank to reconcile, 183 days" (the oldest group named).
+  - **Bank group:** named by its items: "Bank to reconcile", "Cheques to clear", or "Cheques and bank"; its Open link goes to bank reconciliation when it only holds reconciling.
+  - Not done: point 4 (remembering the bar open or closed).
+- **Checked:** a new test in `test/pending.test.js` (a never-reconciled bank reads "Bank to reconcile" and opens reconciliation); the browser test checks the closed bar says what is waiting and the oldest. On the demo the bar shows exactly the mockup, the groups are unchanged except "Bank to reconcile", and it fits at phone width. `npm test` 370, `npm run test:e2e` 44 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
