@@ -30,7 +30,9 @@ const audit = require('./audit');
 
 const invoiceSelect = `
   SELECT i.*, c.name AS customer_name, c.email AS customer_email, c.address AS customer_address,
-         c.phone AS customer_phone, c.number AS customer_number, c.trn AS customer_trn
+         c.phone AS customer_phone, c.number AS customer_number, c.trn AS customer_trn,
+         (SELECT GROUP_CONCAT(DISTINCT p.method) FROM payments p WHERE p.invoice_id = i.id AND p.status = 'posted') AS paid_methods,
+         EXISTS (SELECT 1 FROM credit_applications ca WHERE ca.invoice_id = i.id) AS paid_by_credit
   FROM invoices i
   JOIN customers c ON c.id = i.customer_id
 `;
@@ -38,9 +40,11 @@ const invoiceSelect = `
 function serializeInvoice(invoice, today = todayISO()) {
   // The full passport is only needed while a draft can still be edited. Sent
   // and void invoices are customer documents and carry the masked form only.
-  const { beneficiary_passport: passport, ...rest } = invoice;
+  const { beneficiary_passport: passport, paid_methods: methods, paid_by_credit: byCredit, ...rest } = invoice;
   return {
     ...rest,
+    // How it was paid, for the lists' "paid by" filter.
+    payment_methods: [...(methods ? methods.split(',') : []), ...(byCredit ? ['Credit note'] : [])],
     ...(invoice.status === 'draft' ? { beneficiary_passport: passport || '' } : {}),
     beneficiary_passport_masked: maskPassport(passport),
     status_display: invoiceDisplayStatus(invoice, today),

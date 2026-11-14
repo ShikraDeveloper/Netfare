@@ -2503,3 +2503,30 @@ test('a date field opens a calendar on any click; typing works; days the server 
   await count.locator('[data-close]').first().click();
   assertNoConsoleErrors();
 });
+
+test('invoices, bills and refunds filter by how they were paid', async () => {
+  const invoices = await getJson(baseUrl, '/api/invoices');
+  const expected = (key, methods) => invoices.filter((invoice) => (key === 'none' ? !invoice.payment_methods.length : invoice.payment_methods.some((method) => methods.includes(method)))).length;
+  await openRoute('/invoices');
+  const paidBy = page.locator('#invoice-paid-by');
+  await paidBy.waitFor({ state: 'attached' });
+  const count = async () => Number((await page.locator('#invoice-count').innerText()).match(/\d+/)[0]);
+  await paidBy.selectOption('cash');
+  assert.equal(await count(), expected('cash', ['Cash']));
+  await paidBy.selectOption('bank');
+  assert.equal(await count(), expected('bank', ['Bank transfer', 'Bank debit']));
+  await paidBy.selectOption('none');
+  assert.equal(await count(), expected('none'));
+  await paidBy.selectOption('all');
+  assert.equal(await count(), invoices.length);
+
+  await openRoute('/bills');
+  await page.locator('#bill-paid-by').selectOption('none');
+  const bills = await getJson(baseUrl, '/api/bills');
+  assert.equal(Number((await page.locator('#bill-count').innerText()).match(/\d+/)[0]), bills.filter((bill) => !bill.payment_methods.length).length);
+  if ((await getJson(baseUrl, '/api/refunds')).length) { // with no refunds the page shows its empty state
+    await openRoute('/refunds');
+    await page.locator('#refund-paid-by option[value="cash"]').waitFor({ state: 'attached' });
+  }
+  assertNoConsoleErrors();
+});

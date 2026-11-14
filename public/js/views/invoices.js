@@ -1,3 +1,4 @@
+import { paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { activeCustomers, revenueAccounts, store } from '../store.js';
@@ -94,6 +95,7 @@ export async function render(container, { query } = {}) {
         <option value="paid">Paid</option>
         <option value="void">Void</option>
       </select>
+      ${paidByHtml('invoice-paid-by', 'Filter invoices by how they were paid')}
       ${dateRangeHtml({ label: 'Invoice date' })}
       <div class="spacer"></div>
       <span class="muted" id="invoice-count" style="font-size:12px"></span>
@@ -121,6 +123,7 @@ export async function render(container, { query } = {}) {
 
   const searchInput = container.querySelector('#invoice-search');
   const statusSelect = container.querySelector('#invoice-status');
+  const paidBySelect = container.querySelector('#invoice-paid-by');
   const body = container.querySelector('#invoice-body');
   const countEl = container.querySelector('#invoice-count');
   const paginationEl = container.querySelector('#invoice-pagination');
@@ -162,6 +165,7 @@ export async function render(container, { query } = {}) {
           ? !['draft', 'void', 'paid'].includes(invoice.status_display)
           : invoice.status_display === status);
       if (!matchesStatus) return false;
+      if (!paidByMatches(invoice.payment_methods, paidBySelect.value)) return false;
       if (!term) return true;
       return [invoice.number, invoice.customer_name, invoice.customer_email, invoice.notes, invoice.status_display, invoice.beneficiary_name]
         .some((value) => String(value || '').toLowerCase().includes(term));
@@ -173,6 +177,7 @@ export async function render(container, { query } = {}) {
 
   searchInput.addEventListener('input', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
+  paidBySelect.addEventListener('change', applyFilters);
   body.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/invoices/${row.dataset.id}`;

@@ -1,3 +1,4 @@
+import { paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import {
   avatar,
@@ -143,6 +144,7 @@ export async function render(container) {
         <option value="paid">Paid</option>
         <option value="void">Void</option>
       </select>
+      ${paidByHtml('refund-paid-by', 'Filter refunds by how they were paid', ['cash', 'card', 'link', 'bank', 'cheque', 'portal', 'other'])}
       ${dateRangeHtml({ label: 'Refund date' })}
       <div class="spacer"></div>
       <span class="muted" id="refund-count" style="font-size:12px"></span>
@@ -170,6 +172,7 @@ export async function render(container) {
   const searchInput = container.querySelector('#refund-search');
   const typeSelect = container.querySelector('#refund-type-filter');
   const statusSelect = container.querySelector('#refund-status-filter');
+  const paidBySelect = container.querySelector('#refund-paid-by');
   const body = container.querySelector('#refund-body');
   const countEl = container.querySelector('#refund-count');
   const paginationEl = container.querySelector('#refund-pagination');
@@ -209,6 +212,7 @@ export async function render(container) {
       if (!inDateRange(refund.refund_date, from, to)) return false;
       if (type !== 'all' && refund.refund_type !== type) return false;
       if (status !== 'all' && refund.status !== status) return false;
+      if (!paidByMatches([refund.method], paidBySelect.value)) return false;
       if (!term) return true;
       return [
         refund.number,
@@ -228,6 +232,7 @@ export async function render(container) {
   searchInput.addEventListener('input', applyFilters);
   typeSelect.addEventListener('change', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
+  paidBySelect.addEventListener('change', applyFilters);
   body.addEventListener('click', (event) => {
     if (event.target.closest('[data-source-link]')) return;
     const row = event.target.closest('tr[data-id]');

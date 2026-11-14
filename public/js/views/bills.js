@@ -1,3 +1,4 @@
+import { paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import { openQuickExpenseModal } from './quick-expense.js';
 import { activeVendors, purchaseAccounts, store } from '../store.js';
@@ -95,6 +96,7 @@ export async function render(container, { query } = {}) {
         <option value="paid">Paid</option>
         <option value="void">Void</option>
       </select>
+      ${paidByHtml('bill-paid-by', 'Filter bills by how they were paid', ['cash', 'card', 'bank', 'cheque', 'advance', 'portal', 'other', 'none'])}
       ${dateRangeHtml({ label: 'Bill date' })}
       <div class="spacer"></div>
       <span class="muted" id="bill-count" style="font-size:12px"></span>
@@ -122,6 +124,7 @@ export async function render(container, { query } = {}) {
 
   const searchInput = container.querySelector('#bill-search');
   const statusSelect = container.querySelector('#bill-status');
+  const paidBySelect = container.querySelector('#bill-paid-by');
   const body = container.querySelector('#bill-body');
   const countEl = container.querySelector('#bill-count');
   const paginationEl = container.querySelector('#bill-pagination');
@@ -163,6 +166,7 @@ export async function render(container, { query } = {}) {
           ? !['draft', 'void', 'paid'].includes(bill.status_display)
           : bill.status_display === status);
       if (!matchesStatus) return false;
+      if (!paidByMatches(bill.payment_methods, paidBySelect.value)) return false;
       if (!term) return true;
       return [bill.number, bill.vendor_name, bill.vendor_email, bill.notes, bill.status_display]
         .some((value) => String(value || '').toLowerCase().includes(term));
@@ -173,6 +177,7 @@ export async function render(container, { query } = {}) {
 
   searchInput.addEventListener('input', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
+  paidBySelect.addEventListener('change', applyFilters);
   body.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/bills/${row.dataset.id}`;

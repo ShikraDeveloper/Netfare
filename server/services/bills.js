@@ -31,15 +31,19 @@ const audit = require('./audit');
 
 const billSelect = `
   SELECT b.*, v.name AS vendor_name, v.email AS vendor_email, v.address AS vendor_address,
-         v.phone AS vendor_phone, v.number AS vendor_number, p.name AS portal_name
+         v.phone AS vendor_phone, v.number AS vendor_number, p.name AS portal_name,
+         (SELECT GROUP_CONCAT(DISTINCT bp.method) FROM bill_payments bp WHERE bp.bill_id = b.id AND bp.status = 'posted') AS paid_methods,
+         EXISTS (SELECT 1 FROM supplier_credit_applications sa WHERE sa.bill_id = b.id) AS paid_by_credit
   FROM bills b
   JOIN vendors v ON v.id = b.vendor_id
   LEFT JOIN supplier_portals p ON p.id = b.portal_id
 `;
 
-function serializeBill(bill, today = todayISO()) {
+function serializeBill({ paid_methods: methods, paid_by_credit: byCredit, ...bill }, today = todayISO()) {
   return {
     ...bill,
+    // How it was paid, for the lists' "paid by" filter.
+    payment_methods: [...(methods ? methods.split(',') : []), ...(byCredit ? ['Supplier credit'] : [])],
     status_display: billDisplayStatus(bill, today),
     balance_cents: billBalanceCents(bill),
     allowed_actions: workflows.allowedActions('bill', bill),

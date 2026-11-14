@@ -32,3 +32,36 @@ export function bindMethodAccount(methodSelect, accountSelect, accounts, codeFor
 export function methodOptionsHtml(methods, selected = '') {
   return methods.map((method) => `<option ${method === selected ? 'selected' : ''}>${method}</option>`).join('');
 }
+
+// The "paid by" filter on lists (invoices, bills, refunds): each choice and
+// the stored methods it covers. Anything else counts as Other.
+const PAID_BY = [
+  ['cash', 'Cash', ['Cash']],
+  ['card', 'Card', ['Credit card']],
+  ['link', 'Payment link', ['Payment link']],
+  ['bank', 'Bank transfer', ['Bank transfer', 'Bank debit']],
+  ['cheque', 'Cheque', ['Cheque']],
+  ['advance', 'Advance or credit', ['Advance applied', 'Deposit applied', 'Credit note', 'Supplier credit']],
+  ['portal', 'Portal wallet', ['Portal wallet']],
+];
+const KNOWN = new Set(PAID_BY.flatMap(([, , methods]) => methods));
+
+// `keys` picks the choices a list needs; "none" adds Not paid yet.
+export function paidByHtml(id, ariaLabel, keys = ['cash', 'card', 'link', 'bank', 'cheque', 'advance', 'other', 'none']) {
+  const options = keys.map((key) => {
+    if (key === 'other') return '<option value="other">Other</option>';
+    if (key === 'none') return '<option value="none">Not paid yet</option>';
+    const [, label] = PAID_BY.find(([value]) => value === key);
+    return `<option value="${key}">${label}</option>`;
+  }).join('');
+  return `<select class="input" id="${id}" aria-label="${ariaLabel}" style="max-width:190px"><option value="all">All payment methods</option>${options}</select>`;
+}
+
+// True when `methods` (how a document was paid) fits the chosen filter.
+export function paidByMatches(methods = [], key = 'all') {
+  if (key === 'all') return true;
+  if (key === 'none') return !methods.length;
+  if (key === 'other') return methods.some((method) => !KNOWN.has(method));
+  const covered = PAID_BY.find(([value]) => value === key)?.[2] || [];
+  return methods.some((method) => covered.includes(method));
+}
