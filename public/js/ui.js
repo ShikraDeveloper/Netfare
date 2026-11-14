@@ -705,6 +705,12 @@ export async function printPage() {
   window.print();
 }
 
+// The totals line at the end of a filtered list: [{ label, cents, due }].
+export function listTotalsHtml(cells) {
+  return `<div class="list-totals" data-list-totals>${cells.map((cell) => `
+    <div class="list-total${cell.due && cell.cents ? ' is-due' : ''}"><span>${esc(cell.label)}</span><strong>${fmtMoney(cell.cents)}</strong></div>`).join('')}</div>`;
+}
+
 export function optionsHtml(items, { selected = '', placeholder = 'Select…', valueKey = 'id', labelKey = 'name' } = {}) {
   const options = items.map((item) => {
     const value = item[valueKey];

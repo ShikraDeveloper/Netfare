@@ -31,19 +31,15 @@ const audit = require('./audit');
 
 const billSelect = `
   SELECT b.*, v.name AS vendor_name, v.email AS vendor_email, v.address AS vendor_address,
-         v.phone AS vendor_phone, v.number AS vendor_number, p.name AS portal_name,
-         (SELECT GROUP_CONCAT(DISTINCT bp.method) FROM bill_payments bp WHERE bp.bill_id = b.id AND bp.status = 'posted') AS paid_methods,
-         EXISTS (SELECT 1 FROM supplier_credit_applications sa WHERE sa.bill_id = b.id) AS paid_by_credit
+         v.phone AS vendor_phone, v.number AS vendor_number, p.name AS portal_name
   FROM bills b
   JOIN vendors v ON v.id = b.vendor_id
   LEFT JOIN supplier_portals p ON p.id = b.portal_id
 `;
 
-function serializeBill({ paid_methods: methods, paid_by_credit: byCredit, ...bill }, today = todayISO()) {
+function serializeBill(bill, today = todayISO()) {
   return {
     ...bill,
-    // How it was paid, for the lists' "paid by" filter.
-    payment_methods: [...(methods ? methods.split(',') : []), ...(byCredit ? ['Supplier credit'] : [])],
     status_display: billDisplayStatus(bill, today),
     balance_cents: billBalanceCents(bill),
     allowed_actions: workflows.allowedActions('bill', bill),
@@ -120,7 +116,15 @@ function listBills(db, { status, search, from, to } = {}) {
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${billSelect} ${where} ORDER BY b.bill_date DESC, b.id DESC`).all(...params);
   const today = todayISO();
-  const serialized = rows.map((row) => serializeBill(row, today));
+  const { paidByMethod, paidFields } = require('./invoices');
+  const paid = paidByMethod(db, `
+    SELECT p.bill_id AS id, p.method, SUM(p.amount_cents - COALESCE((
+             SELECT SUM(r.amount_cents) FROM refunds r WHERE r.bill_payment_id = p.id AND r.status = 'paid'), 0)) AS cents
+    FROM bill_payments p WHERE p.status = 'posted' GROUP BY p.bill_id, p.method
+    UNION ALL
+    SELECT bill_id, 'Supplier credit', SUM(amount_cents) FROM supplier_credit_applications GROUP BY bill_id
+  `);
+  const serialized = rows.map((row) => ({ ...serializeBill(row, today), ...paidFields(paid.get(row.id)) }));
   if (!status || status === 'all') return serialized;
   if (status === 'outstanding') {
     return serialized.filter((row) => !['draft', 'void', 'paid'].includes(row.status_display));

@@ -65,3 +65,8 @@ export function paidByMatches(methods = [], key = 'all') {
   const covered = PAID_BY.find(([value]) => value === key)?.[2] || [];
   return methods.some((method) => covered.includes(method));
 }
+
+// How much of `paidBy` ({ method: cents }) the chosen "paid by" filter covers.
+export function paidByAmount(paidBy = {}, key = 'all') {
+  return Object.entries(paidBy).reduce((sum, [method, cents]) => (key === 'all' || paidByMatches([method], key) ? sum + cents : sum), 0);
+}

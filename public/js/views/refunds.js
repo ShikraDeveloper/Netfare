@@ -13,6 +13,7 @@ import {
   setHeader,
   statusBadge,
   fmtEntryTime,
+  listTotalsHtml,
 } from '../ui.js';
 import { openRefundModal } from './refund-modal.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -165,6 +166,7 @@ export async function render(container) {
           <tbody id="refund-body"></tbody>
         </table>
       </div>
+      <div id="refund-totals"></div>
       <div id="refund-pagination"></div>
     </div>
   `;
@@ -226,6 +228,10 @@ export async function render(container) {
     });
 
     countEl.textContent = `${filtered.length} matching`;
+    const counted = filtered.filter((refund) => refund.status !== 'void');
+    container.querySelector('#refund-totals').innerHTML = listTotalsHtml([
+      { label: `${counted.length} refund${counted.length === 1 ? '' : 's'} paid`, cents: counted.reduce((total, refund) => total + refund.amount_cents, 0) },
+    ]);
     renderPage();
   }
 

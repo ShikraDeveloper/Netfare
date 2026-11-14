@@ -2520,6 +2520,20 @@ test('invoices, bills and refunds filter by how they were paid', async () => {
   await paidBy.selectOption('all');
   assert.equal(await count(), invoices.length);
 
+  // The totals line: every matching invoice but drafts and voids; with a
+  // method chosen, only the part paid that way.
+  const money = (cents) => (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const live = invoices.filter((invoice) => !['draft', 'void'].includes(invoice.status_display));
+  const totals = page.locator('#invoice-totals');
+  const received = (pick) => live.reduce((sum, invoice) => sum + Object.entries(invoice.paid_by).filter(([method]) => pick(method)).reduce((a, [, cents]) => a + cents, 0), 0);
+  assert.match(await totals.innerText(), new RegExp(`${live.length} invoices?`));
+  assert.ok((await totals.innerText()).includes(money(live.reduce((sum, invoice) => sum + invoice.balance_cents, 0))), 'balance due');
+  assert.ok((await totals.innerText()).includes(money(received(() => true))), 'received');
+  await paidBy.selectOption('bank');
+  assert.ok((await totals.innerText()).includes(`Received · Bank transfer`));
+  assert.ok((await totals.innerText()).includes(money(received((method) => ['Bank transfer', 'Bank debit'].includes(method)))), 'only the bank part');
+  await paidBy.selectOption('all');
+
   await openRoute('/bills');
   await page.locator('#bill-paid-by').selectOption('none');
   const bills = await getJson(baseUrl, '/api/bills');

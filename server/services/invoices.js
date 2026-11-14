@@ -30,9 +30,7 @@ const audit = require('./audit');
 
 const invoiceSelect = `
   SELECT i.*, c.name AS customer_name, c.email AS customer_email, c.address AS customer_address,
-         c.phone AS customer_phone, c.number AS customer_number, c.trn AS customer_trn,
-         (SELECT GROUP_CONCAT(DISTINCT p.method) FROM payments p WHERE p.invoice_id = i.id AND p.status = 'posted') AS paid_methods,
-         EXISTS (SELECT 1 FROM credit_applications ca WHERE ca.invoice_id = i.id) AS paid_by_credit
+         c.phone AS customer_phone, c.number AS customer_number, c.trn AS customer_trn
   FROM invoices i
   JOIN customers c ON c.id = i.customer_id
 `;
@@ -40,11 +38,9 @@ const invoiceSelect = `
 function serializeInvoice(invoice, today = todayISO()) {
   // The full passport is only needed while a draft can still be edited. Sent
   // and void invoices are customer documents and carry the masked form only.
-  const { beneficiary_passport: passport, paid_methods: methods, paid_by_credit: byCredit, ...rest } = invoice;
+  const { beneficiary_passport: passport, ...rest } = invoice;
   return {
     ...rest,
-    // How it was paid, for the lists' "paid by" filter.
-    payment_methods: [...(methods ? methods.split(',') : []), ...(byCredit ? ['Credit note'] : [])],
     ...(invoice.status === 'draft' ? { beneficiary_passport: passport || '' } : {}),
     beneficiary_passport_masked: maskPassport(passport),
     status_display: invoiceDisplayStatus(invoice, today),
@@ -251,13 +247,35 @@ function listInvoices(db, { status, search, from, to } = {}) {
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${invoiceSelect} ${where} ORDER BY i.issue_date DESC, i.id DESC`).all(...params);
   const today = todayISO();
-  const serialized = rows.map((row) => serializeInvoice(row, today));
+  const paid = paidByMethod(db, `
+    SELECT p.invoice_id AS id, p.method, SUM(p.amount_cents - COALESCE((
+             SELECT SUM(r.amount_cents) FROM refunds r WHERE r.payment_id = p.id AND r.status = 'paid'), 0)) AS cents
+    FROM payments p WHERE p.status = 'posted' GROUP BY p.invoice_id, p.method
+    UNION ALL
+    SELECT invoice_id, 'Credit note', SUM(amount_cents) FROM credit_applications GROUP BY invoice_id
+  `);
+  const serialized = rows.map((row) => ({ ...serializeInvoice(row, today), ...paidFields(paid.get(row.id)) }));
   if (!status || status === 'all') return serialized;
   if (status === 'outstanding') {
     return serialized.filter((row) => !['draft', 'void', 'paid'].includes(row.status_display));
   }
   return serialized.filter((row) => row.status_display === status);
 }
+
+// How much of each document was paid by each method (net of refunds), for
+// the lists' "paid by" filter and totals. Rows: { id, method, cents }.
+function paidByMethod(db, sql) {
+  const byId = new Map();
+  for (const row of db.prepare(sql).all()) {
+    if (row.cents <= 0) continue;
+    const entry = byId.get(row.id) || {};
+    entry[row.method] = (entry[row.method] || 0) + row.cents;
+    byId.set(row.id, entry);
+  }
+  return byId;
+}
+
+const paidFields = (paidBy = {}) => ({ paid_by: paidBy, payment_methods: Object.keys(paidBy) });
 
 function assertCustomer(db, customerId) {
   const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(Number(customerId));
@@ -763,6 +781,8 @@ function getPaymentReceipt(db, paymentId) {
 }
 
 module.exports = {
+  paidByMethod,
+  paidFields,
   getPaymentReceipt,
   JOB_REVENUE_CODES,
   listInvoices,

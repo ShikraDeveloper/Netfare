@@ -1,4 +1,4 @@
-import { paidByHtml, paidByMatches } from '../payment-methods.js';
+import { paidByAmount, paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { activeCustomers, revenueAccounts, store } from '../store.js';
@@ -24,6 +24,7 @@ import {
   todayISO,
   toast,
   fmtEntryTime,
+  listTotalsHtml,
 } from '../ui.js';
 
 function invoiceRow(invoice) {
@@ -117,6 +118,7 @@ export async function render(container, { query } = {}) {
           <tbody id="invoice-body"></tbody>
         </table>
       </div>
+      <div id="invoice-totals"></div>
       <div id="invoice-pagination"></div>
     </div>
   `;
@@ -172,6 +174,16 @@ export async function render(container, { query } = {}) {
     });
 
     countEl.textContent = `${filtered.length} matching`;
+    // Totals of every invoice the filters match (not drafts or voids);
+    // with a payment method chosen, only the part paid that way.
+    const counted = filtered.filter((invoice) => !['draft', 'void'].includes(invoice.status_display));
+    const sum = (pick) => counted.reduce((total, invoice) => total + pick(invoice), 0);
+    const method = paidBySelect.value;
+    container.querySelector('#invoice-totals').innerHTML = listTotalsHtml([
+      { label: `${counted.length} invoice${counted.length === 1 ? '' : 's'}`, cents: sum((invoice) => invoice.total_cents) },
+      { label: method === 'all' ? 'Received' : `Received · ${paidBySelect.selectedOptions[0].textContent}`, cents: sum((invoice) => paidByAmount(invoice.paid_by, method)) },
+      { label: 'Balance due', cents: sum((invoice) => invoice.balance_cents), due: true },
+    ]);
     renderPage();
   }
 
