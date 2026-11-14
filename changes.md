@@ -241,7 +241,14 @@ Verification:
 - **Why:** The user said "correct kero" after being told that refunds have the same problem as S3: a refund of a customer payment lowers the invoice's paid amount at once (`refunds.js`), so the invoice shows due again now, while the ledger entry counts only from the refund date.
 - **What:** `notFuture` on every refund date: customer and supplier refunds, advance refunds, credit note and supplier credit refunds, cancellation refunds, visa deposit refunds and portal wallet refunds.
 - **Checked:** `test/future-payments.test.js` now also refunds a payment with tomorrow's date (refused; the invoice keeps its paid amount). Four tests moved their refund dates before today (`visa-deposits`, `visa-rejection`). `npm test` 368, `npm run test:e2e` 44 passed.
-- **Open, the user's decision:** invoices and bills themselves can still be dated after today (asked whether the office ever does this).
+- **Invoices and bills dated after today:** decided below (refused when posted).
+- **Not pushed or released.**
+
+### Invoices and bills cannot be posted with a date after today — code commit `ef2315d`
+
+- **Why:** The user said "Nahi, rok do" when asked whether the office ever makes invoices or bills dated ahead (their books have none). A posted invoice or bill counts in aging and "To collect" / "To pay" at once, while its ledger entry counts only from its date.
+- **What:** `notFuture` when an invoice is created as sent or a bill as received, and when a draft is finalized (`invoices.js`, `bills.js`). A draft may still carry a later date and be finalized on or after it. Bookings and visas (which post through `jobs.js`) say "The booking date cannot be in the future" / "The visa application date cannot be in the future". Correct, cancellations and compliance bills go through the same functions.
+- **Checked:** `test/future-payments.test.js` has a new test (sent invoice and received bill dated tomorrow refused; drafts saved; finalizing them refused; a visa dated tomorrow cannot be submitted). Tests that posted documents after today moved to earlier dates (`cancellation-history`, `customer-receipts`); `audit-fixes` F8 dropped its future-dated invoice half, since one can no longer be made. On the demo: a sent invoice dated tomorrow is refused, a draft is saved and cannot be finalized. `npm test` 369, `npm run test:e2e` 44 passed.
 - **Not pushed or released.**
 
 ### Next session
