@@ -295,6 +295,13 @@ Verification:
 - **Not done:** Bookings and Visas lists (their invoices carry the payments) and the customer Receipts list (it already shows the method) have no such filter.
 - **Not pushed or released.**
 
+### Totals at the end of the Invoices, Bills and Refunds lists — code commit `e1a178a`
+
+- **Why:** The user asked for totals at the end of the list for a day, all time, or the chosen payment method; approved the mockup ("Haan, bana do").
+- **What:** a totals line above the pagination (`listTotalsHtml` in `ui.js`), for every row the filters match, not only the page shown: Invoices "N invoices · total", "Received", "Balance due" (red when not zero); Bills "N bills", "Paid", "To pay"; Refunds "N refunds paid". Drafts and voids are not counted. With a payment method chosen the label reads "Received · Cash" and counts only the part paid that way (`paidByAmount`), so an invoice paid 600 cash + 400 bank adds 600 to the cash total. The server now adds `paid_by` (cents per method, net of refunds, with "Credit note" / "Supplier credit" for credits applied) to invoice and bill list rows, from one grouped query per list (`paidByMethod`); `payment_methods` is its keys. The earlier per-row sub-queries are gone.
+- **Checked:** the browser test compares the totals line with the API rows (count, received, balance due, and Bank transfer showing only the bank part). On the demo: 14 invoices (the void one left out), received 42,085, balance due 35,515 = the dashboard's To collect; Cash shows 3,000; bills to pay 52,630 = the dashboard's To pay; for every invoice the per-method amounts add up to its stored paid amount. `npm test` 370, `npm run test:e2e` 47 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
