@@ -13,6 +13,7 @@ const {
   cents,
   addDays,
   todayISO,
+  notFuture,
 } = require('../util');
 const { isPurchaseAccount, getSettings, invoiceDisplayStatus, invoiceBalanceCents } = require('../accounting');
 const invoiceService = require('./invoices');
@@ -120,6 +121,7 @@ function postJobDocuments(db, {
   const saleItems = items.filter((item) => item.item_type === 'sale');
   const costItems = items.filter((item) => item.item_type === 'cost');
   if (!saleItems.length) throw bad(`Add sale items before posting this ${label}`);
+  notFuture(issueDate, `The ${label} date`);
   costItems.forEach((item, index) => {
     if (item.unit_price_cents <= 0 || item.amount_cents <= 0) {
       throw bad(`Cost line ${index + 1} ("${item.description}") has no cost. Edit the ${label} and enter the supplier cost, or remove the line.`);

@@ -172,10 +172,7 @@ test('F8: voiding a future-dated document today never lands before the original 
   const dep = takeDeposit(visa(customer('F8'), '2026-10-01').id, 60_000, future);
   deposits.voidLastEvent(db, dep.id, { remarks: 'Wrong date' });
   assert.equal(balanceAsOf('2600', '2098-12-31'), balanceAsOf('2600', todayISO()), 'nothing moves before the future date');
-  const invoice = serviceInvoice(customer('F8 inv'), future, 11_000);
-  invoiceService.voidInvoice(db, invoice.id, { remarks: 'Mistake' });
-  const reversal = db.prepare("SELECT entry_date FROM journal_entries WHERE reversal_of_id = ? ").get(invoice.journal_entry_id);
-  assert.equal(reversal.entry_date, future);
+  // An invoice can no longer be posted with a date after today.
 });
 
 test('F10: a group applicant error is prefixed once', () => {

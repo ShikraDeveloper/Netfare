@@ -160,11 +160,11 @@ test('an invoice voided as a mistake stays out of the DSR and the statement', ()
   const customerId = customer('History Mistake');
   const invoice = invoiceService.createInvoice(db, {
     customer_id: customerId,
-    issue_date: '2026-12-10',
+    issue_date: '2026-11-10',
     items: [{ description: 'Typed twice', quantity: 1, unit_price_cents: 20_000, account_id: account('4300').id }],
   });
   invoiceService.voidInvoice(db, invoice.id, { remarks: 'Duplicate' });
-  assert.equal(dailySales(db, '2026-12-10', '2026-12-10').days.flatMap((day) => day.rows)
+  assert.equal(dailySales(db, '2026-11-10', '2026-11-10').days.flatMap((day) => day.rows)
     .filter((row) => row.id === invoice.id && !row.is_cancellation).length, 0);
   assert.deepEqual(lines(customerId), []);
 });

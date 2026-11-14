@@ -204,6 +204,8 @@ function createBill(db, payload) {
     const dueDate = dateISO(payload.due_date || billDate, 'Due date');
     if (dueDate < billDate) throw bad('Due date cannot be before the bill date');
     const status = payload.status === 'draft' ? 'draft' : 'received';
+    // A posted bill counts as owed at once; its ledger entry only from its date.
+    if (status === 'received') notFuture(billDate, 'Bill date');
     const defaultPaymentMethod = optionalStr(payload.default_payment_method, 'Default payment method', 100) || 'Bank transfer';
     const items = normalizeItems(db, payload.items);
     const totals = computeTotals(items);
@@ -278,6 +280,7 @@ function finalizeBill(db, id) {
     workflows.assertCan('bill', 'finalize', bill);
     const items = db.prepare('SELECT * FROM bill_items WHERE bill_id = ? ORDER BY sort_order, id').all(id);
     if (!items.length) throw bad('Add line items before finalizing');
+    notFuture(bill.bill_date, 'Bill date');
     const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(bill.vendor_id);
     const entryId = postBill(db, bill, vendor, items);
     db.prepare(`

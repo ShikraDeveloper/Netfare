@@ -91,7 +91,7 @@ test('chosen shares, the rest kept as an advance, bank charges, and a void undoe
   const customerId = customer('Chosen Shares');
   const a = invoice(customerId, '2026-11-01', 40_000);
   const b = invoice(customerId, '2026-11-01', 50_000);
-  const later = invoice(customerId, '2026-11-20', 10_000);
+  const later = invoice(customerId, '2026-11-10', 10_000);
   const bankBefore = balance('1010');
   const chargesBefore = balance('6700');
 

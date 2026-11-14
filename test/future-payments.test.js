@@ -63,3 +63,23 @@ test('payments, receipts, credits and refunds dated after today are refused; tod
   future(() => bills.recordBillPayment(db, bill.id, { amount_cents: 5_000, payment_date: tomorrow, payment_account_id: account('1010').id }));
   assert.equal(bills.getBill(db, bill.id).amount_paid_cents, 0);
 });
+
+test('an invoice or bill cannot be posted with a date after today; a draft can wait for its date', () => {
+  const line = (code) => [{ description: 'Ahead', quantity: 1, unit_price_cents: 2_000, account_id: account(code).id }];
+  future(() => invoices.createInvoice(db, { customer_id: customerId, issue_date: tomorrow, status: 'sent', items: line('4300') }));
+  const draft = invoices.createInvoice(db, { customer_id: customerId, issue_date: tomorrow, status: 'draft', items: line('4300') });
+  future(() => invoices.finalizeInvoice(db, draft.id));
+  assert.equal(invoices.getInvoice(db, draft.id).status, 'draft');
+
+  future(() => bills.createBill(db, { vendor_id: vendorId, bill_date: tomorrow, status: 'received', items: line('5000') }));
+  const draftBill = bills.createBill(db, { vendor_id: vendorId, bill_date: tomorrow, status: 'draft', items: line('5000') });
+  future(() => bills.finalizeBill(db, draftBill.id));
+  assert.equal(bills.getBill(db, draftBill.id).status, 'draft');
+
+  const visas = require('../server/services/visas');
+  const visa = visas.createVisa(db, {
+    customer_id: customerId, application_date: tomorrow, applicant_is_customer: true,
+    sale_items: [{ description: 'Visit visa', quantity: 1, unit_price_cents: 3_000, account_id: account('4320').id }],
+  });
+  assert.throws(() => visas.submitVisa(db, visa.id), /The visa application date cannot be in the future/);
+});

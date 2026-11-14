@@ -352,6 +352,8 @@ function createInvoice(db, payload, options = {}) {
     const dueDate = dateISO(payload.due_date || issueDate, 'Due date');
     if (dueDate < issueDate) throw bad('Due date cannot be before the issue date');
     const status = payload.status === 'draft' ? 'draft' : 'sent';
+    // A posted invoice counts as owed at once; its ledger entry only from its date.
+    if (status === 'sent') notFuture(issueDate, 'Issue date');
     const items = normalizeItems(db, payload.items, ['revenue']);
     if (!options.jobInvoice) assertServiceRevenue(db, items);
     const totals = computeTotals(items);
@@ -454,6 +456,7 @@ function finalizeInvoice(db, id) {
     workflows.assertCan('invoice', 'finalize', invoice);
     const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id').all(id);
     if (!items.length) throw bad('Add line items before finalizing');
+    notFuture(invoice.issue_date, 'Issue date');
     // Drafts saved before this rule may still use a ticket or visa account.
     if (!invoice.booking_id && !invoice.visa_id && !invoice.cancellation_id) assertServiceRevenue(db, items);
     const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(invoice.customer_id);
