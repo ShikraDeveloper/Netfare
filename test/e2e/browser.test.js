@@ -2452,3 +2452,54 @@ test('a long dropdown is a box you type into; the real select keeps the value', 
   await dialog.locator('[data-close]').first().click();
   assertNoConsoleErrors();
 });
+
+test('a date field opens a calendar on any click; typing works; days the server refuses are closed', async () => {
+  await openRoute('/journal');
+  await clickPageAction('[data-action="new-entry"]');
+  const dialog = page.locator('[role="dialog"]');
+  const native = dialog.locator('#entry-date');
+  const box = dialog.locator('.dp-text').first();
+  await box.waitFor(); // added on the next frame
+  await box.click();
+  const pop = page.locator('.dp-pop');
+  await pop.waitFor();
+  await pop.locator('.dp-year').selectOption('2025');
+  await pop.locator('.dp-month').selectOption('2');
+  await pop.locator('[data-day="2025-03-12"]').click();
+  assert.equal(await native.inputValue(), '2025-03-12');
+  assert.equal(await box.inputValue(), '12/03/2025');
+  assert.equal(await pop.count(), 0, 'the calendar closes after a choice');
+
+  await box.fill('1/2/2025');
+  await box.press('Enter');
+  assert.equal(await native.inputValue(), '2025-02-01', 'd/m/yyyy typed is read as a date');
+  await box.fill('not a date');
+  await dialog.locator('#entry-memo, [name="memo"]').first().click();
+  assert.equal(await box.inputValue(), '01/02/2025', 'something that is not a date goes back');
+  await native.fill('2024-12-31'); // code (or a test) setting the field shows in the box
+  assert.equal(await box.inputValue(), '31/12/2024');
+  await box.click();
+  await page.evaluate(AXE_SOURCE);
+  assert.deepEqual(await page.evaluate(async () => (await window.axe.run({ include: [['.dp'], ['.dp-pop']] }, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+  })).violations.map((violation) => `${violation.id} ${violation.nodes.map((node) => node.target.join(' ')).slice(0, 3).join(' | ')}`)), [], 'calendar axe');
+  await box.press('Escape');
+  assert.equal(await pop.count(), 0);
+  assert.equal(await dialog.count(), 1, 'Escape closed the calendar, not the form');
+  await dialog.locator('[data-close]').first().click();
+
+  // A petty cash count cannot be dated ahead: tomorrow is closed, Yesterday is offered.
+  await openRoute('/petty-cash');
+  await clickPageAction('[data-action="pc-count"]');
+  const count = page.locator('[role="dialog"]');
+  const countBox = count.locator('.dp-text').first();
+  await countBox.waitFor();
+  await countBox.click();
+  const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString('en-CA');
+  const tomorrowDay = pop.locator(`[data-day="${tomorrow}"]`).first();
+  if (await tomorrowDay.count()) assert.equal(await tomorrowDay.isDisabled(), true);
+  assert.deepEqual(await pop.locator('.dp-quick button').allInnerTexts(), ['Today', 'Yesterday']);
+  await countBox.press('Escape');
+  await count.locator('[data-close]').first().click();
+  assertNoConsoleErrors();
+});

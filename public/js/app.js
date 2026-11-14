@@ -1,6 +1,7 @@
 import { can, refreshMeta, store } from './store.js';
 import { initTheme } from './theme.js';
 import { watchSelects } from './picker.js';
+import { watchDates } from './datepicker.js';
 import { ensureSignedIn, signOut } from './auth.js';
 import { openChangePassword } from './views/account.js';
 import { keepCheckingForUpdates } from './updates.js';
@@ -556,4 +557,5 @@ window.addEventListener('meta-changed', () => {
 
 initTheme();
 watchSelects();
+watchDates();
 boot();

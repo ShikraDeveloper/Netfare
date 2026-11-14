@@ -603,7 +603,7 @@ select.input {
   background-position: right 11px center;
   padding-right: 32px;
 }
-input[type="date"].input { min-width: 140px; }
+input[type="date"].input { min-width: 0; }
 input[type="number"].input { font-variant-numeric: tabular-nums; }
 
 .field { min-width: 0; }
@@ -737,14 +737,24 @@ input[type="number"].input { font-variant-numeric: tabular-nums; }
 }
 tr.current-row td { background: var(--surface-2); }
 
-/* Visa applicant rows */
-.va-head, .va-row {
-  display: grid; gap: 8px; align-items: center; padding: 8px 10px;
-  grid-template-columns: minmax(104px, 1.8fr) 90px 112px 112px 112px 112px minmax(96px, 1.4fr) 32px 30px;
+/* Visa applicant rows: two lines per applicant, each box with its label,
+   so nothing is cut off and the form never scrolls sideways. */
+.va-row {
+  display: grid; gap: 8px 10px; align-items: end; padding: 10px 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 32px 30px;
+  grid-template-areas: "name name pass expiry more remove" "sale cost dep vendor vendor vendor";
 }
-.va-head {
-  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted-2);
-  background: #fafbfd; border-bottom: 1px solid var(--border);
+.va-cell, .field .va-cell { display: grid; gap: 4px; min-width: 0; margin: 0; }
+.va-cap { font-size: 11px; font-weight: 600; color: var(--text-soft); }
+.va-cell .money-input { display: block; }
+.va-c-name { grid-area: name; } .va-c-pass { grid-area: pass; } .va-c-expiry { grid-area: expiry; }
+.va-c-sale { grid-area: sale; } .va-c-cost { grid-area: cost; } .va-c-dep { grid-area: dep; } .va-c-vendor { grid-area: vendor; }
+.va-row > [data-va-more] { grid-area: more; } .va-row > [data-va-remove] { grid-area: remove; }
+@media (max-width: 640px) {
+  .va-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px 30px;
+    grid-template-areas: "name name more remove" "pass expiry expiry expiry" "sale cost cost cost" "dep vendor vendor vendor";
+  }
 }
 .va-row { border-bottom: 1px dashed #eef1f6; }
 .va-row:last-child { border-bottom: none; }
@@ -1850,3 +1860,23 @@ html:not(.is-admin) .admin-only { display: none; }
 .picker-option[aria-selected="true"] { background: var(--accent-soft); color: var(--text); }
 .picker-option[aria-selected="true"] small { color: var(--text-soft); }
 .picker-none { padding: 8px 11px; font-size: 13.5px; color: var(--muted); }
+
+/* Date fields (public/js/datepicker.js): a dd/mm/yyyy box that opens a calendar. */
+.dp { position: relative; min-width: 0; }
+.dp-text { padding-right: 32px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.dp-icon { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; display: flex; }
+.dp-pop { position: fixed; z-index: 300; width: 286px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); }
+.dp-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.dp-top .input { height: 32px; font-size: 13px; padding-left: 8px; }
+.dp-month, .dp-year { flex: 1; min-width: 0; }
+.dp-nav { flex: none; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.dp-wd { font-size: 11px; color: var(--muted); padding: 4px 0; }
+.dp-day { height: 34px; border: 0; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: 13px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.dp-day:hover { background: var(--surface-2); }
+.dp-day.is-out { color: var(--muted); }
+.dp-day.is-today { box-shadow: inset 0 0 0 1px var(--accent); }
+.dp-day.is-active { background: var(--surface-3); }
+.dp-day.is-chosen { background: var(--primary); color: var(--primary-contrast, #fff); font-weight: 600; }
+.dp-day:disabled { color: var(--muted); opacity: 0.45; text-decoration: line-through; cursor: not-allowed; background: none; }
+.dp-quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }

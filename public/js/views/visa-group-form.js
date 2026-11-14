@@ -37,24 +37,28 @@ function applicantRowHtml(row = {}) {
   const costs = purchaseAccounts();
   return `
     <div class="va-row" data-va-row>
-      <input class="input va-name" value="${esc(row.name || '')}" placeholder="Applicant name" aria-label="Applicant name" autocomplete="off">
-      <input class="input va-passport" value="${esc(row.passport || '')}" placeholder="Passport no." aria-label="Passport number" autocomplete="off">
-      <input class="input va-expiry" type="date" value="${esc(row.expiry || '')}" aria-label="Passport expiry" title="Passport expiry">
-      <div class="money-input"><span>${esc(currencySymbol())}</span>
-        <input class="input va-sale" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Sale price"
-          value="${row.sale ? esc(centsToInput(row.sale)) : ''}" placeholder="0.00">
-      </div>
-      <div class="money-input"><span>${esc(currencySymbol())}</span>
-        <input class="input va-cost" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Supplier cost"
-          value="${row.cost ? esc(centsToInput(row.cost)) : ''}" placeholder="0.00">
-      </div>
-      <div class="money-input"><span>${esc(currencySymbol())}</span>
-        <input class="input va-deposit" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Security deposit"
-          value="${row.deposit ? esc(centsToInput(row.deposit)) : ''}" placeholder="0.00">
-      </div>
-      <select class="input va-vendor" aria-label="Supplier">
-        ${optionsHtml(activeVendors(), { selected: row.vendorId || '', placeholder: 'Supplier…', labelKey: vendorLabel })}
-      </select>
+      <label class="va-cell va-c-name"><span class="va-cap">Applicant name</span>
+        <input class="input va-name" value="${esc(row.name || '')}" autocomplete="off"></label>
+      <label class="va-cell va-c-pass"><span class="va-cap">Passport no.</span>
+        <input class="input va-passport" value="${esc(row.passport || '')}" autocomplete="off"></label>
+      <label class="va-cell va-c-expiry"><span class="va-cap">Passport expiry</span>
+        <input class="input va-expiry" type="date" value="${esc(row.expiry || '')}"></label>
+      <label class="va-cell va-c-sale"><span class="va-cap">Sale</span>
+        <span class="money-input"><span>${esc(currencySymbol())}</span>
+          <input class="input va-sale" type="number" min="0" step="0.01" inputmode="decimal"
+            value="${row.sale ? esc(centsToInput(row.sale)) : ''}" placeholder="0.00"></span></label>
+      <label class="va-cell va-c-cost"><span class="va-cap">Cost</span>
+        <span class="money-input"><span>${esc(currencySymbol())}</span>
+          <input class="input va-cost" type="number" min="0" step="0.01" inputmode="decimal"
+            value="${row.cost ? esc(centsToInput(row.cost)) : ''}" placeholder="0.00"></span></label>
+      <label class="va-cell va-c-dep"><span class="va-cap">Security deposit</span>
+        <span class="money-input"><span>${esc(currencySymbol())}</span>
+          <input class="input va-deposit" type="number" min="0" step="0.01" inputmode="decimal"
+            value="${row.deposit ? esc(centsToInput(row.deposit)) : ''}" placeholder="0.00"></span></label>
+      <div class="va-cell va-c-vendor"><span class="va-cap" aria-hidden="true">Supplier</span>
+        <select class="input va-vendor" aria-label="Supplier">
+          ${optionsHtml(activeVendors(), { selected: row.vendorId || '', placeholder: 'Supplier…', labelKey: vendorLabel })}
+        </select></div>
       <button type="button" class="icon-btn" data-va-more aria-expanded="false" title="More details for this applicant" aria-label="More details for this applicant">${icon('more', 16)}</button>
       <button type="button" class="icon-btn danger" data-va-remove title="Remove applicant" aria-label="Remove applicant">${icon('x', 16)}</button>
       <div class="va-details" hidden>
@@ -137,9 +141,6 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
       </div>
       <div class="field full">
         <div class="bk-wrap">
-          <div class="va-head" aria-hidden="true">
-            <div>Applicant</div><div>Passport no.</div><div>Expiry</div><div>Sale</div><div>Cost</div><div>Sec. deposit</div><div>Supplier</div><div></div><div></div>
-          </div>
           <div data-va-rows>${applicantRowHtml()}</div>
         </div>
       </div>
