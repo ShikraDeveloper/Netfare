@@ -219,7 +219,21 @@ Verification:
 - **Why:** Finding M1 of the OpenCode audit (written for 1.0.20, checked on today's code); the user said "Haan, M1 fix karo". The count window compared the cash counted with today's balance (`balance_cents`), but the server posts against the balance on the count date. Proved on a throwaway database: float 1,000, top-ups on 2 Oct (1,000) and 20 Oct (500), 45 spent on 3 Oct; a count dated 5 Oct of 1,455 said "Matches the books. Nothing is posted." and the server posted a 500.00 overage (Dr 1020 / Cr 6900).
 - **What:** the window loads the balance for the chosen count date (`GET /api/petty-cash?to=<date>`, its `closing_cents`, the same figure the server uses) and shows "In the books on <date>: <amount>." before the difference. It loads again when the date changes. The tile "In the box (books)" still shows today's balance. No server change.
 - **Checked:** the browser test now also opens a count dated yesterday (before the test's top-up), types 490 and expects the books on that date and "Over by", not "Matches the books"; it failed on the old code and passes now. On the demo: count date Nov 10 with 485 typed shows "In the books on Nov 10, 2026: AED 0.00. Over by AED 485.00." `npm test` 366, `npm run test:e2e` 44 passed.
-- **Still open from the OpenCode audit:** S1 (DSR counts a visa deposit applied in the same period twice), S3 (a payment dated after today marks the invoice or bill paid now). S2 is the known aging shortcut; N1–N3 are minor.
+- **Still open from the OpenCode audit:** S1 and S3 (fixed below). S2 is the known aging shortcut; N1–N3 are minor.
+- **Not pushed or released.**
+
+### DSR: a visa deposit taken and used in the same period is counted once — code commit `91c66d0`
+
+- **Why:** Finding S1 of the OpenCode audit; the user said "Haan, S1 aur S3". Proved on a throwaway database: a 350 visa, a 2,000 cash deposit and 350 of it used for the visa's invoice on the same day showed Cash 2,000 + Advance / credit 350 = 2,350 "paid" on the row and in the settlement total, though 2,000 came in.
+- **What:** `server/services/reports/dsr-sections.js`: a payment made from a deposit that was received in the report's period is no longer added to any paid-by column (the deposit is already counted on its visa's row or under Money collected); it only keeps the invoice off "On credit". A deposit received before the period and used in it still shows as Advance / credit. The deposit query moved above the payments loop to know which deposits came in during the period.
+- **Checked:** a new test in `test/visa-deposits.test.js` (row split cash 2,000, other 0, credit 0; settlement other 0); it failed on the old code.
+
+### Payments, receipts and credits cannot be dated after today — code commit `2ded53f`
+
+- **Why:** Finding S3 of the OpenCode audit. Proved: today 2026-11-14, a 1,000 invoice paid with date 2026-12-31 showed paid, aging 0 and "To collect" 0, while the ledger still had 1,000 in 1100 and the bank had nothing; the ledger checks did not catch it. Supplier bills took a future date the same way.
+- **What:** `notFuture(date, field)` in `server/util.js` ("… cannot be in the future", the rule petty cash counts already had). Used for invoice payments, bill payments, Receive payment, an advance used for an invoice, credit notes and supplier credits applied, a visa deposit used for an invoice, portal bill settlements and portal top-ups (a credit-account top-up pays bills on its date). A compliance bank debit made before its date says "The bank takes this on <date>. Record it on or after that date."; automatic bills already wait for the due date. All payment date fields in the app start at today.
+- **Tests:** new `test/future-payments.test.js` (tomorrow refused, today fine; invoice and bill stay unpaid); it failed on the old code. Tests that used dates after today now use earlier ones: `bank-debit`, `cancellation-history`, `dsr-sections`, `portal-topups`, `receipt-entry`, `visa-deposits`. `npm test` 368, `npm run test:e2e` 44 passed. On the demo a payment dated tomorrow is refused with "Payment date cannot be in the future".
+- **Not done:** future-dated refunds, which the audit also mentioned, were not changed; invoices and bills themselves may still be dated ahead.
 - **Not pushed or released.**
 
 ### Next session
