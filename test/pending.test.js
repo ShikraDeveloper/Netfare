@@ -93,3 +93,14 @@ test('staff see only the groups of areas they have a right to', () => {
   assert.ok(admin.groups.some((row) => row.key === 'card'));
   assert.equal(admin.count, admin.groups.reduce((sum, row) => sum + row.count, 0));
 });
+
+test('the bank group is named by what is in it: only reconciling reads "Bank to reconcile"', () => {
+  require('../server/services/journal').createManualEntry(db, {
+    entry_date: '2026-09-01', memo: 'Opening bank money',
+    lines: [{ account_id: account('1010').id, debit_cents: 5_000, credit_cents: 0 }, { account_id: account('3000').id, debit_cents: 0, credit_cents: 5_000 }],
+  });
+  const bank = group(pendingList(db, null, { today: TODAY }), 'bank');
+  assert.equal(bank.label, 'Bank to reconcile');
+  assert.equal(bank.href, '#/bank-reconciliation');
+  assert.match(bank.items[0].label, /^Reconcile 1010/);
+});

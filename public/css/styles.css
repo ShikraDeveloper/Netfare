@@ -1066,7 +1066,7 @@ html:not(.show-accounting) .acct-col { display: none; }
 .pending-bar.is-clear { cursor: default; }
 .pending-bar > .icon, .pending-group-head > .icon { color: var(--muted); transition: transform .15s; transform: rotate(90deg); flex: none; }
 .pending-bar[aria-expanded="true"] > .icon, .pending-group-head[aria-expanded="true"] > .icon { transform: rotate(-90deg); }
-.pending-count { min-width: 34px; height: 34px; padding: 0 9px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
+.pending-count { min-width: 34px; height: 34px; padding: 0 9px; border-radius: 999px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; flex: none; }
 .pending-count.tone-red { background: var(--red-soft); color: var(--red); }
 .pending-count.tone-amber { background: var(--amber-soft, #fef3c7); color: var(--amber); }
 .pending-count.tone-green { background: var(--green-soft, #dcfce7); color: var(--green); }

@@ -251,8 +251,19 @@ function pendingHtml(pending) {
           <span class="pending-text"><strong>All caught up</strong><small>Nothing is waiting on anyone</small></span></div>
       </section>`;
   }
-  const note = [pending.over_30 ? `${pending.over_30} older than 30 days` : '', pending.oldest_days ? `oldest ${plural(pending.oldest_days, 'day')}` : '']
-    .filter(Boolean).join(' · ');
+  // What is waiting, in a line: the money to collect and pay, the rest, and
+  // what the oldest thing is.
+  const countOf = (key) => pending.groups.find((group) => group.key === key)?.count || 0;
+  const collect = countOf('collect');
+  const pay = countOf('pay');
+  const rest = pending.count - collect - pay;
+  const oldest = pending.groups.reduce((top, group) => (group.oldest_days > (top?.oldest_days || 0) ? group : top), null);
+  const note = [
+    collect ? `${collect} to collect` : '',
+    pay ? `${pay} to pay` : '',
+    rest && (collect || pay) ? `${rest} other` : '',
+    oldest ? `oldest: ${oldest.label.charAt(0).toLowerCase()}${oldest.label.slice(1)}, ${plural(oldest.oldest_days, 'day')}` : '',
+  ].filter(Boolean).join(' · ');
   const groups = pending.groups.map((group) => `
     <div class="pending-group" data-pending-group="${esc(group.key)}">
       <button type="button" class="pending-group-head" aria-expanded="false" aria-controls="pending-${esc(group.key)}">
@@ -275,8 +286,8 @@ function pendingHtml(pending) {
   return `
     <section class="card pending-card" data-pending>
       <button type="button" class="pending-bar" aria-expanded="false" aria-controls="pending-panel" data-pending-toggle>
-        <span class="pending-count tone-${pending.over_30 ? 'red' : 'amber'}">${pending.count}</span>
-        <span class="pending-text"><strong>${pending.count === 1 ? 'thing pending' : 'things pending'}</strong>${note ? `<small>${esc(note)}</small>` : ''}</span>
+        <span class="pending-count tone-${pending.over_30 ? 'red' : 'amber'}" data-pending-badge>${pending.over_30 ? `${pending.over_30} late` : pending.count}</span>
+        <span class="pending-text"><strong>${pending.count} ${pending.count === 1 ? 'thing pending' : 'things pending'}</strong>${note ? `<small>${esc(note)}</small>` : ''}</span>
         ${icon('chevron', 16)}
       </button>
       <div class="pending-panel" id="pending-panel" hidden>${groups}</div>

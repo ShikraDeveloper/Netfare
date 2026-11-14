@@ -1718,6 +1718,8 @@ test('simplified navigation, Today box, summary strip, More menu and phone layou
   await pending.waitFor();
   const bar = pending.locator('[data-pending-toggle]');
   assert.match(await bar.innerText(), /\d+\s+things? pending/);
+  assert.match(await bar.innerText(), /to collect|to pay|other/, 'the closed bar says what is waiting');
+  assert.match(await bar.innerText(), /oldest: .+, \d+ days?/);
   assert.equal(await pending.locator('#pending-panel').isVisible(), false, 'closed at first');
   await bar.click();
   assert.equal(await bar.getAttribute('aria-expanded'), 'true');

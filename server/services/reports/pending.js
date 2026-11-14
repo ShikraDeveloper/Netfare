@@ -203,7 +203,13 @@ const GROUPS = [
   { key: 'card', label: 'Card and link money not in bank', areas: ['banking'], href: '#/card-settlements', tone: 'amber', items: cardMoney },
   { key: 'give_back', label: 'Refunds, credits and advances to settle', areas: ['sales', 'refunds'], href: '#/settlement-queue', tone: 'amber', items: giveBack },
   { key: 'deposits', label: 'Visa deposits to refund', areas: ['visas'], href: '#/reports/visa-deposits', tone: 'amber', items: depositsToRefund },
-  { key: 'bank', label: 'Cheques and bank', areas: ['banking'], href: '#/cheques', tone: 'amber', items: (db, today) => [...cheques(db, today), ...reconciliations(db, today)] },
+  {
+    key: 'bank', areas: ['banking'], tone: 'amber', items: (db, today) => [...cheques(db, today), ...reconciliations(db, today)],
+    // Named by what is in it: only reconciling, only cheques, or both.
+    label: (items) => (items.every((item) => item.href === '#/bank-reconciliation') ? 'Bank to reconcile'
+      : items.every((item) => item.href === '#/cheques') ? 'Cheques to clear' : 'Cheques and bank'),
+    href: (items) => (items.every((item) => item.href === '#/bank-reconciliation') ? '#/bank-reconciliation' : '#/cheques'),
+  },
   { key: 'drafts', label: 'Drafts to finish', areas: ['bookings', 'visas', 'sales'], href: '#/bookings', tone: 'blue', items: drafts },
   { key: 'compliance', label: 'Renewals and recurring bills', areas: ['compliance', 'banking'], href: '#/compliance', tone: 'blue', items: compliance },
 ];
@@ -216,8 +222,8 @@ function pendingList(db, user = null, { today = todayISO() } = {}) {
       .sort((a, b) => b.days - a.days || (a.due_in ?? 0) - (b.due_in ?? 0));
     return {
       key: group.key,
-      label: group.label,
-      href: group.href,
+      label: typeof group.label === 'function' ? group.label(items) : group.label,
+      href: typeof group.href === 'function' ? group.href(items) : group.href,
       tone: group.tone,
       count: items.length,
       cents: items.reduce((sum, item) => sum + (item.cents || 0), 0),
