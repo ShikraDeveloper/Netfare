@@ -17,10 +17,12 @@ if (process.env.NETFARE_USER_DATA) app.setPath('userData', process.env.NETFARE_U
 
 // An unexpected error closes the app (the server's own handler closes the
 // books first). Registered before the server, so this message shows first and
-// the app does not just vanish.
+// the app does not just vanish. With no server here (a connected computer, the
+// setup screen) nothing else would close it, so it closes itself.
 process.on('uncaughtException', (error) => {
   dialog.showErrorBox('Netfare ran into a problem and will close',
     `Your books are safe. Open Netfare again to carry on.\n\nIf this happens again, send this to support:\n${error?.stack || error}`);
+  if (!netfareServer) app.exit(1);
 });
 
 // The Netfare server and its node_modules (rebuilt for Electron) are staged
