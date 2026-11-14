@@ -200,6 +200,13 @@ Verification:
 - **Checked:** the dev desktop app with throwaway folders on port 4398: setup screen → message, then exit code 1 (before the fix it stayed open); main computer → message, then exit code 1. Not in the release smoke test yet (audit finding 3).
 - **Not pushed or released.**
 
+### Release smoke test checks the crash message and the window reload — code commit `ef4aa76`
+
+- **Why:** Finding 3 of the whole-repo audit (2026-11-14); the user said "ok do this". Both were only checked once by a temporary script, so a later change could break them unnoticed.
+- **What:** at the end of `scripts/smoke-desktop.js` (run on the Mac and Windows builds of every release): the main window's page is crashed and must come back to the login screen after the "window stopped" message; then an error is thrown in the app and the "will close" message must show and the app exit with code 1. The message boxes are replaced in the test so nobody has to press OK. The app's own code is unchanged.
+- **Checked:** built the Mac app here (`build-desktop.js dist mac`, with a temporary npm cache because the sandbox cannot write `~/.npm`) and ran the smoke test three times: all passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
