@@ -207,6 +207,13 @@ Verification:
 - **Checked:** built the Mac app here (`build-desktop.js dist mac`, with a temporary npm cache because the sandbox cannot write `~/.npm`) and ran the smoke test three times: all passed.
 - **Not pushed or released.**
 
+### Dashboard data: two unused fields removed — code commit `67c65fc`
+
+- **Why:** Finding 4 of the whole-repo audit (2026-11-14); the user said "ok do this also".
+- **What:** `cash_only_cents` and `bank_cents` are no longer sent by `GET /api/reports/dashboard`. Nothing in the screens, tests, scripts, desktop app or docs read them; the Cash card uses `cash_cents` and `cash_accounts`. `bank_cents` also held petty cash and card money, so its name was wrong.
+- **Checked:** `npm run check`; `npm test` 366; `npm run test:e2e` 44 (one run had a timing failure in the unrelated sign-in test, "the admin adds a staff user", which passed on the next two runs).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
