@@ -214,6 +214,14 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 366; `npm run test:e2e` 44 (one run had a timing failure in the unrelated sign-in test, "the admin adds a staff user", which passed on the next two runs).
 - **Not pushed or released.**
 
+### Petty cash count checked against the books on its own date — code commit `fb484fd`
+
+- **Why:** Finding M1 of the OpenCode audit (written for 1.0.20, checked on today's code); the user said "Haan, M1 fix karo". The count window compared the cash counted with today's balance (`balance_cents`), but the server posts against the balance on the count date. Proved on a throwaway database: float 1,000, top-ups on 2 Oct (1,000) and 20 Oct (500), 45 spent on 3 Oct; a count dated 5 Oct of 1,455 said "Matches the books. Nothing is posted." and the server posted a 500.00 overage (Dr 1020 / Cr 6900).
+- **What:** the window loads the balance for the chosen count date (`GET /api/petty-cash?to=<date>`, its `closing_cents`, the same figure the server uses) and shows "In the books on <date>: <amount>." before the difference. It loads again when the date changes. The tile "In the box (books)" still shows today's balance. No server change.
+- **Checked:** the browser test now also opens a count dated yesterday (before the test's top-up), types 490 and expects the books on that date and "Over by", not "Matches the books"; it failed on the old code and passes now. On the demo: count date Nov 10 with 485 typed shows "In the books on Nov 10, 2026: AED 0.00. Over by AED 485.00." `npm test` 366, `npm run test:e2e` 44 passed.
+- **Still open from the OpenCode audit:** S1 (DSR counts a visa deposit applied in the same period twice), S3 (a payment dated after today marks the invoice or bill paid now). S2 is the known aging shortcut; N1–N3 are minor.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
