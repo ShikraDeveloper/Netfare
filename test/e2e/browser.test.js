@@ -2414,3 +2414,41 @@ test('a large photo is made smaller before upload; the books keep a small JPG', 
   assert.ok(saved.size_bytes < original.length / 3, `stored ${saved.size_bytes} bytes instead of ${original.length}`);
   assertNoConsoleErrors();
 });
+
+test('a long dropdown is a box you type into; the real select keeps the value', async () => {
+  const accounts = await getJson(baseUrl, '/api/accounts');
+  await openRoute('/journal');
+  await clickPageAction('[data-action="new-entry"]');
+  const dialog = page.locator('[role="dialog"]');
+  const first = dialog.locator('select.j-account').first();
+  const picker = dialog.locator('.picker').first();
+  await picker.waitFor(); // added on the next frame
+  assert.equal(await first.getAttribute('data-picker') !== null, true, 'the account list is long, so it gets the picker');
+  await picker.locator('.picker-button').click();
+  await picker.locator('.picker-search').fill('bank');
+  const options = picker.locator('[role="option"]');
+  assert.deepEqual(await options.allInnerTexts(), ['1010 · Bank Account', '6700 · Bank Charges']);
+  await picker.locator('.picker-search').press('ArrowDown');
+  await picker.locator('.picker-search').press('Enter');
+  assert.equal(await first.inputValue(), String(accounts.find((row) => row.code === '6700').id));
+  assert.equal(await picker.locator('.picker-value').innerText(), '6700 · Bank Charges');
+  assert.equal(await dialog.count(), 1, 'Enter chose, it did not submit');
+
+  // Nothing found; Escape closes the list, not the form.
+  await picker.locator('.picker-button').click();
+  await picker.locator('.picker-search').fill('zzzz');
+  assert.equal(await picker.locator('.picker-none').innerText(), 'No match');
+  await picker.locator('.picker-search').press('Escape');
+  assert.equal(await picker.locator('.picker-list').isVisible(), false);
+  assert.equal(await dialog.count(), 1);
+
+  // Code that sets the select (or a test's selectOption) shows in the box.
+  await first.selectOption(String(accounts.find((row) => row.code === '1010').id));
+  assert.equal(await picker.locator('.picker-value').innerText(), '1010 · Bank Account');
+  await page.evaluate(AXE_SOURCE);
+  assert.deepEqual(await page.evaluate(async () => (await window.axe.run(document.querySelector('.picker'), {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+  })).violations.map((violation) => violation.id)), [], 'picker axe');
+  await dialog.locator('[data-close]').first().click();
+  assertNoConsoleErrors();
+});

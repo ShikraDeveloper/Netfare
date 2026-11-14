@@ -707,7 +707,9 @@ export function optionsHtml(items, { selected = '', placeholder = 'Select…', v
   const options = items.map((item) => {
     const value = item[valueKey];
     const label = typeof labelKey === 'function' ? labelKey(item) : item[labelKey];
-    return `<option value="${esc(value)}" ${String(value) === String(selected) ? 'selected' : ''}>${esc(label)}</option>`;
+    // A customer's or supplier's number is searchable in the long-list picker.
+    const search = item.number ? ` data-search="${esc(item.number)}"` : '';
+    return `<option value="${esc(value)}"${search} ${String(value) === String(selected) ? 'selected' : ''}>${esc(label)}</option>`;
   });
   return `${placeholder ? `<option value="">${esc(placeholder)}</option>` : ''}${options.join('')}`;
 }

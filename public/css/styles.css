@@ -1835,3 +1835,18 @@ html:not(.is-admin) .admin-only { display: none; }
   .print-only { display: flex !important; }
   .prepared-by { margin-top: 32px; font-size: 8pt; color: #777; }
 }
+
+/* Long-list picker (public/js/picker.js): the real select stays, hidden. */
+.picker-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+.picker { position: relative; min-width: 0; }
+.picker-button { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; font: inherit; font-size: 13.5px; }
+.picker-button .picker-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.picker-button .picker-value.is-empty { color: var(--muted); }
+.picker-button > .icon { flex: none; color: var(--muted); transform: rotate(90deg); }
+.picker-list { margin-top: 4px; max-height: 264px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.picker-option { display: flex; justify-content: space-between; gap: 12px; padding: 8px 11px; font-size: 13.5px; cursor: pointer; }
+.picker-option small { color: var(--muted); font-size: 12px; flex: none; }
+.picker-option.is-empty { color: var(--muted); }
+.picker-option[aria-selected="true"] { background: var(--accent-soft); color: var(--text); }
+.picker-option[aria-selected="true"] small { color: var(--text-soft); }
+.picker-none { padding: 8px 11px; font-size: 13.5px; color: var(--muted); }
