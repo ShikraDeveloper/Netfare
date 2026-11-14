@@ -251,6 +251,12 @@ Verification:
 - **Checked:** `test/future-payments.test.js` has a new test (sent invoice and received bill dated tomorrow refused; drafts saved; finalizing them refused; a visa dated tomorrow cannot be submitted). Tests that posted documents after today moved to earlier dates (`cancellation-history`, `customer-receipts`); `audit-fixes` F8 dropped its future-dated invoice half, since one can no longer be made. On the demo: a sent invoice dated tomorrow is refused, a draft is saved and cannot be finalized. `npm test` 369, `npm run test:e2e` 44 passed.
 - **Not pushed or released.**
 
+### Old `v1.0.18` tag deleted
+
+- **Why:** Its release run (43097815041) has been queued at GitHub since 2026-11-11 and cannot be cancelled; if it ever started it could publish 1.0.18 as the latest release. The user agreed ("3 and 4"); the delete was blocked for me by the permission check, so the user ran it.
+- **Done:** the tag is gone from GitHub (deleted by the user; a later delete call answered "Reference does not exist") and from this checkout (`git tag -d v1.0.18`, was `05317c1`). 21 version tags remain.
+- **Checked:** the run is still "queued", but without its tag it cannot fetch the code, so it cannot publish anything. Releases: 1.0.21 (latest), 1.0.20, 1.0.19, 1.0.17, 1.0.16.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
