@@ -193,6 +193,13 @@ Verification:
 - **Checked:** a new test in `test/card-settlements.test.js` (the accounts add up to the card; every waiting payment listed). On the demo with a 700 payment-link payment: the box showed it under 1030 and the total matched; the 1030 link opened Card settlements and closed the box; fits at phone width. `npm test` 366, `npm run test:e2e` 44 passed.
 - **Not pushed or released.**
 
+### Desktop crash message: the app also closes on a connected computer — code commit `bfc617a`
+
+- **Why:** Finding 2 of the whole-repo audit (2026-11-14); the user said "ok do this fix". The crash message says "will close", but only the server's handler closed the app, and a connected computer or the setup screen has no server inside the app, so it stayed open in an unknown state.
+- **What:** after the message, `app.exit(1)` when no server runs in the app (`desktop/main.js`). On the main computer the server still closes the books and the app as before.
+- **Checked:** the dev desktop app with throwaway folders on port 4398: setup screen → message, then exit code 1 (before the fix it stayed open); main computer → message, then exit code 1. Not in the release smoke test yet (audit finding 3).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
