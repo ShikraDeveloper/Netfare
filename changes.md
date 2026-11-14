@@ -236,6 +236,14 @@ Verification:
 - **Not done:** future-dated refunds, which the audit also mentioned, were not changed; invoices and bills themselves may still be dated ahead.
 - **Not pushed or released.**
 
+### Refunds cannot be dated after today — code commit `0bbaf7e`
+
+- **Why:** The user said "correct kero" after being told that refunds have the same problem as S3: a refund of a customer payment lowers the invoice's paid amount at once (`refunds.js`), so the invoice shows due again now, while the ledger entry counts only from the refund date.
+- **What:** `notFuture` on every refund date: customer and supplier refunds, advance refunds, credit note and supplier credit refunds, cancellation refunds, visa deposit refunds and portal wallet refunds.
+- **Checked:** `test/future-payments.test.js` now also refunds a payment with tomorrow's date (refused; the invoice keeps its paid amount). Four tests moved their refund dates before today (`visa-deposits`, `visa-rejection`). `npm test` 368, `npm run test:e2e` 44 passed.
+- **Open, the user's decision:** invoices and bills themselves can still be dated after today (asked whether the office ever does this).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
