@@ -287,6 +287,14 @@ Verification:
 - **Not done:** booking passenger rows keep their one-line layout.
 - **Not pushed or released.**
 
+### Invoices, bills and refunds filter by how they were paid — code commit `3963678`
+
+- **Why:** The user selected the Invoices list: "need to add payment method sorted by cash card etc where ever the these kinds of list".
+- **What:** a shared "All payment methods" filter (`paidByHtml` / `paidByMatches` in `public/js/payment-methods.js`) next to the status filter on Invoices, Bills and Refunds. Choices: Cash; Card (Credit card); Payment link; Bank transfer (and Bank debit); Cheque; Advance or credit (Advance applied, Deposit applied, a credit note or supplier credit used); Portal wallet; Other; Not paid yet. Each list shows only the choices that can happen on it (refunds have no "Not paid yet" or "Advance or credit"). The server adds `payment_methods` to every invoice and bill row (posted payments only, plus "Credit note" / "Supplier credit" when one was applied); an invoice paid two ways appears under both.
+- **Checked:** a new browser test compares the count for Cash, Bank transfer, Not paid yet and All with the API's rows, and Not paid yet on Bills. On the demo: 15 invoices; Cash 1, Card 1, Payment link 2, Bank transfer 11, Advance or credit 1, Not paid yet 2. `npm test` 370, `npm run test:e2e` 47 passed.
+- **Not done:** Bookings and Visas lists (their invoices carry the payments) and the customer Receipts list (it already shows the method) have no such filter.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
