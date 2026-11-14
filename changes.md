@@ -268,6 +268,13 @@ Verification:
 - **Checked:** a new test in `test/pending.test.js` (a never-reconciled bank reads "Bank to reconcile" and opens reconciliation); the browser test checks the closed bar says what is waiting and the oldest. On the demo the bar shows exactly the mockup, the groups are unchanged except "Bank to reconcile", and it fits at phone width. `npm test` 370, `npm run test:e2e` 44 passed.
 - **Not pushed or released.**
 
+### Long dropdowns become a box you type into — code commit `7ac28b4`
+
+- **Why:** The user selected the visa form's customer dropdown: "Need to improve dropdown list this where ever is used ziada list ho to mushkil". Shown two options as mockups; chose B (one box: type and choose).
+- **What:** new `public/js/picker.js`, started once from `app.js` (`watchSelects`). Every `<select>` with more than 10 choices, on any screen or form and also ones added later, gets a box: click (or start typing) and it lists only the choices containing the text, matching anywhere in the name; a customer's or supplier's number (`data-search` added by `optionsHtml`) matches too. Arrow keys and Enter choose without submitting the form; Escape closes only the list; "No match" when nothing fits. The real select stays in the form (visually hidden, `.picker-native`) and keeps the value; the box follows `change`, a code-set `.value`, new options, disabled and `aria-invalid`. A label click or a form check focusing the select lands on the box. Short lists (status, method, page size) are unchanged.
+- **Checked:** a new browser test on the journal entry form (typing "bank" lists 1010 and 6700; Down + Enter chooses 6700 without submitting; "No match"; Escape keeps the form open; `selectOption` on the real select shows in the box; axe clean). The other 44 browser tests, which pick from these dropdowns with `selectOption`, pass unchanged. On the demo: picked by typing and keys; no sideways scroll at phone width. `npm test` 370, `npm run test:e2e` 45 passed twice.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
