@@ -64,7 +64,33 @@ async function main() {
     const pdfFile = fs.readdirSync(folder).find((name) => name.endsWith('.pdf'));
     if (!pdfFile) throw new Error('Print preview made no PDF');
     if (hasWindowTint(fs.readFileSync(path.join(folder, pdfFile)))) throw new Error('The printed PDF has tinted margins, not white paper');
-    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books and prints on white paper.`);
+    // A crashed window says so and loads Netfare again. The message box is
+    // replaced so nobody has to press OK.
+    const reload = await app.evaluate(({ dialog, BrowserWindow }) => new Promise((resolve) => {
+      const contents = BrowserWindow.getAllWindows().find((window) => !window.getParentWindow()).webContents;
+      let message = '';
+      dialog.showMessageBox = async (window, options) => { message = options.message; return { response: 0 }; };
+      contents.once('did-finish-load', async () => {
+        for (let tries = 0; tries < 30; tries += 1) {
+          if (await contents.executeJavaScript("Boolean(document.querySelector('#auth-root'))")) return resolve({ message, back: true });
+          await new Promise((wait) => setTimeout(wait, 500));
+        }
+        resolve({ message, back: false });
+      });
+      contents.forcefullyCrashRenderer();
+    }));
+    if (!/window stopped/.test(reload.message) || !reload.back) throw new Error(`A crashed window was not reloaded with a message: ${JSON.stringify(reload)}`);
+
+    // Last, as it ends the app: an unexpected error shows a message, then the
+    // app closes (the server closes the books first).
+    const exited = new Promise((resolve) => app.process().once('exit', resolve));
+    const title = await app.evaluate(({ dialog }) => new Promise((resolve) => {
+      dialog.showErrorBox = (boxTitle) => resolve(boxTitle);
+      setTimeout(() => { throw new Error('Smoke test crash'); });
+    }));
+    const code = await Promise.race([exited, new Promise((resolve) => setTimeout(() => resolve('still open'), 10_000))]);
+    if (!/will close/.test(title) || code !== 1) throw new Error(`An unexpected error did not show the message and close the app (message "${title}", exit ${code})`);
+    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, reloads a crashed window and closes with a message on an error.`);
   } finally {
     await app.close().catch(() => {});
     fs.rmSync(userData, { recursive: true, force: true });
