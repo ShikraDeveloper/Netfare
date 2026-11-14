@@ -302,6 +302,19 @@ Verification:
 - **Checked:** the browser test compares the totals line with the API rows (count, received, balance due, and Bank transfer showing only the bank part). On the demo: 14 invoices (the void one left out), received 42,085, balance due 35,515 = the dashboard's To collect; Cash shows 3,000; bills to pay 52,630 = the dashboard's To pay; for every invoice the per-method amounts add up to its stored paid amount. `npm test` 370, `npm run test:e2e` 47 passed.
 - **Not pushed or released.**
 
+### Audit fixes: two-digit years, "Paid" on invoice totals, one page watcher — code commit `b030546`
+
+- **Why:** `/ponytail-audit` of everything since the previous audit (2026-11-14) found three things; the user said "Teeno karo".
+  1. **Must fix:** the calendar box read a typed two-digit year as 20yy, so a date of birth "01/05/85" saved as 2085-05-01 with no warning.
+  2. **Should fix:** the invoice list totals called credit notes and advances "Received" (on the demo INV-2026-0002 counted a 2,000 advance applied).
+  3. **Nice to have:** `picker.js` and `datepicker.js` had the same 8-line page watcher.
+- **What:**
+  1. `parseDate` reads a two-digit year more than 20 years ahead as the 1900s ("85" → 1985, "29" → 2029); date-of-birth fields (id, name or class with "birth" or "dob") get today as their maximum, so future days are crossed out.
+  2. The invoice totals say "Paid" (and "Paid · Cash" with a method chosen), like Bills.
+  3. One `watchPage(scan)` in `ui.js`, used by both.
+- **Checked:** the calendar browser test now checks `parseDate` ("01/05/85" → 1985-05-01, a year three ahead stays 20xx, 31/02/2026 refused, 2029-03-12 read as is); the list test reads "Paid · Bank transfer". On the demo the visa date-of-birth field has today as its maximum. `npm test` 370, `npm run test:e2e` 47 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
