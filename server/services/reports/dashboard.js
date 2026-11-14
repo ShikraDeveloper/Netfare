@@ -197,8 +197,6 @@ function dashboard(db) {
     expenses_mtd_cents: expensesMtd,
     net_income_mtd_cents: revenueMtd - expensesMtd,
     cash_cents: sumBalances(cashAccounts),
-    cash_only_cents: sumBalances(cashAccounts.filter((account) => account.code === '1000')),
-    bank_cents: sumBalances(cashAccounts.filter((account) => account.code !== '1000')),
     cash_accounts: cashAccounts,
     card_waiting: cardWaiting,
     ar_outstanding_cents: ar.total,
