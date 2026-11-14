@@ -217,7 +217,7 @@ function refundPortal(db, id, payload = {}) {
 
     if (!portal.vendor_id) throw bad('Link this portal to a supplier before using its wallet');
 
-    const date = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    const date = notFuture(dateISO(payload.refund_date || todayISO(), 'Refund date'), 'Refund date');
     const balance = Math.min(lockBalance(db, id), balanceAsOf(db, id, date));
     if (balance <= 0) throw bad('This portal has no available balance to withdraw on that date');
     const amount = payload.amount_cents == null

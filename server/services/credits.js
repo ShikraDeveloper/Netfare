@@ -292,7 +292,7 @@ function refundCredit(db, creditId, payload = {}) {
     if (remaining <= 0) throw bad('This credit note has no remaining balance');
     const amount = cents(payload.amount_cents == null ? remaining : payload.amount_cents, 'Refund amount', { min: 1 });
     if (amount > remaining) throw bad(`Refund exceeds the remaining credit of ${(remaining / 100).toFixed(2)}`);
-    const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    const refundDate = notFuture(dateISO(payload.refund_date || todayISO(), 'Refund date'), 'Refund date');
     if (refundDate < credit.credit_date) {
       throw bad('Refund date cannot be before the credit date');
     }

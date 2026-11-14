@@ -8,6 +8,7 @@ const {
   cents,
   dateISO,
   todayISO,
+  notFuture,
 } = require('../util');
 const {
   systemAccount,
@@ -384,7 +385,7 @@ function refundCancellation(db, id, payload = {}) {
     if (amount > remaining) {
       throw bad(`Refund exceeds the remaining cancellation refund of ${(remaining / 100).toFixed(2)}`);
     }
-    const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    const refundDate = notFuture(dateISO(payload.refund_date || todayISO(), 'Refund date'), 'Refund date');
     if (refundDate < cancellation.cancellation_date) {
       throw bad('Refund date cannot be before the cancellation date');
     }

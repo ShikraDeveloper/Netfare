@@ -1,8 +1,8 @@
 'use strict';
 
-// A payment, receipt or credit marks its invoice or bill paid at once, while
+// A payment, receipt, credit or refund changes what is owed at once, while
 // its ledger entry only counts from its date. One dated after today would
-// show the invoice paid while the ledger still has it due, so it is refused.
+// show a different balance from the ledger until that date, so it is refused.
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -18,6 +18,7 @@ const invoices = require('../server/services/invoices');
 const bills = require('../server/services/bills');
 const advances = require('../server/services/advances');
 const credits = require('../server/services/credits');
+const refunds = require('../server/services/refunds');
 const { todayISO } = require('../server/util');
 
 after(() => {
@@ -32,7 +33,7 @@ const future = (fn) => assert.throws(fn, (error) => error.status === 400 && /can
 const customerId = Number(db.prepare("INSERT INTO customers (name) VALUES ('Future Payer')").run().lastInsertRowid);
 const vendorId = Number(db.prepare("INSERT INTO vendors (name) VALUES ('Future Supplier')").run().lastInsertRowid);
 
-test('payments, receipts and credits dated after today are refused; today is fine', () => {
+test('payments, receipts, credits and refunds dated after today are refused; today is fine', () => {
   const invoice = invoices.createInvoice(db, {
     customer_id: customerId, issue_date: today, due_date: today, status: 'sent',
     items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 100_000, account_id: account('4300').id }],
@@ -40,7 +41,11 @@ test('payments, receipts and credits dated after today are refused; today is fin
   const pay = (date) => invoices.recordInvoicePayment(db, invoice.id, { amount_cents: 10_000, payment_date: date, deposit_account_id: account('1010').id });
   future(() => pay(tomorrow));
   assert.equal(invoices.getInvoice(db, invoice.id).amount_paid_cents, 0, 'the invoice is not marked paid');
-  pay(today);
+  const paidToday = pay(today).payments.at(-1);
+  future(() => refunds.createRefund(db, {
+    refund_type: 'customer', payment_id: paidToday.id, amount_cents: 1_000, refund_date: tomorrow, account_id: account('1010').id,
+  }));
+  assert.equal(invoices.getInvoice(db, invoice.id).amount_paid_cents, 10_000, 'a refund dated ahead does not reopen the invoice now');
 
   future(() => advances.receivePayment(db, {
     customer_id: customerId, amount_cents: 5_000, receipt_date: tomorrow, deposit_account_id: account('1010').id, allocations: [],

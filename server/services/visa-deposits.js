@@ -333,7 +333,7 @@ function refundDeposit(db, id, payload = {}) {
       throw bad(`Only ${(deposit.in_hand_cents / 100).toFixed(2)} of this deposit can be refunded now.${stillWithSupplier(deposit)}`);
     }
     const account = cashAccount(db, payload.account_id, 'account to refund from');
-    const date = eventDate(deposit, payload.event_date, 'Refund date');
+    const date = notFuture(eventDate(deposit, payload.event_date, 'Refund date'), 'Refund date');
     const method = optionalStr(payload.method, 'Refund method', 100) || 'Cash';
     const { held } = accounts(db);
     const entryId = postEntry(db, {

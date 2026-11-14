@@ -79,7 +79,7 @@ test('a deposit is held in 2600, not counted as a sale, and refunded in full', (
   assert.deepEqual([dep.held_cents, dep.in_hand_cents, dep.status], [400_000, 400_000, 'held']);
   assert.equal(balance('2600'), -400_000);
   assert.equal(balance('4320'), salesBefore, 'no revenue');
-  const done = deposits.refundDeposit(db, dep.id, { account_id: cash(), event_date: '2026-11-20', method: 'Cash' });
+  const done = deposits.refundDeposit(db, dep.id, { account_id: cash(), event_date: '2026-11-12', method: 'Cash' });
   assert.deepEqual([done.held_cents, done.refunded_cents, done.status], [0, 400_000, 'settled']);
   assert.equal(balance('2600'), 0);
   const refund = db.prepare('SELECT * FROM refunds WHERE deposit_id = ?').get(dep.id);
@@ -96,13 +96,13 @@ test('a deposit passed to the supplier comes back less a fine, and the rest is r
   assertChecksMatch();
 
   const back = deposits.supplierReturn(db, dep.id, {
-    amount_cents: 400_000, deduction_cents: 50_000, account_id: bank(), event_date: '2026-12-01', notes: 'Overstay 2 days',
+    amount_cents: 400_000, deduction_cents: 50_000, account_id: bank(), event_date: '2026-11-10', notes: 'Overstay 2 days',
   });
   assert.deepEqual(
     [back.with_supplier_cents, back.supplier_deductions_cents, back.held_cents, back.in_hand_cents],
     [0, 50_000, 350_000, 350_000],
   );
-  const done = deposits.refundDeposit(db, dep.id, { account_id: cash(), event_date: '2026-12-02' });
+  const done = deposits.refundDeposit(db, dep.id, { account_id: cash(), event_date: '2026-11-11' });
   assert.deepEqual([done.held_cents, done.status], [0, 'settled']);
   assertChecksMatch();
 });

@@ -143,21 +143,21 @@ test('supplier refund: the cost drops and the money stays with the supplier unti
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
   const cost = balance('5120');
   const bank = balance('1010');
-  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 25_000, date: '2026-11-20', account_id: account('1010') });
+  jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 25_000, date: '2026-11-10', account_id: account('1010') });
   assert.equal(cost - balance('5120'), 25_000);
   assert.equal(balance('1010'), bank, 'an account given by an old caller is ignored: nothing comes in yet');
   const [held] = visas.getVisa(db, visa.id).supplier_refunds;
   assert.equal(held.held_cents, 25_000, 'held with the supplier');
-  supplierCredits.receiveVendorRefund(db, bill.vendor_id, { amount_cents: 25_000, date: '2026-11-20', account_id: account('1010') });
+  supplierCredits.receiveVendorRefund(db, bill.vendor_id, { amount_cents: 25_000, date: '2026-11-10', account_id: account('1010') });
   assert.equal(balance('1010') - bank, 25_000, 'received when the supplier pays it out');
-  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 20_000, date: '2026-11-21', account_id: account('1010') });
+  jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 20_000, date: '2026-11-11', account_id: account('1010') });
   // Sale 500 − 200 = 300; cost 350 − 250 = 100; profit 200 (it was 150).
   const shown = visas.getVisa(db, visa.id);
   assert.deepEqual(shown.result, { sale_cents: 30_000, cost_cents: 10_000, margin_cents: 20_000 });
   assert.equal(visas.listVisas(db, {}).find((row) => row.id === visa.id).margin_cents, 20_000);
   const report = jobCosts.valueJobs(db, 'visa', [db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(visa.id)]);
   assert.equal(report[0].margin_cents, 20_000, 'the profit report agrees');
-  assert.throws(() => jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-22' }), /exceed the bill total/);
+  assert.throws(() => jobRefunds.supplierRefund(db, 'visa', visa.id, { bill_id: bill.id, amount_cents: 15_000, date: '2026-11-12' }), /exceed the bill total/);
 });
 
 test('supplier refund on an unpaid bill lowers what we owe them', () => {
@@ -223,7 +223,7 @@ test('receive refund from the supplier statement: oldest credits first, with ban
   const bank = balance('1010');
   const fees = balance('6700');
   const done = supplierCredits.receiveVendorRefund(db, vendor, {
-    amount_cents: 20_000, date: '2026-11-25', account_id: account('1010'), bank_charges_cents: 300,
+    amount_cents: 20_000, date: '2026-11-12', account_id: account('1010'), bank_charges_cents: 300,
   });
   assert.equal(done.credits_used, 2);
   assert.equal(balance('1010') - bank, 19_700);

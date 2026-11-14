@@ -274,7 +274,7 @@ function refundAdvance(db, id, payload = {}) {
     if (!isCashAccount(account)) throw bad('Refund account must be an active cash or bank account');
 
     const advancesAccount = systemAccount(db, ADVANCE_ACCOUNT, 'Contract Liabilities (Customer Advances)');
-    const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    const refundDate = notFuture(dateISO(payload.refund_date || todayISO(), 'Refund date'), 'Refund date');
     if (refundDate < advance.advance_date) throw bad(`Refund date cannot be before the advance was received (${advance.advance_date})`);
 
     const entryId = postEntry(db, {

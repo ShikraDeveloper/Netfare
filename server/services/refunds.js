@@ -7,6 +7,7 @@ const {
   cents,
   dateISO,
   todayISO,
+  notFuture,
 } = require('../util');
 const {
   systemAccount,
@@ -271,7 +272,7 @@ function createRefund(db, payload = {}) {
       throw bad('Choose a customer or supplier refund');
     }
     const amount = cents(payload.amount_cents, 'Refund amount', { min: 1 });
-    const refundDate = dateISO(payload.refund_date || todayISO(), 'Refund date');
+    const refundDate = notFuture(dateISO(payload.refund_date || todayISO(), 'Refund date'), 'Refund date');
     const method = optionalStr(payload.method, 'Refund method', 100) || 'Bank transfer';
     const reference = optionalStr(payload.reference, 'Reference', 200);
     const notes = optionalStr(payload.notes, 'Notes', 1000);
