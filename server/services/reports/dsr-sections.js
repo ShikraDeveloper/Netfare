@@ -94,25 +94,6 @@ function dsrSections(db, start, end, items) {
     byName.set(row.passenger_name, entry);
   }
 
-  // How each sale was settled by the report's end date.
-  const settled = new Map();
-  for (const row of db.prepare(`
-    SELECT invoice_id, method, advance_id, from_receipt, amount_cents FROM payments
-    WHERE status = 'posted' AND payment_date <= ? AND invoice_id IN (${placeholders})
-  `).all(end, ...saleIds)) {
-    const split = settled.get(row.invoice_id) || emptySplit();
-    split[row.advance_id && !row.from_receipt ? 'other' : modeOf(row.method)] += row.amount_cents;
-    settled.set(row.invoice_id, split);
-  }
-  for (const row of db.prepare(`
-    SELECT invoice_id, SUM(amount_cents) AS total FROM credit_applications
-    WHERE applied_date <= ? AND invoice_id IN (${placeholders}) GROUP BY invoice_id
-  `).all(end, ...saleIds)) {
-    const split = settled.get(row.invoice_id) || emptySplit();
-    split.other += row.total;
-    settled.set(row.invoice_id, split);
-  }
-
   // Security deposits received in the period, by visa.
   const depositRows = db.prepare(`
     SELECT d.id, d.number, d.visa_id, d.customer_id, e.event_date AS date, e.created_at, e.amount_cents, e.method,
@@ -124,6 +105,31 @@ function dsrSections(db, start, end, items) {
     WHERE e.event_type = 'collect' AND e.voided_at IS NULL AND e.event_date >= ? AND e.event_date <= ?
     ORDER BY e.event_date, e.id
   `).all(start, end);
+  const depositIds = new Set(depositRows.map((row) => row.id));
+
+  // How each sale was settled by the report's end date.
+  const settled = new Map();
+  for (const row of db.prepare(`
+    SELECT invoice_id, method, advance_id, from_receipt, deposit_id, amount_cents FROM payments
+    WHERE status = 'posted' AND payment_date <= ? AND invoice_id IN (${placeholders})
+  `).all(end, ...saleIds)) {
+    const split = settled.get(row.invoice_id) || emptySplit();
+    // A deposit received in this period is already counted where it came in
+    // (its visa's row or Money collected), so paying from it adds nothing:
+    // it only keeps the invoice off "On credit".
+    if (row.deposit_id && depositIds.has(row.deposit_id)) split.from_deposit = (split.from_deposit || 0) + row.amount_cents;
+    else split[row.advance_id && !row.from_receipt ? 'other' : modeOf(row.method)] += row.amount_cents;
+    settled.set(row.invoice_id, split);
+  }
+  for (const row of db.prepare(`
+    SELECT invoice_id, SUM(amount_cents) AS total FROM credit_applications
+    WHERE applied_date <= ? AND invoice_id IN (${placeholders}) GROUP BY invoice_id
+  `).all(end, ...saleIds)) {
+    const split = settled.get(row.invoice_id) || emptySplit();
+    split.other += row.total;
+    settled.set(row.invoice_id, split);
+  }
+
   const depositsByVisa = new Map();
   for (const row of depositRows) {
     if (!depositsByVisa.has(row.visa_id)) depositsByVisa.set(row.visa_id, []);
@@ -138,9 +144,9 @@ function dsrSections(db, start, end, items) {
     const item = itemById.get(invoice.id);
     const invoiceLines = lines.get(invoice.id) || [];
     const fee = invoiceLines.filter((line) => FEE_CODES.has(line.code)).reduce((sum, line) => sum + line.amount_cents, 0);
-    const split = { ...(settled.get(invoice.id) || emptySplit()) };
+    const { from_deposit: fromDeposit = 0, ...split } = settled.get(invoice.id) || emptySplit();
     const cancelled = Boolean(item.cancelled_by);
-    const received = split.cash + split.card + split.bank + split.other;
+    const received = split.cash + split.card + split.bank + split.other + fromDeposit;
     split.credit = cancelled ? 0 : Math.max(0, invoice.total_cents - received);
     const row = {
       id: invoice.id,

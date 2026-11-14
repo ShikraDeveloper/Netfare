@@ -173,8 +173,19 @@ test('deposits entered with a new visa group are recorded per applicant', () => 
   assert.equal(applications[0].deposits[0].held_cents, 150_000);
 });
 
+test('the DSR counts a deposit once when it is taken and used for the invoice in the same period', () => {
+  const day = '2026-11-10';
+  const v = visaService.submitVisa(db, visa('Same Day Visa', day).id);
+  const dep = take(v.id, 200_000, day);
+  deposits.applyToInvoice(db, dep.id, { invoice_id: v.invoice_id, event_date: day });
+  const sections = dailySales(db, day, day).sections;
+  const row = sections.visas.find((item) => item.reference_id === v.id);
+  assert.deepEqual(row.split, { cash: 200_000, card: 0, bank: 0, other: 0, credit: 0 }, 'the 2,000 received once, the 350 sale not on credit');
+  assert.equal(sections.summary.settlement.other, 0, 'not shown again as advance / credit');
+});
+
 test('the DSR shows the deposit on the visa row and the statement keeps a separate deposit balance', () => {
-  const day = '2026-11-25';
+  const day = '2026-11-11';
   const v = visaService.submitVisa(db, visa('Report Visa', day).id);
   invoiceService.recordInvoicePayment(db, v.invoice_id, { amount_cents: 35_000, payment_date: day, deposit_account_id: cash(), method: 'Cash' });
   const dep = take(v.id, 200_000, day);
@@ -186,7 +197,7 @@ test('the DSR shows the deposit on the visa row and the statement keeps a separa
   assert.equal(sections.summary.deposits.received_cents, 200_000);
   assert.equal(sections.summary.sales.visas_cents, 35_000, 'the deposit is not a sale');
 
-  const refundDay = '2026-11-28';
+  const refundDay = '2026-11-12';
   deposits.refundDeposit(db, dep.id, { account_id: cash(), event_date: refundDay, method: 'Cash' });
   const refunds = dailySales(db, refundDay, refundDay).sections.refunds;
   assert.ok(refunds.some((item) => item.against === `Visa deposit ${dep.number}` && item.amount_cents === 200_000));
