@@ -2473,6 +2473,11 @@ test('a date field opens a calendar on any click; typing works; days the server 
   await box.fill('1/2/2025');
   await box.press('Enter');
   assert.equal(await native.inputValue(), '2025-02-01', 'd/m/yyyy typed is read as a date');
+  const thisYY = new Date().getFullYear() % 100;
+  assert.deepEqual(await page.evaluate(async (yy) => {
+    const { parseDate } = await import('/js/datepicker.js');
+    return [parseDate('01/05/85'), parseDate(`12/03/${yy + 3}`), parseDate('31/02/2026'), parseDate('2029-03-12')];
+  }, thisYY), ['1985-05-01', `20${thisYY + 3}-03-12`, null, '2029-03-12'], 'a two-digit year far ahead is the 1900s; a date that does not exist is refused');
   await box.fill('not a date');
   await dialog.locator('#entry-memo, [name="memo"]').first().click();
   assert.equal(await box.inputValue(), '01/02/2025', 'something that is not a date goes back');
@@ -2528,9 +2533,9 @@ test('invoices, bills and refunds filter by how they were paid', async () => {
   const received = (pick) => live.reduce((sum, invoice) => sum + Object.entries(invoice.paid_by).filter(([method]) => pick(method)).reduce((a, [, cents]) => a + cents, 0), 0);
   assert.match(await totals.innerText(), new RegExp(`${live.length} invoices?`));
   assert.ok((await totals.innerText()).includes(money(live.reduce((sum, invoice) => sum + invoice.balance_cents, 0))), 'balance due');
-  assert.ok((await totals.innerText()).includes(money(received(() => true))), 'received');
+  assert.ok((await totals.innerText()).includes(money(received(() => true))), 'paid');
   await paidBy.selectOption('bank');
-  assert.ok((await totals.innerText()).includes(`Received · Bank transfer`));
+  assert.ok((await totals.innerText()).includes('Paid · Bank transfer'));
   assert.ok((await totals.innerText()).includes(money(received((method) => ['Bank transfer', 'Bank debit'].includes(method)))), 'only the bank part');
   await paidBy.selectOption('all');
 

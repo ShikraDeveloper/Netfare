@@ -705,6 +705,16 @@ export async function printPage() {
   window.print();
 }
 
+// Runs `scan` now and once per frame after the page changes, so screens and
+// forms added later are covered too (long dropdowns, date fields).
+export function watchPage(scan) {
+  let queued = false;
+  new MutationObserver(() => {
+    if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; scan(); }); }
+  }).observe(document.body, { childList: true, subtree: true });
+  scan();
+}
+
 // The totals line at the end of a filtered list: [{ label, cents, due }].
 export function listTotalsHtml(cells) {
   return `<div class="list-totals" data-list-totals>${cells.map((cell) => `

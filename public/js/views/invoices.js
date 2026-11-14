@@ -181,7 +181,8 @@ export async function render(container, { query } = {}) {
     const method = paidBySelect.value;
     container.querySelector('#invoice-totals').innerHTML = listTotalsHtml([
       { label: `${counted.length} invoice${counted.length === 1 ? '' : 's'}`, cents: sum((invoice) => invoice.total_cents) },
-      { label: method === 'all' ? 'Received' : `Received · ${paidBySelect.selectedOptions[0].textContent}`, cents: sum((invoice) => paidByAmount(invoice.paid_by, method)) },
+      // Paid counts credit notes and advances too; a method shows only that money.
+      { label: method === 'all' ? 'Paid' : `Paid · ${paidBySelect.selectedOptions[0].textContent}`, cents: sum((invoice) => paidByAmount(invoice.paid_by, method)) },
       { label: 'Balance due', cents: sum((invoice) => invoice.balance_cents), due: true },
     ]);
     renderPage();

@@ -1,4 +1,4 @@
-import { esc, icon, todayISO } from './ui.js';
+import { esc, icon, todayISO, watchPage } from './ui.js';
 
 // Date fields: a box showing dd/mm/yyyy that opens a calendar on any click,
 // with month and year lists (for a passport expiry years ahead) and quick
@@ -27,6 +27,7 @@ const addMonths = (d, n) => {
 };
 
 // "12/3/2029", "12-03-29", "12.03.2029" or "2029-03-12" → "2029-03-12"; else null.
+// A two-digit year more than 20 years ahead is the 1900s: "85" → 1985.
 export function parseDate(text) {
   const value = String(text || '').trim();
   let y; let m; let d;
@@ -34,7 +35,7 @@ export function parseDate(text) {
   if (match) [, y, m, d] = match.map(Number);
   else if ((match = value.match(/^(\d{1,2})[/.\-\s](\d{1,2})[/.\-\s](\d{2}|\d{4})$/))) {
     [, d, m, y] = match.map(Number);
-    if (y < 100) y += 2000;
+    if (y < 100) y += y > (new Date().getFullYear() % 100) + 20 ? 1900 : 2000;
   } else return null;
   const date = new Date(y, m - 1, d);
   return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d ? iso(date) : null;
@@ -43,7 +44,8 @@ export function parseDate(text) {
 function makeDatePicker(input) {
   const id = `dp-${next += 1}`;
   input.dataset.datepicker = id;
-  if (!input.max && (NO_FUTURE.has(input.id) || NO_FUTURE.has(input.name))) input.max = todayISO();
+  // A birth date cannot be ahead either.
+  if (!input.max && (NO_FUTURE.has(input.id) || NO_FUTURE.has(input.name) || /birth|dob/i.test(`${input.id} ${input.name} ${input.className}`))) input.max = todayISO();
   const label = input.id ? document.querySelector(`label[for="${CSS.escape(input.id)}"]`) : null;
   if (label && !label.id) label.id = `${id}-label`;
   const expiry = /expiry/i.test(`${input.id} ${input.name} ${input.className}`);
@@ -254,10 +256,5 @@ function enhance(root) {
 // touch screens, where the phone's own date picker is easier.
 export function watchDates() {
   if (window.matchMedia?.('(pointer: coarse)').matches) return;
-  let queued = false;
-  const scan = () => { queued = false; enhance(document); };
-  new MutationObserver(() => {
-    if (!queued) { queued = true; requestAnimationFrame(scan); }
-  }).observe(document.body, { childList: true, subtree: true });
-  scan();
+  watchPage(() => enhance(document));
 }

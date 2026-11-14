@@ -1,4 +1,4 @@
-import { esc, icon } from './ui.js';
+import { esc, icon, watchPage } from './ui.js';
 
 // Long dropdowns (customers, suppliers, accounts) become a box you type into:
 // it shows the names that contain what you typed, by name or number. The real
@@ -138,10 +138,5 @@ function enhance(root) {
 
 // Every long dropdown on any screen or form, including ones added later.
 export function watchSelects() {
-  let queued = false;
-  const scan = () => { queued = false; enhance(document); };
-  new MutationObserver(() => {
-    if (!queued) { queued = true; requestAnimationFrame(scan); }
-  }).observe(document.body, { childList: true, subtree: true });
-  scan();
+  watchPage(() => enhance(document));
 }
