@@ -321,7 +321,13 @@ Verification:
 - **Checked first:** a clean worktree of the committed code passed `npm run check`, `npm test` (370) and `npm run test:e2e` (47).
 - **Version:** 1.0.22 in `package.json`, `package-lock.json` (lines 3 and 9) and `desktop/package.json`; commit `0daf9e8 Version 1.0.22`; eight tag notes: searchable dropdowns; the calendar and two-line visa applicants; the paid-by filter and list totals; the pending bar and Cash card breakdown; no future dates on money and posted documents; the petty cash count and DSR deposit fixes; the backup warning and smaller photos; the desktop crash message and window reload.
 - **Pushed:** `main` and `v1.0.22`. Run 43596103052 passed (Build mac, Build win, Publish release). The smoke test printed "reloads a crashed window and closes with a message on an error" on both Mac and Windows, the first run of those checks on Windows.
-- **Checked:** public release with both Mac `.dmg`s, the Windows `.exe` and `latest.json`; `releases/latest` is v1.0.22 and `latest.json` says 1.0.22. Six releases are now on GitHub (1.0.22, 1.0.21, 1.0.20, 1.0.19, 1.0.17, 1.0.16).
+- **Checked:** public release with both Mac `.dmg`s, the Windows `.exe` and `latest.json`; `releases/latest` is v1.0.22 and `latest.json` says 1.0.22. Six releases were then on GitHub; v1.0.16 was deleted next.
+
+### Old GitHub release v1.0.16 deleted
+
+- **Why:** After 1.0.22 there were six releases; the user keeps five and said "Haan, delete karo".
+- **Deleted:** the v1.0.16 release page, notes and installers. Its tag stays, so it can be rebuilt.
+- **Kept:** v1.0.22 (latest), v1.0.21, v1.0.20, v1.0.19, v1.0.17. `latest.json` still says 1.0.22.
 
 ### Next session
 
