@@ -275,6 +275,18 @@ Verification:
 - **Checked:** a new browser test on the journal entry form (typing "bank" lists 1010 and 6700; Down + Enter chooses 6700 without submitting; "No match"; Escape keeps the form open; `selectOption` on the real select shows in the box; axe clean). The other 44 browser tests, which pick from these dropdowns with `selectOption`, pass unchanged. On the demo: picked by typing and keys; no sideways scroll at phone width. `npm test` 370, `npm run test:e2e` 45 passed twice.
 - **Not pushed or released.**
 
+### A calendar for every date field; visa applicants on two lines — code commit `d2950ee`
+
+- **Why:** The user selected the visa applicant row ("ye b improve kero khas ker jaha jaha date wala calander ho vo b improve kero"). The row was 884px wide in a 759px form (sideways scroll; "Applicant nar", "Passport n" cut off), and the passport expiry date spilled 28px over Sale: a global `min-width: 140px` on date fields beat the row's own sizing. Mockups of the row and of a calendar were approved ("Haan, dono banao").
+- **What:**
+  - **Calendar:** new `public/js/datepicker.js`, started from `app.js` (`watchDates`), for every `<input type="date">` on computers (phones keep their own picker). A box shows dd/mm/yyyy and opens a calendar on any click: short month and year lists, Mo–Su weeks, today ringed, the chosen day filled, and quick buttons (Today; Today and Yesterday where the date cannot be ahead; +6 months, +1 year, +5 years for a passport expiry). Days outside the field's min/max are crossed out; money dates the server refuses after today (a list of field ids and names in `datepicker.js`, matching `notFuture`) get today as their max. Typing works (12/3/2029, 12-03-29, 12.03.2029, 2029-03-12); arrows, Page Up/Down, Enter and Escape (closes only the calendar) work from the box. The real date input stays in the form (hidden) and keeps the value; code or tests setting it show in the box. Date filters still apply on Enter.
+  - **Date width:** `input[type="date"].input` has no 140px minimum any more, so a date fits its column.
+  - **Visa applicants:** each applicant is two lines with a label on every box: name, passport no., passport expiry / sale, cost, security deposit, supplier (four lines on a phone). The column header row is gone.
+  - New icons `calendar` and `chevronLeft` in `ui.js`.
+- **Checked:** a new browser test (month and year lists then a day; typed d/m/yyyy with Enter; a non-date goes back; a code-set value shows; Escape keeps the form; axe clean; a petty cash count has tomorrow closed and offers Today and Yesterday). A bug found by the old tests was fixed first: a date set by code while the box had focus was overwritten by the box's old text on blur; the box now only takes its own text when someone typed. On the demo: the applicant row fits (759 of 759px), the expiry calendar offers +6 months / +1 year / +5 years and stays on screen, light and dark themes. `npm test` 370, `npm run test:e2e` 46 passed twice.
+- **Not done:** booking passenger rows keep their one-line layout.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
