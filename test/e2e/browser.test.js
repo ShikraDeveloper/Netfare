@@ -2586,3 +2586,41 @@ test('a customer not in the list is added from the form itself and chosen; Escap
   await booking.locator('[data-close]').first().click();
   assertNoConsoleErrors();
 });
+
+test('quick add refuses a name that already exists, and can give a new supplier its wallet portal', async () => {
+  const [existing] = await getJson(baseUrl, '/api/vendors');
+  await openRoute('/bookings');
+  await clickPageAction('[data-action="new-booking"]');
+  const forms = page.locator('[role="dialog"]');
+  const picker = forms.first().locator('.px-vendor + .picker').first();
+  await picker.waitFor();
+
+  // The same name (other case, extra spaces) is refused: one supplier, one record.
+  await picker.locator('.picker-button').click();
+  await picker.locator('.picker-add').click();
+  const small = forms.nth(1);
+  await small.waitFor();
+  await small.locator('#qa-name').fill(`  ${existing.name.toUpperCase()}  `);
+  await small.locator('[data-submit]').click();
+  await small.locator('.modal-error:not([hidden])', { hasText: 'already exists' }).waitFor();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelectorAll('.modal-overlay').length === 1);
+
+  // A new supplier with its portal: both are made and linked; lists say "— wallet".
+  const name = `Portal Supplier ${Date.now()}`;
+  await picker.locator('.picker-button').click();
+  await picker.locator('.picker-search').fill(name);
+  await picker.locator('.picker-search').press('Enter');
+  await small.waitFor();
+  await small.locator('#qa-portal').check();
+  await small.locator('#qa-type').selectOption('consolidator');
+  await small.locator('#qa-settlement').selectOption('prepaid');
+  await small.locator('[data-submit]').click();
+  await page.waitForFunction(() => document.querySelectorAll('.modal-overlay').length === 1);
+  const vendor = (await getJson(baseUrl, '/api/vendors')).find((row) => row.name === name);
+  const portal = (await getJson(baseUrl, '/api/portals')).find((row) => row.vendor_id === vendor.id);
+  assert.deepEqual([portal.name, portal.settlement, portal.portal_type], [name, 'prepaid', 'consolidator']);
+  assert.equal(await picker.locator('.picker-value').innerText(), `${name} — wallet`);
+  await forms.first().locator('[data-close]').first().click();
+  assertNoConsoleErrors();
+});

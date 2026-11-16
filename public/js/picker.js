@@ -1,4 +1,4 @@
-import { canQuickAdd, quickAdd, quickAddNoun } from './quick-add.js';
+import { canQuickAdd, partyLabel, quickAdd, quickAddNoun } from './quick-add.js';
 import { esc, icon, watchPage } from './ui.js';
 
 // Long dropdowns (customers, suppliers, accounts), and every customer or
@@ -109,7 +109,7 @@ function makePicker(select) {
     const saved = await quickAdd(addKind, name);
     if (!saved) return;
     document.querySelectorAll(`select[data-add="${addKind}"]`).forEach((other) => {
-      const option = new Option(saved.name, saved.id);
+      const option = new Option(partyLabel(addKind, saved), saved.id);
       if (saved.number) option.dataset.search = saved.number;
       other.add(option);
     });
