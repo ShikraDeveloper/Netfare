@@ -329,6 +329,17 @@ Verification:
 - **Deleted:** the v1.0.16 release page, notes and installers. Its tag stays, so it can be rebuilt.
 - **Kept:** v1.0.22 (latest), v1.0.21, v1.0.20, v1.0.19, v1.0.17. `latest.json` still says 1.0.22.
 
+### Add a new customer or supplier from inside any form's list — code commit `a0d848e`
+
+- **Why:** The user selected the booking form's customer list: "where every these list if someone is not in list udr hi option anna chaiye add new ka"; approved the mockup ("Haan, bana do").
+- **What:**
+  - The 13 customer and supplier lists in forms carry `data-add="customer"` or `data-add="vendor"` (booking, visa, visa group, invoice, credit note; booking and passenger suppliers, visa applicant supplier, bill, supplier credit, quick expense, compliance, visa deposit). They always get the type-to-search box, however short.
+  - For people allowed to create customers or suppliers (`can(area, 'edit')`), the list ends with "Add new customer", or "Add “name” as a new customer" when nothing matched (after "No match"). Mouse and keyboard reach it like any row.
+  - New `public/js/quick-add.js`: a small form on top (name prefilled from what was typed, phone, email) that saves through `POST /api/customers` or `/api/vendors`. The saved one is added to every list of its kind on the page (other passenger rows too) and to `store`, then chosen; the form below keeps everything typed.
+  - `openModal`: with a form on top of a form, only the top one answers Escape and Tab, and closing it no longer unlocks the page while the form below is open.
+- **Checked:** a new browser test on the booking form: the short customer list has the picker and "Add new customer"; Escape in the small form leaves the booking form; typing a new name gives "No match" and the add row, Enter opens the small form with the name, Save creates the customer (found in the API) and it is chosen in the booking. On the demo the list and the small form look like the mockup. `npm test` 370, `npm run test:e2e` 48 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
