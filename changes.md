@@ -396,6 +396,16 @@ Verification:
 - **Checked:** a clean copy of main passed `npm run check`, `npm test` 372 and `npm run test:e2e` 50. GitHub run 43877235416: Build (mac), Build (win) and Publish release succeeded; the smoke test passed on both ("Netfare 1.0.23 runs its own server…"). The release has the two Mac .dmg files, the Windows .exe and latest.json (version 1.0.23, with the notes); releases/latest is v1.0.23.
 - **Old release deleted:** v1.0.17 (its tag stays), keeping five releases: 1.0.19 to 1.0.23.
 
+### Restore from backup button in Settings — code commit `397ab02`
+
+- **Why:** The user could not find a way to restore a backup ("retore from backup ka botton hi nai hy"). Restore existed only in the desktop app's menu (Netfare → Restore from backup…); Settings showed that path as text, and on Windows the menu bar is hidden until Alt is pressed. The user said "Haan, laga do".
+- **What:**
+  - `desktop/preload.js` exposes `netfareBooks.restore()`; `desktop/main.js` answers it (`books:restore`, only from Netfare in the main window) with the same `restoreFromBackup` as the menu: choose the .db file, confirm, the current books are saved first, Netfare restarts. On an office computer it says to restore at the main computer.
+  - `settings.js`: in the desktop app, **Data & backup → Restore** has a **Restore from backup…** button. In a browser there is no button; the row says to use the desktop app on the computer that keeps the books. The menu item stays.
+  - README restore line names the button.
+- **Checked:** built the Mac app and ran `scripts/smoke-desktop.js` (now also presses the button's bridge, answers the file dialog with Cancel, and checks the dialog opened): passed. The browser test checks there is no button and the text is shown. `npm test` 372, `npm run test:e2e` 50 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
