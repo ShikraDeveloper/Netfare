@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -97,6 +98,10 @@ function getBill(db, id) {
   return serializeBill(bill);
 }
 
+/**
+ * @param {any} db
+ * @param {{ status?: string, search?: string, from?: string, to?: string }} [filters]
+ */
 function listBills(db, { status, search, from, to } = {}) {
   const clauses = [];
   const params = [];

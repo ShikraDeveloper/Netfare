@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -228,6 +229,10 @@ function getInvoice(db, id) {
   return serializeInvoice(invoice);
 }
 
+/**
+ * @param {any} db
+ * @param {{ status?: string, search?: string, from?: string, to?: string }} [filters]
+ */
 function listInvoices(db, { status, search, from, to } = {}) {
   const clauses = [];
   const params = [];
@@ -574,6 +579,11 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
 
 // Cancellation voids the invoice but deliberately keeps every receipt and
 // refund in place. The caller must first reverse applied credit notes.
+/**
+ * @param {any} db
+ * @param {number} id
+ * @param {{ entryDate?: string, memo?: string }} [options]
+ */
 function voidInvoiceForCancellation(db, id, { entryDate, memo } = {}) {
   const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
   if (!invoice) throw notFound('Invoice not found');

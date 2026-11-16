@@ -44,3 +44,15 @@ if (!copy.ok) {
   process.exit(1);
 }
 console.log(`Helper text: ${copy.total} (within budget).`);
+
+// Types (tsconfig.json): only files with "// @ts-check" at the top are checked.
+const checked = files.filter((file) => fs.readFileSync(file, 'utf8').startsWith('// @ts-check'));
+try {
+  execFileSync(process.execPath, [require.resolve('typescript/bin/tsc'), '-p', root], { stdio: 'pipe' });
+} catch (error) {
+  const out = error.stdout?.toString() || error.message;
+  const count = (out.match(/error TS/g) || []).length;
+  console.error(`\nTypes: ${count} error${count === 1 ? '' : 's'}\n${out}`);
+  process.exit(1);
+}
+console.log(`Types: 0 errors (${checked.length} files checked: ${checked.map((file) => path.basename(file)).join(', ')}).`);

@@ -14,6 +14,10 @@ function withRemarks(memo, remarks) {
   return note ? `${memo} — ${note}`.slice(0, 500) : memo;
 }
 
+/**
+ * @param {any} db
+ * @param {{ entity_type: string, entity_id?: number|null, entity_number?: string, action?: string, remarks?: string, amount_cents?: number|null, metadata?: object|null }} [event]
+ */
 function record(db, {
   entity_type,
   entity_id = null,

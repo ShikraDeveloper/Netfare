@@ -66,10 +66,10 @@ Run the automated checks with:
 npm test          # backend/API tests
 npm run test:e2e  # browser end-to-end and accessibility tests
 npm run test:all  # both suites
-npm run check     # syntax-check every JavaScript file
+npm run check     # syntax, helper-text budget and type checks
 ```
 
-`npm run check` syntax-checks every server, browser and script JavaScript file without starting the app.
+`npm run check` syntax-checks every server, browser and script JavaScript file without starting the app. It also type-checks the files that start with `// @ts-check` (TypeScript as a dev tool only, `tsconfig.json`; nothing is compiled and the desktop app does not ship it). Types are written as JSDoc comments.
 
 The browser suite uses the locally installed Google Chrome (override with `CHROME_PATH` if needed) and `playwright-core`, so it does not download another browser. It starts a temporary server with its own throwaway SQLite data directory, loads the demo agency, seeds extra pagination fixtures, and then verifies navigation, keyboard row opening, table captions/scopes, pagination and filter resets, modal focus trapping, theme persistence and light-only printing. It finishes with an axe-core WCAG 2.1 AA audit of the main list, detail, treasury, compliance and report pages in both light and dark themes, including colour contrast.
 

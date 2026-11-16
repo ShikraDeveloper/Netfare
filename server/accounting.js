@@ -159,6 +159,11 @@ function settledCardNumber(db, entryId) {
   `).get(entryId)?.number || null;
 }
 
+/**
+ * @param {any} db
+ * @param {number} entryId
+ * @param {{ entry_date?: string, memo?: string, source_type?: string, allowClosed?: boolean, extraLines?: object[] }} [options]
+ */
 function reverseEntry(db, entryId, { entry_date, memo, source_type = 'void', allowClosed = false, extraLines = [] } = {}) {
   const entry = db.prepare('SELECT * FROM journal_entries WHERE id = ?').get(entryId);
   if (!entry) return null;

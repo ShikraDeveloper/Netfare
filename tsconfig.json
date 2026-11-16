@@ -1,0 +1,15 @@
+{
+  // Type checking only (npm run check): nothing is compiled, the app runs the
+  // same JavaScript. Files join one at a time with "// @ts-check" at the top.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "module": "commonjs",
+    "target": "es2022",
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["server/**/*.js"]
+}

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 class HttpError extends Error {
@@ -26,6 +27,11 @@ function optionalStr(value, field, max = 500) {
   return str(value, field, { required: false, max });
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} field
+ * @param {{ min?: number, max?: number, fallback?: number }} [options]
+ */
 function num(value, field, { min = -Infinity, max = Infinity, fallback } = {}) {
   if (value == null || value === '') {
     if (fallback !== undefined) return fallback;
