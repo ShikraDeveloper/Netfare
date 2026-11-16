@@ -389,6 +389,13 @@ Verification:
 - **Checked:** the browser test also asks "pay this bill" on an invoice: the bill answer shows, with no Show me. `npm test` 372, `npm run test:e2e` 50 passed.
 - **Not pushed or released.**
 
+### Release 1.0.23 — `77ff011`, tag `v1.0.23`
+
+- **Why:** The user said "release" after the help panel was pushed.
+- **What's in it:** the help panel (? button, answers for the screen or form in front of you, Show me, unanswered questions in Settings → Help questions, English-only search); add a new customer or supplier from inside any form's list, with the same-name check against the server's list; a portal (prepaid wallet or credit account) for a new supplier in the same step.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 372 and `npm run test:e2e` 50. GitHub run 43877235416: Build (mac), Build (win) and Publish release succeeded; the smoke test passed on both ("Netfare 1.0.23 runs its own server…"). The release has the two Mac .dmg files, the Windows .exe and latest.json (version 1.0.23, with the notes); releases/latest is v1.0.23.
+- **Old release deleted:** v1.0.17 (its tag stays), keeping five releases: 1.0.19 to 1.0.23.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
