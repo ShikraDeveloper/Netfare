@@ -379,6 +379,16 @@ Verification:
 - **Checked:** the browser test now asks "how can I give this money back" on a paid invoice and gets the refund answer. `npm test` 372, `npm run test:e2e` 50 passed.
 - **Not pushed or released.**
 
+### Help panel audit fixes — code commit `0849b35`
+
+- **Why:** The audit of the help panel found three things; the user said "Haan, teeno".
+- **What:**
+  1. Phones (`styles.css`): with a form open, the **?** button sits above the form's Save bar (it was 3px from **Create booking** and over the bottom of the form), the panel moves up with it, and form bodies get 60px room at the bottom. Measured on the demo at 375×812: the button ends 10px above the Save bar.
+  2. `help.js`: after a screen or form change, the panel searches what is typed again (it used to keep the old screen's answers). **Show me** appears only on answers for the screen in front of you; on a bill, the invoice payment answer no longer offers to mark the bill's own Record payment button. "record" added to the bill payment words.
+  3. `help-questions-card.js`: the time a question was asked shows in local time, "16 Nov, 17:14" (it showed the UTC date).
+- **Checked:** the browser test also asks "pay this bill" on an invoice: the bill answer shows, with no Show me. `npm test` 372, `npm run test:e2e` 50 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
