@@ -372,6 +372,13 @@ Verification:
 - **Not checked:** the desktop app build; dark theme by eye.
 - **Not pushed or released.**
 
+### Help panel search: English only — code commit `12d9965`
+
+- **Why:** The user said "roman nai rakho english only" and chose the help panel search (not replies) when asked.
+- **What:** `public/js/help.js` keeps only English filler words (how, do, I, the…); the Roman Urdu ones (kesay, karun, isko…) are gone. `public/js/help-topics.js` word lists lost their Roman Urdu words (wapas, paisa, khatam, jama…). A Roman Urdu question now finds an answer only through its English words (e.g. "refund"), and usually goes to the admin as unanswered. README says "in English".
+- **Checked:** the browser test now asks "how can I give this money back" on a paid invoice and gets the refund answer. `npm test` 372, `npm run test:e2e` 50 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
