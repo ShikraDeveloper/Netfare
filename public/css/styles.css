@@ -1921,6 +1921,6 @@ html:not(.is-admin) .admin-only { display: none; }
   /* A form is open: the button sits above its Save bar, and the form can scroll clear of it. */
   body.modal-open .help-fab { bottom: calc(96px + env(safe-area-inset-bottom)); }
   body.modal-open .help-panel { bottom: calc(152px + env(safe-area-inset-bottom)); }
-  .modal-body { padding-bottom: 60px; }
+  .modal:not(.modal-sm) .modal-body { padding-bottom: 60px; }
 }
 @media print { .help-fab, .help-panel { display: none !important; } }
