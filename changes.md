@@ -426,6 +426,18 @@ Verification:
 - **Not yet:** database rows are untyped (`any`), so a misspelled column such as `invoice.balance_cent` is not caught yet; that needs a type for each row (Invoice, Bill) next. More files can join one at a time.
 - **Not pushed or released.**
 
+### Row types for invoices and bills — code commit `7af6960`
+
+- **Why:** Type checking did not see database columns (rows were `any`), so `invoice.balance_cent`-style typos were not caught. The user said "Haan, karo".
+- **What:**
+  - `invoices.js` / `bills.js`: `InvoiceRow` and `BillRow` (JSDoc typedefs, one property per column, ids and cents as numbers, nullable links as `number|null`).
+  - `invoiceRow(db, id)` and `billRow(db, id)` return those types; they replace the 10 and 8 copies of `db.prepare('SELECT * FROM … WHERE id = ?').get(…)`.
+  - `test/row-types.test.js`: each type must list exactly its table's columns (PRAGMA table_info), so a new column without its type fails the tests.
+- **What it found:** nothing: every column these two files read from a row exists.
+- **Checked:** planted `fresh.amount_paid_cent`: `npm run check` failed with "Property 'amount_paid_cent' does not exist on type 'InvoiceRow'. Did you mean 'amount_paid_cents'?"; restored. `npm test` 374, `npm run test:e2e` 50 passed.
+- **Not yet:** `getInvoice` / `getBill` (the full document with lines, payments and balance) are still untyped, and only three files are checked.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
