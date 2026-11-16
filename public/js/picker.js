@@ -1,6 +1,8 @@
+import { canQuickAdd, quickAdd, quickAddNoun } from './quick-add.js';
 import { esc, icon, watchPage } from './ui.js';
 
-// Long dropdowns (customers, suppliers, accounts) become a box you type into:
+// Long dropdowns (customers, suppliers, accounts), and every customer or
+// supplier list (data-add), become a box you type into:
 // it shows the names that contain what you typed, by name or number. The real
 // <select> stays in the form, hidden, and keeps the value, so saving, change
 // events and code that reads or sets it work as before.
@@ -65,13 +67,18 @@ function makePicker(select) {
     else search.removeAttribute('aria-activedescendant');
   };
 
+  // A customer or supplier list ends with "Add new…" for people who may create one.
+  const addKind = canQuickAdd(select.dataset.add) ? select.dataset.add : '';
   const render = () => {
-    const query = fold(search.value.trim());
+    const typed = search.value.trim();
+    const query = fold(typed);
     shown = [...select.options].filter((option) => !option.disabled
       && (query ? option.value !== '' && (fold(option.textContent).includes(query) || fold(option.dataset.search).includes(query)) : true));
-    list.innerHTML = shown.length
-      ? shown.map((option, i) => `<div class="picker-option${option.value === '' ? ' is-empty' : ''}" role="option" id="${id}-o${i}" aria-selected="false">${esc(option.textContent)}${option.dataset.search ? `<small>${esc(option.dataset.search)}</small>` : ''}</div>`).join('')
-      : '<div class="picker-none">No match</div>';
+    const found = shown.length;
+    if (addKind) shown.push({ add: true, name: typed });
+    list.innerHTML = `${found ? '' : '<div class="picker-none">No match</div>'}${shown.map((option, i) => (option.add
+      ? `<div class="picker-option picker-add" role="option" id="${id}-o${i}" aria-selected="false">${icon('plus', 14)}<span>${typed ? `Add “${esc(typed)}” as a new ${quickAddNoun(addKind)}` : `Add new ${quickAddNoun(addKind)}`}</span></div>`
+      : `<div class="picker-option${option.value === '' ? ' is-empty' : ''}" role="option" id="${id}-o${i}" aria-selected="false">${esc(option.textContent)}${option.dataset.search ? `<small>${esc(option.dataset.search)}</small>` : ''}</div>`)).join('')}`;
     const current = shown.findIndex((option) => option.selected);
     highlight(query || current < 0 ? 0 : current);
   };
@@ -95,7 +102,25 @@ function makePicker(select) {
     search.focus();
   };
 
+  // The new one is added to every list of its kind on the page (other rows of
+  // a booking, say) and chosen here.
+  const addNew = async (name) => {
+    close(true);
+    const saved = await quickAdd(addKind, name);
+    if (!saved) return;
+    document.querySelectorAll(`select[data-add="${addKind}"]`).forEach((other) => {
+      const option = new Option(saved.name, saved.id);
+      if (saved.number) option.dataset.search = saved.number;
+      other.add(option);
+    });
+    select.value = String(saved.id);
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    button.focus();
+  };
+
   const choose = (option) => {
+    if (option?.add) { addNew(option.name); return; }
     if (option && select.value !== option.value) {
       select.value = option.value;
       select.dispatchEvent(new Event('input', { bubbles: true }));
@@ -132,7 +157,7 @@ function makePicker(select) {
 
 function enhance(root) {
   root.querySelectorAll('select:not([multiple]):not([data-picker])').forEach((select) => {
-    if (select.options.length > LONG) makePicker(select);
+    if (select.options.length > LONG || select.dataset.add) makePicker(select);
   });
 }
 

@@ -71,7 +71,7 @@ function rowHtml(row = {}, { supplierId = '' } = {}) {
         aria-label="${isPassenger ? 'Passenger name' : 'Item description'}">
       <input class="input px-ref" value="${esc(row.cost?.supplier_ref || '')}" autocomplete="off"
         placeholder="${isPassenger ? 'Empty: booking PNR' : 'Supplier ref'}" aria-label="${isPassenger ? 'Ticket no. or PNR' : 'Supplier ref'}">
-      <select class="input px-vendor" aria-label="Supplier">
+      <select class="input px-vendor" data-add="vendor" aria-label="Supplier">
         ${optionsHtml(activeVendors(), { selected: row.cost?.vendor_id ?? supplierId, placeholder: 'Supplier…', labelKey: vendorLabel })}
       </select>
       <div class="money-input"><span>${esc(currencySymbol())}</span>

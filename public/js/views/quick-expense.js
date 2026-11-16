@@ -52,7 +52,7 @@ export function openQuickExpenseModal({ onSaved = () => {}, paidFromCode = '1000
         </div>
         <div class="field">
           <label for="qe-vendor">Supplier <span class="muted">(optional)</span></label>
-          <select class="input" id="qe-vendor">
+          <select class="input" id="qe-vendor" data-add="vendor">
             ${optionsHtml(activeVendors(), { placeholder: 'No supplier (sundry)' })}
           </select>
         </div>

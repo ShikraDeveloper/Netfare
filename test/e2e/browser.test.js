@@ -2549,3 +2549,40 @@ test('invoices, bills and refunds filter by how they were paid', async () => {
   }
   assertNoConsoleErrors();
 });
+
+test('a customer not in the list is added from the form itself and chosen; Escape closes only the small form', async () => {
+  await openRoute('/bookings');
+  await clickPageAction('[data-action="new-booking"]');
+  const forms = page.locator('[role="dialog"]');
+  const booking = forms.first();
+  const picker = booking.locator('#bk-customer + .picker');
+  await picker.waitFor(); // every customer list gets the picker, however short
+  await picker.locator('.picker-button').click();
+  assert.match(await picker.locator('.picker-add').innerText(), /Add new customer/);
+
+  // Escape in the small form leaves the booking form open.
+  await picker.locator('.picker-add').click();
+  await forms.nth(1).waitFor();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.querySelectorAll('.modal-overlay').length === 1);
+  assert.equal(await forms.count(), 1);
+
+  const name = `Quick Add ${Date.now()}`;
+  await picker.locator('.picker-button').click();
+  await picker.locator('.picker-search').fill(name);
+  assert.equal(await picker.locator('.picker-none').innerText(), 'No match');
+  await picker.locator('.picker-search').press('Enter'); // the only row: Add "…"
+  const small = forms.nth(1);
+  await small.waitFor();
+  assert.equal(await small.locator('#qa-name').inputValue(), name, 'what was typed is the name');
+  await small.locator('#qa-phone').fill('+971500000000');
+  await small.locator('[data-submit]').click();
+  await page.waitForFunction(() => document.querySelectorAll('.modal-overlay').length === 1);
+  const customers = await getJson(baseUrl, '/api/customers');
+  const created = customers.find((row) => row.name === name);
+  assert.ok(created, 'saved as a customer');
+  assert.equal(await booking.locator('#bk-customer').inputValue(), String(created.id), 'and chosen in the booking');
+  assert.equal(await picker.locator('.picker-value').innerText(), name);
+  await booking.locator('[data-close]').first().click();
+  assertNoConsoleErrors();
+});

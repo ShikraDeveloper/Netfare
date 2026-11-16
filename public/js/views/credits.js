@@ -184,7 +184,7 @@ function openCreditModal({ customers, revenueAccounts, openCancellationsByCustom
       <div class="form-grid">
         <div class="field full">
           <label for="credit-customer">Customer</label>
-          <select class="input" id="credit-customer" name="customer_id" required>
+          <select class="input" id="credit-customer" data-add="customer" name="customer_id" required>
             <option value="">Choose a customer…</option>
             ${customers.map((customer) => `<option value="${customer.id}" ${customer.id === customerId ? 'selected' : ''}>${esc(customer.name)}</option>`).join('')}
           </select>

@@ -57,7 +57,7 @@ function modalBody(item = null) {
       </div>
       <div class="field full" data-ci-recurring>
         <label for="ci-vendor" id="ci-vendor-label">Supplier</label>
-        <select class="input" id="ci-vendor" name="vendor_id">
+        <select class="input" id="ci-vendor" data-add="vendor" name="vendor_id">
           ${optionsHtml(vendors, { selected: item?.vendor_id, placeholder: 'Choose a vendor…' })}
         </select>
       </div>

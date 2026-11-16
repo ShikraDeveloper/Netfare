@@ -198,7 +198,7 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
       <div class="form-grid">
         <div class="field">
           <label for="sc-vendor">Supplier</label>
-          <select class="input" id="sc-vendor" name="vendor_id" required>
+          <select class="input" id="sc-vendor" data-add="vendor" name="vendor_id" required>
             ${optionsHtml(active, { placeholder: 'Choose supplier…' })}
           </select>
         </div>

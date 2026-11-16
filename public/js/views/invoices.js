@@ -272,7 +272,7 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
       <div class="field full form-sec-title">Customer</div>
       <div class="field full">
         <label for="invoice-customer" class="sr-only">Customer</label>
-        <select class="input" id="invoice-customer" name="customer_id" required>
+        <select class="input" id="invoice-customer" data-add="customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: invoice?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>

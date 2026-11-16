@@ -56,7 +56,7 @@ function applicantRowHtml(row = {}) {
           <input class="input va-deposit" type="number" min="0" step="0.01" inputmode="decimal"
             value="${row.deposit ? esc(centsToInput(row.deposit)) : ''}" placeholder="0.00"></span></label>
       <div class="va-cell va-c-vendor"><span class="va-cap" aria-hidden="true">Supplier</span>
-        <select class="input va-vendor" aria-label="Supplier">
+        <select class="input va-vendor" data-add="vendor" aria-label="Supplier">
           ${optionsHtml(activeVendors(), { selected: row.vendorId || '', placeholder: 'Supplier…', labelKey: vendorLabel })}
         </select></div>
       <button type="button" class="icon-btn" data-va-more aria-expanded="false" title="More details for this applicant" aria-label="More details for this applicant">${icon('more', 16)}</button>
@@ -98,7 +98,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
       <div class="field full form-sec-title">Customer</div>
       <div class="field full">
         <label for="vg-customer" class="sr-only">Customer</label>
-        <select class="input" id="vg-customer" name="customer_id" required>
+        <select class="input" id="vg-customer" data-add="customer" name="customer_id" required>
           ${optionsHtml(customers, { placeholder: 'Choose a customer…' })}
         </select>
       </div>

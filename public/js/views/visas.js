@@ -128,7 +128,7 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
       <div class="field full form-sec-title">Customer</div>
       <div class="field full">
         <label for="visa-customer" class="sr-only">Customer</label>
-        <select class="input" id="visa-customer" name="customer_id" required>
+        <select class="input" id="visa-customer" data-add="customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: visa?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>

@@ -116,7 +116,7 @@ export function costRow(item = {}, defaults = {}) {
       <select class="input bk-account" aria-label="Cost account">
         ${optionsHtml(purchaseAccounts(), { selected: item.account_id ?? defaults.costAccountId, placeholder: 'Cost account…', labelKey: (a) => `${a.code} · ${a.name}` })}
       </select>
-      <select class="input bk-vendor" aria-label="Supplier">
+      <select class="input bk-vendor" data-add="vendor" aria-label="Supplier">
         ${optionsHtml(activeVendors(), { selected: item.vendor_id, placeholder: 'Supplier…', labelKey: vendorLabel })}
       </select>
       <input class="input bk-ref" placeholder="Supplier ref" value="${esc(item.supplier_ref || '')}" autocomplete="off">
@@ -241,7 +241,7 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
       <div class="field full form-sec-title">Customer</div>
       <div class="field full">
         <label for="bk-customer" class="sr-only">Customer</label>
-        <select class="input" id="bk-customer" name="customer_id" required>
+        <select class="input" id="bk-customer" data-add="customer" name="customer_id" required>
           ${optionsHtml(customers, { selected: booking?.customer_id, placeholder: 'Choose a customer…' })}
         </select>
       </div>

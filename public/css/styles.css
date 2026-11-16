@@ -1887,3 +1887,5 @@ html:not(.is-admin) .admin-only { display: none; }
 .list-total span { font-size: 12px; color: var(--muted); }
 .list-total strong { font-size: 15px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .list-total.is-due strong { color: var(--red); }
+.picker-option.picker-add { justify-content: flex-start; gap: 6px; align-items: center; color: var(--accent); border-top: 1px solid var(--border); font-weight: 600; }
+.picker-option.picker-add[aria-selected="true"] { color: var(--text); }

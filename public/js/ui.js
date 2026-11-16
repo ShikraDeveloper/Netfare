@@ -464,7 +464,10 @@ export function openModal(options) {
     'select:not([disabled])', 'textarea:not([disabled])', '[tabindex]:not([tabindex="-1"])',
   ].join(', ');
 
+  // Only the form on top answers the keys (a quick-add form can open over another).
+  const onTop = () => [...document.querySelectorAll('.modal-overlay')].filter((other) => !other.classList.contains('is-closing')).at(-1) === overlay;
   const onKeydown = (event) => {
+    if (!onTop()) return;
     if (event.key === 'Escape' && !document.body.classList.contains('modal-locked')) {
       close();
       return;
@@ -489,7 +492,8 @@ export function openModal(options) {
     closed = true;
     document.removeEventListener('keydown', onKeydown);
     overlay.classList.remove('visible');
-    document.body.classList.remove('modal-open');
+    overlay.classList.add('is-closing');
+    if (![...document.querySelectorAll('.modal-overlay')].some((other) => !other.classList.contains('is-closing'))) document.body.classList.remove('modal-open');
     setTimeout(() => {
       overlay.remove();
       if (previousFocus && document.body.contains(previousFocus)) previousFocus.focus();

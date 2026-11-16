@@ -176,7 +176,7 @@ export function bindDepositCard(container, visa, refresh) {
             ${dateField('dep-date', 'Date paid')}
             <div class="field full"><label for="dep-paid-from">Paid from</label>${paidFromSelect('dep-paid-from', wallets)}
 </div>
-            <div class="field full"><label for="dep-vendor">Supplier</label><select class="input" id="dep-vendor" required>${optionsHtml(activeVendors(), { placeholder: 'Choose supplier…' })}</select></div>
+            <div class="field full"><label for="dep-vendor">Supplier</label><select class="input" id="dep-vendor" data-add="vendor" required>${optionsHtml(activeVendors(), { placeholder: 'Choose supplier…' })}</select></div>
             <div class="field" data-dep-method><label for="dep-method">Method</label>${methodSelect('dep-method', 'Bank transfer')}</div>
           </div>`,
           submitLabel: 'Record payment',

@@ -255,7 +255,7 @@ export function openBillModal({ bill = null, correct = false, onSaved = () => {}
     <div class="form-grid">
       <div class="field full">
         <label for="bill-vendor">Supplier</label>
-        <select class="input" id="bill-vendor" name="vendor_id" required>
+        <select class="input" id="bill-vendor" data-add="vendor" name="vendor_id" required>
           ${optionsHtml(vendors, { selected: bill?.vendor_id, placeholder: 'Choose a supplier…' })}
         </select>
       </div>
