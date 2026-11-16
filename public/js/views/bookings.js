@@ -1,10 +1,10 @@
+import { partyLabel } from '../quick-add.js';
 import { api } from '../api.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
   activeCustomers,
   activeVendors,
   purchaseAccounts,
-  portalForVendorId,
   revenueAccounts,
   store,
 } from '../store.js';
@@ -98,12 +98,6 @@ export function saleRow(item = {}, defaults = {}) {
   `;
 }
 
-function vendorLabel(vendor) {
-  const portal = portalForVendorId(vendor.id);
-  if (!portal) return vendor.name;
-  return `${vendor.name} — ${portal.settlement === 'prepaid' ? 'wallet' : 'credit'}`;
-}
-
 export function costRow(item = {}, defaults = {}) {
   return `
     <div class="bk-row" data-bk-line data-type="cost">
@@ -117,7 +111,7 @@ export function costRow(item = {}, defaults = {}) {
         ${optionsHtml(purchaseAccounts(), { selected: item.account_id ?? defaults.costAccountId, placeholder: 'Cost account…', labelKey: (a) => `${a.code} · ${a.name}` })}
       </select>
       <select class="input bk-vendor" data-add="vendor" aria-label="Supplier">
-        ${optionsHtml(activeVendors(), { selected: item.vendor_id, placeholder: 'Supplier…', labelKey: vendorLabel })}
+        ${optionsHtml(activeVendors(), { selected: item.vendor_id, placeholder: 'Supplier…', labelKey: (vendor) => partyLabel('vendor', vendor) })}
       </select>
       <input class="input bk-ref" placeholder="Supplier ref" value="${esc(item.supplier_ref || '')}" autocomplete="off">
       <div class="bk-amount">${fmtMoney(0)}</div>

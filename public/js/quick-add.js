@@ -59,7 +59,9 @@ export function quickAdd(kind, name = '') {
         const typed = value('#qa-name');
         if (!typed) throw new Error('Enter a name');
         // The same name twice splits one party's balance over two records (and
-        // a second supplier is not linked to the first one's portal).
+        // a second supplier is not linked to the first one's portal). The list
+        // comes from the server: a colleague may have added the name since sign-in.
+        store[list] = await api.get(path);
         const existing = store[list].find((row) => sameName(row.name, typed));
         if (existing) throw new Error(`${partyLabel(kind, existing)}${existing.number ? ` (${existing.number})` : ''} already exists. Choose it from the list.`);
         saved = await api.post(path, { name: typed, phone: value('#qa-phone'), email: value('#qa-email') });

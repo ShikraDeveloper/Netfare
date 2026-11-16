@@ -1,4 +1,5 @@
-import { activeVendors, portalForVendorId, purchaseAccounts, revenueAccounts } from '../store.js';
+import { partyLabel } from '../quick-add.js';
+import { activeVendors, purchaseAccounts, revenueAccounts } from '../store.js';
 import { centsToInput, currencySymbol, esc, fmtMoney, icon, optionsHtml, toCents } from '../ui.js';
 
 // One row per passenger: what the customer pays, what the supplier charges and
@@ -13,12 +14,6 @@ const DEFAULT_ACCOUNTS = {
 
 function accountIdByCode(accounts, code) {
   return accounts.find((account) => account.code === code)?.id || accounts[0]?.id || '';
-}
-
-function vendorLabel(vendor) {
-  const portal = portalForVendorId(vendor.id);
-  if (!portal) return vendor.name;
-  return `${vendor.name} — ${portal.settlement === 'prepaid' ? 'wallet' : 'credit'}`;
 }
 
 // Rebuild rows from saved booking items. Lines saved before passenger rows
@@ -72,7 +67,7 @@ function rowHtml(row = {}, { supplierId = '' } = {}) {
       <input class="input px-ref" value="${esc(row.cost?.supplier_ref || '')}" autocomplete="off"
         placeholder="${isPassenger ? 'Empty: booking PNR' : 'Supplier ref'}" aria-label="${isPassenger ? 'Ticket no. or PNR' : 'Supplier ref'}">
       <select class="input px-vendor" data-add="vendor" aria-label="Supplier">
-        ${optionsHtml(activeVendors(), { selected: row.cost?.vendor_id ?? supplierId, placeholder: 'Supplier…', labelKey: vendorLabel })}
+        ${optionsHtml(activeVendors(), { selected: row.cost?.vendor_id ?? supplierId, placeholder: 'Supplier…', labelKey: (vendor) => partyLabel('vendor', vendor) })}
       </select>
       <div class="money-input"><span>${esc(currencySymbol())}</span>
         <input class="input px-cost" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Supplier cost"

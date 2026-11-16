@@ -2588,8 +2588,9 @@ test('a customer not in the list is added from the form itself and chosen; Escap
 });
 
 test('quick add refuses a name that already exists, and can give a new supplier its wallet portal', async () => {
-  const [existing] = await getJson(baseUrl, '/api/vendors');
   await openRoute('/bookings');
+  // Added by a colleague after this page signed in: the check asks the server.
+  const existing = await postJson(baseUrl, '/api/vendors', { name: `Colleague Supplier ${Date.now()}` });
   await clickPageAction('[data-action="new-booking"]');
   const forms = page.locator('[role="dialog"]');
   const picker = forms.first().locator('.px-vendor + .picker').first();

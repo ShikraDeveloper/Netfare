@@ -1,9 +1,10 @@
+import { partyLabel } from '../quick-add.js';
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { bindCustomerHint } from '../customer-hint.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { depositAccounts } from './job-modals.js';
-import { activeCustomers, activeVendors, portalForVendorId, purchaseAccounts, revenueAccounts, store } from '../store.js';
+import { activeCustomers, activeVendors, purchaseAccounts, revenueAccounts, store } from '../store.js';
 import {
   addDaysISO,
   centsToInput,
@@ -24,12 +25,6 @@ import {
 
 function accountIdByCode(accounts, code) {
   return accounts.find((account) => account.code === code)?.id || accounts[0]?.id || '';
-}
-
-function vendorLabel(vendor) {
-  const portal = portalForVendorId(vendor.id);
-  if (!portal) return vendor.name;
-  return `${vendor.name} — ${portal.settlement === 'prepaid' ? 'wallet' : 'credit'}`;
 }
 
 function applicantRowHtml(row = {}) {
@@ -57,7 +52,7 @@ function applicantRowHtml(row = {}) {
             value="${row.deposit ? esc(centsToInput(row.deposit)) : ''}" placeholder="0.00"></span></label>
       <div class="va-cell va-c-vendor"><span class="va-cap" aria-hidden="true">Supplier</span>
         <select class="input va-vendor" data-add="vendor" aria-label="Supplier">
-          ${optionsHtml(activeVendors(), { selected: row.vendorId || '', placeholder: 'Supplier…', labelKey: vendorLabel })}
+          ${optionsHtml(activeVendors(), { selected: row.vendorId || '', placeholder: 'Supplier…', labelKey: (vendor) => partyLabel('vendor', vendor) })}
         </select></div>
       <button type="button" class="icon-btn" data-va-more aria-expanded="false" title="More details for this applicant" aria-label="More details for this applicant">${icon('more', 16)}</button>
       <button type="button" class="icon-btn danger" data-va-remove title="Remove applicant" aria-label="Remove applicant">${icon('x', 16)}</button>
