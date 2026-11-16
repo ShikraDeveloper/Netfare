@@ -351,6 +351,15 @@ Verification:
 - **Checked:** a new browser test (an existing supplier's name in capitals with spaces is refused; a new supplier with the portal ticked creates a prepaid consolidator portal linked to it, and the list shows "— wallet"). On the demo the duplicate message names SUP-0001 and its wallet. `npm test` 370, `npm run test:e2e` 49 passed.
 - **Not pushed or released.**
 
+### Quick add: the same-name check uses the server's list; one supplier label — code commit `77de451`
+
+- **Why:** Audit finding 1: the same-name check looked at the list loaded at sign-in. A supplier a colleague added later on another computer was not in it, so quick add saved a second one (proved on the demo: SUP-0007 and SUP-0008, both archived afterwards). Finding 2: "Name — wallet" was written in four places. The user said "Haan, dono".
+- **What:**
+  - `public/js/quick-add.js`: before the check, the form fetches the current customers or suppliers (`GET /api/customers` or `/api/vendors`, active only) and keeps it in `store`, so later lists also have the colleague's new record.
+  - `bookings.js`, `booking-passengers.js`, `visa-group-form.js`: their `vendorLabel` copies are gone; supplier lists use `partyLabel('vendor', …)` from `quick-add.js`.
+- **Checked:** the duplicate browser test now adds the supplier through the API after the page signed in; it fails without the fix and passes with it. `npm test` 370, `npm run test:e2e` 49 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
