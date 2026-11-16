@@ -352,6 +352,13 @@ async function restoreFromBackup() {
   app.exit(0);
 }
 
+// Settings → Restore from backup… does the same as the menu item.
+ipcMain.handle('books:restore', async (event) => {
+  if (!fromNetfarePage(event)) return { error: 'Not allowed' };
+  await restoreFromBackup();
+  return { ok: true };
+});
+
 // Help → Reset admin password. Only the main computer can do it (the server
 // accepts the reset only from this computer), so an office computer just
 // says where to go.

@@ -257,8 +257,9 @@ export async function render(container) {
             <div class="danger-row" style="border-color:var(--border)">
               <div>
                 <h4>Restore</h4>
-                <p><strong>Netfare → Restore from backup…</strong></p>
+                <p>${window.netfareBooks ? 'Replaces the books with a backup file. The current books are saved first, and Netfare restarts.' : 'In the Netfare desktop app on the computer that keeps the books: Settings → Restore from backup.'}</p>
               </div>
+              ${window.netfareBooks ? `<button class="btn btn-secondary btn-sm" id="restore-backup">${icon('refresh', 15)} Restore from backup…</button>` : ''}
             </div>
             <div class="danger-row" style="border-color:var(--border)">
               <div>
@@ -433,6 +434,8 @@ export async function render(container) {
     line.classList.toggle('amount-due', Boolean(late));
   }).catch(() => { /* staff cannot read backups */ });
 
+  // The desktop app asks for the file and confirms; on an office computer it says to use the main one.
+  container.querySelector('#restore-backup')?.addEventListener('click', () => window.netfareBooks.restore());
   container.querySelector('#local-backup').addEventListener('click', async (event) => {
     const button = event.currentTarget;
     button.disabled = true;

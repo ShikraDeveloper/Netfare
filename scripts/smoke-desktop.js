@@ -64,6 +64,16 @@ async function main() {
     const pdfFile = fs.readdirSync(folder).find((name) => name.endsWith('.pdf'));
     if (!pdfFile) throw new Error('Print preview made no PDF');
     if (hasWindowTint(fs.readFileSync(path.join(folder, pdfFile)))) throw new Error('The printed PDF has tinted margins, not white paper');
+    // Settings → Restore from backup… reaches the app's restore: the file
+    // dialog opens (answered here with Cancel), and nothing restarts.
+    const asked = await app.evaluate(({ dialog }) => {
+      globalThis.smokeOpenDialog = dialog.showOpenDialog;
+      globalThis.smokeAsked = false;
+      dialog.showOpenDialog = async () => { globalThis.smokeAsked = true; return { canceled: true, filePaths: [] }; };
+    }).then(() => win.evaluate(() => window.netfareBooks.restore()))
+      .then(() => app.evaluate(({ dialog }) => { dialog.showOpenDialog = globalThis.smokeOpenDialog; return globalThis.smokeAsked; }));
+    if (!asked) throw new Error('Restore from backup in Settings did not open the file dialog');
+
     // A crashed window says so and loads Netfare again. The message box is
     // replaced so nobody has to press OK.
     const reload = await app.evaluate(({ dialog, BrowserWindow }) => new Promise((resolve) => {
@@ -90,7 +100,7 @@ async function main() {
     }));
     const code = await Promise.race([exited, new Promise((resolve) => setTimeout(() => resolve('still open'), 10_000))]);
     if (!/will close/.test(title) || code !== 1) throw new Error(`An unexpected error did not show the message and close the app (message "${title}", exit ${code})`);
-    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, reloads a crashed window and closes with a message on an error.`);
+    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, opens Restore from backup, reloads a crashed window and closes with a message on an error.`);
   } finally {
     await app.close().catch(() => {});
     fs.rmSync(userData, { recursive: true, force: true });

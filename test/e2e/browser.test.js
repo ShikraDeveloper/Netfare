@@ -2679,6 +2679,9 @@ test('help panel answers for the invoice on screen, points at the refund button,
   assert.match(saved.page, new RegExp(`^${invoice.number}`), 'saved with the screen it was asked on');
   await page.keyboard.press('Escape');
   await openRoute('/settings');
+  // Restore needs the desktop app on the main computer: a browser gets the way there, not a button.
+  assert.equal(await page.locator('#restore-backup').count(), 0);
+  await page.getByText('Settings → Restore from backup').waitFor();
   const card = page.locator('#help-questions-card');
   await card.locator('.cell-main', { hasText: 'zxqv plorb' }).waitFor();
   await card.locator('[data-help-done]').first().click();

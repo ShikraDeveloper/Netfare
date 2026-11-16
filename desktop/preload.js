@@ -1,7 +1,8 @@
 'use strict';
 
 // The bridges from a page to the app: the setup screen's three choices, and
-// print preview, Save PDF and Share for Netfare's documents. main.js checks
+// print preview, Save PDF and Share for Netfare's documents, and Restore from
+// backup in Settings. main.js checks
 // who is asking: the setup calls only from the setup screen, the document
 // calls only from Netfare in the main window.
 
@@ -17,4 +18,8 @@ contextBridge.exposeInMainWorld('netfareDocs', {
   preview: (title) => ipcRenderer.invoke('docs:preview', String(title || '')),
   save: (title) => ipcRenderer.invoke('docs:save', String(title || '')),
   share: (title, text, url) => ipcRenderer.invoke('docs:share', { title: String(title || ''), text: String(text || ''), url: String(url || '') }),
+});
+
+contextBridge.exposeInMainWorld('netfareBooks', {
+  restore: () => ipcRenderer.invoke('books:restore'),
 });
