@@ -164,6 +164,47 @@ function documentKind(invoice) {
   return 'service';
 }
 
+/**
+ * One row of the invoices table, as SQLite returns it.
+ * @typedef {object} InvoiceRow
+ * @property {number} id
+ * @property {string} number
+ * @property {number} customer_id
+ * @property {string} issue_date
+ * @property {string} due_date
+ * @property {string} status
+ * @property {string} notes
+ * @property {string} terms
+ * @property {number} subtotal_cents
+ * @property {number} total_cents
+ * @property {number} amount_paid_cents
+ * @property {number} credit_applied_cents
+ * @property {number|null} cancellation_id
+ * @property {number} beneficiary_is_customer
+ * @property {string} beneficiary_name
+ * @property {string} beneficiary_nationality
+ * @property {string} beneficiary_passport
+ * @property {number|null} journal_entry_id
+ * @property {string} created_at
+ * @property {string} updated_at
+ * @property {number|null} booking_id
+ * @property {number|null} visa_id
+ * @property {string} payment_link
+ * @property {string} created_by
+ * @property {string} changed_by
+ * @property {string|null} changed_at
+ * @property {number} is_opening
+ */
+
+/**
+ * @param {any} db
+ * @param {number} id
+ * @returns {InvoiceRow|undefined}
+ */
+function invoiceRow(db, id) {
+  return db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+}
+
 function getInvoice(db, id) {
   const invoice = db.prepare(`${invoiceSelect} WHERE i.id = ?`).get(id);
   if (!invoice) throw notFound('Invoice not found');
@@ -413,7 +454,7 @@ function createInvoice(db, payload, options = {}) {
     insertItems(db, invoiceId, items);
 
     if (status === 'sent') {
-      const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
+      const invoice = invoiceRow(db, invoiceId);
       const entryId = postInvoice(db, invoice, customer, items);
       db.prepare('UPDATE invoices SET journal_entry_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(entryId, invoiceId);
     }
@@ -424,7 +465,7 @@ function createInvoice(db, payload, options = {}) {
 
 function updateInvoice(db, id, payload) {
   return db.transaction(() => {
-    const existing = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+    const existing = invoiceRow(db, id);
     if (!existing) throw notFound('Invoice not found');
     workflows.assertCan('invoice', 'edit', existing);
     const customer = assertCustomer(db, payload.customer_id ?? existing.customer_id);
@@ -467,7 +508,7 @@ function updateInvoice(db, id, payload) {
 // paying this invoice online. Not accounting data; it goes out with the
 // invoice and its share message.
 function setPaymentLink(db, id, payload = {}) {
-  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+  const invoice = invoiceRow(db, id);
   if (!invoice) throw notFound('Invoice not found');
   workflows.assertCan('invoice', 'payment_link', invoice);
   const link = optionalStr(payload.payment_link, 'Payment link', 500);
@@ -478,7 +519,7 @@ function setPaymentLink(db, id, payload = {}) {
 
 function finalizeInvoice(db, id) {
   return db.transaction(() => {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+    const invoice = invoiceRow(db, id);
     if (!invoice) throw notFound('Invoice not found');
     workflows.assertCan('invoice', 'finalize', invoice);
     const items = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ? ORDER BY sort_order, id').all(id);
@@ -499,7 +540,7 @@ function finalizeInvoice(db, id) {
 // itself being voided (job-void.js), so the owner checks below do not apply.
 function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
   return db.transaction(() => {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+    const invoice = invoiceRow(db, id);
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status === 'void') throw bad('Invoice is already void');
     // Job and cancellation invoices are owned by their workflow. A direct void
@@ -548,7 +589,7 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
       });
     }
 
-    const fresh = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoice.id);
+    const fresh = invoiceRow(db, invoice.id);
     if (fresh.amount_paid_cents > 0 || fresh.credit_applied_cents > 0) {
       throw bad('Linked payments or credits could not be fully reversed');
     }
@@ -585,7 +626,7 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
  * @param {{ entryDate?: string, memo?: string }} [options]
  */
 function voidInvoiceForCancellation(db, id, { entryDate, memo } = {}) {
-  const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+  const invoice = invoiceRow(db, id);
   if (!invoice) throw notFound('Invoice not found');
   if (invoice.status === 'void') return getInvoice(db, id);
   if (invoice.status === 'draft') throw bad('Only a sent invoice can be cancelled');
@@ -606,7 +647,7 @@ function voidInvoiceForCancellation(db, id, { entryDate, memo } = {}) {
 
 function deleteInvoice(db, id) {
   return db.transaction(() => {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
+    const invoice = invoiceRow(db, id);
     if (!invoice) throw notFound('Invoice not found');
     workflows.assertCan('invoice', 'delete', invoice);
     db.prepare("DELETE FROM attachments WHERE entity_type = 'invoice' AND entity_id = ?").run(id);
@@ -617,7 +658,7 @@ function deleteInvoice(db, id) {
 
 function recordInvoicePayment(db, invoiceId, payload) {
   return db.transaction(() => {
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
+    const invoice = invoiceRow(db, invoiceId);
     if (!invoice) throw notFound('Invoice not found');
     workflows.assertCan('invoice', 'record_payment', invoice);
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
@@ -698,7 +739,7 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
       throw bad(`Payment ${payment.number} was made from visa deposit ${deposit?.number || ''}. Void the "Applied to invoice" step on the visa's Security deposit card first.`);
     }
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
-    const invoice = db.prepare('SELECT * FROM invoices WHERE id = ?').get(payment.invoice_id);
+    const invoice = invoiceRow(db, payment.invoice_id);
     if (!invoice) throw notFound('Invoice not found');
     if (invoice.status === 'void') {
       throw bad('Payments cannot be voided on a void invoice. The cancellation already accounts for the money received.');

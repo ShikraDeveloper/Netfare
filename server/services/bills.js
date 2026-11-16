@@ -47,6 +47,42 @@ function serializeBill(bill, today = todayISO()) {
   };
 }
 
+/**
+ * One row of the bills table, as SQLite returns it.
+ * @typedef {object} BillRow
+ * @property {number} id
+ * @property {string} number
+ * @property {number} vendor_id
+ * @property {string} bill_date
+ * @property {string} due_date
+ * @property {string} status
+ * @property {string} notes
+ * @property {string} default_payment_method
+ * @property {number} subtotal_cents
+ * @property {number} total_cents
+ * @property {number} amount_paid_cents
+ * @property {number} credit_applied_cents
+ * @property {number|null} portal_id
+ * @property {number|null} journal_entry_id
+ * @property {string} created_at
+ * @property {string} updated_at
+ * @property {number|null} booking_id
+ * @property {number|null} visa_id
+ * @property {string} created_by
+ * @property {string} changed_by
+ * @property {string|null} changed_at
+ * @property {number} is_opening
+ */
+
+/**
+ * @param {any} db
+ * @param {number} id
+ * @returns {BillRow|undefined}
+ */
+function billRow(db, id) {
+  return db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+}
+
 function getBill(db, id) {
   const bill = db.prepare(`${billSelect} WHERE b.id = ?`).get(id);
   if (!bill) throw notFound('Bill not found');
@@ -245,7 +281,7 @@ function createBill(db, payload) {
     insertItems(db, billId, items);
 
     if (status === 'received') {
-      const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(billId);
+      const bill = billRow(db, billId);
       const entryId = postBill(db, bill, vendor, items);
       db.prepare('UPDATE bills SET journal_entry_id = ?, updated_at = datetime(\'now\') WHERE id = ?').run(entryId, billId);
     }
@@ -256,7 +292,7 @@ function createBill(db, payload) {
 
 function updateBill(db, id, payload) {
   return db.transaction(() => {
-    const existing = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+    const existing = billRow(db, id);
     if (!existing) throw notFound('Bill not found');
     workflows.assertCan('bill', 'edit', existing);
     const vendor = assertVendor(db, payload.vendor_id ?? existing.vendor_id);
@@ -288,7 +324,7 @@ function updateBill(db, id, payload) {
 
 function finalizeBill(db, id) {
   return db.transaction(() => {
-    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+    const bill = billRow(db, id);
     if (!bill) throw notFound('Bill not found');
     workflows.assertCan('bill', 'finalize', bill);
     const items = db.prepare('SELECT * FROM bill_items WHERE bill_id = ? ORDER BY sort_order, id').all(id);
@@ -307,7 +343,7 @@ function finalizeBill(db, id) {
 // voided (job-void.js), so the owner check below does not apply.
 function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
   return db.transaction(() => {
-    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+    const bill = billRow(db, id);
     if (!bill) throw notFound('Bill not found');
     if (bill.status === 'void') throw bad('Bill is already void');
     // A booking or visa bill is part of the job's margin. Supplier changes go
@@ -349,7 +385,7 @@ function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
       });
     }
 
-    const fresh = db.prepare('SELECT * FROM bills WHERE id = ?').get(bill.id);
+    const fresh = billRow(db, bill.id);
     if (fresh.amount_paid_cents > 0 || fresh.credit_applied_cents > 0) {
       throw bad('Linked payments or supplier credits could not be fully reversed');
     }
@@ -380,7 +416,7 @@ function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
 
 function deleteBill(db, id) {
   return db.transaction(() => {
-    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
+    const bill = billRow(db, id);
     if (!bill) throw notFound('Bill not found');
     workflows.assertCan('bill', 'delete', bill);
     db.prepare("DELETE FROM attachments WHERE entity_type = 'bill' AND entity_id = ?").run(id);
@@ -391,7 +427,7 @@ function deleteBill(db, id) {
 
 function recordBillPayment(db, billId, payload) {
   return db.transaction(() => {
-    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(billId);
+    const bill = billRow(db, billId);
     if (!bill) throw notFound('Bill not found');
     workflows.assertCan('bill', 'record_payment', bill);
     const amount = cents(payload.amount_cents, 'Payment amount', { min: 1 });
@@ -476,7 +512,7 @@ function deleteBillPayment(db, paymentId, payload = {}) {
     if (!payment) throw notFound('Payment not found');
     if (payment.status === 'void') throw bad('That payment is already void');
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
-    const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(payment.bill_id);
+    const bill = billRow(db, payment.bill_id);
     if (!bill) throw notFound('Bill not found');
     if (bill.status === 'void') {
       throw bad('Payments cannot be voided on a void bill. The void already reversed them.');
