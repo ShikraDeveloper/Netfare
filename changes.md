@@ -413,6 +413,19 @@ Verification:
 - **Checked:** looked at the form on the demo. `npm run check` (helper text still 46), `npm test` 372, `npm run test:e2e` 50 passed.
 - **Not pushed or released.**
 
+### Type checking for util, invoices and bills — code commit `8ad001e`
+
+- **Why:** The user asked about type checking, saw the mockups and said "ok laga do". Start with 2–3 money files and see what it finds.
+- **What:**
+  - `typescript` and `@types/node` as devDependencies only. `tsconfig.json` checks server files that start with `// @ts-check`; nothing is compiled. The desktop build installs the server with `npm ci --omit=dev`, so neither ships.
+  - `// @ts-check` on `server/util.js`, `server/services/invoices.js`, `server/services/bills.js`.
+  - `scripts/check.js`: `npm run check` ends with "Types: 0 errors (3 files checked: …)" or fails listing each error.
+  - JSDoc types on `accounting.reverseEntry`, `audit.record`, `util.num`, `listInvoices`, `listBills` and `voidInvoiceForCancellation`.
+- **What it found:** 20 reports, all from TypeScript not knowing option names that have no default value (e.g. `entry_date` and `memo` in `reverseEntry`, `entity_type` in `audit.record`). No real bug in these three files. Writing the option types removed all 20.
+- **Checked:** planted `entryDate` instead of `entry_date` in a `reverseEntry` call: `npm run check` failed with "Did you mean to write 'entry_date'?" (exit 1); restored. `npm test` 372, `npm run test:e2e` 50 passed.
+- **Not yet:** database rows are untyped (`any`), so a misspelled column such as `invoice.balance_cent` is not caught yet; that needs a type for each row (Invoice, Bill) next. More files can join one at a time.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
