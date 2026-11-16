@@ -122,6 +122,8 @@ function refusal(db, user, req) {
   // Everyone keeps their own reminders; the service limits each user to
   // theirs and the ones for everyone.
   if (prefix === '/reminders') return null;
+  // Anyone may send a help question; reading and clearing them is the admin's (routes/help-questions.js).
+  if (prefix === '/help-questions') return null;
   const reading = req.method === 'GET' || req.method === 'HEAD';
 
   if (reading && SHARED_READS.has(path)) return null;

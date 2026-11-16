@@ -2,6 +2,7 @@ import { can, refreshMeta, store } from './store.js';
 import { initTheme } from './theme.js';
 import { watchSelects } from './picker.js';
 import { watchDates } from './datepicker.js';
+import { mountHelp } from './help.js';
 import { ensureSignedIn, signOut } from './auth.js';
 import { openChangePassword } from './views/account.js';
 import { keepCheckingForUpdates } from './updates.js';
@@ -544,6 +545,7 @@ async function boot() {
   updateSidebarFooter();
   applyDocColors();
   buildTopMenu();
+  mountHelp();
   renderRoute();
   if (store.user.is_admin) keepCheckingForUpdates();
   startReminderAlerts();

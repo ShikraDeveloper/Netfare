@@ -16,6 +16,7 @@ import { bindNetworkCard, networkCardHtml } from './network.js';
 import { bindUpdatesCard, updatesCardHtml } from './updates-card.js';
 import { bindRecoveryKeyCard, recoveryKeyCardHtml } from './recovery-key-card.js';
 import { backupMirrorCardHtml, bindBackupMirrorCard } from './backup-mirror-card.js';
+import { bindHelpQuestionsCard, helpQuestionsCardHtml } from './help-questions-card.js';
 
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -237,7 +238,7 @@ export async function render(container) {
       </div>
 
       <div class="settings-stack">
-        ${store.user?.is_admin ? usersCardHtml() + recoveryKeyCardHtml() + networkCardHtml() + updatesCardHtml() : ''}
+        ${store.user?.is_admin ? usersCardHtml() + recoveryKeyCardHtml() + networkCardHtml() + updatesCardHtml() + helpQuestionsCardHtml() : ''}
         <div class="card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Data &amp; backup</h2></div>
@@ -411,6 +412,7 @@ export async function render(container) {
     bindNetworkCard(container);
     bindUpdatesCard(container);
     bindBackupMirrorCard(container);
+    bindHelpQuestionsCard(container);
   }
   // Without Edit rights for company settings the forms are read-only.
   if (!can('settings', 'edit')) {

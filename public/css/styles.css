@@ -871,7 +871,7 @@ body.modal-open { overflow: hidden; }
   .reminder-actions { justify-content: flex-start; }
   .reminder-alerts { right: 12px; top: 64px; }
 }
-.toast-root { position: fixed; right: 20px; bottom: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.toast-root { position: fixed; right: 20px; bottom: 80px; z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .toast {
   display: flex;
   align-items: center;
@@ -1889,3 +1889,34 @@ html:not(.is-admin) .admin-only { display: none; }
 .list-total.is-due strong { color: var(--red); }
 .picker-option.picker-add { justify-content: flex-start; gap: 6px; align-items: center; color: var(--accent); border-top: 1px solid var(--border); font-weight: 600; }
 .picker-option.picker-add[aria-selected="true"] { color: var(--text); }
+
+/* Help (public/js/help.js): the "?" button in the corner and its panel, above open forms. */
+.help-fab { position: fixed; right: 20px; bottom: 20px; z-index: 150; width: 46px; height: 46px; border-radius: 50%; border: 0; display: grid; place-items: center; background: var(--primary); color: var(--primary-contrast); box-shadow: var(--shadow-md); cursor: pointer; }
+.help-fab:hover { background: var(--primary-dark); }
+.help-fab[aria-expanded="true"] { background: var(--accent-dark); }
+.help-panel { position: fixed; right: 20px; bottom: 78px; z-index: 150; width: min(360px, calc(100vw - 24px)); max-height: min(560px, calc(100vh - 110px)); display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; box-shadow: var(--shadow-md); }
+.help-panel[hidden] { display: none; }
+.help-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--border); }
+.help-head h2 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 14.5px; }
+.help-body { flex: 1; overflow-y: auto; padding: 10px 16px 12px; font-size: 13.5px; }
+.help-where, .help-label { margin: 2px 0 8px; color: var(--muted); font-size: 12.5px; }
+.help-label { margin-top: 10px; }
+.help-topic { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; background: var(--surface-2); }
+.help-topic summary { padding: 9px 12px; cursor: pointer; font-weight: 600; }
+.help-topic ol { margin: 0; padding: 0 14px 4px 32px; line-height: 1.55; }
+.help-topic li { margin-bottom: 5px; }
+.help-topic .btn { margin: 4px 12px 12px; }
+.help-none, .help-sent { margin: 6px 0; color: var(--muted); }
+.help-sent { color: var(--green); display: flex; gap: 6px; align-items: flex-start; }
+.help-link { border: 0; background: none; padding: 4px 0; color: var(--blue); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; }
+.help-ask { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--border); }
+.help-ask .input { flex: 1; min-width: 0; }
+.help-flash { outline: 3px solid var(--accent) !important; outline-offset: 3px; animation: help-flash 0.8s ease-in-out 3; }
+@keyframes help-flash { 50% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .help-flash { animation: none; } }
+@media (max-width: 900px) {
+  .help-fab { bottom: calc(76px + env(safe-area-inset-bottom)); right: 14px; }
+  .help-panel { right: 12px; bottom: calc(132px + env(safe-area-inset-bottom)); max-height: calc(100vh - 200px); }
+  .toast-root { bottom: calc(136px + env(safe-area-inset-bottom)); }
+}
+@media print { .help-fab, .help-panel { display: none !important; } }

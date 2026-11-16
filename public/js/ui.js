@@ -61,6 +61,7 @@ const ICONS = {
   layout: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M9 9v11"/>',
   sidebar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>',
   topbar: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.5"/><path d="M12 16.8h.01"/>',
 };
 
 export function icon(name, size = 18) {

@@ -2625,3 +2625,55 @@ test('quick add refuses a name that already exists, and can give a new supplier 
   await forms.first().locator('[data-close]').first().click();
   assertNoConsoleErrors();
 });
+
+test('help panel answers for the invoice on screen, points at the refund button, and saves a question it cannot answer', async () => {
+  const [customers, accounts] = await Promise.all([getJson(baseUrl, '/api/customers'), getJson(baseUrl, '/api/accounts')]);
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const today = new Date().toLocaleDateString('en-CA');
+  const invoice = await postJson(baseUrl, '/api/invoices', {
+    customer_id: customers[0].id, issue_date: today, status: 'sent',
+    items: [{ description: 'E2E help service', quantity: 1, unit_price_cents: 50_000, account_id: code('4300') }],
+  });
+  await postJson(baseUrl, `/api/invoices/${invoice.id}/payments`, { amount_cents: 50_000, payment_date: today, method: 'Cash', deposit_account_id: code('1000') });
+
+  await openRoute(`/invoices/${invoice.id}`);
+  const panel = page.locator('#help-panel');
+  await page.locator('.help-fab').click();
+  await panel.waitFor();
+  assert.match(await panel.locator('.help-where').innerText(), new RegExp(invoice.number));
+  await panel.locator('summary', { hasText: 'How do I refund this invoice?' }).waitFor();
+
+  // Roman Urdu finds it; the first answer opens; "Show me" opens Payments and marks the refund button.
+  await panel.locator('.help-ask input').fill('isko refund kesay karun');
+  const answer = panel.locator('details.help-topic[open]');
+  assert.equal(await answer.locator('summary').innerText(), 'How do I refund this invoice?');
+  await answer.locator('[data-help-go]').click();
+  await page.locator('[data-refund-payment].help-flash').waitFor();
+  assert.equal(await page.locator('[data-fold="payments"]').evaluate((fold) => fold.open), true);
+
+  // Escape closes the help only; a form underneath stays open.
+  await clickPageAction('[data-action="share"]');
+  await page.locator('[role="dialog"]').waitFor();
+  await page.locator('.help-fab').click();
+  await page.keyboard.press('Escape');
+  assert.equal(await panel.isHidden(), true);
+  assert.equal(await page.locator('[role="dialog"]').count(), 1, 'the share form is still open');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  // No answer: Ask sends it to the admin, who sees it in Settings and clears it.
+  await page.locator('.help-fab').click();
+  await panel.locator('.help-ask input').fill('zxqv plorb');
+  await panel.locator('.help-ask button').click();
+  await panel.locator('.help-sent').waitFor();
+  const [saved] = await getJson(baseUrl, '/api/help-questions');
+  assert.equal(saved.question, 'zxqv plorb');
+  assert.match(saved.page, new RegExp(`^${invoice.number}`), 'saved with the screen it was asked on');
+  await page.keyboard.press('Escape');
+  await openRoute('/settings');
+  const card = page.locator('#help-questions-card');
+  await card.locator('.cell-main', { hasText: 'zxqv plorb' }).waitFor();
+  await card.locator('[data-help-done]').first().click();
+  await card.getByText('No questions waiting.').waitFor();
+  assertNoConsoleErrors();
+});

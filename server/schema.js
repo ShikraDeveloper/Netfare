@@ -757,4 +757,14 @@ CREATE TABLE IF NOT EXISTS reminders (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_at);
+
+-- Questions typed into the help panel that found no answer, for the admin:
+-- what staff really ask decides which help is written next.
+CREATE TABLE IF NOT EXISTS help_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question TEXT NOT NULL,
+  page TEXT NOT NULL DEFAULT '',
+  asked_by TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
