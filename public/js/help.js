@@ -54,11 +54,12 @@ const findOnPage = (selector) => [...document.querySelectorAll(selector)]
   .find((element) => element.offsetParent !== null || element.closest('details:not([open])')?.offsetParent);
 const stepHtml = (step) => esc(step).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
-function topicHtml(topic, open) {
+// Show me only for this screen's own answers: another screen's would mark a look-alike button here.
+function topicHtml(topic, open, here) {
   return `<details class="help-topic" ${open ? 'open' : ''}>
     <summary>${esc(topic.q)}</summary>
     <ol>${topic.steps.map((step) => `<li>${stepHtml(step)}</li>`).join('')}</ol>
-    ${topic.go && findOnPage(topic.go) ? `<button type="button" class="btn btn-secondary btn-sm" data-help-go="${esc(topic.id)}">Show me on this page</button>` : ''}
+    ${topic.go && here.has(topic) && findOnPage(topic.go) ? `<button type="button" class="btn btn-secondary btn-sm" data-help-go="${esc(topic.id)}">Show me on this page</button>` : ''}
   </details>`;
 }
 
@@ -84,14 +85,15 @@ export function mountHelp() {
   const render = ({ query = '', note = '' } = {}) => {
     const ctx = context();
     const typed = query.trim();
-    shown = typed ? searchTopics(typed, ctx) : topicsHere(ctx);
+    const here = new Set(topicsHere(ctx));
+    shown = typed ? searchTopics(typed, ctx) : [...here];
     const head = typed
       ? (shown.length ? '<p class="help-label">Answers</p>' : '')
       : `<p class="help-where">You're on: <strong>${esc(ctx.title || 'this page')}</strong></p>${shown.length ? '<p class="help-label">Asked here</p>' : ''}`;
     const empty = typed
       ? '<p class="help-none">No answer for that yet. Press <strong>Ask</strong> to send it to the admin, so help for it gets written.</p>'
       : '<p class="help-none">No help for this screen yet. Type your question below.</p>';
-    body.innerHTML = `${head}${note}${shown.length ? shown.map((topic, i) => topicHtml(topic, typed && i === 0)).join('') : (note ? '' : empty)}
+    body.innerHTML = `${head}${note}${shown.length ? shown.map((topic, i) => topicHtml(topic, typed && i === 0, here)).join('') : (note ? '' : empty)}
       ${typed && shown.length ? '<button type="button" class="help-link" data-help-send>Not what you asked? Send the question to the admin</button>' : ''}`;
   };
 
@@ -149,7 +151,7 @@ export function mountHelp() {
     const now = `${ctx.path}|${ctx.form}|${ctx.title}`;
     if (now === place) return;
     place = now;
-    if (!panel.hidden && !input.value.trim()) render();
+    if (!panel.hidden) render({ query: input.value });
   };
   new MutationObserver(follow).observe(document.body, { childList: true });
   const title = document.getElementById('page-title');

@@ -238,7 +238,7 @@ export const HELP_TOPICS = [
   {
     id: 'bill-pay', area: 'suppliers', page: /^\/bills\/\d+$/,
     q: 'How do I pay this bill?',
-    words: 'pay payment supplier wallet bank',
+    words: 'pay payment record supplier wallet bank',
     steps: [
       'Press **Record payment**, enter the amount, date and the account it is paid from.',
       'To pay it from a supplier\'s prepaid wallet, open the portal and press **Settle**.',

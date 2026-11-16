@@ -2,7 +2,7 @@
 // found no answer. Done removes one once its help is written or answered.
 
 import { api } from '../api.js';
-import { esc, fmtDate, icon, toast } from '../ui.js';
+import { esc, icon, toast } from '../ui.js';
 
 export function helpQuestionsCardHtml() {
   return `
@@ -23,7 +23,7 @@ export function bindHelpQuestionsCard(container) {
       list.innerHTML = rows.length ? `<table class="data"><tbody>${rows.map((row) => `
         <tr>
           <td><div class="cell-main">${esc(row.question)}</div>
-            <div class="cell-sub">${esc([row.page, row.asked_by, fmtDate(row.created_at.slice(0, 10))].filter(Boolean).join(' · '))}</div></td>
+            <div class="cell-sub">${esc([row.page, row.asked_by, new Date(`${row.created_at.replace(' ', 'T')}Z`).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · '))}</div></td>
           <td class="num"><button type="button" class="btn btn-ghost btn-sm" data-help-done="${row.id}">${icon('check', 14)} Done</button></td>
         </tr>`).join('')}</tbody></table>` : '<p class="muted">No questions waiting.</p>';
     } catch (error) {

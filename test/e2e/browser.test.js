@@ -2651,6 +2651,14 @@ test('help panel answers for the invoice on screen, points at the refund button,
   await page.locator('[data-refund-payment].help-flash').waitFor();
   assert.equal(await page.locator('[data-fold="payments"]').evaluate((fold) => fold.open), true);
 
+  // An answer for another screen has no Show me: here it would mark the invoice's look-alike button.
+  await page.locator('.help-fab').click();
+  await panel.locator('.help-ask input').fill('pay this bill');
+  const billAnswer = panel.locator('details.help-topic', { has: page.locator('summary', { hasText: 'How do I pay this bill?' }) });
+  await billAnswer.waitFor();
+  assert.equal(await billAnswer.locator('[data-help-go]').count(), 0);
+  await page.keyboard.press('Escape');
+
   // Escape closes the help only; a form underneath stays open.
   await clickPageAction('[data-action="share"]');
   await page.locator('[role="dialog"]').waitFor();
