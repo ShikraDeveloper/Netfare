@@ -438,6 +438,13 @@ Verification:
 - **Not yet:** `getInvoice` / `getBill` (the full document with lines, payments and balance) are still untyped, and only three files are checked.
 - **Not pushed or released.**
 
+### Phones: bottom room only on bigger forms — code commit `c816346`
+
+- **Why:** Audit finding 1 (nice to have): the 60px room at the bottom of forms, added so long forms scroll clear of the ? button on phones, also hit the 10 small forms, which just got a blank strip. The user said "Nice to have do".
+- **What:** `styles.css` (phone block): `.modal:not(.modal-sm) .modal-body { padding-bottom: 60px; }`, so default, medium and large forms keep it and small ones do not.
+- **Checked:** on the demo at 375×812: New booking 60px, the quick-add form (modal-sm) 16px. `npm run check`, `npm run test:e2e` 50 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
