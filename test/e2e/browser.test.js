@@ -2643,8 +2643,8 @@ test('help panel answers for the invoice on screen, points at the refund button,
   assert.match(await panel.locator('.help-where').innerText(), new RegExp(invoice.number));
   await panel.locator('summary', { hasText: 'How do I refund this invoice?' }).waitFor();
 
-  // Roman Urdu finds it; the first answer opens; "Show me" opens Payments and marks the refund button.
-  await panel.locator('.help-ask input').fill('isko refund kesay karun');
+  // A question in your own words finds it; the first answer opens; "Show me" opens Payments and marks the refund button.
+  await panel.locator('.help-ask input').fill('how can I give this money back');
   const answer = panel.locator('details.help-topic[open]');
   assert.equal(await answer.locator('summary').innerText(), 'How do I refund this invoice?');
   await answer.locator('[data-help-go]').click();

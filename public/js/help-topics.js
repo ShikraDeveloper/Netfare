@@ -3,7 +3,7 @@
 //   page   - the screens it belongs to (matched against the path, e.g. /invoices/12)
 //   form   - the forms it belongs to (matched against the open form's title)
 //   q      - the question as staff would ask it
-//   words  - other words people use for it, English and Roman Urdu (search reads q and words only)
+//   words  - other English words people use for it (search reads q and words only)
 //   steps  - the answer; **text** is a button or field name as it reads on screen
 //   go     - a button on the page to point at ("Show me")
 // Button and field names must match the screens; tests check the go selectors.
@@ -12,7 +12,7 @@ export const HELP_TOPICS = [
   {
     id: 'booking-new', area: 'bookings', page: /^\/bookings$/, form: /^New booking$/,
     q: 'How do I make a new booking?',
-    words: 'booking ticket tikat new create banana banao add passenger pnr hotel service fee insurance customer',
+    words: 'booking ticket new create add passenger pnr hotel service fee insurance customer',
     steps: [
       'Open **Bookings** and press **New booking**.',
       'Choose the **Customer**. Type to search; if the name is not there, choose **Add new customer** at the end of the list.',
@@ -26,7 +26,7 @@ export const HELP_TOPICS = [
   {
     id: 'booking-confirm', area: 'bookings', page: /^\/bookings\/\d+$/,
     q: 'How do I confirm and post this booking?',
-    words: 'confirm post invoice bill pakka final',
+    words: 'confirm post invoice bill final',
     steps: [
       'Press **Confirm & post**.',
       'A preview shows the customer invoice, one bill per supplier, and which bills a prepaid wallet pays, with the wallet balance before and after.',
@@ -38,7 +38,7 @@ export const HELP_TOPICS = [
   {
     id: 'booking-payment', area: 'bookings', page: /^\/bookings\/\d+$/,
     q: 'How do I take the customer\'s payment for this booking?',
-    words: 'payment paisa paise receive lena customer cash card bank advance',
+    words: 'payment receive customer cash card bank advance',
     steps: [
       'After **Confirm & post**, press **Record payment**. It opens the booking\'s invoice; press **Record payment** there.',
       'Before confirming, take the money as an advance: **Record** in the Advances card. After confirming, press **Apply** to put it on the invoice.',
@@ -48,7 +48,7 @@ export const HELP_TOPICS = [
   {
     id: 'booking-cancel', area: 'bookings', page: /^\/bookings\/\d+$/,
     q: 'How do I cancel this booking?',
-    words: 'cancel cancellation khatam band refund wapas',
+    words: 'cancel cancellation refund',
     steps: [
       'Press **Cancel booking**. You need the Cancel right; ask the admin if the button is missing.',
       'Enter the **Cancellation date** and the **Cancellation charges to customer**.',
@@ -60,7 +60,7 @@ export const HELP_TOPICS = [
   {
     id: 'booking-edit', area: 'bookings', page: /^\/bookings(\/\d+)?$/,
     q: 'How do I change a booking?',
-    words: 'edit change badalna galat wrong correct update',
+    words: 'edit change wrong correct update',
     steps: [
       'A draft: press **Edit**.',
       'After **Confirm & post**: **Edit details** changes things like travel date, PNR and notes. Amounts are changed with **Correct** (admin).',
@@ -70,7 +70,7 @@ export const HELP_TOPICS = [
   {
     id: 'booking-travelled', area: 'bookings', page: /^\/bookings\/\d+$/,
     q: 'What does Mark travelled do?',
-    words: 'travelled travel done complete safar',
+    words: 'travelled travel done complete',
     steps: [
       'When the trip is done, press **Mark travelled**. It closes the booking; it posts nothing.',
     ],
@@ -91,7 +91,7 @@ export const HELP_TOPICS = [
   {
     id: 'visa-new', area: 'visas', page: /^\/visas$/, form: /^New visa application$/,
     q: 'How do I make a new visa application?',
-    words: 'visa new create banana applicant passport',
+    words: 'visa new create applicant passport',
     steps: [
       'Open **Visas** and press **New visa**.',
       'Choose the **Customer** who pays, the visa type, country and dates.',
@@ -124,7 +124,7 @@ export const HELP_TOPICS = [
   {
     id: 'visa-deposit', area: 'visas', page: /^\/visas\/\d+$/,
     q: 'How do I take or return a security deposit?',
-    words: 'security deposit amanat guarantee take refund forfeit supplier returned wapas',
+    words: 'security deposit guarantee take refund forfeit supplier returned',
     steps: [
       'In the **Security deposit** card press **Take deposit**. It is the customer\'s money, not a sale.',
       'If the supplier holds it: **Pay to supplier**, and later **Supplier returned**.',
@@ -135,7 +135,7 @@ export const HELP_TOPICS = [
   {
     id: 'visa-cancel', area: 'visas', page: /^\/visas\/\d+$/,
     q: 'How do I cancel this visa application?',
-    words: 'cancel cancellation khatam refund wapas',
+    words: 'cancel cancellation refund',
     steps: [
       'Press **Cancel application**. You need the Cancel right.',
       'Enter the date, the charges and what each supplier gives back, then save.',
@@ -148,7 +148,7 @@ export const HELP_TOPICS = [
   {
     id: 'invoice-new', area: 'sales', page: /^\/invoices$/, form: /^New invoice$/,
     q: 'How do I make a new invoice?',
-    words: 'invoice new create banana bill customer',
+    words: 'invoice new create bill customer',
     steps: [
       'Booking and visa invoices are made for you on **Confirm & post** or **Submit & post**.',
       'For anything else: **Invoices** → **New invoice**, choose the customer, add the lines and save.',
@@ -159,7 +159,7 @@ export const HELP_TOPICS = [
   {
     id: 'invoice-payment', area: 'sales', page: /^\/invoices\/\d+$/,
     q: 'How do I record a payment on this invoice?',
-    words: 'payment paisa paise receive lena cash card bank received',
+    words: 'payment receive cash card bank received',
     steps: [
       'Press **Record payment**.',
       'Enter the amount, the date (today or earlier) and how it was paid: cash, card or bank.',
@@ -170,7 +170,7 @@ export const HELP_TOPICS = [
   {
     id: 'invoice-refund', area: 'sales', page: /^\/invoices\/\d+$/,
     q: 'How do I refund this invoice?',
-    words: 'refund wapas return paisa back money',
+    words: 'refund return give back money',
     steps: [
       'Go to **Payments** below the items.',
       'On the payment line press the ↑ **Refund payment** button.',
@@ -183,7 +183,7 @@ export const HELP_TOPICS = [
   {
     id: 'invoice-void', area: 'sales', page: /^\/invoices\/\d+$/,
     q: 'How do I cancel or delete this invoice?',
-    words: 'void delete cancel galat wrong mistake hatana',
+    words: 'void delete cancel wrong mistake',
     steps: [
       'A draft: **Delete draft**.',
       'From a booking or visa: cancel the booking or visa; that reverses the invoice.',
@@ -194,7 +194,7 @@ export const HELP_TOPICS = [
   {
     id: 'invoice-share', area: 'sales', page: /^\/invoices\/\d+$/,
     q: 'How do I send this invoice to the customer?',
-    words: 'share whatsapp email pdf print send bhejna',
+    words: 'share whatsapp email pdf print send',
     steps: [
       'Press **Share**, then **WhatsApp**, **Email** or **PDF**.',
       '**Print** prints it on A4.',
@@ -204,7 +204,7 @@ export const HELP_TOPICS = [
   {
     id: 'advance', area: 'sales', page: /^\/(invoices|customer-balances)/,
     q: 'How do I take money before the invoice (an advance)?',
-    words: 'advance pehle peshgi deposit receive payment apply',
+    words: 'advance deposit receive payment apply',
     steps: [
       'On a booking or visa: **Record** in its Advances card, then **Apply** after posting.',
       'For a customer: **Customer balances** → the customer → **Record advance**.',
@@ -217,7 +217,7 @@ export const HELP_TOPICS = [
   {
     id: 'bill-new', area: 'suppliers', page: /^\/bills$/, form: /^New bill$/,
     q: 'How do I enter a supplier bill?',
-    words: 'bill supplier new create purchase kharcha',
+    words: 'bill supplier new create purchase',
     steps: [
       'Booking and visa bills are made for you on **Confirm & post** or **Submit & post**.',
       'For anything else: **Bills & expenses** → **New bill**, choose the supplier, add the lines and save.',
@@ -228,7 +228,7 @@ export const HELP_TOPICS = [
   {
     id: 'quick-expense', area: 'suppliers', page: /^\/bills$/, form: /^Quick expense$/,
     q: 'How do I record an expense like rent, fuel or tea?',
-    words: 'expense kharcha rent fuel petrol tea chai salary office',
+    words: 'expense rent fuel petrol tea salary office',
     steps: [
       'Press **Quick expense** on **Bills & expenses**.',
       'Enter what it was, the amount, the date and how it was paid. It is posted and paid in one step.',
@@ -238,7 +238,7 @@ export const HELP_TOPICS = [
   {
     id: 'bill-pay', area: 'suppliers', page: /^\/bills\/\d+$/,
     q: 'How do I pay this bill?',
-    words: 'pay payment supplier dena paisa wallet bank',
+    words: 'pay payment supplier wallet bank',
     steps: [
       'Press **Record payment**, enter the amount, date and the account it is paid from.',
       'To pay it from a supplier\'s prepaid wallet, open the portal and press **Settle**.',
@@ -248,7 +248,7 @@ export const HELP_TOPICS = [
   {
     id: 'bill-refund', area: 'suppliers', page: /^\/bills\/\d+$/,
     q: 'The supplier gave money back. How do I record it?',
-    words: 'refund supplier wapas return credit back',
+    words: 'refund supplier return credit back',
     steps: [
       'Money back for a payment: on the payment line press ↑ **Record supplier refund**.',
       'Money the supplier owes you but has not paid yet: **Supplier credit**.',
@@ -273,7 +273,7 @@ export const HELP_TOPICS = [
   {
     id: 'portal-topup', area: 'portals', page: /^\/portals\/\d+$/,
     q: 'How do I top up this wallet?',
-    words: 'top up topup recharge jama deposit add money wallet balance',
+    words: 'top up topup recharge deposit add money wallet balance',
     steps: [
       'Press **Top up**.',
       'Enter the amount, date and the bank or cash it was paid from. Save.',
@@ -284,7 +284,7 @@ export const HELP_TOPICS = [
   {
     id: 'portal-settle', area: 'portals', page: /^\/portals\/\d+$/,
     q: 'How do I pay waiting bills from this wallet?',
-    words: 'settle pay bill wallet short kam payable',
+    words: 'settle pay bill wallet short payable',
     steps: [
       'Bills the wallet could not pay show under **Supplier payable**.',
       'Top up first if needed, then press **Settle** and choose the bills.',
@@ -294,7 +294,7 @@ export const HELP_TOPICS = [
   {
     id: 'portal-withdraw', area: 'portals', page: /^\/portals\/\d+$/,
     q: 'The supplier returned wallet money. How do I record it?',
-    words: 'withdraw refund wapas return wallet money back nikalna',
+    words: 'withdraw refund return wallet money back',
     steps: [
       'Press **Withdraw**, enter the amount, date and the bank or cash it came into.',
       'You can withdraw up to the wallet balance.',
@@ -304,7 +304,7 @@ export const HELP_TOPICS = [
   {
     id: 'portal-reconcile', area: 'portals', page: /^\/portals\/\d+/,
     q: 'How do I check the wallet against the portal\'s statement?',
-    words: 'reconcile statement match check milana compare',
+    words: 'reconcile statement match check compare',
     steps: [
       'On the portal page press **Reconcile**.',
       'Paste or load the statement from the supplier\'s portal, pick the date and amount columns, and compare.',
@@ -316,7 +316,7 @@ export const HELP_TOPICS = [
   {
     id: 'cancellation-settle', area: 'refunds', page: /^\/cancellations\/\d+$/,
     q: 'How do I give the customer their money back after a cancellation?',
-    words: 'refund wapas pay credit cancellation settle decide later',
+    words: 'refund pay credit cancellation settle decide later',
     steps: [
       '**Pay refund**: the money goes out from cash or bank.',
       '**Convert to credit**: the customer keeps it for a next booking.',
@@ -327,7 +327,7 @@ export const HELP_TOPICS = [
   {
     id: 'refund-where', area: 'refunds', page: /^\/(refunds|settlement-queue|cancellations)/,
     q: 'Where do I make a refund?',
-    words: 'refund wapas return kahan where',
+    words: 'refund return',
     steps: [
       'A payment on an invoice: the ↑ button on its payment line.',
       'A cancelled booking or visa: its cancellation page, **Pay refund**.',

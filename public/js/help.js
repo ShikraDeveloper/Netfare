@@ -4,14 +4,12 @@ import { can } from './store.js';
 import { esc, icon } from './ui.js';
 
 // The "?" button in the corner: answers for the screen or form in front of
-// you, and a box to ask in your own words (English or Roman Urdu). The search
+// you, and a box to ask in your own words, in English. The search
 // matches words, no AI. A question with no answer is saved for the admin
 // (Settings → Help questions), so the next answers come from real questions.
 // shortcut: word matching only; if saved questions show it missing often, add a small local model.
 
-const STOP = new Set(('a an and are can do does for from how i in is it me my of on or the this that to what when where which why with you '
-  + 'hai hy he hain ho hota kya kia kaise kaisay kesay kese kesy karun karoon kero karo karna kar krna kro ko ka ki ke se me mein main mai mujhe muje '
-  + 'ye yeh is isko iska us usko wo woh wala wali wale ab abhi kahan kidhar').split(' '));
+const STOP = new Set('a an and are can do does for from how i in is it me my of on or the this that to what when where which why with you'.split(' '));
 
 const fold = (text) => String(text || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 const wordsOf = (text) => fold(text).split(/[^a-z0-9]+/).filter((word) => word.length > 1 && !STOP.has(word));

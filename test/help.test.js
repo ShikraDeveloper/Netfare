@@ -43,13 +43,13 @@ test('staff send a help question; only the admin reads and clears them', async (
   const call = (method, url, body, admin) => fetch(`${base}${url}`, {
     method, headers: { 'content-type': 'application/json', ...(admin ? { 'x-admin': '1' } : {}) }, body: body && JSON.stringify(body),
   });
-  assert.equal((await call('POST', '/help-questions', { question: '  visa ka deposit kesay wapas karun  ', page: 'VIS-2026-0004' })).status, 201);
+  assert.equal((await call('POST', '/help-questions', { question: '  how do I return a visa deposit  ', page: 'VIS-2026-0004' })).status, 201);
   assert.equal((await call('POST', '/help-questions', { question: '' })).status, 400);
   assert.equal((await call('POST', '/help-questions', { question: 'x'.repeat(301) })).status, 400);
   assert.equal((await call('GET', '/help-questions')).status, 403);
 
   const [row] = await (await call('GET', '/help-questions', null, true)).json();
-  assert.deepEqual([row.question, row.page, row.asked_by], ['visa ka deposit kesay wapas karun', 'VIS-2026-0004', 'Sara']);
+  assert.deepEqual([row.question, row.page, row.asked_by], ['how do I return a visa deposit', 'VIS-2026-0004', 'Sara']);
   assert.equal((await call('DELETE', `/help-questions/${row.id}`)).status, 403);
   assert.equal((await call('DELETE', `/help-questions/${row.id}`, null, true)).status, 200);
   assert.deepEqual(await (await call('GET', '/help-questions', null, true)).json(), []);
