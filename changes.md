@@ -340,6 +340,17 @@ Verification:
 - **Checked:** a new browser test on the booking form: the short customer list has the picker and "Add new customer"; Escape in the small form leaves the booking form; typing a new name gives "No match" and the add row, Enter opens the small form with the name, Save creates the customer (found in the API) and it is chosen in the booking. On the demo the list and the small form look like the mockup. `npm test` 370, `npm run test:e2e` 48 passed.
 - **Not pushed or released.**
 
+### Quick add: no second record with the same name; a supplier can get its portal — code commit `ac8a5e2`
+
+- **Why:** The user asked whether adding a supplier from a list could clash with suppliers, portals and wallets. A portal is linked to one supplier record (`vendor_id`), and supplier names are not unique: a second "Emirates Consolidator" made by mistake would not be linked to the portal, so its bills would not be paid from the wallet and the supplier's balance would be split. The user said "ye fix banao" and asked for a portal checkbox.
+- **What (`public/js/quick-add.js`):**
+  - The small form refuses a name that already exists among customers or suppliers (ignoring case and extra spaces): "Emirates Consolidator — wallet (SUP-0001) already exists. Choose it from the list." Two different people with one name can still be added on the Customers page.
+  - For people allowed to edit portals, the supplier form has "This supplier has a portal (wallet or credit account)" with Portal type and How you settle (Prepaid wallet / Credit account). Ticked, it creates the supplier and then the portal linked to it (`POST /api/portals`, portal name = supplier name). If the portal fails, the supplier stays and a message says to add the portal on the Portals page. A credit limit is set later on the Portals page.
+  - New suppliers show in lists as "Name — wallet" / "Name — credit" (`partyLabel`), like the others.
+- **Which suppliers lists show:** booking, passenger and visa supplier lists show every active supplier, with "— wallet" or "— credit" when a portal is linked.
+- **Checked:** a new browser test (an existing supplier's name in capitals with spaces is refused; a new supplier with the portal ticked creates a prepaid consolidator portal linked to it, and the list shows "— wallet"). On the demo the duplicate message names SUP-0001 and its wallet. `npm test` 370, `npm run test:e2e` 49 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
