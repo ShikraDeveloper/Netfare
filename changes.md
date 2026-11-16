@@ -406,6 +406,13 @@ Verification:
 - **Checked:** built the Mac app and ran `scripts/smoke-desktop.js` (now also presses the button's bridge, answers the file dialog with Cancel, and checks the dialog opened): passed. The browser test checks there is no button and the text is shown. `npm test` 372, `npm run test:e2e` 50 passed.
 - **Not pushed or released.**
 
+### New invoice: "Booking / supplier" instead of "Booking" — code commit `0c6fef3`
+
+- **Why:** The user asked whether a Service invoice should have a supplier, since a service is sometimes bought from someone. A Service invoice is for income with no supplier cost; something bought from a supplier is a booking (**Add other item**: sale, cost, supplier), which makes the invoice, the supplier bill and the profit. A hint line was agreed first, but DESIGN.md forbids new hints and the user had no preference between the two, so the label says it instead.
+- **What:** `invoices.js`: the switch at the top of New invoice reads **Service · Booking / supplier · Visa** (it opens the booking form as before). `help-topics.js`: "How do I make a new invoice?" says to use Service for your own fee and Booking / supplier for things bought from a supplier.
+- **Checked:** looked at the form on the demo. `npm run check` (helper text still 46), `npm test` 372, `npm run test:e2e` 50 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
