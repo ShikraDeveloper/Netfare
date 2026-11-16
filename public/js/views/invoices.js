@@ -266,7 +266,8 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
     <div class="form-grid">
       ${isEdit ? '' : `<div class="field full">${segmentedHtml('invoice-kind', [
     { value: 'service', label: 'Service' },
-    { value: 'booking', label: 'Booking', action: 'new-booking' },
+    // Anything bought from a supplier (ticket, hotel, insurance) is a booking: it makes the supplier bill and profit too.
+    { value: 'booking', label: 'Booking / supplier', action: 'new-booking' },
     { value: 'visa', label: 'Visa', action: 'new-visa' },
   ], 'service')}</div>`}
       <div class="field full form-sec-title">Customer</div>

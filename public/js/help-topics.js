@@ -148,10 +148,11 @@ export const HELP_TOPICS = [
   {
     id: 'invoice-new', area: 'sales', page: /^\/invoices$/, form: /^New invoice$/,
     q: 'How do I make a new invoice?',
-    words: 'invoice new create bill customer',
+    words: 'invoice new create bill customer service fee commission supplier hotel insurance transfer',
     steps: [
       'Booking and visa invoices are made for you on **Confirm & post** or **Submit & post**.',
-      'For anything else: **Invoices** → **New invoice**, choose the customer, add the lines and save.',
+      'Your own fee or commission (no supplier cost): **Invoices** → **New invoice** → **Service**, choose the customer, add the lines and save.',
+      'Bought from a supplier (hotel, insurance, transfer): choose **Booking / supplier** and use **Add other item**, so the supplier bill and profit are made too.',
       'A draft can still change. **Send & post** puts it in the books.',
     ],
     go: '[data-action="new-invoice"]',
