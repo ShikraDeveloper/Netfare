@@ -536,6 +536,14 @@ Verification:
 - **Checked:** on the demo, Jumeirah Hotel Group's BILL-2026-0006 shows its details as "Due Sep 23, 2026 · Supplier ref JHG-INV-7781 · Travel …". Browser tests updated (6 cells; the due date in the visa row's details). `npm test` 383, `npm run test:e2e` 51 passed.
 - **Not pushed or released.**
 
+### Statements: two short lines per document, no details — code commit `658b082`
+
+- **Why:** The user found the statements too full ("boht ziada info hy"), settled on name, nationality, passport, visa type and days for a visa and name with PNR or ticket for a booking, asked for shorter lines ("itni lambi line mat kero", "name or nationality upr or nichay passport number or visa type and duration"), saw the two-line mockup and said "Haan, bana do".
+- **What (`statement.js`, `styles.css`):** the particulars cell has two lines. Visa: "applicant · nationality" on top, "passport · Tourist · 30 days" below (masked on customer statements, full on supplier statements, which add the customer and the bill's Ref). Booking: the passenger (+N) on top; below "PNR … · Ticket …" (supplier: "Ticket … · PNR …", then the customer); with no PNR or ticket, the destination and travel dates. A service invoice for someone else names that person over the item. Receipt: the method over "INV-0038, 0039…". Cancellation: "Cancelled" over "INV-… reversed". Missing parts drop out. The details row, its arrow, the Show details switch and their styles went.
+- **Server (`statements.js`):** the fields only the details row used went (passenger amounts, used on, moved to wallet, deposit account, bill lines, paid from deposit).
+- **Checked:** on the demo, Corporate Travel Co shows "Group — 3 delegates · Mixed / •••• S-03 · Business · 365 days", "Multiple — group booking / PNR GROUP-118" and the receipt "Bank transfer / INV-0005, 0011"; no console errors. Tests updated (unit: passengers are name and ticket; browser: the visa applicant and nationality on top, masked passport below, no switch; the cancelled sale's lines). `npm test` 383, `npm run test:e2e` 51 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
