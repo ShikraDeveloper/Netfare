@@ -529,6 +529,13 @@ Verification:
 - **Checked:** on the demo, Corporate Travel Co compact and with details (visa, group booking, receipt RCP-2026-0001 over INV-0005 and INV-0011), Emirates Consolidator with a deposit row opened. Three browser tests updated (one row of 7 cells with one particulars line and no entry times; visa applicant on the line, nationality and masked passport in the details row; the cancelled sale's lines). `npm test` 383, `npm run test:e2e` 51 passed.
 - **Not pushed or released.**
 
+### Statements: Due and Ref columns removed — code commit `c952d58`
+
+- **Why:** The user asked why the customer statement had a Due column and the supplier statement a Ref · Passport column, heard the reason (standard practice, matching the supplier's statement) and said "remove kero colum because details me hy to already".
+- **What:** the table is back to six columns (Date, Reference, Particulars, Debit, Credit, Balance). The details row now starts with "Due <date>" for invoices and bills and "Supplier ref …" when the bill has one; passport and ticket numbers were already in it. `supplierRef` and the `.statement-side` styles went.
+- **Checked:** on the demo, Jumeirah Hotel Group's BILL-2026-0006 shows its details as "Due Sep 23, 2026 · Supplier ref JHG-INV-7781 · Travel …". Browser tests updated (6 cells; the due date in the visa row's details). `npm test` 383, `npm run test:e2e` 51 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
