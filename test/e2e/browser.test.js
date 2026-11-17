@@ -2729,3 +2729,25 @@ test('a supplier credit applies to an overdue bill', async () => {
   assert.equal(after.balance_cents, 15_000, 'the whole 300.00 credit went on the overdue bill');
   assertNoConsoleErrors();
 });
+
+test('a group booking on the statement: first name +3, its passengers open under it and always print', async () => {
+  const bookings = await getJson(baseUrl, '/api/bookings');
+  const group = bookings.find((row) => row.pnr === 'GROUP-118');
+  assert.ok(group?.invoice_id, 'the demo has the confirmed group booking');
+  const invoice = await getJson(baseUrl, `/api/invoices/${group.invoice_id}`);
+  await openRoute(`/customers/${group.customer_id}/statement`);
+  const row = page.locator('tr.statement-row', { hasText: invoice.number });
+  assert.match(await row.locator('.statement-line').innerText(), /^James Carter \+3/);
+  assert.doesNotMatch(await row.locator('.statement-line-sub').innerText(), /176-1180223402/, 'the line does not list every ticket');
+  const passengers = page.locator('tr.statement-pax');
+  assert.equal(await passengers.count(), 4);
+  assert.equal(await passengers.first().isVisible(), false, 'folded on screen');
+  await row.locator('[data-statement-pax]').click();
+  assert.equal(await passengers.first().isVisible(), true);
+  assert.match(await passengers.nth(3).innerText(), /Mei Lin[\s\S]*176-1180223404/);
+  await row.locator('[data-statement-pax]').click();
+  await page.emulateMedia({ media: 'print' });
+  assert.equal(await passengers.first().isVisible(), true, 'printed even when folded');
+  await page.emulateMedia({ media: 'screen' });
+  assertNoConsoleErrors();
+});

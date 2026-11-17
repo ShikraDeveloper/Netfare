@@ -77,15 +77,20 @@ function particulars(row, kind) {
   }
   if (booking) {
     const passengers = booking.passengers || [];
-    const tickets = passengers.map((p) => p.ticket).filter(Boolean).join(', ');
+    const ticketList = passengers.map((p) => p.ticket).filter(Boolean);
+    // Several passengers or tickets: the first +N on the line, each one in the
+    // list under it (open on screen, always printed).
+    const group = passengers.length > 1 || ticketList.length > 1;
+    const tickets = group ? (ticketList.length ? `${ticketList[0]}${ticketList.length > 1 ? ` +${ticketList.length - 1}` : ''}` : '') : ticketList.join(', ');
     const known = booking.pnr || tickets;
     const dates = booking.travel_date ? `${fmtDate(booking.travel_date, { short: true })}${booking.return_date ? ` – ${fmtDate(booking.return_date, { short: true })}` : ''}` : '';
     const ids = kind === 'vendor'
       ? [tickets ? `Ticket ${tickets}` : '', booking.pnr ? `PNR ${booking.pnr}` : '']
-      : [booking.pnr ? `PNR ${booking.pnr}` : '', tickets ? `Ticket ${tickets}` : ''];
+      : [booking.pnr ? `PNR ${booking.pnr}` : '', group ? booking.destination : (tickets ? `Ticket ${tickets}` : '')];
     return {
       top: [passengers.length ? `${passengers[0].name}${passengers.length > 1 ? ` +${passengers.length - 1}` : ''}` : booking.destination],
       sub: [...(known ? ids : [passengers.length ? booking.destination : '', dates]), customer, ref],
+      passengers: group ? passengers : [],
     };
   }
   switch (row.kind) {
@@ -256,8 +261,8 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td class="num"></td>
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
-            ${data.transactions.length ? data.transactions.map((row) => {
-              const { top, sub } = particulars(row, kind);
+            ${data.transactions.length ? data.transactions.map((row, index) => {
+              const { top, sub, passengers = [] } = particulars(row, kind);
               const topText = top.filter(Boolean).join(' · ');
               const subText = sub.filter(Boolean).join(' · ');
               return `
@@ -265,13 +270,18 @@ export async function render(container, { params = [], query = new URLSearchPara
                   <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
                   <td class="statement-line-cell" title="${esc([topText, subText].filter(Boolean).join(' · '))}">
-                    <div class="statement-line">${esc(topText)}</div>
+                    <div class="statement-line">${esc(topText)}${passengers.length ? ` <button type="button" class="statement-pax-toggle no-print" data-statement-pax="${index}" aria-expanded="false">${passengers.length} passengers</button>` : ''}</div>
                     ${subText ? `<div class="statement-line-sub">${esc(subText)}</div>` : ''}
                   </td>
                   <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : ''}</td>
                   <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : ''}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
+                ${passengers.map((p) => `
+                <tr class="statement-pax" data-pax-of="${index}" hidden>
+                  <td></td><td></td>
+                  <td colspan="4"><div class="statement-pax-line"><span>${esc(p.name)}</span>${p.ticket ? `<span>Ticket ${esc(p.ticket)}</span>` : ''}</div></td>
+                </tr>`).join('')}
               `;
             }).join('') : `
               <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
@@ -317,6 +327,15 @@ export async function render(container, { params = [], query = new URLSearchPara
     });
   });
   markActivePreset(container);
+
+  container.querySelectorAll('[data-statement-pax]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const open = button.getAttribute('aria-expanded') !== 'true';
+      button.setAttribute('aria-expanded', String(open));
+      button.closest('tr').classList.toggle('open', open);
+      container.querySelectorAll(`[data-pax-of="${button.dataset.statementPax}"]`).forEach((line) => { line.hidden = !open; });
+    });
+  });
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);
