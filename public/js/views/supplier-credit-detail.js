@@ -285,7 +285,8 @@ export async function render(container, { params } = {}) {
   });
 
   async function openApply() {
-    const bills = (await api.get('/bills', { status: 'received' }))
+    // Overdue and part-paid bills too: any bill with money still to pay.
+    const bills = (await api.get('/bills', { status: 'outstanding' }))
       .filter((bill) => bill.vendor_id === credit.vendor_id && bill.balance_cents > 0);
     if (!bills.length) {
       toast('This supplier has no open bills to apply the credit to.', 'error');

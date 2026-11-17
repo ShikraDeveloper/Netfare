@@ -2711,3 +2711,29 @@ test('help panel answers for the invoice on screen, points at the refund button,
   await card.getByText('No questions waiting.').waitFor();
   assertNoConsoleErrors();
 });
+
+test('a supplier credit applies to an overdue bill', async () => {
+  const accounts = await getJson(baseUrl, '/api/accounts');
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const vendor = await postJson(baseUrl, '/api/vendors', { name: `Overdue Supplier ${Date.now()}` });
+  const past = new Date(Date.now() - 20 * 86_400_000).toLocaleDateString('en-CA');
+  const bill = await postJson(baseUrl, '/api/bills', {
+    vendor_id: vendor.id, bill_date: past, due_date: past, status: 'received',
+    items: [{ description: 'Old fare', quantity: 1, unit_price_cents: 45_000, account_id: code('5000') }],
+  });
+  assert.equal(bill.status_display, 'overdue');
+  const credit = await postJson(baseUrl, '/api/supplier-credits', {
+    vendor_id: vendor.id, credit_date: new Date().toLocaleDateString('en-CA'),
+    items: [{ description: 'Old deposit', amount_cents: 30_000, account_id: code('1200') }],
+  });
+
+  await openRoute(`/supplier-credits/${credit.id}`);
+  await clickPageAction('[data-action="apply"]');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.locator('#sc-apply-bill option', { hasText: bill.number }).waitFor({ state: 'attached' });
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  const after = await getJson(baseUrl, `/api/bills/${bill.id}`);
+  assert.equal(after.balance_cents, 15_000, 'the whole 300.00 credit went on the overdue bill');
+  assertNoConsoleErrors();
+});
