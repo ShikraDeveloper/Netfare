@@ -518,6 +518,17 @@ Verification:
 - **Checked:** new test in `test/statements.test.js` (booking line with PNR, travel date, passenger and ticket on both statements; visa line with the passport masked on the customer side and never present in full in its data, full on the supplier side; supplier ref set on a posted bill shows and leaves the amount). Three browser tests updated for the new line (summary line, visa applicant now on the line with the due column, cancelled sale). On a read-only copy of the user's books (deleted): Mohsan's visas with applicants and masked passports; Sheraz's BK-2026-0009 with PNR YUWPZW, 16 Nov – 6 Dec, Mr. SHAHZEB AHMED, ticket 0652405195218 (direction marks removed) and BK-2026-0010 with Attiq Ur Rehman; HolidaySpace bills with full passport and customer; Akbar Travel Online's BILL-2026-0064 with ticket 7792155284228 as supplier ref. On the demo: set JHG-INV-7781 on BILL-2026-0006 from the bill page; the supplier statement shows it in the Supplier ref column with the booking line. `npm test` 383, `npm run test:e2e` 51 passed.
 - **Not pushed or released.**
 
+### Compact statements: one row per document, details underneath — code commit `4b32a84`
+
+- **Why:** The user asked to make statements compact by the standard, saw two mockups (compact rows, and Show details on) with real data and said "ok do this".
+- **What (`public/js/views/statement.js`, `styles.css`):**
+  - Each document is one row: short date ("Nov 12", the year is in the period), document number, one-line particulars (cut with "…" when long, full text on hover), Due (customer, kept on one line) or Ref · Passport (supplier), Debit, Credit, Balance. No entry times, coloured dots or type labels: the document number says what it is. Particulars: "VIS-0027 · Muhammad Amin · Tourist UAE", "BK-0009 · DXBJED, RUH/DXB · PNR YUWPZW · Nov 16", "Bank transfer · INV-0038, 0039, 0049, 0050", supplier "VIS-0040 · applicant · for customer" or "BK-0012 · route · PNR · first passenger · for customer".
+  - A details row under each line: visa type, country, days, nationality and passport (masked on customer statements, full on supplier statements); travel dates and each passenger with ticket and amount; invoice items or bill lines; a receipt's invoices with PMT numbers; bills paid from deposit; "Used on …" for credit notes and supplier credits (and what moved into the wallet); "Into … wallet from …" for deposits; "Service for …". **Show details** opens all; a row's small arrow opens one. Printing follows the switch only.
+  - Advances and deposits tables: short dates, no entry times. 24 unused CSS rules (dots, sub line, old visa block) removed.
+- **Server (`statements.js`):** passengers carry their amount (sale on the customer side, that supplier's cost on the supplier side); credit notes and supplier credits carry `used_on`; supplier credits `moved_to_wallet_cents`; deposits `from_account`; bills their `lines`.
+- **Checked:** on the demo, Corporate Travel Co compact and with details (visa, group booking, receipt RCP-2026-0001 over INV-0005 and INV-0011), Emirates Consolidator with a deposit row opened. Three browser tests updated (one row of 7 cells with one particulars line and no entry times; visa applicant on the line, nationality and masked passport in the details row; the cancelled sale's lines). `npm test` 383, `npm run test:e2e` 51 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
