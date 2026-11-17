@@ -8,7 +8,14 @@
 
 const { bad } = require('./util');
 
-const COUNTRIES = require('../public/js/countries.json').map(([iso, name, dial, min, max]) => ({ iso, name, dial, min, max }));
+// Digits after the code. The UAE is checked closely (7 for 800 numbers, 8
+// landline, 9 mobile); elsewhere landlines and mobiles differ too much, so
+// any 6 to 12 digits (the most a number may have) are taken.
+const LENGTHS = { AE: [7, 9] };
+const COUNTRIES = require('../public/js/countries.json').map(([iso, name, dial]) => {
+  const [min, max] = LENGTHS[iso] || [6, 12];
+  return { iso, name, dial, min, max };
+});
 // Where several countries share a code, the first one here wins.
 const PREFERRED = new Set(['US', 'RU']);
 const byDial = new Map();

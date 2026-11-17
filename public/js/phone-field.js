@@ -10,18 +10,6 @@ const PREFERRED = ['US', 'RU'];
 let loading = null;
 
 const flag = (iso) => String.fromCodePoint(...[...iso].map((letter) => 127397 + letter.charCodeAt(0)));
-// The digits after the code grouped from the end (… 806 7050), as saved.
-function group(digits) {
-  const parts = [];
-  let rest = digits;
-  if (rest.length > 4) { parts.unshift(rest.slice(-4)); rest = rest.slice(0, -4); }
-  while (rest.length > 3) { parts.unshift(rest.slice(-3)); rest = rest.slice(0, -3); }
-  if (rest) parts.unshift(rest);
-  return parts.join(' ');
-}
-
-const shownCode = (dial) => (dial.length === 4 && dial.startsWith('1') ? `1 ${dial.slice(1)}` : dial);
-
 function countries() {
   loading ||= fetch('/js/countries.json').then((response) => response.json())
     .then((rows) => rows.map(([iso, name, dial]) => ({ iso, name, dial })));
@@ -38,8 +26,11 @@ function split(value, list) {
     const matches = list.filter((country) => country.dial === digits.slice(0, length));
     if (matches.length) {
       const country = matches.find((c) => PREFERRED.includes(c.iso)) || matches[0];
-      const rest = digits.slice(length);
-      return { iso: country.iso, number: group(rest) };
+      // The number as saved after its code ("50 806 7050"); the server groups it.
+      let skip = length;
+      let at = text.indexOf('+') + 1 || (text.startsWith('00') ? 2 : 0);
+      while (skip > 0 && at < text.length) { if (/\d/.test(text[at])) skip -= 1; at += 1; }
+      return { iso: country.iso, number: text.slice(at).trim() };
     }
   }
   return { iso: 'AE', number: text };
@@ -58,7 +49,7 @@ async function enhance(input) {
   select.className = 'input phone-cc';
   select.setAttribute('aria-label', 'Country code');
   for (const country of ordered) {
-    const option = new Option(`${flag(country.iso)} +${shownCode(country.dial)}`, country.iso);
+    const option = new Option(`${flag(country.iso)} +${country.dial}`, country.iso);
     option.dataset.search = country.name;
     select.add(option);
   }
@@ -73,6 +64,9 @@ async function enhance(input) {
   number.placeholder = '50 123 4567';
   const label = input.id ? document.querySelector(`label[for="${CSS.escape(input.id)}"]`) : null;
   if (label) label.htmlFor = number.id;
+  // A locked form (Settings without Edit rights) keeps the phone locked too.
+  select.disabled = input.disabled;
+  number.disabled = input.disabled;
   wrap.append(select, number);
   input.type = 'hidden';
   input.after(wrap);

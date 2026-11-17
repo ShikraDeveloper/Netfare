@@ -35,12 +35,15 @@ test('however it is typed, a number is saved one way', () => {
     ['+880 1712-345678', '+880 171 234 5678'],
     ['+1 242 357 1234', '+1 242 357 1234'],
     ['+1 (212) 555-0100', '+1 212 555 0100'],
+    ['+880 2 9661234', '+880 2 966 1234'], // a Dhaka landline
+    ['+971 800 4277', '+971 800 4277'], // a UAE toll-free number
     ['', ''],
   ]) assert.equal(normalizePhone(typed, 'Phone', country), saved, typed);
 });
 
 test('a number that does not fit is refused with a reason', () => {
-  assert.throws(() => normalizePhone('50 806 70'), /United Arab Emirates number has 8 to 9 digits after \+971/);
+  assert.throws(() => normalizePhone('50 806'), /United Arab Emirates number has 7 to 9 digits after \+971/);
+  assert.throws(() => normalizePhone('+92 1234 5678 9012 3'), /Pakistan number has 6 to 12 digits after \+92/);
   assert.throws(() => normalizePhone('+999 123 456'), /country code is not known/);
   assert.throws(() => normalizePhone('call me'), /digits only/);
 });

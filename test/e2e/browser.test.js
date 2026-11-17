@@ -2225,6 +2225,8 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     assert.equal(await guestPage.locator('#recovery-key-card').count(), 0, 'no recovery key card for staff');
     assert.equal(await guestPage.locator('#reset-data').isVisible(), false, 'no Clear all data for staff');
     assert.equal(await guestPage.locator('#company-name').isDisabled(), true, 'company settings are read-only without Edit');
+    await guestPage.locator('#company-phone-number').waitFor({ state: 'attached' });
+    assert.equal(await guestPage.locator('#company-phone-number').isDisabled(), true, 'the phone is read-only too');
     await guestPage.locator('[data-account="signout"]').click();
     await guestPage.locator('#auth-root').waitFor();
     assert.deepEqual(errors, []);
