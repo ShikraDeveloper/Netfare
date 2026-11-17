@@ -475,6 +475,18 @@ Verification:
 - **The user's books:** the user also posted a journal entry (1 Nov, ref SCN-2026-0002): Dr 1200 Prepayments 970 / Cr 3900 Opening Balance Equity 970, so the credit note's Cr 1200 no longer leaves Prepayments at −970. Checked on a read-only copy: 1200 = 0, 1450 = 970 waiting to be applied. Applying it needs this fix in the desktop app (a release).
 - **Not pushed or released** (the user said "Sirf fix").
 
+### New supplier credit: used on open bills straight away — code commit `cf0468e`
+
+- **Why:** The user's credit SCN-2026-0002 went to the supplier statement but stayed Open with "Apply to bills". The user said "han auto apply ho agar koi b open bills ho to agar nai hy to balance portal balance ya supplier balance show".
+- **What:**
+  - `supplier-credits.js` (form): **Use it on this supplier's open bills now**, ticked by default; the form sends `auto_apply: true`.
+  - `services/supplier-credits.js` `useOnOpenBills`: inside the same transaction, the credit pays the supplier's open bills (received, money still to pay; overdue and part-paid included): the bill chosen on the form first, then the oldest. Each application is dated the later of the credit date and the bill date. What is left goes to the supplier's prepaid wallet (`recordPortalCredit`) when it has an active one; otherwise it stays open as supplier credit (shown on the supplier statement). A credit dated after today is not applied.
+  - Unticked (or through the API without `auto_apply`), nothing changes: the credit stays open, for a supplier who will pay cash back. Cancellation credits are untouched.
+  - The saved message says where the money went: "AED 970.00 on bills · AED 150.00 to the wallet · … open".
+- **Checked:** `test/supplier-credit-auto-apply.test.js` (oldest first and the rest open without a wallet; the chosen bill first and the rest to the prepaid wallet, whose balance rises; unticked stays open). On the demo: a 970.00 credit for Dubai Visa Services (credit account) through the form paid BILL-2026-0004 (350, oldest) and 620 of BILL-2026-0013; the credit shows Used. `npm test` 377, `npm run test:e2e` 51 passed (on the second run; the sign-in staff test failed once in the first full run and passed alone and in the rerun).
+- **The user's SCN-2026-0002** was made before this, so it stays open; after the next release, Apply to bill (now listing overdue bills) puts it on the HolidaySpace bills.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
