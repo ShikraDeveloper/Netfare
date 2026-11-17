@@ -558,6 +558,16 @@ Verification:
 - **Checked:** new browser test on the demo group booking (line "James Carter +3" without every ticket; 4 passenger rows folded, opened by the button, Mei Lin with 176-1180223404; shown under print media while folded). On the demo, Corporate Travel Co opened as in the mockup. `npm test` 383, `npm run test:e2e` 52 passed.
 - **Not pushed or released.**
 
+### Portal statements: same lines as the supplier statement — code commit `6f3eb17`
+
+- **Why:** The user asked about portal statements; the wallet statement still read "BILL-… · Emirates Consolidator / Booking cost settled from wallet" with entry times. The user noted the wallet is linked to the supplier, saw two options (keep a wallet statement with the shared lines, or link to the supplier statement) and chose "Option 1".
+- **What:**
+  - `public/js/statement-lines.js` (new): `particulars`, the group passenger button and rows, and their binding, moved out of `statement.js` and shared with the portal page. Nothing new was written for the lines themselves.
+  - `server/services/statements.js`: `billDetails(db, billId)` (booking with this supplier's passengers and tickets, or visa with the full passport; customer; first line; supplier ref) replaces the bill-info query in `vendorTransactions` and is exported. `portals/lifecycle.js` attaches it to each wallet settlement, `portals/ledger.js` to each credit-account bill row.
+  - `portal-detail.js`: the statement rows use the shared lines: reference = the bill number; "Rahul Menon / Ticket 176-2381045571 · PNR EK-2381 · Rahul Menon"; a group "James Carter +3 · 4 passengers" with the list (always printed); a visa "applicant · nationality / passport · type · days · customer"; "Top-up / Bank transfer · Bank Account · TOP-EC-021". Short dates on one line, no entry times. The totals box is unchanged.
+- **Checked:** on the demo, Emirates Consolidator's wallet statement and Dubai Visa Services (credit account) read as above; no console errors. The portal statement browser test now checks "Portal Visitor · Pakistani" over "AX9999999 · Tourist · 30 days" and the customer. `npm test` 383, `npm run test:e2e` 52 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
