@@ -101,6 +101,8 @@ function particulars(row, kind) {
 function detailLines(row, kind) {
   const lines = [];
   const { booking, visa } = row;
+  if ((row.kind === 'invoice' || row.kind === 'bill') && row.due_date) lines.push(`Due ${fmtDate(row.due_date)}`);
+  if (row.supplier_ref) lines.push(`Supplier ref ${row.supplier_ref}`);
   if (visa && visa.applicant_name) {
     const passport = kind === 'vendor' ? visa.passport : visa.passport_masked;
     lines.push([visa.visa_type ? `${titleCase(visa.visa_type)} visa` : '', visa.destination_country,
@@ -126,14 +128,6 @@ function detailLines(row, kind) {
     lines.push(`Service for ${[row.beneficiary.name, row.beneficiary.nationality, row.beneficiary.passport_masked ? `Passport ${row.beneficiary.passport_masked}` : ''].filter(Boolean).join(' · ')}`);
   }
   return lines;
-}
-
-// A bill's reference at the supplier: typed on the bill, else the booking's
-// tickets; with the visa passport in full beside it.
-function supplierRef(row) {
-  if (row.kind !== 'bill') return '';
-  const ref = row.supplier_ref || (row.booking?.passengers || []).map((p) => p.ticket).filter(Boolean).join(', ');
-  return [ref, row.visa?.passport].filter(Boolean).join(' · ');
 }
 
 // How late the open invoices or bills are, as on a standard statement of account.
@@ -266,7 +260,6 @@ export async function render(container, { params = [], query = new URLSearchPara
             <col style="width:11%">
             <col style="width:15%">
             <col>
-            <col style="width:${kind === 'vendor' ? 13 : 9}%">
             <col style="width:11%">
             <col style="width:11%">
             <col style="width:12%">
@@ -276,7 +269,6 @@ export async function render(container, { params = [], query = new URLSearchPara
               <th scope="col">Date</th>
               <th scope="col">Reference</th>
               <th scope="col">Particulars</th>
-              <th scope="col">${kind === 'vendor' ? 'Ref · Passport' : 'Due'}</th>
               <th scope="col" class="num">Debit</th>
               <th scope="col" class="num">Credit</th>
               <th scope="col" class="num">Balance</th>
@@ -287,7 +279,6 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td>${data.from ? esc(fmtDate(data.from)) : '—'}</td>
               <td></td>
               <td><strong>Opening balance</strong></td>
-              <td></td>
               <td class="num"></td>
               <td class="num"></td>
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
@@ -295,24 +286,22 @@ export async function render(container, { params = [], query = new URLSearchPara
             ${data.transactions.length ? data.transactions.map((row, index) => {
               const line = particulars(row, kind).filter(Boolean).join(' · ');
               const details = detailLines(row, kind);
-              const side = kind === 'vendor' ? supplierRef(row) : (row.kind === 'invoice' && row.due_date ? fmtDate(row.due_date, { short: true }) : '');
               return `
                 <tr class="statement-row">
                   <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
                   <td class="statement-line-cell"><span class="statement-line" title="${esc(line)}">${esc(line)}</span>${details.length ? `<button type="button" class="statement-row-toggle no-print" data-statement-row-toggle aria-expanded="false" aria-controls="statement-extra-${index}" aria-label="Details of ${esc(row.reference)}"></button>` : ''}</td>
-                  <td class="statement-side${kind === 'customer' ? ' nowrap' : ''}">${esc(side)}</td>
                   <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : ''}</td>
                   <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : ''}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
-                ${details.length ? `<tr class="statement-detail-row" id="statement-extra-${index}"><td></td><td colspan="6"><div class="statement-detail">${details.map((text) => `<div>${esc(text)}</div>`).join('')}</div></td></tr>` : ''}
+                ${details.length ? `<tr class="statement-detail-row" id="statement-extra-${index}"><td></td><td colspan="5"><div class="statement-detail">${details.map((text) => `<div>${esc(text)}</div>`).join('')}</div></td></tr>` : ''}
               `;
             }).join('') : `
-              <tr><td colspan="7" class="statement-empty">No transactions in this period.</td></tr>
+              <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
             `}
             <tr class="statement-total">
-              <td colspan="4"><strong>Closing balance</strong></td>
+              <td colspan="3"><strong>Closing balance</strong></td>
               <td class="num"><strong>${fmtMoney(data.total_debit_cents)}</strong></td>
               <td class="num"><strong>${fmtMoney(data.total_credit_cents)}</strong></td>
               <td class="num"><strong>${fmtMoney(data.closing_balance_cents)}</strong></td>

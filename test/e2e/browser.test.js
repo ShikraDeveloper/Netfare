@@ -559,9 +559,9 @@ test('customer statement shows one summary line, presets and short ledger rows',
   const ledgerText = await page.locator('.statement-table tbody').first().innerText();
   assert.doesNotMatch(ledgerText, /Invoice INV-/, 'the document number is not repeated in the particulars');
   assert.doesNotMatch(ledgerText, /added /, 'no entry times on a statement');
-  // One row per document: date, document, one-line particulars, due, debit, credit, balance.
+  // One row per document: date, document, one-line particulars, debit, credit, balance.
   const firstRow = page.locator('.statement-table tbody tr.statement-row').first();
-  assert.equal(await firstRow.locator('td').count(), 7);
+  assert.equal(await firstRow.locator('td').count(), 6);
   assert.equal(await firstRow.locator('.statement-line').count(), 1);
 
   await page.locator('[data-statement-preset="year"]').click();
@@ -599,7 +599,7 @@ test('customer statement shows the visa applicant and invoice item', async () =>
     assert.ok(!detailText.includes(visitor.passport_number), 'a customer statement never shows the full passport number');
   }
   assert.doesNotMatch(detailText, /DOB/);
-  assert.ok((await invoiceRow.locator('.statement-side').innerText()).trim().length > 0, 'the due date has its own column');
+  assert.match(detailText, /Due /, 'the due date is in the details');
   assert.ok(
     (await page.locator('.statement-parties').innerText()).includes(invoice.customer_name),
     'Bill To should stay with the paying customer',
