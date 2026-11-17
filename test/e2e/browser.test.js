@@ -2593,12 +2593,13 @@ test('a customer not in the list is added from the form itself and chosen; Escap
   const small = forms.nth(1);
   await small.waitFor();
   assert.equal(await small.locator('#qa-name').inputValue(), name, 'what was typed is the name');
-  await small.locator('#qa-phone').fill('+971500000000');
+  await small.locator('#qa-phone-number').fill('+971500000000');
   await small.locator('[data-submit]').click();
   await page.waitForFunction(() => document.querySelectorAll('.modal-overlay').length === 1);
   const customers = await getJson(baseUrl, '/api/customers');
   const created = customers.find((row) => row.name === name);
   assert.ok(created, 'saved as a customer');
+  assert.equal(created.phone, '+971 50 000 0000', 'the phone is saved in one form');
   assert.equal(await booking.locator('#bk-customer').inputValue(), String(created.id), 'and chosen in the booking');
   assert.equal(await picker.locator('.picker-value').innerText(), name);
   await booking.locator('[data-close]').first().click();
@@ -2752,5 +2753,37 @@ test('a group booking on the statement: first name +3, its passengers open under
   await page.emulateMedia({ media: 'print' });
   assert.equal(await passengers.first().isVisible(), true, 'printed even when folded');
   await page.emulateMedia({ media: 'screen' });
+  assertNoConsoleErrors();
+});
+
+test('phone: a country list with flags beside the number, saved in one form', async () => {
+  await openRoute('/customers');
+  await clickPageAction('[data-action="new-party"]');
+  const form = page.locator('[role="dialog"]');
+  await form.locator('#party-name').fill(`Phone Customer ${Date.now()}`);
+  const field = form.locator('.phone-field');
+  await field.waitFor();
+  assert.match(await field.locator('.picker-value').innerText(), /\+971/, 'UAE by default');
+  // Choose Pakistan by name, then type the number the local way.
+  await field.locator('.picker-button').click();
+  await field.locator('.picker-search').fill('pakistan');
+  await field.locator('.picker-search').press('Enter');
+  await form.locator('#party-phone-number').fill('0300 1234567');
+  await form.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  const saved = (await getJson(baseUrl, '/api/customers')).find((row) => row.name.startsWith('Phone Customer'));
+  assert.equal(saved.phone, '+92 300 123 4567');
+
+  // Opened again, the country and the number come back; a pasted +880 number picks Bangladesh.
+  await page.locator(`[data-edit="${saved.id}"]`).click();
+  const edit = page.locator('[role="dialog"]');
+  await edit.locator('.phone-field').waitFor();
+  assert.match(await edit.locator('.phone-field .picker-value').innerText(), /\+92/);
+  assert.equal(await edit.locator('#party-phone-number').inputValue(), '300 123 4567');
+  await edit.locator('#party-phone-number').fill('+880 1712-345678');
+  assert.match(await edit.locator('.phone-field .picker-value').innerText(), /\+880/, 'the pasted code picks its country');
+  await edit.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  assert.equal((await getJson(baseUrl, '/api/customers')).find((row) => row.id === saved.id).phone, '+880 171 234 5678');
   assertNoConsoleErrors();
 });

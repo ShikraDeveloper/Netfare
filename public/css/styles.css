@@ -1849,6 +1849,11 @@ html:not(.is-admin) .admin-only { display: none; }
 .picker-button .picker-value.is-empty { color: var(--muted); }
 .picker-button > .icon { flex: none; color: var(--muted); transform: rotate(90deg); }
 .picker-list { margin-top: 4px; max-height: 264px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+/* Phone fields (public/js/phone-field.js): country code beside the number. */
+.phone-field { display: flex; gap: 8px; align-items: flex-start; }
+.phone-field .picker { flex: 0 0 118px; }
+.phone-field .picker-list { width: 280px; position: absolute; z-index: 20; box-shadow: var(--shadow-md); }
+.phone-field .phone-number { flex: 1; min-width: 0; }
 .picker-option { display: flex; justify-content: space-between; gap: 12px; padding: 8px 11px; font-size: 13.5px; cursor: pointer; }
 .picker-option small { color: var(--muted); font-size: 12px; flex: none; }
 .picker-option.is-empty { color: var(--muted); }

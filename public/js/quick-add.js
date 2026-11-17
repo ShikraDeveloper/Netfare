@@ -46,7 +46,7 @@ export function quickAdd(kind, name = '') {
       submitLabel: `Save ${noun}`,
       body: `<div class="form-grid">
         <div class="field full"><label for="qa-name">Name</label><input class="input" id="qa-name" required autocomplete="off" value="${esc(name)}"></div>
-        <div class="field"><label for="qa-phone">Phone</label><input class="input" id="qa-phone" type="tel" autocomplete="off"></div>
+        <div class="field"><label for="qa-phone">Phone</label><input class="input" id="qa-phone" data-phone autocomplete="off"></div>
         <div class="field"><label for="qa-email">Email</label><input class="input" id="qa-email" type="email" autocomplete="off"></div>
         ${portalAllowed ? portalFieldsHtml() : ''}
       </div>`,

@@ -528,4 +528,22 @@ for (const table of ['customers', 'vendors']) {
 }
 require('./party-numbers').numberMissing(db);
 
+// Phone numbers in one form ("+971 50 806 7050", server/phone.js). A number
+// that cannot be read is left as it is; nothing is lost. Safe on every start.
+{
+  const { tidyPhone } = require('./phone');
+  for (const table of ['customers', 'vendors']) {
+    const update = db.prepare(`UPDATE ${table} SET phone = ? WHERE id = ?`);
+    for (const row of db.prepare(`SELECT id, phone FROM ${table} WHERE phone <> ''`).all()) {
+      const tidy = tidyPhone(row.phone);
+      if (tidy !== row.phone) update.run(tidy, row.id);
+    }
+  }
+  const company = db.prepare('SELECT company_phone FROM settings WHERE id = 1').get();
+  if (company?.company_phone) {
+    const tidy = tidyPhone(company.company_phone);
+    if (tidy !== company.company_phone) db.prepare('UPDATE settings SET company_phone = ? WHERE id = 1').run(tidy);
+  }
+}
+
 };

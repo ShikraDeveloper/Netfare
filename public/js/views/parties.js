@@ -93,7 +93,7 @@ async function partyModal({ party = null, config, onSaved }) {
         </div>
         <div class="field">
           <label for="party-phone">Phone</label>
-          <input class="input" id="party-phone" name="phone" value="${esc(party?.phone || '')}" placeholder="(555) 555-0100">
+          <input class="input" id="party-phone" name="phone" data-phone value="${esc(party?.phone || '')}">
         </div>
         ${config.singular === 'customer' ? `
         <div class="field">

@@ -1,5 +1,7 @@
 'use strict';
 
+const { normalizePhone } = require('../phone');
+
 const router = require('express').Router();
 const db = require('../db');
 const { bad, notFound, str, optionalStr, isTruthy } = require('../util');
@@ -57,7 +59,7 @@ router.post('/', (req, res) => {
     `).run(
       str(body.name, 'Vendor name', { max: 160 }),
       optionalStr(body.email, 'Email', 200),
-      optionalStr(body.phone, 'Phone', 60),
+      normalizePhone(optionalStr(body.phone, 'Phone', 60)),
       optionalStr(body.address, 'Address', 500),
       optionalStr(body.notes, 'Notes', 1000),
     );
@@ -79,7 +81,7 @@ router.put('/:id', (req, res) => {
   `).run(
     body.name != null ? str(body.name, 'Vendor name', { max: 160 }) : existing.name,
     body.email != null ? optionalStr(body.email, 'Email', 200) : existing.email,
-    body.phone != null ? optionalStr(body.phone, 'Phone', 60) : existing.phone,
+    body.phone != null ? normalizePhone(optionalStr(body.phone, 'Phone', 60)) : existing.phone,
     body.address != null ? optionalStr(body.address, 'Address', 500) : existing.address,
     body.notes != null ? optionalStr(body.notes, 'Notes', 1000) : existing.notes,
     body.is_active != null ? (isTruthy(body.is_active) ? 1 : 0) : existing.is_active,

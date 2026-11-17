@@ -1,5 +1,7 @@
 'use strict';
 
+const { normalizePhone } = require('../phone');
+
 const router = require('express').Router();
 const db = require('../db');
 const { bad, str, optionalStr, num, dateISO, todayISO } = require('../util');
@@ -103,7 +105,7 @@ router.put('/', (req, res) => {
   `).run(
     companyName,
     body.company_email != null ? optionalStr(body.company_email, 'Company email', 200) : current.company_email,
-    body.company_phone != null ? optionalStr(body.company_phone, 'Company phone', 60) : current.company_phone,
+    body.company_phone != null ? normalizePhone(optionalStr(body.company_phone, 'Company phone', 60), 'Company phone') : current.company_phone,
     body.company_address != null ? optionalStr(body.company_address, 'Company address', 500) : current.company_address,
     currency,
     terms,

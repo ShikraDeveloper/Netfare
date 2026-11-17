@@ -118,7 +118,7 @@ export async function render(container) {
                 </div>
                 <div class="field">
                   <label for="company-phone">Phone</label>
-                  <input class="input" id="company-phone" name="company_phone" value="${esc(settings.company_phone)}" placeholder="(555) 555-0100">
+                  <input class="input" id="company-phone" name="company_phone" data-phone value="${esc(settings.company_phone)}">
                 </div>
                 <div class="field full">
                   <label for="company-address">Address</label>
