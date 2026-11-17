@@ -1,6 +1,6 @@
 import { api } from '../api.js';
 import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
-import { cashAccounts, store } from '../store.js';
+import { can, cashAccounts, store } from '../store.js';
 import {
   centsToInput,
   companyMark,
@@ -236,6 +236,7 @@ export async function render(container, { params } = {}) {
               <dt>Due date</dt><dd>${esc(fmtDate(bill.due_date))}</dd>
               <dt>Amount due</dt><dd>${fmtMoney(bill.balance_cents)}</dd>
               ${bill.portal_name ? `<dt>Paid from</dt><dd><a href="#/portals/${bill.portal_id}">${esc(bill.portal_name)}</a></dd>` : ''}
+              <dt>Supplier ref</dt><dd>${esc(bill.supplier_ref || '—')}${bill.status !== 'void' && can('suppliers', 'edit') ? ` <button type="button" class="icon-btn no-print" data-action="supplier-ref" aria-label="Set the supplier's reference">${icon('edit', 14)}</button>` : ''}</dd>
             </dl>
           </div>
         </div>
@@ -334,6 +335,20 @@ export async function render(container, { params } = {}) {
   function refresh() {
     return render(container, { params: [String(id)] });
   }
+
+  // The supplier's own invoice or reference number; it changes no amount.
+  container.querySelector('[data-action="supplier-ref"]')?.addEventListener('click', () => openModal({
+    title: 'Supplier ref',
+    size: 'modal-sm',
+    submitLabel: 'Save',
+    body: `<div class="field"><label for="bill-ref-input">Supplier ref</label>
+      <input class="input" id="bill-ref-input" name="supplier_ref" maxlength="100" autocomplete="off" value="${esc(bill.supplier_ref || '')}"></div>`,
+    async onSubmit(form) {
+      await api.post(`/bills/${id}/supplier-ref`, { supplier_ref: form.querySelector('#bill-ref-input').value });
+      toast('Supplier ref saved');
+      refresh();
+    },
+  }));
 
   document.querySelectorAll('[data-action="print"]').forEach((button) => {
     button.addEventListener('click', () => printPage());

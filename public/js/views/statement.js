@@ -96,7 +96,7 @@ function transactionDetail(row, kind) {
   if (row.kind === 'invoice' || row.kind === 'bill') {
     if (row.related) parts.push(`Cancelled · ${row.related}`);
     else if (row.paid_from_deposit?.length) parts.push('Paid from deposit');
-    else if (row.due_date) parts.push(`Due ${fmtDate(row.due_date)}`);
+    else if (row.due_date && kind === 'vendor') parts.push(`Due ${fmtDate(row.due_date)}`);
   } else if (row.kind === 'cancellation') {
     parts.push(`Invoice ${row.related} reversed`);
   } else if (row.kind === 'receipt') {
@@ -110,6 +110,50 @@ function transactionDetail(row, kind) {
     if (row.related) parts.push(`Against ${row.related}`);
   }
   return parts.join(' · ');
+}
+
+// What the line is for, as on a travel agency's statement: the booking
+// (route, PNR, travel dates, passengers and tickets) or the visa (applicant,
+// type, passport), and on a supplier statement the customer it was for.
+// The customer statement has the passport masked; the supplier's has it in full.
+function jobLine(row, kind) {
+  const nb = (text) => esc(text).replace(/-/g, '&#8209;');
+  const booking = row.booking;
+  if (booking) {
+    const passengers = booking.passengers || [];
+    const shown = passengers.slice(0, 3).map((p) => `${p.name}${p.ticket ? ` · Ticket ${p.ticket}` : ''}`);
+    if (passengers.length > 3) shown.push(`+${passengers.length - 3} more`);
+    const details = [
+      booking.travel_date ? `Travel ${fmtDate(booking.travel_date)}${booking.return_date ? ` – ${fmtDate(booking.return_date)}` : ''}` : '',
+      ...shown,
+      kind === 'vendor' && row.customer_name ? `for ${row.customer_name}` : '',
+    ];
+    return { title: [booking.number, booking.destination, booking.pnr ? `PNR ${booking.pnr}` : ''].filter(Boolean).join(' · '), details: details.filter(Boolean).map(nb) };
+  }
+  const visa = row.visa;
+  if (visa && visa.applicant_name) {
+    const details = [
+      visa.visa_type ? `${titleCase(visa.visa_type)} visa` : '',
+      visa.destination_country,
+      Number(visa.duration_days) > 0 ? `${visa.duration_days} days` : '',
+      visa.nationality,
+      kind === 'vendor' ? (visa.passport ? `Passport ${visa.passport}` : '') : (visa.passport_masked ? `Passport ${visa.passport_masked}` : ''),
+      kind === 'vendor' && row.customer_name ? `for ${row.customer_name}` : '',
+    ];
+    return { title: `${visa.number} · ${visa.applicant_name}`, details: details.filter(Boolean).map(nb) };
+  }
+  if (row.kind === 'bill' && row.first_item) {
+    return { title: `${row.first_item}${row.item_count > 1 ? ` +${row.item_count - 1} more` : ''}`, details: [] };
+  }
+  return null;
+}
+
+// A bill's reference at the supplier: the one typed on the bill, else the
+// booking's ticket numbers.
+function supplierRef(row) {
+  if (row.kind !== 'bill') return '';
+  if (row.supplier_ref) return row.supplier_ref;
+  return (row.booking?.passengers || []).map((p) => p.ticket).filter(Boolean).join(', ');
 }
 
 function itemLabel(item) {
@@ -141,7 +185,7 @@ function transactionExtraHtml(row) {
   const paid = (row.allocations || []).map((share) => `<li>${esc(share.invoice)} · ${fmtMoney(share.amount_cents)} <span class="statement-ref">${esc(share.payment)}</span></li>`)
     .concat((row.paid_from_deposit || []).map((share) => `<li>Paid from deposit ${esc(fmtDate(share.date))} · ${fmtMoney(share.amount_cents)} <span class="statement-ref">${esc(share.payment)}</span></li>`));
   const paidList = paid.length ? `<ul class="statement-extra-items">${paid.join('')}</ul>` : '';
-  const html = `${paidList}${itemList}${visaDetailsHtml(row)}${beneficiaryDetailsHtml(row)}`;
+  const html = `${paidList}${itemList}${beneficiaryDetailsHtml(row)}`;
   return html.trim() ? `<div class="statement-extra">${html}</div>` : '';
 }
 
@@ -164,34 +208,6 @@ function beneficiaryDetailsHtml(row) {
         <span class="statement-visa-name">${esc(person.name)}</span>
       </div>
       ${meta.length ? `<div class="statement-visa-meta">${esc(meta.join(' · '))}</div>` : ''}
-    </div>
-  `;
-}
-
-function visaDetailsHtml(row) {
-  const visa = row.visa;
-  if (!visa || !visa.applicant_name) return '';
-  const applicantMeta = [];
-  if (visa.nationality) applicantMeta.push(visa.nationality);
-  if (visa.passport_masked) applicantMeta.push(`Passport ${visa.passport_masked}`);
-  if (visa.passport_expiry) applicantMeta.push(`Exp ${fmtDate(visa.passport_expiry)}`);
-  const visaMeta = [];
-  if (visa.number) visaMeta.push(visa.number);
-  if (visa.visa_type) visaMeta.push(titleCase(visa.visa_type));
-  if (visa.destination_country) visaMeta.push(visa.destination_country);
-  if (Number(visa.duration_days) > 0) visaMeta.push(`${visa.duration_days} days`);
-  if (visa.reference) visaMeta.push(`Ref ${visa.reference}`);
-  const applicantType = Number(visa.applicant_is_customer) ? 'customer' : 'visitor';
-  const applicantLabel = applicantType === 'customer' ? 'Customer' : 'Visitor';
-  return `
-    <div class="statement-visa">
-      <div class="statement-visa-head">
-        <span class="statement-visa-label">Visa applicant</span>
-        <span class="statement-visa-name">${esc(visa.applicant_name)}</span>
-        <span class="statement-visa-tag ${applicantType}">${applicantLabel}</span>
-      </div>
-      ${applicantMeta.length ? `<div class="statement-visa-meta">${esc(applicantMeta.join(' · ')).replace(/-/g, '&#8209;')}</div>` : ''}
-      ${visaMeta.length ? `<div class="statement-visa-meta">${esc(visaMeta.join(' · ')).replace(/-/g, '&#8209;')}</div>` : ''}
     </div>
   `;
 }
@@ -323,18 +339,20 @@ export async function render(container, { params = [], query = new URLSearchPara
       <div class="table-wrap">
         <table class="data statement-table"><caption class="sr-only">Account statement</caption>
           <colgroup>
-            <col style="width:12%">
-            <col style="width:17%">
+            <col style="width:11%">
+            <col style="width:15%">
             <col>
+            <col style="width:${kind === 'vendor' ? 13 : 9}%">
+            <col style="width:11%">
+            <col style="width:11%">
             <col style="width:12%">
-            <col style="width:12%">
-            <col style="width:14%">
           </colgroup>
           <thead>
             <tr>
               <th scope="col">Date</th>
               <th scope="col">Reference</th>
-              <th scope="col">Description</th>
+              <th scope="col">Particulars</th>
+              <th scope="col">${kind === 'vendor' ? 'Supplier ref' : 'Due'}</th>
               <th scope="col" class="num">Debit</th>
               <th scope="col" class="num">Credit</th>
               <th scope="col" class="num">Balance</th>
@@ -345,12 +363,19 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td>${data.from ? esc(fmtDate(data.from)) : '—'}</td>
               <td></td>
               <td><strong>Opening balance</strong></td>
+              <td></td>
               <td class="num"></td>
               <td class="num"></td>
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
             ${data.transactions.length ? data.transactions.map((row, index) => {
               const extra = transactionExtraHtml(row);
+              const job = jobLine(row, kind);
+              const detail = transactionDetail(row, kind);
+              const sub = job
+                ? `<div class="statement-row-sub">${[...job.details, kind === 'vendor' && detail ? esc(detail) : ''].filter(Boolean).join(' · ')}</div>`
+                : transactionSubHtml(row, kind);
+              const side = kind === 'vendor' ? esc(supplierRef(row) || '') : (row.kind === 'invoice' && row.due_date ? esc(fmtDate(row.due_date)) : '');
               return `
                 <tr>
                   <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
@@ -359,23 +384,24 @@ export async function render(container, { params = [], query = new URLSearchPara
                     <div class="statement-desc">
                       <span class="statement-desc-dot ${KIND_TONES[row.kind] || 'slate'}" aria-hidden="true"></span>
                       <div class="statement-desc-content">
-                        <div class="statement-desc-title">${esc(transactionTitle(row, kind))}</div>
-                        ${transactionSubHtml(row, kind)}
+                        <div class="statement-desc-title">${esc(job ? job.title : transactionTitle(row, kind))}</div>
+                        ${sub}
                         ${extra ? `<button type="button" class="statement-row-toggle no-print" data-statement-row-toggle aria-expanded="false" aria-controls="statement-extra-${index}">Details</button>
                           <div id="statement-extra-${index}" class="statement-extra-wrap">${extra}</div>` : ''}
                       </div>
                     </div>
                   </td>
+                  <td class="statement-side">${side}</td>
                   <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '<span class="statement-zero">—</span>'}</td>
                   <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '<span class="statement-zero">—</span>'}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
               `;
             }).join('') : `
-              <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
+              <tr><td colspan="7" class="statement-empty">No transactions in this period.</td></tr>
             `}
             <tr class="statement-total">
-              <td colspan="3"><strong>Closing balance</strong></td>
+              <td colspan="4"><strong>Closing balance</strong></td>
               <td class="num"><strong>${fmtMoney(data.total_debit_cents)}</strong></td>
               <td class="num"><strong>${fmtMoney(data.total_credit_cents)}</strong></td>
               <td class="num"><strong>${fmtMoney(data.closing_balance_cents)}</strong></td>

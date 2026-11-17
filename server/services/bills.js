@@ -57,6 +57,7 @@ function serializeBill(bill, today = todayISO()) {
  * @property {string} due_date
  * @property {string} status
  * @property {string} notes
+ * @property {string} supplier_ref
  * @property {string} default_payment_method
  * @property {number} subtotal_cents
  * @property {number} total_cents
@@ -282,9 +283,9 @@ function createBill(db, payload) {
     const number = allocateNumber(db, 'bill', billDate);
 
     const info = db.prepare(`
-      INSERT INTO bills (number, vendor_id, bill_date, due_date, status, notes,
+      INSERT INTO bills (number, vendor_id, bill_date, due_date, status, notes, supplier_ref,
         default_payment_method, subtotal_cents, total_cents, amount_paid_cents)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
     `).run(
       number,
       vendor.id,
@@ -292,6 +293,7 @@ function createBill(db, payload) {
       dueDate,
       status,
       optionalStr(payload.notes, 'Notes', 2000),
+      optionalStr(payload.supplier_ref, 'Supplier ref', 100),
       defaultPaymentMethod,
       totals.subtotal,
       totals.total,
@@ -310,6 +312,16 @@ function createBill(db, payload) {
   })();
 }
 
+// The supplier's reference changes no amount, so it can be set on a posted bill too.
+function setSupplierRef(db, id, payload = {}) {
+  const bill = billRow(db, id);
+  if (!bill) throw notFound('Bill not found');
+  if (bill.status === 'void') throw bad('A void bill cannot be changed');
+  db.prepare("UPDATE bills SET supplier_ref = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(optionalStr(payload.supplier_ref, 'Supplier ref', 100), id);
+  return getBill(db, id);
+}
+
 function updateBill(db, id, payload) {
   return db.transaction(() => {
     const existing = billRow(db, id);
@@ -324,7 +336,7 @@ function updateBill(db, id, payload) {
     if (totals.total <= 0) throw bad('Bill total must be greater than zero');
 
     db.prepare(`
-      UPDATE bills SET vendor_id = ?, bill_date = ?, due_date = ?, notes = ?,
+      UPDATE bills SET vendor_id = ?, bill_date = ?, due_date = ?, notes = ?, supplier_ref = ?,
         subtotal_cents = ?, total_cents = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
@@ -332,6 +344,7 @@ function updateBill(db, id, payload) {
       billDate,
       dueDate,
       optionalStr(payload.notes ?? existing.notes, 'Notes', 2000),
+      optionalStr(payload.supplier_ref ?? existing.supplier_ref, 'Supplier ref', 100),
       totals.subtotal,
       totals.total,
       id,
@@ -641,6 +654,7 @@ function createQuickExpense(db, payload = {}) {
 }
 
 module.exports = {
+  setSupplierRef,
   createQuickExpense,
   bankDebitVendor,
   SUNDRY_VENDOR,

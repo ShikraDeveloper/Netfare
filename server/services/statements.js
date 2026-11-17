@@ -23,6 +23,29 @@ const KIND_ORDER = {
 // A cancellation-charges invoice follows the cancellation that raised it.
 const rank = (row) => (row.kind === 'invoice' && row.charge_of ? KIND_ORDER.cancellation_charge : KIND_ORDER[row.kind] || 9);
 
+// What a booking line names on a statement: number, route, PNR, travel dates
+// and the passengers with their ticket numbers (the ticket is the supplier
+// reference on the passenger's cost line). With a supplier, only that
+// supplier's passengers.
+function bookingDetails(db, bookingId, vendorId = null) {
+  const booking = db.prepare('SELECT number, destination, pnr, travel_date, return_date FROM bookings WHERE id = ?').get(bookingId);
+  if (!booking) return null;
+  const lines = db.prepare(`
+    SELECT item_type, passenger_name, supplier_ref, vendor_id FROM booking_items
+    WHERE booking_id = ? AND passenger_name <> '' ORDER BY sort_order, id
+  `).all(bookingId);
+  const tickets = new Map();
+  for (const line of lines) {
+    if (line.item_type !== 'cost' || (vendorId && line.vendor_id !== vendorId)) continue;
+    const ref = String(line.supplier_ref || '').replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim();
+    if (!ref) continue;
+    tickets.set(line.passenger_name, [...(tickets.get(line.passenger_name) || []), ref]);
+  }
+  const names = lines.filter((line) => (vendorId ? line.item_type === 'cost' && line.vendor_id === vendorId : line.item_type === 'sale'))
+    .map((line) => line.passenger_name);
+  return { ...booking, passengers: [...new Set(names)].map((name) => ({ name, ticket: (tickets.get(name) || []).join(', ') })) };
+}
+
 // Receive payment shares one receipt over several invoices, one payment on
 // each. On the statement that is money received once: one line for the
 // receipt, with what it paid in its details.
@@ -205,11 +228,16 @@ function customerTransactions(db, customerId) {
     });
   }
 
+  const bookingByInvoice = new Map(db.prepare(`
+    SELECT i.id, i.booking_id FROM invoices i WHERE i.customer_id = ? AND ${ON_STATEMENT} AND i.booking_id IS NOT NULL
+  `).all(customerId).map((row) => [row.id, bookingDetails(db, row.booking_id)]));
+
   return rows.map((row) => row.kind === 'invoice'
     ? {
         ...row,
         items: itemsByInvoice.get(row.id) || [],
         visa: visasByInvoice.get(row.id) || null,
+        booking: bookingByInvoice.get(row.id) || null,
         beneficiary: beneficiaryByInvoice.get(row.id) || null,
       }
     : row);
@@ -242,6 +270,32 @@ function vendorTransactions(db, vendorId) {
     if (!paidFromDeposit.has(row.bill_id)) paidFromDeposit.set(row.bill_id, []);
     paidFromDeposit.get(row.bill_id).push({ payment: row.number, date: row.payment_date, amount_cents: row.amount_cents });
   }
+  // What each bill was for: its booking or visa (with the customer and, for
+  // our own records, the full passport), its first line and the supplier's reference.
+  const billInfo = new Map(db.prepare(`
+    SELECT b.id, b.booking_id, b.supplier_ref,
+           (SELECT bi.description FROM bill_items bi WHERE bi.bill_id = b.id ORDER BY bi.sort_order, bi.id LIMIT 1) AS first_item,
+           (SELECT COUNT(*) FROM bill_items bi WHERE bi.bill_id = b.id) AS item_count,
+           v.number AS visa_number, v.applicant_name, v.visa_type, v.destination_country, v.duration_days, v.nationality, v.passport_number,
+           COALESCE(vc.name, bc.name, '') AS customer_name
+    FROM bills b
+    LEFT JOIN visa_applications v ON v.id = b.visa_id
+    LEFT JOIN customers vc ON vc.id = v.customer_id
+    LEFT JOIN bookings bk ON bk.id = b.booking_id
+    LEFT JOIN customers bc ON bc.id = bk.customer_id
+    WHERE b.vendor_id = ? AND b.status = 'received'
+  `).all(vendorId).map((row) => [row.id, {
+    supplier_ref: row.supplier_ref,
+    first_item: row.first_item || '',
+    item_count: row.item_count,
+    customer_name: row.customer_name,
+    booking: row.booking_id ? bookingDetails(db, row.booking_id, vendorId) : null,
+    visa: row.visa_number ? {
+      number: row.visa_number, applicant_name: row.applicant_name, visa_type: row.visa_type,
+      destination_country: row.destination_country, duration_days: row.duration_days,
+      nationality: row.nationality, passport: row.passport_number,
+    } : null,
+  }]));
   return db.prepare(`
     SELECT 'bill' AS kind, b.id, b.number AS reference, b.bill_date AS date,
            b.due_date, b.total_cents AS amount_cents, b.status,
@@ -297,6 +351,7 @@ function vendorTransactions(db, vendorId) {
         debit_cents: 0,
         credit_cents: row.amount_cents,
         paid_from_deposit: paidFromDeposit.get(row.id) || [],
+        ...billInfo.get(row.id),
       };
     }
     if (row.kind === 'deposit') {

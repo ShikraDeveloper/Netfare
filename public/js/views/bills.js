@@ -267,6 +267,10 @@ export function openBillModal({ bill = null, correct = false, onSaved = () => {}
         <label for="bill-due">Due date</label>
         <input class="input" id="bill-due" name="due_date" type="date" value="${esc(dueDate)}" required>
       </div>
+      <div class="field">
+        <label for="bill-supplier-ref">Supplier ref</label>
+        <input class="input" id="bill-supplier-ref" name="supplier_ref" maxlength="100" autocomplete="off" placeholder="Their invoice no." value="${esc(bill?.supplier_ref || '')}">
+      </div>
       <div class="field full" style="margin-top:2px">
         <label>Expense lines</label>
         ${lineItemsHtml(bill?.items || [], accounts)}
@@ -335,6 +339,7 @@ export function openBillModal({ bill = null, correct = false, onSaved = () => {}
         vendor_id: Number(values.get('vendor_id')),
         bill_date: values.get('bill_date'),
         due_date: values.get('due_date'),
+        supplier_ref: values.get('supplier_ref'),
         notes: values.get('notes'),
         items,
         status,

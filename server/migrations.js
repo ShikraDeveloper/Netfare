@@ -163,6 +163,8 @@ ensureColumn('invoices', 'beneficiary_passport', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('bills', 'booking_id', 'INTEGER');
 ensureColumn('bills', 'visa_id', 'INTEGER');
 ensureColumn('bills', 'portal_id', 'INTEGER');
+// The supplier's own invoice or reference number, for matching their statement.
+ensureColumn('bills', 'supplier_ref', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('bills', 'credit_applied_cents', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'variable_amount', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('compliance_items', 'payment_method', "TEXT NOT NULL DEFAULT 'Bank transfer'");

@@ -25,6 +25,10 @@ router.put('/:id', (req, res) => {
   res.json(service.updateBill(db, Number(req.params.id), req.body || {}));
 });
 
+router.post('/:id/supplier-ref', (req, res) => {
+  res.json(service.setSupplierRef(db, Number(req.params.id), req.body || {}));
+});
+
 router.delete('/:id', (req, res) => {
   res.json(service.deleteBill(db, Number(req.params.id)));
 });

@@ -1508,6 +1508,7 @@ html:not(.show-accounting) .acct-col { display: none; }
 .statement-ageing .is-late strong { color: var(--red); }
 .statement-bank { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin: 0 0 14px; font-size: 13px; }
 .statement-bank-due { text-align: right; }
+.statement-side { font-size: 12px; color: var(--text-soft); overflow-wrap: anywhere; }
 .statement-bank-due strong { font-size: 18px; font-variant-numeric: tabular-nums; }
 .statement-details-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-soft); margin-left: auto; cursor: pointer; }
 .statement-status { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }

@@ -22,6 +22,7 @@ const bookings = require('../server/services/bookings');
 const cancellations = require('../server/services/cancellations');
 const portals = require('../server/services/portals');
 const statements = require('../server/services/statements');
+const visas = require('../server/services/visas');
 
 after(() => {
   try { db.close(); } catch { /* ignore */ }
@@ -119,4 +120,44 @@ test('ageing splits what is open by how late it is, and adds up to the balance',
   assert.equal(buckets.over_90, 32_000, 'the January invoice is long overdue');
   assert.equal(Object.values(buckets).reduce((a, b) => a + b, 0) + other, statement.closing_balance_cents);
   assert.equal(statements.customerStatement(db, customerId, { to: '2026-01-31' }).ageing, null, 'not for a statement that ended earlier');
+});
+
+test('each line says what it was for: booking route, PNR, passengers and tickets; visa applicant and passport', () => {
+  const traveller = party('customers', 'Line Customer');
+  const airline = party('vendors', 'Line Airline');
+  const booking = bookings.confirmBooking(db, bookings.createBooking(db, {
+    customer_id: traveller, booking_date: '2026-04-01', due_date: '2026-04-01', destination: 'DXB/DAC/DXB', pnr: 'CJYUEN',
+    travel_date: '2026-04-10', return_date: '2026-04-20',
+    sale_items: [{ description: 'DXB/DAC/DXB – Mr REPON', passenger_name: 'Mr REPON', line_group: 1, quantity: 1, unit_price_cents: 272_000, account_id: account('4000') }],
+    cost_items: [{ description: 'DXB/DAC/DXB – Mr REPON', passenger_name: 'Mr REPON', line_group: 1, quantity: 1, unit_price_cents: 255_700, account_id: account('5000'), vendor_id: airline, supplier_ref: '1763936143734' }],
+  }).id);
+  const visa = visas.submitVisa(db, visas.createVisa(db, {
+    customer_id: traveller, application_date: '2026-04-02', applicant_is_customer: false, applicant_name: 'Samina Akram',
+    nationality: 'Pakistani', passport_number: 'HV1232151', visa_type: 'tourist', destination_country: 'UAE',
+    sale_items: [{ description: 'Tourist visa', quantity: 1, unit_price_cents: 32_000, account_id: account('4320') }],
+    cost_items: [{ description: 'Tourist visa', quantity: 1, unit_price_cents: 30_000, account_id: account('5120'), vendor_id: airline }],
+  }).id);
+
+  const sold = statements.customerStatement(db, traveller, { from: '2026-01-01' }).transactions;
+  const ticketLine = sold.find((row) => row.id === booking.invoice_id && row.kind === 'invoice');
+  assert.deepEqual([ticketLine.booking.number, ticketLine.booking.pnr, ticketLine.booking.travel_date], [booking.number, 'CJYUEN', '2026-04-10']);
+  assert.deepEqual(ticketLine.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734' }]);
+  const visaLine = sold.find((row) => row.id === visa.invoice_id && row.kind === 'invoice');
+  assert.equal(visaLine.visa.applicant_name, 'Samina Akram');
+  assert.ok(visaLine.visa.passport_masked.endsWith('2151'));
+  assert.ok(!JSON.stringify(sold).includes('HV1232151'), 'the customer statement never carries the full passport');
+
+  const bought = statements.vendorStatement(db, airline, { from: '2026-01-01' }).transactions.filter((row) => row.kind === 'bill');
+  const ticketBill = bought.find((row) => row.booking);
+  assert.deepEqual(ticketBill.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734' }]);
+  assert.equal(ticketBill.customer_name, 'Line Customer');
+  const visaBill = bought.find((row) => row.visa);
+  assert.equal(visaBill.visa.passport, 'HV1232151', 'the supplier statement has the full passport');
+  assert.equal(visaBill.customer_name, 'Line Customer');
+
+  // The supplier's own reference, set on a posted bill; it changes no amount.
+  bills.setSupplierRef(db, visaBill.id, { supplier_ref: 'HS-INV-5521' });
+  const again = statements.vendorStatement(db, airline, { from: '2026-01-01' }).transactions.find((row) => row.id === visaBill.id && row.kind === 'bill');
+  assert.equal(again.supplier_ref, 'HS-INV-5521');
+  assert.equal(again.credit_cents, 30_000);
 });

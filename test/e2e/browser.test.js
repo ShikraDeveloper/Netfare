@@ -557,7 +557,7 @@ test('customer statement shows one summary line, presets and short ledger rows',
   assert.match(await page.locator('.statement-status').innerText(), /Settled|Payment due|Credit balance/);
 
   const ledgerText = await page.locator('.statement-table tbody').first().innerText();
-  assert.match(ledgerText, /Invoice raised/, 'Invoice descriptions should not repeat the reference');
+  assert.match(ledgerText, /Invoice raised|BK-\d{4}-\d{4}|VIS-\d{4}-\d{4}/, 'an invoice line names its booking or visa, or reads Invoice raised');
   assert.doesNotMatch(ledgerText, /Invoice INV-/);
   assert.ok(await page.locator('.statement-desc-dot').count() > 0, 'Ledger rows should carry a type marker');
 
@@ -582,24 +582,16 @@ test('customer statement shows the visa applicant and invoice item', async () =>
   await openRoute(`/customers/${visitor.customer_id}/statement`);
   const invoiceRow = page.locator('.statement-table tbody tr').filter({ hasText: invoice.number }).first();
   await invoiceRow.waitFor();
-  // Visa details stay folded until the row's Details button opens them.
-  assert.equal(await invoiceRow.locator('.statement-visa').isVisible(), false);
-  await invoiceRow.locator('[data-statement-row-toggle]').click();
-  assert.equal(await invoiceRow.locator('.statement-visa').isVisible(), true);
-  const applicantText = (await invoiceRow.locator('.statement-visa').innerText()).replace(/\u2011/g, '-');
-  assert.ok(applicantText.includes(visitor.applicant_name), 'Statement should name the visa applicant');
-  assert.match(applicantText, /Visitor/);
-  if (visitor.nationality) assert.ok(applicantText.includes(visitor.nationality));
+  // The line itself names the visa and the applicant, with the passport masked.
+  const lineText = (await invoiceRow.locator('.statement-desc-content').innerText()).replace(/\u2011/g, '-');
+  assert.ok(lineText.includes(`${visitor.number} · ${visitor.applicant_name}`), 'the line names the visa and its applicant');
+  if (visitor.nationality) assert.ok(lineText.includes(visitor.nationality));
   if (visitor.passport_number) {
-    assert.ok(applicantText.includes(`•••• ${visitor.passport_number.slice(-4)}`), 'Statement shows a masked passport');
-    assert.ok(!applicantText.includes(visitor.passport_number), 'Statement never shows the full passport number');
+    assert.ok(lineText.includes(visitor.passport_number.slice(-4)), 'the line shows the passport, masked');
+    assert.ok(!lineText.includes(visitor.passport_number), 'a customer statement never shows the full passport number');
   }
-  assert.doesNotMatch(applicantText, /DOB/);
-  assert.ok(applicantText.includes(visitor.number), 'Statement should show the visa number');
-  assert.ok(
-    (await invoiceRow.locator('.statement-item-line').first().innerText()).includes(invoice.items[0].description),
-    'Statement should show the invoice item',
-  );
+  assert.doesNotMatch(lineText, /DOB/);
+  assert.ok((await invoiceRow.locator('.statement-side').innerText()).trim().length > 0, 'the due date has its own column');
   assert.ok(
     (await page.locator('.statement-parties').innerText()).includes(invoice.customer_name),
     'Bill To should stay with the paying customer',
@@ -1555,7 +1547,8 @@ test('a cancelled sale stays on its day in the DSR and statement, with its own c
   await openRoute(`/customers/${customer.id}/statement`);
   await page.locator('.statement-desc-title').first().waitFor();
   const titles = await page.locator('.statement-desc-title').allInnerTexts();
-  assert.deepEqual(titles, ['Invoice raised', 'Payment received', 'Booking or visa cancelled', 'Cancellation charges']);
+  assert.match(titles[0], /^BK-\d{4}-\d{4} · E2E Dubai–Doha/, 'the invoice line names its booking');
+  assert.deepEqual(titles.slice(1), ['Payment received', 'Booking or visa cancelled', 'Cancellation charges']);
   assertNoConsoleErrors();
 });
 
