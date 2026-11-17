@@ -456,6 +456,16 @@ Verification:
 - **Not yet:** items and payments inside a document are loosely typed; bookings, visas, jobs, credits, supplier credits and the routes are not checked.
 - **Not pushed or released.**
 
+### Bookings and Visas: paid-by filter and totals — code commit `cd8eb27`
+
+- **Why:** From the pending list the user chose "'Paid by' (cash/card/bank) ka filter Bookings aur Visas lists pe bhi, jaise Invoices pe hai".
+- **What:**
+  - Server: the paid-by query moved out of `listInvoices` into `invoicePaidBy(db)` in `invoices.js` (money per method per invoice, net of refunds, credit notes included). `listBookings` and `listVisas` add `paid_by` and `payment_methods` from each job's `invoice_id`.
+  - Screens (`bookings.js`, `visas.js`): **All payment methods** next to the status filter (cash, card, payment link, bank, cheque, advance or credit, other, not paid yet). A totals line at the end: "N bookings · sales", **Paid** (with a method chosen, only that part: "Paid · Cash") and **Balance due**. It replaces the "Sales" figure in the toolbar. The unused sale-total and confirmed/issued counts went.
+  - A draft (not invoiced) counts as "Not paid yet", like a draft invoice. An advance taken on a draft booking is not in Paid until the booking is confirmed and the advance applied.
+- **Checked:** the browser test records a 10.00 cash payment on a booking's and a visa's invoice, then checks the count and "Paid · Cash" total against the API, and "Not paid yet". On the demo (fresh sample books, after the scratchpad was cleared): bookings Paid 12,200 equals the API; BK-2026-0002 shows under "Advance or credit" with 2,000 advance and 1,175 bank; visas Bank transfer 4 of 6. `npm test` 374, `npm run test:e2e` 50 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
