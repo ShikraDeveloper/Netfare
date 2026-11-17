@@ -99,7 +99,6 @@ test('a prepaid supplier: deposits are the money sent; wallet payments sit in th
   assert.deepEqual(statement.transactions.map((row) => [row.kind, row.debit_cents, row.credit_cents]), [
     ['deposit', 100_000, 0], ['bill', 0, 30_000], ['deposit_return', 0, 10_000],
   ]);
-  assert.equal(statement.transactions[1].paid_from_deposit.length, 1, 'the wallet payment is in the bill\'s details');
   assert.equal(statement.closing_balance_cents, -60_000, 'the supplier holds 600 for us');
   assert.equal(statement.deposit_held_cents, portals.getPortal(db, wallet.id).balance_cents);
 });
@@ -141,7 +140,7 @@ test('each line says what it was for: booking route, PNR, passengers and tickets
   const sold = statements.customerStatement(db, traveller, { from: '2026-01-01' }).transactions;
   const ticketLine = sold.find((row) => row.id === booking.invoice_id && row.kind === 'invoice');
   assert.deepEqual([ticketLine.booking.number, ticketLine.booking.pnr, ticketLine.booking.travel_date], [booking.number, 'CJYUEN', '2026-04-10']);
-  assert.deepEqual(ticketLine.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734', amount_cents: 272_000 }]);
+  assert.deepEqual(ticketLine.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734' }]);
   const visaLine = sold.find((row) => row.id === visa.invoice_id && row.kind === 'invoice');
   assert.equal(visaLine.visa.applicant_name, 'Samina Akram');
   assert.ok(visaLine.visa.passport_masked.endsWith('2151'));
@@ -149,7 +148,7 @@ test('each line says what it was for: booking route, PNR, passengers and tickets
 
   const bought = statements.vendorStatement(db, airline, { from: '2026-01-01' }).transactions.filter((row) => row.kind === 'bill');
   const ticketBill = bought.find((row) => row.booking);
-  assert.deepEqual(ticketBill.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734', amount_cents: 255_700 }], 'the cost on the supplier side');
+  assert.deepEqual(ticketBill.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734' }], 'this supplier\'s passenger and ticket');
   assert.equal(ticketBill.customer_name, 'Line Customer');
   const visaBill = bought.find((row) => row.visa);
   assert.equal(visaBill.visa.passport, 'HV1232151', 'the supplier statement has the full passport');

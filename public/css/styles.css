@@ -1509,7 +1509,6 @@ html:not(.show-accounting) .acct-col { display: none; }
 .statement-bank { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; margin: 0 0 14px; font-size: 13px; }
 .statement-bank-due { text-align: right; }
 .statement-bank-due strong { font-size: 18px; font-variant-numeric: tabular-nums; }
-.statement-details-switch { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-soft); margin-left: auto; cursor: pointer; }
 .statement-status { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
 .statement-status.settled { background: var(--green-soft); color: var(--green); }
 .statement-status.due { background: var(--amber-soft); color: var(--amber); }
@@ -1521,18 +1520,11 @@ html:not(.show-accounting) .acct-col { display: none; }
 .statement-table th, .statement-table td { padding-left: 10px; padding-right: 10px; }
 .statement-table .statement-row td { padding-top: 7px; padding-bottom: 7px; }
 .statement-table .statement-ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
-/* One row per document; its details row opens under it. */
-.statement-line-cell { white-space: nowrap; overflow: hidden; }
-.statement-line { display: inline-block; max-width: calc(100% - 22px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
-.statement-row-toggle { border: 0; background: none; padding: 0 4px; font: inherit; font-size: 11.5px; color: var(--primary); cursor: pointer; vertical-align: bottom; }
-.statement-row-toggle::after { content: '▸'; }
-.statement-row-toggle[aria-expanded="true"]::after { content: '▾'; }
-.statement-detail-row { display: none; }
-tr.open + .statement-detail-row, .show-details .statement-detail-row { display: table-row; }
-.statement-row.open td, .show-details .statement-row td { border-bottom: 0; }
-.statement-detail-row td { padding-top: 0 !important; }
-.statement-detail { border-left: 2px solid var(--border-strong); padding: 0 0 4px 8px; font-size: 11.5px; color: var(--muted); line-height: 1.55; }
-.show-details .statement-row-toggle { display: none; }
+/* One row per document: who it was for on top, passport or PNR below. */
+.statement-line-cell { overflow: hidden; }
+.statement-line, .statement-line-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.statement-line { font-weight: 600; }
+.statement-line-sub { font-size: 11.5px; color: var(--muted); }
 .statement-zero { color: var(--muted-2); }
 .statement-opening td { background: var(--surface-2); }
 .statement-total td { border-top: 2px solid var(--border-strong); background: var(--surface-2); }
@@ -1545,7 +1537,6 @@ tr.open + .statement-detail-row, .show-details .statement-detail-row { display: 
   .statement-head-right { text-align: left; }
   .statement-summary { grid-template-columns: 1fr 1fr; }
   .statement-summary > div:first-child, .statement-summary-due { grid-column: 1 / -1; }
-  .statement-details-switch { margin-left: 0; }
   .statement-presets { width: 100%; }
   .statement-foot { flex-direction: column; gap: 4px; }
 }
@@ -1574,9 +1565,7 @@ tr.open + .statement-detail-row, .show-details .statement-detail-row { display: 
   .statement-summary strong { font-size: 12px; }
   .statement-summary-due strong { font-size: 14px; }
   .statement-table td { padding-top: 4px; padding-bottom: 4px; }
-  /* Print follows the Show details switch, not a row opened on screen. */
-  .statement-card:not(.show-details) .statement-detail-row { display: none !important; }
-  .statement-detail { font-size: 9px; }
+  .statement-line-sub { font-size: 9px; }
   .statement-foot { margin-top: 10px; padding-top: 8px; break-inside: avoid; }
   .detail-grid, .kpi-grid { display: none !important; }
   .doc-wrap { max-width: none; margin: 0; }

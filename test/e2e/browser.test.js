@@ -585,31 +585,22 @@ test('customer statement shows the visa applicant and invoice item', async () =>
   await openRoute(`/customers/${visitor.customer_id}/statement`);
   const invoiceRow = page.locator('.statement-table tbody tr').filter({ hasText: invoice.number }).first();
   await invoiceRow.waitFor();
-  // The one-line particulars name the visa and the applicant; the details row
-  // under it has the nationality and the passport, masked.
-  const lineText = await invoiceRow.locator('.statement-line').innerText();
-  assert.ok(lineText.includes(`${visitor.number.replace(/-\d{4}-/, '-')} · ${visitor.applicant_name}`), 'the line names the visa and its applicant');
-  const details = invoiceRow.locator('xpath=following-sibling::tr[1]');
-  assert.equal(await details.isVisible(), false, 'details stay folded');
-  await invoiceRow.locator('[data-statement-row-toggle]').click();
-  const detailText = await details.innerText();
-  if (visitor.nationality) assert.ok(detailText.includes(visitor.nationality));
+  // Two short lines: the applicant and nationality on top; below the passport
+  // (masked), visa type and days. Nothing is folded away.
+  const top = await invoiceRow.locator('.statement-line').innerText();
+  const below = await invoiceRow.locator('.statement-line-sub').innerText();
+  assert.ok(top.startsWith(visitor.applicant_name), 'the line names the applicant');
+  if (visitor.nationality) assert.ok(top.includes(visitor.nationality));
   if (visitor.passport_number) {
-    assert.ok(detailText.includes(visitor.passport_number.slice(-4)), 'the passport shows, masked');
-    assert.ok(!detailText.includes(visitor.passport_number), 'a customer statement never shows the full passport number');
+    assert.ok(below.includes(visitor.passport_number.slice(-4)), 'the passport shows, masked');
+    assert.ok(!below.includes(visitor.passport_number), 'a customer statement never shows the full passport number');
   }
-  assert.doesNotMatch(detailText, /DOB/);
-  assert.match(detailText, /Due /, 'the due date is in the details');
+  assert.doesNotMatch(`${top} ${below}`, /DOB/);
   assert.ok(
     (await page.locator('.statement-parties').innerText()).includes(invoice.customer_name),
     'Bill To should stay with the paying customer',
   );
-  // Show details opens every row and is remembered.
-  await page.locator('[data-statement-details]').check();
-  await page.reload();
-  await page.locator('.statement-card.show-details').waitFor();
-  assert.equal(await page.locator('[data-statement-row-toggle]').first().isVisible(), false);
-  await page.locator('[data-statement-details]').uncheck();
+  assert.equal(await page.locator('[data-statement-details]').count(), 0, 'no Show details switch: the lines say it all');
   assertNoConsoleErrors();
 });
 
@@ -1555,10 +1546,8 @@ test('a cancelled sale stays on its day in the DSR and statement, with its own c
   await openRoute(`/customers/${customer.id}/statement`);
   await page.locator('.statement-line').first().waitFor();
   const lines = await page.locator('.statement-line').allInnerTexts();
-  assert.match(lines[0], /^BK-\d{4} · E2E Dubai–Doha/, 'the invoice line names its booking');
-  assert.match(lines[1], /INV-\d{4}-\d{4}/, 'the payment names its invoice');
-  assert.match(lines[2], /^Cancelled · invoice INV-/);
-  assert.equal(lines[3], 'Cancellation charges');
+  assert.deepEqual(lines.slice(1), ['Cash', 'Cancelled', 'Cancellation charges']);
+  assert.match((await page.locator('.statement-line-sub').allInnerTexts()).join(' '), /INV-\d{4}-\d{4} reversed/, 'the cancellation says which invoice it reversed');
   assertNoConsoleErrors();
 });
 

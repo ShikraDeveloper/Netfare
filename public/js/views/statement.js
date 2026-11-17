@@ -52,9 +52,10 @@ function heldSectionHtml(held, { title, attr, note }) {
     </details>`;
 }
 
-// A statement line is one row per document, like a standard statement of
-// account: the document number says what it is, the particulars what it was
-// for. Everything else sits in a details row under it.
+// A statement line is one row per document. Its particulars are two short
+// lines: who it was for on top (name and nationality), and below the passport,
+// visa type and days, or the PNR and ticket. Customer statements carry the
+// passport masked; supplier statements (ours) in full, with the customer.
 const shortRef = (number) => String(number || '').replace(/-\d{4}-/, '-');
 const titleCase = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : '');
 
@@ -65,69 +66,50 @@ function documentList(numbers) {
 
 function particulars(row, kind) {
   const { booking, visa } = row;
-  const forCustomer = kind === 'vendor' && row.customer_name ? `for ${row.customer_name}` : '';
-  if (booking) {
-    const first = booking.passengers?.[0];
-    const passengers = kind === 'vendor' && first ? `${first.name}${booking.passengers.length > 1 ? ` +${booking.passengers.length - 1}` : ''}` : '';
-    return [shortRef(booking.number), booking.destination, booking.pnr ? `PNR ${booking.pnr}` : '',
-      kind === 'customer' && booking.travel_date ? fmtDate(booking.travel_date, { short: true }) : '', passengers, forCustomer];
-  }
+  const customer = kind === 'vendor' ? row.customer_name : '';
+  const ref = row.supplier_ref ? `Ref ${row.supplier_ref}` : '';
   if (visa && visa.applicant_name) {
-    return [shortRef(visa.number), visa.applicant_name,
-      kind === 'customer' ? [titleCase(visa.visa_type), visa.destination_country].filter(Boolean).join(' ') : '', forCustomer];
+    return {
+      top: [visa.applicant_name, visa.nationality],
+      sub: [kind === 'vendor' ? visa.passport : visa.passport_masked, titleCase(visa.visa_type),
+        Number(visa.duration_days) > 0 ? `${visa.duration_days} days` : '', customer, ref],
+    };
+  }
+  if (booking) {
+    const passengers = booking.passengers || [];
+    const tickets = passengers.map((p) => p.ticket).filter(Boolean).join(', ');
+    const known = booking.pnr || tickets;
+    const dates = booking.travel_date ? `${fmtDate(booking.travel_date, { short: true })}${booking.return_date ? ` – ${fmtDate(booking.return_date, { short: true })}` : ''}` : '';
+    const ids = kind === 'vendor'
+      ? [tickets ? `Ticket ${tickets}` : '', booking.pnr ? `PNR ${booking.pnr}` : '']
+      : [booking.pnr ? `PNR ${booking.pnr}` : '', tickets ? `Ticket ${tickets}` : ''];
+    return {
+      top: [passengers.length ? `${passengers[0].name}${passengers.length > 1 ? ` +${passengers.length - 1}` : ''}` : booking.destination],
+      sub: [...(known ? ids : [passengers.length ? booking.destination : '', dates]), customer, ref],
+    };
   }
   switch (row.kind) {
     case 'invoice': {
       const items = row.items || [];
-      return [items.length ? `${items[0].description}${items.length > 1 ? ` +${items.length - 1}` : ''}` : 'Invoice', row.related ? `cancelled by ${row.related}` : ''];
+      const what = items.length ? `${items[0].description}${items.length > 1 ? ` +${items.length - 1}` : ''}` : 'Invoice';
+      // A service for someone else names that person, as the invoice does.
+      return row.beneficiary?.name
+        ? { top: [row.beneficiary.name, row.beneficiary.nationality], sub: [what, row.related ? `Cancelled by ${row.related}` : ''] }
+        : { top: [what], sub: [row.related ? `Cancelled by ${row.related}` : ''] };
     }
-    case 'bill': return [row.first_item ? `${row.first_item}${row.item_count > 1 ? ` +${row.item_count - 1}` : ''}` : 'Bill'];
-    case 'receipt': return [row.method, documentList(row.allocations.map((share) => share.invoice))];
-    case 'payment': return [kind === 'vendor' ? 'Paid' : '', row.method, row.related];
-    case 'credit_note': return [row.status === 'opening' ? 'Opening balance owed to you' : 'Credit note'];
-    case 'cancellation': return ['Cancelled', `invoice ${row.related} reversed`];
-    case 'cancellation_charge': return ['Cancellation charges'];
-    case 'refund': return [kind === 'vendor' ? 'Supplier refund' : 'Refund', row.method, row.related];
-    case 'deposit': return ['Deposit', row.method];
-    case 'deposit_return': return ['Deposit returned', row.method];
-    case 'supplier_credit': return ['Supplier credit', row.related];
-    case 'credit_refund': return ['Refund received', row.method];
-    default: return [row.description];
+    case 'bill': return { top: [row.first_item ? `${row.first_item}${row.item_count > 1 ? ` +${row.item_count - 1}` : ''}` : 'Bill'], sub: [ref] };
+    case 'receipt': return { top: [row.method], sub: [documentList(row.allocations.map((share) => share.invoice))] };
+    case 'payment': return { top: [kind === 'vendor' ? `Paid · ${row.method}` : row.method], sub: [row.related] };
+    case 'credit_note': return { top: [row.status === 'opening' ? 'Opening balance owed to you' : 'Credit note'], sub: [] };
+    case 'cancellation': return { top: ['Cancelled'], sub: [`${row.related} reversed`] };
+    case 'cancellation_charge': return { top: ['Cancellation charges'], sub: [] };
+    case 'refund': return { top: [kind === 'vendor' ? 'Supplier refund' : 'Refund'], sub: [row.method, row.related] };
+    case 'deposit': return { top: ['Deposit'], sub: [row.method] };
+    case 'deposit_return': return { top: ['Deposit returned'], sub: [row.method] };
+    case 'supplier_credit': return { top: ['Supplier credit'], sub: [row.related] };
+    case 'credit_refund': return { top: ['Refund received'], sub: [row.method] };
+    default: return { top: [row.description], sub: [] };
   }
-}
-
-// The details row: full visa or booking details, items, and where money went.
-// Customer statements carry the passport masked; supplier statements in full.
-function detailLines(row, kind) {
-  const lines = [];
-  const { booking, visa } = row;
-  if ((row.kind === 'invoice' || row.kind === 'bill') && row.due_date) lines.push(`Due ${fmtDate(row.due_date)}`);
-  if (row.supplier_ref) lines.push(`Supplier ref ${row.supplier_ref}`);
-  if (visa && visa.applicant_name) {
-    const passport = kind === 'vendor' ? visa.passport : visa.passport_masked;
-    lines.push([visa.visa_type ? `${titleCase(visa.visa_type)} visa` : '', visa.destination_country,
-      Number(visa.duration_days) > 0 ? `${visa.duration_days} days` : '', visa.nationality, passport ? `Passport ${passport}` : ''].filter(Boolean).join(' · '));
-  }
-  if (booking) {
-    if (booking.travel_date) lines.push(`Travel ${fmtDate(booking.travel_date)}${booking.return_date ? ` – ${fmtDate(booking.return_date)}` : ''}`);
-    for (const p of booking.passengers || []) lines.push([p.name, p.ticket ? `Ticket ${p.ticket}` : '', fmtMoney(p.amount_cents)].filter(Boolean).join(' · '));
-  }
-  if (!booking) {
-    for (const item of row.items || []) {
-      const quantity = Number(item.quantity) || 1;
-      lines.push(`${item.description} — ${quantity === 1 ? '' : `${quantity} × `}${fmtMoney(quantity === 1 ? item.amount_cents : item.unit_price_cents)}`);
-    }
-    for (const line of row.lines || []) lines.push(`${line.description} — ${fmtMoney(line.amount_cents)}`);
-  }
-  for (const share of row.allocations || []) lines.push(`${share.invoice} · ${fmtMoney(share.amount_cents)} · ${share.payment}`);
-  for (const share of row.paid_from_deposit || []) lines.push(`Paid from deposit ${fmtDate(share.date, { short: true })} · ${fmtMoney(share.amount_cents)} · ${share.payment}`);
-  if (row.used_on?.length) lines.push(`Used on ${row.used_on.map((use) => `${use.document} ${fmtMoney(use.amount_cents)}`).join(' · ')}`);
-  if (row.moved_to_wallet_cents) lines.push(`Moved into the wallet ${fmtMoney(row.moved_to_wallet_cents)}`);
-  if (row.kind === 'deposit') lines.push(`Into ${row.related} wallet${row.from_account ? ` from ${row.from_account}` : ''}`);
-  if (row.beneficiary?.name && !visa) {
-    lines.push(`Service for ${[row.beneficiary.name, row.beneficiary.nationality, row.beneficiary.passport_masked ? `Passport ${row.beneficiary.passport_masked}` : ''].filter(Boolean).join(' · ')}`);
-  }
-  return lines;
 }
 
 // How late the open invoices or bills are, as on a standard statement of account.
@@ -146,12 +128,6 @@ function bankHtml(company, closing) {
     <div><span>Pay by bank</span>${esc([company.bank_name, company.bank_account_name].filter(Boolean).join(' · '))}<br>IBAN ${esc(company.bank_iban)}</div>
     <div class="statement-bank-due"><span>Balance due</span><strong>${fmtMoney(closing)}</strong></div>
   </div>`;
-}
-
-const DETAILS_KEY = 'ledgerly.statement.details';
-
-function readShowDetails() {
-  try { return localStorage.getItem(DETAILS_KEY) === '1'; } catch { return false; }
 }
 
 function presetRange(preset) {
@@ -194,8 +170,6 @@ export async function render(container, { params = [], query = new URLSearchPara
       : { text: kind === 'customer' ? 'Credit balance' : 'Credit with supplier', className: 'credit' };
   // Money a supplier holds for us (open supplier credits), to take back.
   const held = kind === 'vendor' ? Number(data.unapplied_supplier_credits_cents || 0) : 0;
-  const showDetails = readShowDetails();
-  const hasExtras = data.transactions.some((row) => detailLines(row, kind).length);
 
   setHeader({
     title: `${data.party.name} statement`,
@@ -214,10 +188,9 @@ export async function render(container, { params = [], query = new URLSearchPara
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="year" aria-pressed="false">This year</button>
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="all" aria-pressed="false">All time</button>
       </div>
-      ${hasExtras ? `<label class="statement-details-switch"><input type="checkbox" data-statement-details ${showDetails ? 'checked' : ''}> Show details</label>` : ''}
     </div>
 
-    <div class="card statement-card${showDetails ? ' show-details' : ''}">
+    <div class="card statement-card">
       <div class="statement-head">
         <div>
           <div class="statement-brand">${esc(data.company.company_name || 'My Company')}</div>
@@ -283,19 +256,22 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td class="num"></td>
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
-            ${data.transactions.length ? data.transactions.map((row, index) => {
-              const line = particulars(row, kind).filter(Boolean).join(' · ');
-              const details = detailLines(row, kind);
+            ${data.transactions.length ? data.transactions.map((row) => {
+              const { top, sub } = particulars(row, kind);
+              const topText = top.filter(Boolean).join(' · ');
+              const subText = sub.filter(Boolean).join(' · ');
               return `
                 <tr class="statement-row">
                   <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
-                  <td class="statement-line-cell"><span class="statement-line" title="${esc(line)}">${esc(line)}</span>${details.length ? `<button type="button" class="statement-row-toggle no-print" data-statement-row-toggle aria-expanded="false" aria-controls="statement-extra-${index}" aria-label="Details of ${esc(row.reference)}"></button>` : ''}</td>
+                  <td class="statement-line-cell" title="${esc([topText, subText].filter(Boolean).join(' · '))}">
+                    <div class="statement-line">${esc(topText)}</div>
+                    ${subText ? `<div class="statement-line-sub">${esc(subText)}</div>` : ''}
+                  </td>
                   <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : ''}</td>
                   <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : ''}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
-                ${details.length ? `<tr class="statement-detail-row" id="statement-extra-${index}"><td></td><td colspan="5"><div class="statement-detail">${details.map((text) => `<div>${esc(text)}</div>`).join('')}</div></td></tr>` : ''}
               `;
             }).join('') : `
               <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
@@ -341,19 +317,6 @@ export async function render(container, { params = [], query = new URLSearchPara
     });
   });
   markActivePreset(container);
-
-  const card = container.querySelector('.statement-card');
-  container.querySelector('[data-statement-details]')?.addEventListener('change', (event) => {
-    card.classList.toggle('show-details', event.target.checked);
-    try { localStorage.setItem(DETAILS_KEY, event.target.checked ? '1' : '0'); } catch { /* not stored */ }
-  });
-  container.querySelectorAll('[data-statement-row-toggle]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const open = button.getAttribute('aria-expanded') !== 'true';
-      button.setAttribute('aria-expanded', open ? 'true' : 'false');
-      button.closest('tr').classList.toggle('open', open);
-    });
-  });
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);
