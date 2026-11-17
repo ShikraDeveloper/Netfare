@@ -83,7 +83,27 @@ function makePicker(select) {
     highlight(query || current < 0 ? 0 : current);
   };
 
+  // The list is placed against the window (like the calendar), so a row that
+  // scrolls sideways or a form's edge never cuts it off; it opens upward when
+  // there is more room above.
+  const place = () => {
+    const box = wrap.getBoundingClientRect();
+    const width = Math.max(box.width, 240);
+    list.style.width = `${width}px`;
+    list.style.left = `${Math.max(8, Math.min(box.left, window.innerWidth - width - 8))}px`;
+    const below = window.innerHeight - box.bottom;
+    if (below < 280 && box.top > below) {
+      list.style.top = '';
+      list.style.bottom = `${window.innerHeight - box.top + 4}px`;
+    } else {
+      list.style.bottom = '';
+      list.style.top = `${box.bottom + 4}px`;
+    }
+  };
+
   const close = (focusButton) => {
+    window.removeEventListener('scroll', place, true);
+    window.removeEventListener('resize', place);
     search.hidden = true;
     list.hidden = true;
     button.hidden = false;
@@ -99,6 +119,9 @@ function makePicker(select) {
     list.hidden = false;
     search.value = typed;
     render();
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
     search.focus();
   };
 

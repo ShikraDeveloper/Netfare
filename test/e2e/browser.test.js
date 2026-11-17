@@ -2787,3 +2787,19 @@ test('phone: a country list with flags beside the number, saved in one form', as
   assert.equal((await getJson(baseUrl, '/api/customers')).find((row) => row.id === saved.id).phone, '+880 171 234 5678');
   assertNoConsoleErrors();
 });
+
+test('a list opened inside a visa applicant row floats over the form and is not cut off', async () => {
+  await openRoute('/visas');
+  await clickPageAction('[data-action="new-visa"]');
+  const row = page.locator('[role="dialog"] [data-va-row]').first();
+  await row.locator('.va-c-vendor .picker-button').waitFor();
+  const before = (await row.boundingBox()).height;
+  await row.locator('.va-c-vendor .picker-button').click();
+  const list = row.locator('.va-c-vendor .picker-list');
+  await list.waitFor();
+  assert.ok(Math.abs((await row.boundingBox()).height - before) < 4, 'the row keeps its height');
+  assert.ok((await list.boundingBox()).height > 100, 'the whole list shows, not cut by the row');
+  await page.keyboard.press('Escape');
+  await page.locator('[role="dialog"] [data-close]').first().click();
+  assertNoConsoleErrors();
+});
