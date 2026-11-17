@@ -195,7 +195,7 @@ test('the statement shows the invoice once and the refund as a credit', () => {
   visas.rejectVisa(db, visa.id, { rejection_date: '2026-11-05' });
   jobRefunds.refundCustomer(db, 'visa', visa.id, { amount_cents: 10_000, date: '2026-11-06' });
   const rows = statements.customerStatement(db, customer, { from: '2026-01-01', to: '2026-12-31' }).transactions;
-  assert.deepEqual(rows.map((row) => row.kind), ['invoice', 'credit']);
+  assert.deepEqual(rows.map((row) => row.kind), ['invoice', 'credit_note'], 'the credit note shows when issued');
   assert.equal(rows.at(-1).balance_cents, 40_000);
 });
 

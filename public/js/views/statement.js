@@ -20,11 +20,11 @@ import {
 const CUSTOMER_TITLES = {
   invoice: 'Invoice raised',
   payment: 'Payment received',
-  credit: 'Credit applied',
+  receipt: 'Payment received',
+  credit_note: 'Credit note',
   refund: 'Refund issued',
   cancellation: 'Booking or visa cancelled',
   cancellation_charge: 'Cancellation charges',
-  cancellation_credit: 'Refund kept as credit',
 };
 
 const VENDOR_TITLES = {
@@ -33,18 +33,22 @@ const VENDOR_TITLES = {
   supplier_credit: 'Supplier credit',
   credit_refund: 'Refund received',
   refund: 'Supplier refund received',
+  deposit: 'Deposit sent',
+  deposit_return: 'Deposit returned',
 };
 
 const KIND_TONES = {
   invoice: 'blue',
   payment: 'green',
-  credit: 'amber',
+  receipt: 'green',
+  deposit: 'green',
+  credit_note: 'amber',
+  deposit_return: 'red',
   refund: 'red',
   bill: 'blue',
   supplier_credit: 'amber',
   cancellation: 'red',
   cancellation_charge: 'blue',
-  cancellation_credit: 'amber',
 };
 
 // Advances and visa security deposits run as their own balances: money we
@@ -91,11 +95,16 @@ function transactionDetail(row, kind) {
   const parts = [];
   if (row.kind === 'invoice' || row.kind === 'bill') {
     if (row.related) parts.push(`Cancelled · ${row.related}`);
+    else if (row.paid_from_deposit?.length) parts.push('Paid from deposit');
     else if (row.due_date) parts.push(`Due ${fmtDate(row.due_date)}`);
   } else if (row.kind === 'cancellation') {
     parts.push(`Invoice ${row.related} reversed`);
-  } else if (row.kind === 'cancellation_credit') {
-    parts.push(`From ${row.related}`);
+  } else if (row.kind === 'receipt') {
+    parts.push(row.method, `${row.allocations.length} invoice${row.allocations.length === 1 ? '' : 's'}`);
+  } else if (row.kind === 'credit_note') {
+    if (row.status === 'opening') parts.push('Opening balance');
+  } else if (row.kind === 'deposit' || row.kind === 'deposit_return') {
+    parts.push(row.method, row.related);
   } else {
     if (row.method) parts.push(row.method);
     if (row.related) parts.push(`Against ${row.related}`);
@@ -128,7 +137,11 @@ function transactionExtraHtml(row) {
   const itemList = items.length > 1
     ? `<ul class="statement-extra-items">${items.map((item) => `<li>${esc(itemLabel(item))}</li>`).join('')}</ul>`
     : '';
-  const html = `${itemList}${visaDetailsHtml(row)}${beneficiaryDetailsHtml(row)}`;
+  // What one receipt paid, and the wallet payments behind a bill.
+  const paid = (row.allocations || []).map((share) => `<li>${esc(share.invoice)} · ${fmtMoney(share.amount_cents)} <span class="statement-ref">${esc(share.payment)}</span></li>`)
+    .concat((row.paid_from_deposit || []).map((share) => `<li>Paid from deposit ${esc(fmtDate(share.date))} · ${fmtMoney(share.amount_cents)} <span class="statement-ref">${esc(share.payment)}</span></li>`));
+  const paidList = paid.length ? `<ul class="statement-extra-items">${paid.join('')}</ul>` : '';
+  const html = `${paidList}${itemList}${visaDetailsHtml(row)}${beneficiaryDetailsHtml(row)}`;
   return html.trim() ? `<div class="statement-extra">${html}</div>` : '';
 }
 
@@ -181,6 +194,24 @@ function visaDetailsHtml(row) {
       ${visaMeta.length ? `<div class="statement-visa-meta">${esc(visaMeta.join(' · ')).replace(/-/g, '&#8209;')}</div>` : ''}
     </div>
   `;
+}
+
+// How late the open invoices or bills are, as on a standard statement of account.
+function ageingHtml(ageing) {
+  if (!ageing) return '';
+  const cells = [['Current', ageing.current], ['1–30 days', ageing.days_30], ['31–60', ageing.days_60], ['61–90', ageing.days_90], ['Over 90', ageing.over_90]];
+  if (ageing.other_cents) cells.push(['Credits and other', ageing.other_cents]);
+  return `<div class="statement-ageing" data-statement-ageing>${cells.map(([label, cents]) => `
+    <div${label === 'Over 90' && cents ? ' class="is-late"' : ''}><span>${label}</span><strong>${fmtMoney(cents)}</strong></div>`).join('')}</div>`;
+}
+
+// Where to pay, from Settings, as invoices print it.
+function bankHtml(company, closing) {
+  if (!company.bank_iban || closing <= 0) return '';
+  return `<div class="statement-bank" data-statement-bank>
+    <div><span>Pay by bank</span>${esc([company.bank_name, company.bank_account_name].filter(Boolean).join(' · '))}<br>IBAN ${esc(company.bank_iban)}</div>
+    <div class="statement-bank-due"><span>Balance due</span><strong>${fmtMoney(closing)}</strong></div>
+  </div>`;
 }
 
 const DETAILS_KEY = 'ledgerly.statement.details';
@@ -271,6 +302,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           <div class="statement-label">${partyLabel}</div>
           <strong>${esc(data.party.name)}</strong>
           ${data.party.number ? `<p class="statement-contact">${partyLabel} no. ${esc(data.party.number)}</p>` : ''}
+          ${data.party.trn ? `<p class="statement-contact">TRN ${esc(data.party.trn)}</p>` : ''}
           ${data.party.address ? `<p class="statement-address">${esc(data.party.address)}</p>` : ''}
           ${data.party.email || data.party.phone ? `<p class="statement-contact">${esc([data.party.phone, data.party.email].filter(Boolean).join(' · '))}</p>` : ''}
         </div>
@@ -285,7 +317,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           <strong>${fmtMoney(closing)} <span class="statement-status ${closingStatus.className}">${closingStatus.text}</span></strong>
         </div>
       </div>
-      ${data.unapplied_credits_cents > 0 ? `<p class="statement-note">Unapplied credits: ${fmtMoney(data.unapplied_credits_cents)}</p>` : ''}
+      ${data.deposit_held_cents ? `<p class="statement-note">Held in your deposit with the supplier: ${fmtMoney(data.deposit_held_cents)}</p>` : ''}
       ${data.unapplied_supplier_credits_cents > 0 ? `<p class="statement-note">Credit with supplier: ${fmtMoney(data.unapplied_supplier_credits_cents)}</p>` : ''}
 
       <div class="table-wrap">
@@ -351,6 +383,8 @@ export async function render(container, { params = [], query = new URLSearchPara
           </tbody>
         </table>
       </div>
+      ${ageingHtml(data.ageing)}
+      ${kind === 'customer' ? bankHtml(data.company, closing) : ''}
       ${heldSectionHtml(data.advances, { title: 'Advances held for you', attr: 'data-statement-advances', note: 'Money received before an invoice. It is used for your next invoice or refunded, and is not part of the amount due above.' })}
       ${heldSectionHtml(data.deposits, { title: 'Security deposits held for you', attr: 'data-statement-deposits', note: 'Deposits are refundable and are not part of the amount due above.' })}
 

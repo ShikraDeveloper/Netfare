@@ -256,11 +256,12 @@ test('customer balances, settlement queue and statements subtract credit refunds
   const allCredits = settlementQueue.listSettlementQueue(db, { type: 'customer_credit' });
   assert.equal(allCredits.totals.amount_cents, owed('2450'), 'queue ties to 2450');
 
-  // The statement follows receivables. A credit refund does not touch A/R,
-  // so it must not appear as a statement line; it only lowers unapplied credit.
+  // The credit note shows when issued (owed to the customer); paying part of
+  // it back in cash is a line too, so 250 is still owed to them.
   const statement = statements.customerStatement(db, customerId, { from: '2026-01-01', to: '2026-12-31' });
-  assert.ok(!statement.transactions.some((row) => row.kind === 'refund'), 'credit refund is not an A/R line');
-  assert.equal(statement.closing_balance_cents, 0, 'no receivable is created by the refund');
+  assert.deepEqual(statement.transactions.map((row) => [row.kind, row.debit_cents, row.credit_cents]),
+    [['credit_note', 0, 40_000], ['refund', 15_000, 0]]);
+  assert.equal(statement.closing_balance_cents, -25_000, 'the customer has 250 of credit');
   assert.equal(statement.unapplied_credits_cents, 25_000);
 
   creditService.refundCredit(db, credit.id, { refund_date: '2026-03-03', account_id: account('1000').id });

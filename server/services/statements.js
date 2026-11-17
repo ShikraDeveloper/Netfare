@@ -17,14 +17,39 @@ const ON_STATEMENT = `(i.status = 'sent'
 
 // Same-day order: the sale, then money in, then the cancellation and its follow-ups.
 const KIND_ORDER = {
-  invoice: 1, payment: 2, credit: 3, cancellation: 4, cancellation_charge: 5, cancellation_credit: 6, refund: 7,
+  invoice: 1, payment: 2, receipt: 2, credit_note: 3, cancellation: 4, cancellation_charge: 5, refund: 7,
 };
 
 // A cancellation-charges invoice follows the cancellation that raised it.
 const rank = (row) => (row.kind === 'invoice' && row.charge_of ? KIND_ORDER.cancellation_charge : KIND_ORDER[row.kind] || 9);
 
+// Receive payment shares one receipt over several invoices, one payment on
+// each. On the statement that is money received once: one line for the
+// receipt, with what it paid in its details.
+function groupReceipts(db, customerId, lines) {
+  const shares = new Map(db.prepare(`
+    SELECT p.id, a.id AS receipt_id, a.number AS receipt_number
+    FROM payments p JOIN customer_advances a ON a.id = p.advance_id
+    WHERE p.customer_id = ? AND p.from_receipt = 1
+  `).all(customerId).map((row) => [row.id, row]));
+  const receipts = new Map();
+  const rest = [];
+  for (const line of lines) {
+    const share = line.kind === 'payment' ? shares.get(line.id) : null;
+    if (!share) { rest.push(line); continue; }
+    const receipt = receipts.get(share.receipt_id) || {
+      ...line, kind: 'receipt', id: share.receipt_id, reference: share.receipt_number, related: '', amount_cents: 0, allocations: [],
+    };
+    receipt.amount_cents += line.amount_cents;
+    receipt.allocations.push({ invoice: line.related, payment: line.reference, amount_cents: line.amount_cents });
+    if (line.created_at < receipt.created_at) receipt.created_at = line.created_at;
+    receipts.set(share.receipt_id, receipt);
+  }
+  return [...rest, ...receipts.values()];
+}
+
 function customerTransactions(db, customerId) {
-  const rows = db.prepare(`
+  const lines = db.prepare(`
     SELECT 'invoice' AS kind, i.id, i.number AS reference, i.issue_date AS date,
            i.due_date, i.total_cents AS amount_cents, i.status,
            '' AS method, COALESCE((SELECT x.number FROM cancellations x WHERE x.invoice_id = i.id AND x.voided_at IS NULL), '') AS related,
@@ -48,30 +73,29 @@ function customerTransactions(db, customerId) {
     LEFT JOIN invoices i ON i.id = x.invoice_id
     WHERE x.customer_id = ? AND MIN(x.received_cents, x.customer_charges_cents) > 0 AND x.voided_at IS NULL
     UNION ALL
-    SELECT 'cancellation_credit', cn.id, cn.number, cn.credit_date, NULL, cn.amount_cents, 'issued', '', x.number, NULL, cn.created_at AS created_at
+    -- A credit note counts when issued (it lowers what the customer owes).
+    -- One made from a cancellation refund needs no line: that money already
+    -- shows as owed back on the cancellation.
+    SELECT 'credit_note', cn.id, cn.number, cn.credit_date, NULL, cn.amount_cents,
+           CASE WHEN cn.is_opening = 1 THEN 'opening' ELSE 'issued' END, '', '', NULL, cn.created_at AS created_at
     FROM credit_notes cn
-    JOIN cancellations x ON x.id = cn.cancellation_id
-    WHERE cn.customer_id = ? AND cn.status = 'issued'
+    WHERE cn.customer_id = ? AND cn.status = 'issued' AND cn.cancellation_id IS NULL
     UNION ALL
     SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, x.number, NULL, r.created_at AS created_at
     FROM refunds r
     JOIN cancellations x ON x.id = r.cancellation_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
     UNION ALL
-    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(i.number, ''), NULL, r.created_at AS created_at
+    SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(i.number, cr.number, ''), NULL, r.created_at AS created_at
     FROM refunds r
     LEFT JOIN invoices i ON i.id = r.invoice_id
+    LEFT JOIN credit_notes cr ON cr.id = r.credit_note_id
     WHERE r.refund_type = 'customer' AND r.party_id = ? AND r.status = 'paid'
-      AND r.cancellation_id IS NULL AND r.credit_note_id IS NULL AND r.advance_id IS NULL
+      AND r.cancellation_id IS NULL AND r.advance_id IS NULL
       -- Visa deposit refunds belong to the separate deposit section.
       AND r.deposit_id IS NULL
-    UNION ALL
-    SELECT 'credit', ca.id, cn.number, ca.applied_date, NULL, ca.amount_cents, 'applied', 'Credit note', i.number, NULL, ca.created_at AS created_at
-    FROM credit_applications ca
-    JOIN credit_notes cn ON cn.id = ca.credit_note_id
-    JOIN invoices i ON i.id = ca.invoice_id
-    WHERE cn.customer_id = ? AND cn.status = 'issued'
-  `).all(customerId, customerId, customerId, customerId, customerId, customerId, customerId, customerId)
+  `).all(customerId, customerId, customerId, customerId, customerId, customerId, customerId);
+  const rows = groupReceipts(db, customerId, lines)
     .sort((a, b) => byDateThenEntry(a, b) || rank(a) - rank(b) || a.id - b.id)
     .map((row) => {
     if (row.kind === 'invoice') {
@@ -90,10 +114,18 @@ function customerTransactions(db, customerId) {
         credit_cents: row.amount_cents,
       };
     }
-    if (row.kind === 'credit') {
+    if (row.kind === 'receipt') {
       return {
         ...row,
-        description: `Credit ${row.reference}${row.related ? ` applied to ${row.related}` : ''}`,
+        description: `Receipt ${row.reference} · ${row.method}`,
+        debit_cents: 0,
+        credit_cents: row.amount_cents,
+      };
+    }
+    if (row.kind === 'credit_note') {
+      return {
+        ...row,
+        description: row.status === 'opening' ? `Opening balance owed to you ${row.reference}` : `Credit note ${row.reference}`,
         debit_cents: 0,
         credit_cents: row.amount_cents,
       };
@@ -113,14 +145,6 @@ function customerTransactions(db, customerId) {
       return {
         ...row,
         description: `Cancellation charges ${row.reference}`,
-        debit_cents: row.amount_cents,
-        credit_cents: 0,
-      };
-    }
-    if (row.kind === 'cancellation_credit') {
-      return {
-        ...row,
-        description: `Refund kept as credit note ${row.reference} · ${row.related}`,
         debit_cents: row.amount_cents,
         credit_cents: 0,
       };
@@ -200,9 +224,24 @@ function byDateThenEntry(a, b) {
   return x < y ? -1 : x > y ? 1 : 0;
 }
 
-const VENDOR_KIND_ORDER = { bill: 1, payment: 2, supplier_credit: 3, credit_refund: 4, refund: 5 };
+const VENDOR_KIND_ORDER = { bill: 1, payment: 2, deposit: 2, supplier_credit: 3, credit_refund: 4, refund: 5, deposit_return: 6 };
+
+// Money held on the supplier's portals (prepaid wallets) is part of the
+// account: a top-up is money sent to the supplier, a withdrawal is money back.
+// A bill paid from the wallet only moves that money onto the bill, so it is
+// not a line of its own; the bill's details say so.
+const WALLET = "(SELECT id FROM accounts WHERE code = '1400')";
 
 function vendorTransactions(db, vendorId) {
+  const paidFromDeposit = new Map();
+  for (const row of db.prepare(`
+    SELECT bill_id, number, payment_date, amount_cents FROM bill_payments
+    WHERE vendor_id = ? AND status = 'posted' AND payment_account_id = ${WALLET}
+    ORDER BY payment_date, id
+  `).all(vendorId)) {
+    if (!paidFromDeposit.has(row.bill_id)) paidFromDeposit.set(row.bill_id, []);
+    paidFromDeposit.get(row.bill_id).push({ payment: row.number, date: row.payment_date, amount_cents: row.amount_cents });
+  }
   return db.prepare(`
     SELECT 'bill' AS kind, b.id, b.number AS reference, b.bill_date AS date,
            b.due_date, b.total_cents AS amount_cents, b.status,
@@ -214,6 +253,15 @@ function vendorTransactions(db, vendorId) {
     FROM bill_payments p
     JOIN bills b ON b.id = p.bill_id
     WHERE p.vendor_id = ? AND b.status <> 'void' AND p.status = 'posted'
+      AND COALESCE(p.payment_account_id, 0) <> ${WALLET}
+    UNION ALL
+    SELECT 'deposit', t.id, t.number, t.topup_date, NULL, t.amount_cents, t.status, t.method, p.name, t.created_at
+    FROM portal_topups t JOIN supplier_portals p ON p.id = t.portal_id
+    WHERE p.vendor_id = ? AND t.status = 'posted'
+    UNION ALL
+    SELECT 'deposit_return', w.id, COALESCE(NULLIF(w.reference, ''), 'Withdrawal'), w.refund_date, NULL, w.amount_cents, w.status, w.method, p.name, w.created_at
+    FROM portal_refunds w JOIN supplier_portals p ON p.id = w.portal_id
+    WHERE p.vendor_id = ? AND w.status = 'posted'
     UNION ALL
     SELECT 'refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, COALESCE(b.number, ''), r.created_at AS created_at
     FROM refunds r
@@ -222,20 +270,20 @@ function vendorTransactions(db, vendorId) {
       AND r.supplier_credit_note_id IS NULL
     UNION ALL
     -- A supplier credit counts when it is issued: it lowers what we owe, or
-    -- (once bills are clear) is money the supplier holds for us. The part
-    -- moved to a prepaid portal wallet shows on the portal instead.
+    -- (once bills are clear) is money the supplier holds for us. Moving it
+    -- into the wallet keeps it with the supplier, so it is not a line.
     SELECT 'supplier_credit', scn.id, scn.number, scn.credit_date, NULL,
-           scn.amount_cents - scn.portal_settled_cents, 'issued', 'Supplier credit', COALESCE(b.number, ''), scn.created_at AS created_at
+           scn.amount_cents, 'issued', 'Supplier credit', COALESCE(b.number, ''), scn.created_at AS created_at
     FROM supplier_credit_notes scn
     LEFT JOIN bills b ON b.id = scn.bill_id
-    WHERE scn.vendor_id = ? AND scn.status = 'issued' AND scn.amount_cents > scn.portal_settled_cents
+    WHERE scn.vendor_id = ? AND scn.status = 'issued'
     UNION ALL
     -- Credit the supplier paid back to us.
     SELECT 'credit_refund', r.id, r.number, r.refund_date, NULL, r.amount_cents, r.status, r.method, scn.number, r.created_at AS created_at
     FROM refunds r
     JOIN supplier_credit_notes scn ON scn.id = r.supplier_credit_note_id
     WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
-  `).all(vendorId, vendorId, vendorId, vendorId, vendorId)
+  `).all(vendorId, vendorId, vendorId, vendorId, vendorId, vendorId, vendorId)
     // Same day: in the order they were entered (then bill, payment, credit,
     // refund when entered in the same second).
     .sort((a, b) => byDateThenEntry(a, b)
@@ -248,7 +296,14 @@ function vendorTransactions(db, vendorId) {
         description: `Bill ${row.reference}`,
         debit_cents: 0,
         credit_cents: row.amount_cents,
+        paid_from_deposit: paidFromDeposit.get(row.id) || [],
       };
+    }
+    if (row.kind === 'deposit') {
+      return { ...row, description: `Deposit ${row.reference} · ${row.method}`, debit_cents: row.amount_cents, credit_cents: 0 };
+    }
+    if (row.kind === 'deposit_return') {
+      return { ...row, description: `Deposit returned · ${row.method}`, debit_cents: 0, credit_cents: row.amount_cents };
     }
     if (row.kind === 'payment') {
       return {
@@ -377,6 +432,40 @@ function customerAdvances(db, customerId, range) {
   return { opening_held_cents: opening, closing_held_cents: balance, transactions };
 }
 
+// How late the open invoices (or bills) are on the statement's end date:
+// not yet due, 1-30, 31-60, 61-90 and over 90 days past due. Credits and money
+// owed back are the difference to the closing balance.
+// shortcut: balances are today's, so ageing is shown only for a statement ending today or later; work out past balances if older statements need it.
+function ageing(db, kind, partyId, asOf, closing) {
+  if (asOf < todayISO()) return null;
+  const open = kind === 'customer'
+    ? db.prepare(`SELECT due_date, total_cents - amount_paid_cents - credit_applied_cents AS due FROM invoices
+        WHERE customer_id = ? AND status = 'sent' AND issue_date <= ? AND total_cents > amount_paid_cents + credit_applied_cents`).all(partyId, asOf)
+    : db.prepare(`SELECT due_date, total_cents - amount_paid_cents - credit_applied_cents AS due FROM bills
+        WHERE vendor_id = ? AND status = 'received' AND bill_date <= ? AND total_cents > amount_paid_cents + credit_applied_cents`).all(partyId, asOf);
+  const buckets = { current: 0, days_30: 0, days_60: 0, days_90: 0, over_90: 0 };
+  const day = (iso) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
+  for (const row of open) {
+    const late = day(asOf) - day(row.due_date);
+    const key = late <= 0 ? 'current' : late <= 30 ? 'days_30' : late <= 60 ? 'days_60' : late <= 90 ? 'days_90' : 'over_90';
+    buckets[key] += row.due;
+  }
+  const total = Object.values(buckets).reduce((sum, cents) => sum + cents, 0);
+  return { as_of: asOf, ...buckets, other_cents: closing - total };
+}
+
+// What the supplier's prepaid wallets hold for us now: top-ups and credits
+// moved in, less bills paid from them and withdrawals.
+function depositHeld(db, vendorId) {
+  return db.prepare(`
+    SELECT
+      COALESCE((SELECT SUM(t.amount_cents) FROM portal_topups t JOIN supplier_portals p ON p.id = t.portal_id WHERE p.vendor_id = ? AND t.status = 'posted'), 0)
+    + COALESCE((SELECT SUM(c.amount_cents) FROM portal_credits c JOIN supplier_portals p ON p.id = c.portal_id WHERE p.vendor_id = ? AND c.status = 'posted'), 0)
+    - COALESCE((SELECT SUM(w.amount_cents) FROM portal_refunds w JOIN supplier_portals p ON p.id = w.portal_id WHERE p.vendor_id = ? AND w.status = 'posted'), 0)
+    - COALESCE((SELECT SUM(bp.amount_cents) FROM bill_payments bp WHERE bp.vendor_id = ? AND bp.status = 'posted' AND bp.payment_account_id = ${WALLET}), 0) AS held
+  `).get(vendorId, vendorId, vendorId, vendorId).held;
+}
+
 function buildStatement(db, { kind, partyId, from, to }) {
   const partyTable = kind === 'customer' ? 'customers' : 'vendors';
   const party = db.prepare(`SELECT * FROM ${partyTable} WHERE id = ?`).get(partyId);
@@ -428,6 +517,8 @@ function buildStatement(db, { kind, partyId, from, to }) {
     transactions,
     deposits: kind === 'customer' ? customerDeposits(db, partyId, range) : null,
     advances: kind === 'customer' ? customerAdvances(db, partyId, range) : null,
+    ageing: ageing(db, kind, partyId, range.to, balance),
+    deposit_held_cents: kind === 'vendor' ? depositHeld(db, partyId) : 0,
   };
 }
 

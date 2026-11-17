@@ -117,10 +117,11 @@ test('money kept as a credit note leaves the balance and comes back when applied
   });
   creditService.applyCredit(db, credit.id, { invoice_id: next.id, amount_cents: 63_000, applied_date: '2026-10-28' });
   const rows = lines(customerId);
+  // Kept as credit, the money is still owed back (no line); using it on the
+  // next invoice is no line either: the balance simply nets to 37,000.
+  assert.equal(rows[3][4], -63_000, 'after the cancellation and its charges 630 is owed back');
   assert.deepEqual(rows.slice(4), [
-    ['2026-10-27', 'cancellation_credit', 63_000, 0, 0],
-    ['2026-10-28', 'invoice', 100_000, 0, 100_000],
-    ['2026-10-28', 'credit', 0, 63_000, 37_000],
+    ['2026-10-28', 'invoice', 100_000, 0, 37_000],
   ]);
 });
 
