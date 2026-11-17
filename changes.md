@@ -487,6 +487,14 @@ Verification:
 - **The user's SCN-2026-0002** was made before this, so it stays open; after the next release, Apply to bill (now listing overdue bills) puts it on the HolidaySpace bills.
 - **Not pushed or released.**
 
+### Release 1.0.24 — `b58d0ed`, tag `v1.0.24`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** a new supplier credit is used on the supplier's open bills straight away (rest to the prepaid wallet or open); Apply to bill lists overdue and part-paid bills; Bookings and Visas paid-by filter and totals; Settings → Restore from backup button; New invoice "Booking / supplier"; the help button clear of forms on phones; type checking (developer side only).
+- **Checked:** a clean copy of main passed `npm run check` (0 type errors, 11 files), `npm test` 377 and `npm run test:e2e` 51. GitHub run 44079718364: Build (mac), Build (win), Publish release succeeded; the smoke test passed on both, including "opens Restore from backup". Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.24 with the notes); releases/latest is v1.0.24.
+- **Old release deleted:** v1.0.19 (tag kept); five releases remain, 1.0.20 to 1.0.24.
+- **Next for the user:** update the office app, then SCN-2026-0002 → Apply to bill (BILL-2026-0046 150, 0043 450, 0044 370).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
