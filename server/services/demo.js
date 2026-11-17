@@ -145,24 +145,24 @@ function loadDemo(db) {
         customer: 'Rahul Menon', booking: 150, travel: 120, ret: 100, destination: 'Karachi, Pakistan',
         pnr: 'EK-2381', status: 'travelled', pay: 'full',
         sale: [
-          ['Return ticket DXB–KHI', 1, 180_000, ticketSales],
+          ['Return ticket DXB–KHI', 1, 180_000, ticketSales, 'Rahul Menon'],
           ['Service charge & markup', 1, 15_000, serviceCharge],
         ],
         cost: [
-          ['Consolidator ticket DXB–KHI', 1, 165_000, ticketCost, 'Emirates Consolidator'],
+          ['Consolidator ticket DXB–KHI', 1, 165_000, ticketCost, 'Emirates Consolidator', 'Rahul Menon', '176-2381045571'],
         ],
       },
       {
         customer: 'Aisha Khan', booking: 90, travel: -30, ret: -40, destination: 'Jeddah & Makkah, Saudi Arabia',
         pnr: 'SV-7712', status: 'confirmed', pay: 'partial', advance: 200_000,
         sale: [
-          ['Return ticket DXB–JED', 1, 220_000, ticketSales],
+          ['Return ticket DXB–JED', 1, 220_000, ticketSales, 'Aisha Khan'],
           ['Hotel — 5 nights', 1, 140_000, packageSales],
           ['Umrah visa & documentation', 1, 50_000, visaRevenue],
           ['Service charge & markup', 1, 25_000, serviceCharge],
         ],
         cost: [
-          ['Consolidator ticket DXB–JED', 1, 195_000, ticketCost, 'FlyDubai Partner Desk'],
+          ['Consolidator ticket DXB–JED', 1, 195_000, ticketCost, 'FlyDubai Partner Desk', 'Aisha Khan', '141-7712093318'],
           ['Hotel booking — 5 nights', 1, 115_000, hotelCost, 'Jumeirah Hotel Group'],
           ['Visa processing', 1, 35_000, visaCost, 'Dubai Visa Services'],
         ],
@@ -171,70 +171,72 @@ function loadDemo(db) {
         customer: 'Gulf Tech FZE', booking: 70, travel: 35, ret: 25, destination: 'Riyadh, Saudi Arabia',
         pnr: 'SV-3345', status: 'travelled', pay: 'full',
         sale: [
-          ['Business class ticket DXB–RUH', 1, 320_000, ticketSales],
+          ['Business class ticket DXB–RUH', 1, 320_000, ticketSales, 'Omar Haddad'],
           ['Corporate service charge', 1, 20_000, serviceCharge],
         ],
         cost: [
-          ['Consolidator business ticket', 1, 290_000, ticketCost, 'Emirates Consolidator'],
+          ['Consolidator business ticket', 1, 290_000, ticketCost, 'Emirates Consolidator', 'Omar Haddad', '176-3345120987'],
         ],
       },
       {
         customer: 'Fatima Al Zaabi', booking: 55, travel: -10, ret: -17, destination: 'Baku, Azerbaijan',
         pnr: 'J2-8890', status: 'confirmed', pay: 'partial',
         sale: [
-          ['Baku city tour package — 4 nights', 1, 560_000, packageSales],
+          ['Baku city tour package — 4 nights', 1, 560_000, packageSales, 'Fatima Al Zaabi'],
           ['Service charge & markup', 1, 35_000, serviceCharge],
         ],
         cost: [
-          ['Tour package — 4 nights', 1, 470_000, hotelCost, 'Jumeirah Hotel Group'],
+          ['Tour package — 4 nights', 1, 470_000, hotelCost, 'Jumeirah Hotel Group', 'Fatima Al Zaabi'],
         ],
       },
       {
-        customer: 'Corporate Travel Co', booking: 30, travel: 20, ret: 12, destination: 'Multiple — group booking',
+        customer: 'Corporate Travel Co', booking: 30, travel: 20, ret: 12, destination: 'London, United Kingdom',
         pnr: 'GROUP-118', status: 'confirmed', pay: 'none',
+        // Four passengers, each with a sale line and a ticket: same totals as one 4-seat line.
         sale: [
-          ['Group tickets DXB–LHR (4 pax)', 4, 150_000, ticketSales],
+          ...['James Carter', 'Linda Moore', 'Arjun Rao', 'Mei Lin'].map((name) => ['Group ticket DXB–LHR', 1, 150_000, ticketSales, name]),
           ['Group service charge', 1, 60_000, serviceCharge],
         ],
         cost: [
-          ['Group tickets (4 pax)', 4, 130_000, ticketCost, 'Emirates Consolidator'],
+          ...['James Carter', 'Linda Moore', 'Arjun Rao', 'Mei Lin'].map((name, i) => ['Group ticket DXB–LHR', 1, 130_000, ticketCost, 'Emirates Consolidator', name, `176-118022340${i + 1}`]),
         ],
       },
       {
         customer: 'Rahul Menon', booking: 20, travel: 5, ret: null, destination: 'UAE tourist visa',
         pnr: '', status: 'travelled', pay: 'full',
         sale: [
-          ['UAE tourist visa (30 days)', 1, 65_000, visaRevenue],
+          ['UAE tourist visa (30 days)', 1, 65_000, visaRevenue, 'Rahul Menon'],
           ['Documentation service', 1, 5_000, serviceCharge],
         ],
         cost: [
-          ['Visa processing fee', 1, 45_000, visaCost, 'Dubai Visa Services'],
+          ['Visa processing fee', 1, 45_000, visaCost, 'Dubai Visa Services', 'Rahul Menon'],
         ],
       },
       {
         customer: 'Aisha Khan', booking: 15, travel: 6, ret: null, destination: 'Desert safari — Dubai',
         pnr: '', status: 'cancelled', pay: 'none',
         sale: [
-          ['Desert safari — evening package', 1, 45_000, packageSales],
+          ['Desert safari — evening package', 1, 45_000, packageSales, 'Aisha Khan'],
           ['Service charge', 1, 4_000, serviceCharge],
         ],
         cost: [
-          ['Safari booking', 1, 32_000, hotelCost, 'Desert Safari Tours'],
+          ['Safari booking', 1, 32_000, hotelCost, 'Desert Safari Tours', 'Aisha Khan'],
         ],
       },
       {
         customer: 'Gulf Tech FZE', booking: 5, travel: -40, ret: -46, destination: 'Singapore — hotel only',
         pnr: '', status: 'draft', pay: 'none',
         sale: [
-          ['Hotel booking — 6 nights', 1, 240_000, packageSales],
+          ['Hotel booking — 6 nights', 1, 240_000, packageSales, 'Omar Haddad'],
           ['Service charge & markup', 1, 18_000, serviceCharge],
         ],
         cost: [
-          ['Hotel booking — 6 nights', 1, 190_000, hotelCost, 'Jumeirah Hotel Group'],
+          ['Hotel booking — 6 nights', 1, 190_000, hotelCost, 'Jumeirah Hotel Group', 'Omar Haddad'],
         ],
       },
     ];
 
+    const passengersOf = (plan) => [...new Set(plan.sale.map((line) => line[4]).filter(Boolean))];
     for (const plan of plans) {
       const booking = bookingService.createBooking(db, {
         customer_id: customers[plan.customer],
@@ -246,11 +248,15 @@ function loadDemo(db) {
         destination: plan.destination,
         pnr: plan.pnr,
         notes: 'Corporate group: keep the seats together.',
-        sale_items: plan.sale.map(([description, quantity, unitPrice, account]) => ({
+        // A passenger's sale and cost lines share a line group; the ticket is
+        // the supplier reference on the cost line.
+        sale_items: plan.sale.map(([description, quantity, unitPrice, account, passenger = '']) => ({
           description, quantity, unit_price_cents: unitPrice, account_id: account,
+          passenger_name: passenger, line_group: passenger ? passengersOf(plan).indexOf(passenger) + 1 : null,
         })),
-        cost_items: plan.cost.map(([description, quantity, unitPrice, account, vendor]) => ({
+        cost_items: plan.cost.map(([description, quantity, unitPrice, account, vendor, passenger = '', ticket = '']) => ({
           description, quantity, unit_price_cents: unitPrice, account_id: account, vendor_id: vendors[vendor],
+          passenger_name: passenger, line_group: passenger ? passengersOf(plan).indexOf(passenger) + 1 : null, supplier_ref: ticket,
         })),
       });
 
@@ -361,8 +367,8 @@ function loadDemo(db) {
         ],
       },
       {
-        customer: 'Corporate Travel Co', country: 'United States', type: 'business', duration: 365, applicant: 'Group — 3 delegates',
-        nationality: 'Mixed', passport: 'GROUP-US-03', expiryDays: 900, birthDays: 15_000, ref: 'US-B1-9930',
+        customer: 'Corporate Travel Co', country: 'United States', type: 'business', duration: 365, applicant: 'Daniel Brooks',
+        nationality: 'American', passport: '584930217', expiryDays: 900, birthDays: 15_000, ref: 'US-B1-9930',
         application: 40, travel: -12, status: 'rejected', pay: 'partial',
         sale: [
           ['US B1 business visa (per applicant)', 3, 95_000, visaRevenue],
