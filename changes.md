@@ -580,6 +580,14 @@ Verification:
 - **Note:** Windows shows the two letters (AE, PK) where a Mac shows the flag; the codes and names are the same.
 - **Not pushed or released.**
 
+### Searchable lists float over the form — code commit `30286e7`
+
+- **Why:** The user showed the New visa application form: opening the Supplier list in an applicant row pushed Sale, Cost and Security deposit far down and left a large blank space ("need to fix this also").
+- **Cause:** the picker's list sat in the page flow, so it made its row taller; and the applicant row's container scrolls sideways (`overflow: auto`), so a list placed inside it would be cut off.
+- **Fix:** `picker.js` places the list against the window (`position: fixed`, like the calendar): under the box, or above it when there is more room above, at least 240px wide, kept inside the window, and moved on scroll or resize while open. `styles.css`: the list floats with a shadow above the form.
+- **Checked:** on the demo the visa row keeps its height (152px before and after) and the full supplier list shows. New browser test (row height unchanged, list taller than 100px) fails without the fix and passes with it. `npm run test:e2e` 54 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
