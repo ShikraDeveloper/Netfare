@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { bindPaxToggles, particulars, paxRowsHtml, paxToggleHtml } from '../statement-lines.js';
 import { cashAccounts } from '../store.js';
 import {
   bindDateRange,
@@ -50,71 +51,6 @@ function heldSectionHtml(held, { title, attr, note }) {
       </div>
       <p class="muted">${esc(note)}</p>
     </details>`;
-}
-
-// A statement line is one row per document. Its particulars are two short
-// lines: who it was for on top (name and nationality), and below the passport,
-// visa type and days, or the PNR and ticket. Customer statements carry the
-// passport masked; supplier statements (ours) in full, with the customer.
-const shortRef = (number) => String(number || '').replace(/-\d{4}-/, '-');
-const titleCase = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : '');
-
-// "INV-0011, 0012": invoice numbers a receipt paid, without repeating the prefix.
-function documentList(numbers) {
-  return numbers.map((number, i) => (i ? shortRef(number).replace(/^[A-Z]+-/, '') : shortRef(number))).join(', ');
-}
-
-function particulars(row, kind) {
-  const { booking, visa } = row;
-  const customer = kind === 'vendor' ? row.customer_name : '';
-  const ref = row.supplier_ref ? `Ref ${row.supplier_ref}` : '';
-  if (visa && visa.applicant_name) {
-    return {
-      top: [visa.applicant_name, visa.nationality],
-      sub: [kind === 'vendor' ? visa.passport : visa.passport_masked, titleCase(visa.visa_type),
-        Number(visa.duration_days) > 0 ? `${visa.duration_days} days` : '', customer, ref],
-    };
-  }
-  if (booking) {
-    const passengers = booking.passengers || [];
-    const ticketList = passengers.map((p) => p.ticket).filter(Boolean);
-    // Several passengers or tickets: the first +N on the line, each one in the
-    // list under it (open on screen, always printed).
-    const group = passengers.length > 1 || ticketList.length > 1;
-    const tickets = group ? (ticketList.length ? `${ticketList[0]}${ticketList.length > 1 ? ` +${ticketList.length - 1}` : ''}` : '') : ticketList.join(', ');
-    const known = booking.pnr || tickets;
-    const dates = booking.travel_date ? `${fmtDate(booking.travel_date, { short: true })}${booking.return_date ? ` – ${fmtDate(booking.return_date, { short: true })}` : ''}` : '';
-    const ids = kind === 'vendor'
-      ? [tickets ? `Ticket ${tickets}` : '', booking.pnr ? `PNR ${booking.pnr}` : '']
-      : [booking.pnr ? `PNR ${booking.pnr}` : '', group ? booking.destination : (tickets ? `Ticket ${tickets}` : '')];
-    return {
-      top: [passengers.length ? `${passengers[0].name}${passengers.length > 1 ? ` +${passengers.length - 1}` : ''}` : booking.destination],
-      sub: [...(known ? ids : [passengers.length ? booking.destination : '', dates]), customer, ref],
-      passengers: group ? passengers : [],
-    };
-  }
-  switch (row.kind) {
-    case 'invoice': {
-      const items = row.items || [];
-      const what = items.length ? `${items[0].description}${items.length > 1 ? ` +${items.length - 1}` : ''}` : 'Invoice';
-      // A service for someone else names that person, as the invoice does.
-      return row.beneficiary?.name
-        ? { top: [row.beneficiary.name, row.beneficiary.nationality], sub: [what, row.related ? `Cancelled by ${row.related}` : ''] }
-        : { top: [what], sub: [row.related ? `Cancelled by ${row.related}` : ''] };
-    }
-    case 'bill': return { top: [row.first_item ? `${row.first_item}${row.item_count > 1 ? ` +${row.item_count - 1}` : ''}` : 'Bill'], sub: [ref] };
-    case 'receipt': return { top: [row.method], sub: [documentList(row.allocations.map((share) => share.invoice))] };
-    case 'payment': return { top: [kind === 'vendor' ? `Paid · ${row.method}` : row.method], sub: [row.related] };
-    case 'credit_note': return { top: [row.status === 'opening' ? 'Opening balance owed to you' : 'Credit note'], sub: [] };
-    case 'cancellation': return { top: ['Cancelled'], sub: [`${row.related} reversed`] };
-    case 'cancellation_charge': return { top: ['Cancellation charges'], sub: [] };
-    case 'refund': return { top: [kind === 'vendor' ? 'Supplier refund' : 'Refund'], sub: [row.method, row.related] };
-    case 'deposit': return { top: ['Deposit'], sub: [row.method] };
-    case 'deposit_return': return { top: ['Deposit returned'], sub: [row.method] };
-    case 'supplier_credit': return { top: ['Supplier credit'], sub: [row.related] };
-    case 'credit_refund': return { top: ['Refund received'], sub: [row.method] };
-    default: return { top: [row.description], sub: [] };
-  }
 }
 
 // How late the open invoices or bills are, as on a standard statement of account.
@@ -270,18 +206,14 @@ export async function render(container, { params = [], query = new URLSearchPara
                   <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
                   <td class="statement-line-cell" title="${esc([topText, subText].filter(Boolean).join(' · '))}">
-                    <div class="statement-line">${esc(topText)}${passengers.length ? ` <button type="button" class="statement-pax-toggle no-print" data-statement-pax="${index}" aria-expanded="false">${passengers.length} passengers</button>` : ''}</div>
+                    <div class="statement-line">${esc(topText)}${paxToggleHtml(passengers, index)}</div>
                     ${subText ? `<div class="statement-line-sub">${esc(subText)}</div>` : ''}
                   </td>
                   <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : ''}</td>
                   <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : ''}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
-                ${passengers.map((p) => `
-                <tr class="statement-pax" data-pax-of="${index}" hidden>
-                  <td></td><td></td>
-                  <td colspan="4"><div class="statement-pax-line"><span>${esc(p.name)}</span>${p.ticket ? `<span>Ticket ${esc(p.ticket)}</span>` : ''}</div></td>
-                </tr>`).join('')}
+                ${paxRowsHtml(passengers, index)}
               `;
             }).join('') : `
               <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
@@ -328,14 +260,7 @@ export async function render(container, { params = [], query = new URLSearchPara
   });
   markActivePreset(container);
 
-  container.querySelectorAll('[data-statement-pax]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const open = button.getAttribute('aria-expanded') !== 'true';
-      button.setAttribute('aria-expanded', String(open));
-      button.closest('tr').classList.toggle('open', open);
-      container.querySelectorAll(`[data-pax-of="${button.dataset.statementPax}"]`).forEach((line) => { line.hidden = !open; });
-    });
-  });
+  bindPaxToggles(container);
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);

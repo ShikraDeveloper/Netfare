@@ -83,6 +83,9 @@ function getPortal(db, id) {
     WHERE bp.portal_id = ? AND bp.status = 'posted'
     ORDER BY bp.payment_date DESC, bp.id DESC
   `).all(id);
+  // What each bill paid from the wallet was for, named as on the supplier statement.
+  const { billDetails } = require('../statements');
+  result.settlements = result.settlements.map((settlement) => ({ ...settlement, bill: billDetails(db, settlement.bill_id) }));
 
   result.deposit_movements = db.prepare(`
     SELECT e.*, d.number AS deposit_number, d.visa_id, va.number AS visa_number, va.applicant_name

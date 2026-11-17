@@ -47,6 +47,39 @@ function bookingDetails(db, bookingId, vendorId = null) {
   return { ...booking, passengers: [...new Set(names)].map((name) => ({ name, ticket: (tickets.get(name) || []).join(', ') })) };
 }
 
+// What a bill was for, as supplier and portal statements name it: its booking
+// (this supplier's passengers and tickets) or visa (with the full passport:
+// these statements are ours), the customer, its first line and the
+// supplier's own reference.
+function billDetails(db, billId) {
+  const row = db.prepare(`
+    SELECT b.vendor_id, b.booking_id, b.supplier_ref,
+           (SELECT bi.description FROM bill_items bi WHERE bi.bill_id = b.id ORDER BY bi.sort_order, bi.id LIMIT 1) AS first_item,
+           (SELECT COUNT(*) FROM bill_items bi WHERE bi.bill_id = b.id) AS item_count,
+           v.number AS visa_number, v.applicant_name, v.visa_type, v.destination_country, v.duration_days, v.nationality, v.passport_number,
+           COALESCE(vc.name, bc.name, '') AS customer_name
+    FROM bills b
+    LEFT JOIN visa_applications v ON v.id = b.visa_id
+    LEFT JOIN customers vc ON vc.id = v.customer_id
+    LEFT JOIN bookings bk ON bk.id = b.booking_id
+    LEFT JOIN customers bc ON bc.id = bk.customer_id
+    WHERE b.id = ?
+  `).get(billId);
+  if (!row) return {};
+  return {
+    supplier_ref: row.supplier_ref,
+    first_item: row.first_item || '',
+    item_count: row.item_count,
+    customer_name: row.customer_name,
+    booking: row.booking_id ? bookingDetails(db, row.booking_id, row.vendor_id) : null,
+    visa: row.visa_number ? {
+      number: row.visa_number, applicant_name: row.applicant_name, visa_type: row.visa_type,
+      destination_country: row.destination_country, duration_days: row.duration_days,
+      nationality: row.nationality, passport: row.passport_number,
+    } : null,
+  };
+}
+
 // Receive payment shares one receipt over several invoices, one payment on
 // each. On the statement that is money received once: one line for the
 // receipt, with what it paid in its details.
@@ -262,32 +295,6 @@ const VENDOR_KIND_ORDER = { bill: 1, payment: 2, deposit: 2, supplier_credit: 3,
 const WALLET = "(SELECT id FROM accounts WHERE code = '1400')";
 
 function vendorTransactions(db, vendorId) {
-  // What each bill was for: its booking or visa (with the customer and, for
-  // our own records, the full passport), its first line and the supplier's reference.
-  const billInfo = new Map(db.prepare(`
-    SELECT b.id, b.booking_id, b.supplier_ref,
-           (SELECT bi.description FROM bill_items bi WHERE bi.bill_id = b.id ORDER BY bi.sort_order, bi.id LIMIT 1) AS first_item,
-           (SELECT COUNT(*) FROM bill_items bi WHERE bi.bill_id = b.id) AS item_count,
-           v.number AS visa_number, v.applicant_name, v.visa_type, v.destination_country, v.duration_days, v.nationality, v.passport_number,
-           COALESCE(vc.name, bc.name, '') AS customer_name
-    FROM bills b
-    LEFT JOIN visa_applications v ON v.id = b.visa_id
-    LEFT JOIN customers vc ON vc.id = v.customer_id
-    LEFT JOIN bookings bk ON bk.id = b.booking_id
-    LEFT JOIN customers bc ON bc.id = bk.customer_id
-    WHERE b.vendor_id = ? AND b.status = 'received'
-  `).all(vendorId).map((row) => [row.id, {
-    supplier_ref: row.supplier_ref,
-    first_item: row.first_item || '',
-    item_count: row.item_count,
-    customer_name: row.customer_name,
-    booking: row.booking_id ? bookingDetails(db, row.booking_id, vendorId) : null,
-    visa: row.visa_number ? {
-      number: row.visa_number, applicant_name: row.applicant_name, visa_type: row.visa_type,
-      destination_country: row.destination_country, duration_days: row.duration_days,
-      nationality: row.nationality, passport: row.passport_number,
-    } : null,
-  }]));
   return db.prepare(`
     SELECT 'bill' AS kind, b.id, b.number AS reference, b.bill_date AS date,
            b.due_date, b.total_cents AS amount_cents, b.status,
@@ -342,7 +349,7 @@ function vendorTransactions(db, vendorId) {
         description: `Bill ${row.reference}`,
         debit_cents: 0,
         credit_cents: row.amount_cents,
-        ...billInfo.get(row.id),
+        ...billDetails(db, row.id),
       };
     }
     if (row.kind === 'deposit') {
@@ -569,6 +576,7 @@ function buildStatement(db, { kind, partyId, from, to }) {
 }
 
 module.exports = {
+  billDetails,
   customerStatement(db, customerId, range = {}) {
     return buildStatement(db, { kind: 'customer', partyId: Number(customerId), ...range });
   },

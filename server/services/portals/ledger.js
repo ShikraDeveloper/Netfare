@@ -117,6 +117,7 @@ function creditPortalLedger(db, portal, options = {}) {
       entry_id: bill.journal_entry_id || null,
       bill_id: bill.id,
       source_id: bill.id,
+      bill: require('../statements').billDetails(db, bill.id),
       lines: linesByEntry.get(bill.journal_entry_id) || [],
     })),
     ...payments.map((payment) => ({

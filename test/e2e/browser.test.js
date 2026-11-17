@@ -838,10 +838,13 @@ test('supplier portal statement shows the linked visa applicant', async () => {
   await postJson(baseUrl, `/api/visas/${visa.id}/submit`, {}, 200);
 
   await openRoute(`/portals/${portal.id}`);
-  const statementText = await page.locator('.doc-items-wrap').innerText();
-  assert.ok(statementText.includes(visa.number), 'Statement should show the visa number');
-  assert.match(statementText, /Applicant:\s*Portal Visitor/i);
-  assert.match(statementText, /Passport\s+AX9999999/i);
+  // As on the supplier statement: applicant and nationality over the full
+  // passport, visa type, days and the customer.
+  const row = page.locator('.stmt-items tr.statement-row', { has: page.locator('.statement-line', { hasText: 'Portal Visitor' }) });
+  assert.equal(await row.locator('.statement-line').innerText(), 'Portal Visitor · Pakistani');
+  const below = await row.locator('.statement-line-sub').innerText();
+  assert.match(below, /^AX9999999 · Tourist · 30 days/);
+  assert.ok(below.includes(customers[0].name), 'the customer it was for');
   assertNoConsoleErrors();
 });
 

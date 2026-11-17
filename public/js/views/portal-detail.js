@@ -14,11 +14,11 @@ import {
   pageRecord,
   moreMenuHtml,
   numberCardHtml,
-  entryTimeHtml,
 } from '../ui.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
+import { bindPaxToggles, particulars, paxRowsHtml, paxToggleHtml } from '../statement-lines.js';
 
 function visaApplicantLine(row) {
   if (!row.visa_id) return '';
@@ -105,7 +105,7 @@ export async function render(container, { params, query } = {}) {
       created_at: topup.created_at || '',
       order: 0,
       ref: topup.number,
-      label: `Top-up ${topup.number}`,
+      label: 'Top-up',
       detail: `${topup.method || 'Top-up'}${topup.deposit_account_name ? ` · ${topup.deposit_account_name}` : ''}${topup.reference ? ` · ${topup.reference}` : ''}${topup.bank_charges_cents ? ` · bank charges ${fmtMoney(topup.bank_charges_cents)}` : ''}`,
       inCents: topup.amount_cents,
       outCents: 0,
@@ -149,7 +149,8 @@ export async function render(container, { params, query } = {}) {
       date: settlement.payment_date,
       created_at: settlement.created_at || '',
       order: 3,
-      ref: settlement.number,
+      ref: settlement.bill_number,
+      bill: settlement.bill,
       label: `${settlement.bill_number} · ${settlement.vendor_name}`,
       detail: settlement.booking_id
         ? `Booking cost settled from wallet`
@@ -218,21 +219,29 @@ export async function render(container, { params, query } = {}) {
     closingCents = openingCents + periodInCents - periodOutCents;
   }
 
+  // Bills read as on the supplier statement (passenger, ticket and PNR, or
+  // the visa applicant and passport, and the customer); top-ups, withdrawals
+  // and payments by what they were.
   const statementRows = periodRows.length
-    ? periodRows.map((row) => `
-        <tr>
-          <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
+    ? periodRows.map((row, index) => {
+      const lines = row.bill ? particulars({ kind: 'bill', ...row.bill }, 'vendor') : { top: [row.label], sub: [row.detail] };
+      const passengers = lines.passengers || [];
+      const sub = lines.sub.filter(Boolean).join(' · ');
+      return `
+        <tr class="statement-row">
+          <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
           <td class="ref">${esc(row.ref || '—')}</td>
-          <td>
-            <div>${esc(row.label)}</div>
-            <div class="cell-sub">${esc(row.detail)}</div>
-            ${row.visa_id ? `<div class="cell-sub">${esc(visaApplicantLine(row))}</div>` : ''}
+          <td class="statement-line-cell">
+            <div class="statement-line">${esc(lines.top.filter(Boolean).join(' · '))}${paxToggleHtml(passengers, index)}</div>
+            ${sub ? `<div class="statement-line-sub">${esc(sub)}</div>` : ''}
           </td>
           <td class="num">${row.inCents ? fmtMoney(row.inCents) : ''}</td>
           <td class="num">${row.outCents ? fmtMoney(row.outCents) : ''}</td>
           <td class="num balance-cell">${fmtMoney(row.balanceCents)}</td>
         </tr>
-      `).join('')
+        ${paxRowsHtml(passengers, index)}
+      `;
+    }).join('')
     : `<tr><td colspan="6" class="muted">${isCredit ? 'No bills or payments in this period.' : 'No wallet activity in this period.'}</td></tr>`;
 
   const walletHistory = ledger
@@ -595,6 +604,7 @@ export async function render(container, { params, query } = {}) {
   on('[data-action="edit"]', () => openPortalModal({ portal, onSaved: () => refresh() }));
 
   bindPortalActions({ portal, id, refresh, refreshIncluding });
+  bindPaxToggles(container);
 
   // Reconciliation links arrive as #/portals/:id?record=topup&date=…&amount=…
   // Open the matching modal with the imported values filled in, then strip the
