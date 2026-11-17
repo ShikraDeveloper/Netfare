@@ -2547,6 +2547,29 @@ test('invoices, bills and refunds filter by how they were paid', async () => {
     await openRoute('/refunds');
     await page.locator('#refund-paid-by option[value="cash"]').waitFor({ state: 'attached' });
   }
+
+  // Bookings and visas: paid by comes from each one's invoice.
+  const cashAccount = (await getJson(baseUrl, '/api/accounts')).find((account) => account.code === '1000');
+  for (const kind of ['booking', 'visa']) {
+    const owing = (await getJson(baseUrl, `/api/${kind}s`)).find((job) => job.invoice_id && job.payment_balance_cents >= 1_000);
+    assert.ok(owing, `the demo has a ${kind} with money still due`);
+    await postJson(baseUrl, `/api/invoices/${owing.invoice_id}/payments`, {
+      amount_cents: 1_000, payment_date: new Date().toLocaleDateString('en-CA'), method: 'Cash', deposit_account_id: cashAccount.id,
+    });
+    const jobs = await getJson(baseUrl, `/api/${kind}s`);
+    await openRoute(`/${kind}s`);
+    const select = page.locator(`#${kind}-paid-by`);
+    const shown = async () => Number((await page.locator(`#${kind}-count`).innerText()).match(/\d+/)[0]);
+    const cashJobs = jobs.filter((job) => job.payment_methods.includes('Cash'));
+    assert.ok(cashJobs.some((job) => job.id === owing.id), 'the cash payment shows on its job');
+    await select.selectOption('cash');
+    assert.equal(await shown(), cashJobs.length);
+    const jobTotals = await page.locator(`#${kind}-totals`).innerText();
+    assert.ok(jobTotals.includes('Paid · Cash'));
+    assert.ok(jobTotals.includes(money(cashJobs.reduce((sum, job) => sum + job.paid_by.Cash, 0))), `only the cash part of the ${kind}s`);
+    await select.selectOption('none');
+    assert.equal(await shown(), jobs.filter((job) => !job.payment_methods.length).length);
+  }
   assertNoConsoleErrors();
 });
 

@@ -166,7 +166,9 @@ function listBookings(db, { status, search, from, to } = {}) {
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${bookingSelect} ${where} ORDER BY b.booking_date DESC, b.id DESC`).all(...params);
-  const serialized = jobCosts.withActualResult(db, 'booking', rows.map(serializeBooking));
+  const { invoicePaidBy, paidFields } = require('./invoices');
+  const paid = invoicePaidBy(db);
+  const serialized = jobCosts.withActualResult(db, 'booking', rows.map((row) => ({ ...serializeBooking(row), ...paidFields(paid.get(row.invoice_id)) })));
   if (!status || status === 'all') return serialized;
   return serialized.filter((row) => row.status === status);
 }

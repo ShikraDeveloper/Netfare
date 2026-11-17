@@ -230,7 +230,9 @@ function listVisas(db, { status, search, from, to } = {}) {
   }
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${visaSelect} ${where} ORDER BY v.application_date DESC, v.id DESC`).all(...params);
-  const serialized = jobCosts.withActualResult(db, 'visa', rows.map(serializeVisa));
+  const { invoicePaidBy, paidFields } = require('./invoices');
+  const paid = invoicePaidBy(db);
+  const serialized = jobCosts.withActualResult(db, 'visa', rows.map((row) => ({ ...serializeVisa(row), ...paidFields(paid.get(row.invoice_id)) })));
   if (!status || status === 'all') return serialized;
   return serialized.filter((row) => row.status === status);
 }

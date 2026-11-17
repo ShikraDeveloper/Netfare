@@ -1,3 +1,4 @@
+import { paidByAmount, paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -12,6 +13,7 @@ import {
   fmtMoney,
   icon,
   inDateRange,
+  listTotalsHtml,
   openModal,
   optionsHtml,
   setHeader,
@@ -355,7 +357,6 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
 
 export async function render(container, { query } = {}) {
   const visas = await api.get('/visas');
-  const saleTotal = visas.reduce((sum, visa) => sum + saleOf(visa), 0);
 
   setHeader({
     title: 'Visas',
@@ -389,10 +390,10 @@ export async function render(container, { query } = {}) {
         <option value="all">All statuses</option>
         ${STATUS_OPTIONS.map((status) => `<option value="${status}">${status.charAt(0).toUpperCase()}${status.slice(1)}</option>`).join('')}
       </select>
+      ${paidByHtml('visa-paid-by', 'Filter visas by how they were paid')}
       ${dateRangeHtml({ label: 'Application date' })}
       <div class="spacer"></div>
       <span class="muted" id="visa-count" style="font-size:12px"></span>
-      <span class="muted" id="visa-sales" style="font-size:12px">Sales ${fmtMoney(saleTotal)}</span>
     </div>
     <div class="card">
       <div class="table-wrap">
@@ -413,6 +414,7 @@ export async function render(container, { query } = {}) {
           <tbody id="visa-body"></tbody>
         </table>
       </div>
+      <div id="visa-totals"></div>
       <div id="visa-pagination"></div>
     </div>
   `;
@@ -421,7 +423,7 @@ export async function render(container, { query } = {}) {
   const statusSelect = container.querySelector('#visa-status');
   const body = container.querySelector('#visa-body');
   const countEl = container.querySelector('#visa-count');
-  const salesEl = container.querySelector('#visa-sales');
+  const paidBySelect = container.querySelector('#visa-paid-by');
   const paginationEl = container.querySelector('#visa-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
   let page = 1;
@@ -457,6 +459,7 @@ export async function render(container, { query } = {}) {
     filtered = visas.filter((visa) => {
       if (!inDateRange(visa.application_date, from, to)) return false;
       if (status !== 'all' && visa.status !== status) return false;
+      if (!paidByMatches(visa.payment_methods, paidBySelect.value)) return false;
       if (!term) return true;
       return [
         visa.number,
@@ -472,15 +475,21 @@ export async function render(container, { query } = {}) {
         visa.status,
       ].some((value) => String(value || '').toLowerCase().includes(term));
     });
-    const filteredSales = filtered.reduce((sum, visa) => sum + saleOf(visa), 0);
-    const issued = filtered.filter((visa) => visa.status === 'issued').length;
     countEl.textContent = `${filtered.length} shown`;
-    if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;
+    // Like Invoices: with a payment method chosen, Paid is only the part paid that way.
+    const sum = (pick) => filtered.reduce((total, visa) => total + pick(visa), 0);
+    const method = paidBySelect.value;
+    container.querySelector('#visa-totals').innerHTML = listTotalsHtml([
+      { label: `${filtered.length} visa${filtered.length === 1 ? '' : 's'} · sales`, cents: sum(saleOf) },
+      { label: method === 'all' ? 'Paid' : `Paid · ${paidBySelect.selectedOptions[0].textContent}`, cents: sum((visa) => paidByAmount(visa.paid_by, method)) },
+      { label: 'Balance due', cents: sum((visa) => visa.payment_balance_cents), due: true },
+    ]);
     renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
+  paidBySelect.addEventListener('change', applyFilters);
   body.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/visas/${row.dataset.id}`;

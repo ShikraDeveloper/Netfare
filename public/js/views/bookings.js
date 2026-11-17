@@ -1,3 +1,4 @@
+import { paidByAmount, paidByHtml, paidByMatches } from '../payment-methods.js';
 import { partyLabel } from '../quick-add.js';
 import { api } from '../api.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -23,6 +24,7 @@ import {
   fmtMoney,
   icon,
   inDateRange,
+  listTotalsHtml,
   openModal,
   optionsHtml,
   setHeader,
@@ -337,7 +339,6 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
 
 export async function render(container, { query } = {}) {
   const bookings = await api.get('/bookings');
-  const saleTotal = bookings.reduce((sum, b) => sum + saleOf(b), 0);
 
   setHeader({
     title: 'Bookings',
@@ -374,10 +375,10 @@ export async function render(container, { query } = {}) {
         <option value="travelled">Travelled</option>
         <option value="cancelled">Cancelled</option>
       </select>
+      ${paidByHtml('booking-paid-by', 'Filter bookings by how they were paid')}
       ${dateRangeHtml({ label: 'Booking date' })}
       <div class="spacer"></div>
       <span class="muted" id="booking-count" style="font-size:12px"></span>
-      <span class="muted" id="booking-sales" style="font-size:12px">Sales ${fmtMoney(saleTotal)}</span>
     </div>
     <div class="card">
       <div class="table-wrap">
@@ -398,6 +399,7 @@ export async function render(container, { query } = {}) {
           <tbody id="booking-body"></tbody>
         </table>
       </div>
+      <div id="booking-totals"></div>
       <div id="booking-pagination"></div>
     </div>
   `;
@@ -406,7 +408,7 @@ export async function render(container, { query } = {}) {
   const statusSelect = container.querySelector('#booking-status');
   const body = container.querySelector('#booking-body');
   const countEl = container.querySelector('#booking-count');
-  const salesEl = container.querySelector('#booking-sales');
+  const paidBySelect = container.querySelector('#booking-paid-by');
   const paginationEl = container.querySelector('#booking-pagination');
   const dateRange = bindDateRange(container, () => applyFilters());
   let page = 1;
@@ -442,19 +444,26 @@ export async function render(container, { query } = {}) {
     filtered = bookings.filter((booking) => {
       if (!inDateRange(booking.booking_date, from, to)) return false;
       if (status !== 'all' && booking.status !== status) return false;
+      if (!paidByMatches(booking.payment_methods, paidBySelect.value)) return false;
       if (!term) return true;
       return [booking.number, booking.customer_name, booking.destination, booking.pnr, booking.status, booking.passenger_names]
         .some((value) => String(value || '').toLowerCase().includes(term));
     });
-    const filteredSales = filtered.reduce((sum, booking) => sum + saleOf(booking), 0);
-    const confirmed = filtered.filter((booking) => booking.status === 'confirmed').length;
     countEl.textContent = `${filtered.length} shown`;
-    if (salesEl) salesEl.textContent = `Sales ${fmtMoney(filteredSales)}`;
+    // Like Invoices: with a payment method chosen, Paid is only the part paid that way.
+    const sum = (pick) => filtered.reduce((total, booking) => total + pick(booking), 0);
+    const method = paidBySelect.value;
+    container.querySelector('#booking-totals').innerHTML = listTotalsHtml([
+      { label: `${filtered.length} booking${filtered.length === 1 ? '' : 's'} · sales`, cents: sum(saleOf) },
+      { label: method === 'all' ? 'Paid' : `Paid · ${paidBySelect.selectedOptions[0].textContent}`, cents: sum((booking) => paidByAmount(booking.paid_by, method)) },
+      { label: 'Balance due', cents: sum((booking) => booking.payment_balance_cents), due: true },
+    ]);
     renderPage();
   }
 
   searchInput.addEventListener('input', applyFilters);
   statusSelect.addEventListener('change', applyFilters);
+  paidBySelect.addEventListener('change', applyFilters);
   body.addEventListener('click', (event) => {
     const row = event.target.closest('tr[data-id]');
     if (row) location.hash = `#/bookings/${row.dataset.id}`;

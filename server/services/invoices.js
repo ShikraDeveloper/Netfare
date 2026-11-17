@@ -317,13 +317,7 @@ function listInvoices(db, { status, search, from, to } = {}) {
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
   const rows = db.prepare(`${invoiceSelect} ${where} ORDER BY i.issue_date DESC, i.id DESC`).all(...params);
   const today = todayISO();
-  const paid = paidByMethod(db, `
-    SELECT p.invoice_id AS id, p.method, SUM(p.amount_cents - COALESCE((
-             SELECT SUM(r.amount_cents) FROM refunds r WHERE r.payment_id = p.id AND r.status = 'paid'), 0)) AS cents
-    FROM payments p WHERE p.status = 'posted' GROUP BY p.invoice_id, p.method
-    UNION ALL
-    SELECT invoice_id, 'Credit note', SUM(amount_cents) FROM credit_applications GROUP BY invoice_id
-  `);
+  const paid = invoicePaidBy(db);
   const serialized = rows.map((row) => ({ ...serializeInvoice(row, today), ...paidFields(paid.get(row.id)) }));
   if (!status || status === 'all') return serialized;
   if (status === 'outstanding') {
@@ -343,6 +337,18 @@ function paidByMethod(db, sql) {
     byId.set(row.id, entry);
   }
   return byId;
+}
+
+// Each invoice's money by method, net of refunds, credit notes included. The
+// invoice, booking and visa lists use it (bookings and visas by invoice_id).
+function invoicePaidBy(db) {
+  return paidByMethod(db, `
+    SELECT p.invoice_id AS id, p.method, SUM(p.amount_cents - COALESCE((
+             SELECT SUM(r.amount_cents) FROM refunds r WHERE r.payment_id = p.id AND r.status = 'paid'), 0)) AS cents
+    FROM payments p WHERE p.status = 'posted' GROUP BY p.invoice_id, p.method
+    UNION ALL
+    SELECT invoice_id, 'Credit note', SUM(amount_cents) FROM credit_applications GROUP BY invoice_id
+  `);
 }
 
 const paidFields = (paidBy = {}) => ({ paid_by: paidBy, payment_methods: Object.keys(paidBy) });
@@ -856,6 +862,7 @@ function getPaymentReceipt(db, paymentId) {
 }
 
 module.exports = {
+  invoicePaidBy,
   paidByMethod,
   paidFields,
   getPaymentReceipt,
