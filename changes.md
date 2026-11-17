@@ -495,6 +495,19 @@ Verification:
 - **Old release deleted:** v1.0.19 (tag kept); five releases remain, 1.0.20 to 1.0.24.
 - **Next for the user:** update the office app, then SCN-2026-0002 → Apply to bill (BILL-2026-0046 150, 0043 450, 0044 370).
 
+### Statements of account to standard — code commit `9226340`
+
+- **Why:** The statement audit (grade C+: right numbers, missing money, below-standard layout) and the user's report that one Receive payment of 1,000 showed as many payment lines. The user saw mockups with real data (Mohsan Ashraf, HolidaySpace) and said "ok sab bana do".
+- **Customer statement (`server/services/statements.js`):**
+  - `groupReceipts`: the payments a receipt (RCP-…) made on several invoices become one line "Receipt RCP-… · method", credit = the part used on invoices; `allocations` (invoice, amount, PMT number) go under Details. The part left as advance stays in "Advances held for you". Payments made on an invoice directly are unchanged.
+  - Credit notes count when issued (`credit_note`, credit); an opening balance owed to the customer reads "Opening balance owed to you". Applying a credit note is no longer a line; a cash refund of a credit note is a debit line. A credit note made from a cancellation refund has no line (the money already shows as owed back). The "Unapplied credits" note went.
+  - The customer statements now add up to receivables less refunds owed back less credit notes (1100 − 2500 − 2450).
+- **Supplier statement:** wallet top-ups (`portal_topups` of the supplier's portals, opening wallet balances included) are "Deposit sent" (debit); withdrawals (`portal_refunds`) are "Deposit returned" (credit). Bill payments from the wallet (account 1400) are not lines; each bill's Details lists them ("Paid from deposit … BPMT-…"). Supplier credits count in full when issued (moving one into the wallet keeps it with the supplier). `deposit_held_cents` shows as "Held in your deposit with the supplier". The supplier statements add up to payables less supplier credits less wallets (2000 − 1450 − 1400).
+- **Both:** `ageing` (current, 1–30, 31–60, 61–90, over 90 days, and "Credits and other" so the row adds up to the closing balance) for a statement ending today or later (shortcut: balances are today's). Customer statements print the customer's TRN (when saved) and a **Pay by bank** block from Settings with the balance due.
+- **Tests:** new `test/statements.test.js` (receipt as one line with its allocations and the advance left; credit note issued, part applied, part refunded; cancellation kept as credit with no extra line; prepaid supplier deposits, withdrawal and a wallet-paid bill; all statements tie to 1100/2500/2450 and 2000/1450/1400; ageing adds up and is absent for an older end date). Three older tests updated to the new rule (cancellation-history, credit-refunds, visa-rejection). `npm test` 382, `npm run test:e2e` 51 passed.
+- **Checked on the user's books (read-only copy, deleted):** customers 8,010.00 = ledger, suppliers 0.00 = ledger. Mohsan Ashraf: RCP-2026-0001 (640) and RCP-2026-0014 (970) are one line each, closing 1,060.00, ageing 430 current and 630 at 1–30 days, as in the mockup. HolidaySpace: 41 bills, 5 deposits (15,030), 2 supplier credits (1,420), closing 0. On the demo: a receipt over two invoices is one line with both in Details; ageing, Pay by bank and the TRN show; Emirates Consolidator shows its 12,000 deposit and "Held in your deposit with the supplier: AED 2,250.00" (= the wallet).
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
