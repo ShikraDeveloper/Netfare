@@ -551,6 +551,13 @@ Verification:
 - **Checked:** `npm test` 383 and `npm run test:e2e` 51 passed on the new data. Reloaded the scratchpad demo (fresh temporary books): Corporate Travel Co reads "Daniel Brooks · American / •••• 0217 · Business · 365 days" and "James Carter +3 / PNR GROUP-118 · Ticket 176-1180223401, …"; Aisha Khan, Rahul Menon and Gulf Tech (Omar Haddad) show names, PNRs and tickets.
 - **Not pushed or released.**
 
+### Statements: passenger list for group bookings — code commit `8ad4ff8`
+
+- **Why:** The user asked for a details option on bookings with several people or tickets, saw the mockup and chose "Print mein hamesha" (on screen folded, in print always).
+- **What (`statement.js`, `styles.css`):** a booking with more than one passenger or ticket reads "James Carter +3" over "PNR GROUP-118 · London, United Kingdom" (supplier statement: "Ticket 176-1180223401 +3 · PNR …"); a small **4 passengers ▸** button opens one row per passenger with their ticket under the line. The rows are `hidden` on screen until opened and always shown in print. A single-passenger booking is unchanged (name, PNR and ticket on the line).
+- **Checked:** new browser test on the demo group booking (line "James Carter +3" without every ticket; 4 passenger rows folded, opened by the button, Mei Lin with 176-1180223404; shown under print media while folded). On the demo, Corporate Travel Co opened as in the mockup. `npm test` 383, `npm run test:e2e` 52 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
