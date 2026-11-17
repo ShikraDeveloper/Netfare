@@ -14,42 +14,7 @@ import {
   toast,
   toCents,
   todayISO,
-  entryTimeHtml,
 } from '../ui.js';
-
-const CUSTOMER_TITLES = {
-  invoice: 'Invoice raised',
-  payment: 'Payment received',
-  receipt: 'Payment received',
-  credit_note: 'Credit note',
-  refund: 'Refund issued',
-  cancellation: 'Booking or visa cancelled',
-  cancellation_charge: 'Cancellation charges',
-};
-
-const VENDOR_TITLES = {
-  bill: 'Supplier bill',
-  payment: 'Payment made',
-  supplier_credit: 'Supplier credit',
-  credit_refund: 'Refund received',
-  refund: 'Supplier refund received',
-  deposit: 'Deposit sent',
-  deposit_return: 'Deposit returned',
-};
-
-const KIND_TONES = {
-  invoice: 'blue',
-  payment: 'green',
-  receipt: 'green',
-  deposit: 'green',
-  credit_note: 'amber',
-  deposit_return: 'red',
-  refund: 'red',
-  bill: 'blue',
-  supplier_credit: 'amber',
-  cancellation: 'red',
-  cancellation_charge: 'blue',
-};
 
 // Advances and visa security deposits run as their own balances: money we
 // hold for the customer, separate from what they owe on invoices. Each shows
@@ -73,7 +38,7 @@ function heldSectionHtml(held, { title, attr, note }) {
           ${held.opening_held_cents ? `<tr><td></td><td></td><td>Held at start</td><td></td><td></td><td class="num">${fmtMoney(held.opening_held_cents)}</td></tr>` : ''}
           ${held.transactions.map((row) => `
             <tr>
-              <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
+              <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
               <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
               <td>${esc(row.description)}</td>
               <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '<span class="statement-zero">—</span>'}</td>
@@ -87,129 +52,88 @@ function heldSectionHtml(held, { title, attr, note }) {
     </details>`;
 }
 
-function transactionTitle(row, kind) {
-  return (kind === 'customer' ? CUSTOMER_TITLES : VENDOR_TITLES)[row.kind] || row.description;
+// A statement line is one row per document, like a standard statement of
+// account: the document number says what it is, the particulars what it was
+// for. Everything else sits in a details row under it.
+const shortRef = (number) => String(number || '').replace(/-\d{4}-/, '-');
+const titleCase = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : '');
+
+// "INV-0011, 0012": invoice numbers a receipt paid, without repeating the prefix.
+function documentList(numbers) {
+  return numbers.map((number, i) => (i ? shortRef(number).replace(/^[A-Z]+-/, '') : shortRef(number))).join(', ');
 }
 
-function transactionDetail(row, kind) {
-  const parts = [];
-  if (row.kind === 'invoice' || row.kind === 'bill') {
-    if (row.related) parts.push(`Cancelled · ${row.related}`);
-    else if (row.paid_from_deposit?.length) parts.push('Paid from deposit');
-    else if (row.due_date && kind === 'vendor') parts.push(`Due ${fmtDate(row.due_date)}`);
-  } else if (row.kind === 'cancellation') {
-    parts.push(`Invoice ${row.related} reversed`);
-  } else if (row.kind === 'receipt') {
-    parts.push(row.method, `${row.allocations.length} invoice${row.allocations.length === 1 ? '' : 's'}`);
-  } else if (row.kind === 'credit_note') {
-    if (row.status === 'opening') parts.push('Opening balance');
-  } else if (row.kind === 'deposit' || row.kind === 'deposit_return') {
-    parts.push(row.method, row.related);
-  } else {
-    if (row.method) parts.push(row.method);
-    if (row.related) parts.push(`Against ${row.related}`);
-  }
-  return parts.join(' · ');
-}
-
-// What the line is for, as on a travel agency's statement: the booking
-// (route, PNR, travel dates, passengers and tickets) or the visa (applicant,
-// type, passport), and on a supplier statement the customer it was for.
-// The customer statement has the passport masked; the supplier's has it in full.
-function jobLine(row, kind) {
-  const nb = (text) => esc(text).replace(/-/g, '&#8209;');
-  const booking = row.booking;
+function particulars(row, kind) {
+  const { booking, visa } = row;
+  const forCustomer = kind === 'vendor' && row.customer_name ? `for ${row.customer_name}` : '';
   if (booking) {
-    const passengers = booking.passengers || [];
-    const shown = passengers.slice(0, 3).map((p) => `${p.name}${p.ticket ? ` · Ticket ${p.ticket}` : ''}`);
-    if (passengers.length > 3) shown.push(`+${passengers.length - 3} more`);
-    const details = [
-      booking.travel_date ? `Travel ${fmtDate(booking.travel_date)}${booking.return_date ? ` – ${fmtDate(booking.return_date)}` : ''}` : '',
-      ...shown,
-      kind === 'vendor' && row.customer_name ? `for ${row.customer_name}` : '',
-    ];
-    return { title: [booking.number, booking.destination, booking.pnr ? `PNR ${booking.pnr}` : ''].filter(Boolean).join(' · '), details: details.filter(Boolean).map(nb) };
+    const first = booking.passengers?.[0];
+    const passengers = kind === 'vendor' && first ? `${first.name}${booking.passengers.length > 1 ? ` +${booking.passengers.length - 1}` : ''}` : '';
+    return [shortRef(booking.number), booking.destination, booking.pnr ? `PNR ${booking.pnr}` : '',
+      kind === 'customer' && booking.travel_date ? fmtDate(booking.travel_date, { short: true }) : '', passengers, forCustomer];
   }
-  const visa = row.visa;
   if (visa && visa.applicant_name) {
-    const details = [
-      visa.visa_type ? `${titleCase(visa.visa_type)} visa` : '',
-      visa.destination_country,
-      Number(visa.duration_days) > 0 ? `${visa.duration_days} days` : '',
-      visa.nationality,
-      kind === 'vendor' ? (visa.passport ? `Passport ${visa.passport}` : '') : (visa.passport_masked ? `Passport ${visa.passport_masked}` : ''),
-      kind === 'vendor' && row.customer_name ? `for ${row.customer_name}` : '',
-    ];
-    return { title: `${visa.number} · ${visa.applicant_name}`, details: details.filter(Boolean).map(nb) };
+    return [shortRef(visa.number), visa.applicant_name,
+      kind === 'customer' ? [titleCase(visa.visa_type), visa.destination_country].filter(Boolean).join(' ') : '', forCustomer];
   }
-  if (row.kind === 'bill' && row.first_item) {
-    return { title: `${row.first_item}${row.item_count > 1 ? ` +${row.item_count - 1} more` : ''}`, details: [] };
+  switch (row.kind) {
+    case 'invoice': {
+      const items = row.items || [];
+      return [items.length ? `${items[0].description}${items.length > 1 ? ` +${items.length - 1}` : ''}` : 'Invoice', row.related ? `cancelled by ${row.related}` : ''];
+    }
+    case 'bill': return [row.first_item ? `${row.first_item}${row.item_count > 1 ? ` +${row.item_count - 1}` : ''}` : 'Bill'];
+    case 'receipt': return [row.method, documentList(row.allocations.map((share) => share.invoice))];
+    case 'payment': return [kind === 'vendor' ? 'Paid' : '', row.method, row.related];
+    case 'credit_note': return [row.status === 'opening' ? 'Opening balance owed to you' : 'Credit note'];
+    case 'cancellation': return ['Cancelled', `invoice ${row.related} reversed`];
+    case 'cancellation_charge': return ['Cancellation charges'];
+    case 'refund': return [kind === 'vendor' ? 'Supplier refund' : 'Refund', row.method, row.related];
+    case 'deposit': return ['Deposit', row.method];
+    case 'deposit_return': return ['Deposit returned', row.method];
+    case 'supplier_credit': return ['Supplier credit', row.related];
+    case 'credit_refund': return ['Refund received', row.method];
+    default: return [row.description];
   }
-  return null;
 }
 
-// A bill's reference at the supplier: the one typed on the bill, else the
-// booking's ticket numbers.
+// The details row: full visa or booking details, items, and where money went.
+// Customer statements carry the passport masked; supplier statements in full.
+function detailLines(row, kind) {
+  const lines = [];
+  const { booking, visa } = row;
+  if (visa && visa.applicant_name) {
+    const passport = kind === 'vendor' ? visa.passport : visa.passport_masked;
+    lines.push([visa.visa_type ? `${titleCase(visa.visa_type)} visa` : '', visa.destination_country,
+      Number(visa.duration_days) > 0 ? `${visa.duration_days} days` : '', visa.nationality, passport ? `Passport ${passport}` : ''].filter(Boolean).join(' · '));
+  }
+  if (booking) {
+    if (booking.travel_date) lines.push(`Travel ${fmtDate(booking.travel_date)}${booking.return_date ? ` – ${fmtDate(booking.return_date)}` : ''}`);
+    for (const p of booking.passengers || []) lines.push([p.name, p.ticket ? `Ticket ${p.ticket}` : '', fmtMoney(p.amount_cents)].filter(Boolean).join(' · '));
+  }
+  if (!booking) {
+    for (const item of row.items || []) {
+      const quantity = Number(item.quantity) || 1;
+      lines.push(`${item.description} — ${quantity === 1 ? '' : `${quantity} × `}${fmtMoney(quantity === 1 ? item.amount_cents : item.unit_price_cents)}`);
+    }
+    for (const line of row.lines || []) lines.push(`${line.description} — ${fmtMoney(line.amount_cents)}`);
+  }
+  for (const share of row.allocations || []) lines.push(`${share.invoice} · ${fmtMoney(share.amount_cents)} · ${share.payment}`);
+  for (const share of row.paid_from_deposit || []) lines.push(`Paid from deposit ${fmtDate(share.date, { short: true })} · ${fmtMoney(share.amount_cents)} · ${share.payment}`);
+  if (row.used_on?.length) lines.push(`Used on ${row.used_on.map((use) => `${use.document} ${fmtMoney(use.amount_cents)}`).join(' · ')}`);
+  if (row.moved_to_wallet_cents) lines.push(`Moved into the wallet ${fmtMoney(row.moved_to_wallet_cents)}`);
+  if (row.kind === 'deposit') lines.push(`Into ${row.related} wallet${row.from_account ? ` from ${row.from_account}` : ''}`);
+  if (row.beneficiary?.name && !visa) {
+    lines.push(`Service for ${[row.beneficiary.name, row.beneficiary.nationality, row.beneficiary.passport_masked ? `Passport ${row.beneficiary.passport_masked}` : ''].filter(Boolean).join(' · ')}`);
+  }
+  return lines;
+}
+
+// A bill's reference at the supplier: typed on the bill, else the booking's
+// tickets; with the visa passport in full beside it.
 function supplierRef(row) {
   if (row.kind !== 'bill') return '';
-  if (row.supplier_ref) return row.supplier_ref;
-  return (row.booking?.passengers || []).map((p) => p.ticket).filter(Boolean).join(', ');
-}
-
-function itemLabel(item) {
-  const quantity = Number(item.quantity) || 1;
-  return quantity === 1 ? item.description : `${quantity} × ${item.description}`;
-}
-
-// One short line under the title: the first item, then due date or method.
-function transactionSubHtml(row, kind) {
-  const items = Array.isArray(row.items) ? row.items : [];
-  const parts = [];
-  if (items.length) {
-    const more = items.length > 1 ? ` +${items.length - 1} more` : '';
-    parts.push(`<span class="statement-item-line">${esc(itemLabel(items[0]))}</span>${more}`);
-  }
-  const detail = transactionDetail(row, kind);
-  if (detail) parts.push(esc(detail).replace(/-/g, '&#8209;'));
-  return parts.length ? `<div class="statement-row-sub">${parts.join(' · ')}</div>` : '';
-}
-
-// Everything else about the row (all items, visa, traveller) stays folded
-// until the row's Details button or the Show details switch opens it.
-function transactionExtraHtml(row) {
-  const items = Array.isArray(row.items) ? row.items : [];
-  const itemList = items.length > 1
-    ? `<ul class="statement-extra-items">${items.map((item) => `<li>${esc(itemLabel(item))}</li>`).join('')}</ul>`
-    : '';
-  // What one receipt paid, and the wallet payments behind a bill.
-  const paid = (row.allocations || []).map((share) => `<li>${esc(share.invoice)} · ${fmtMoney(share.amount_cents)} <span class="statement-ref">${esc(share.payment)}</span></li>`)
-    .concat((row.paid_from_deposit || []).map((share) => `<li>Paid from deposit ${esc(fmtDate(share.date))} · ${fmtMoney(share.amount_cents)} <span class="statement-ref">${esc(share.payment)}</span></li>`));
-  const paidList = paid.length ? `<ul class="statement-extra-items">${paid.join('')}</ul>` : '';
-  const html = `${paidList}${itemList}${beneficiaryDetailsHtml(row)}`;
-  return html.trim() ? `<div class="statement-extra">${html}</div>` : '';
-}
-
-function titleCase(value) {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
-}
-
-// An invoice the customer paid for another person (traveller, guest, family).
-function beneficiaryDetailsHtml(row) {
-  const person = row.beneficiary;
-  if (!person || !person.name || row.visa) return '';
-  const meta = [
-    person.nationality,
-    person.passport_masked ? `Passport ${person.passport_masked}` : '',
-  ].filter(Boolean);
-  return `
-    <div class="statement-visa" data-statement-beneficiary>
-      <div class="statement-visa-head">
-        <span class="statement-visa-label">Service for</span>
-        <span class="statement-visa-name">${esc(person.name)}</span>
-      </div>
-      ${meta.length ? `<div class="statement-visa-meta">${esc(meta.join(' · '))}</div>` : ''}
-    </div>
-  `;
+  const ref = row.supplier_ref || (row.booking?.passengers || []).map((p) => p.ticket).filter(Boolean).join(', ');
+  return [ref, row.visa?.passport].filter(Boolean).join(' · ');
 }
 
 // How late the open invoices or bills are, as on a standard statement of account.
@@ -277,7 +201,7 @@ export async function render(container, { params = [], query = new URLSearchPara
   // Money a supplier holds for us (open supplier credits), to take back.
   const held = kind === 'vendor' ? Number(data.unapplied_supplier_credits_cents || 0) : 0;
   const showDetails = readShowDetails();
-  const hasExtras = data.transactions.some((row) => transactionExtraHtml(row));
+  const hasExtras = data.transactions.some((row) => detailLines(row, kind).length);
 
   setHeader({
     title: `${data.party.name} statement`,
@@ -352,7 +276,7 @@ export async function render(container, { params = [], query = new URLSearchPara
               <th scope="col">Date</th>
               <th scope="col">Reference</th>
               <th scope="col">Particulars</th>
-              <th scope="col">${kind === 'vendor' ? 'Supplier ref' : 'Due'}</th>
+              <th scope="col">${kind === 'vendor' ? 'Ref · Passport' : 'Due'}</th>
               <th scope="col" class="num">Debit</th>
               <th scope="col" class="num">Credit</th>
               <th scope="col" class="num">Balance</th>
@@ -369,33 +293,20 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
             ${data.transactions.length ? data.transactions.map((row, index) => {
-              const extra = transactionExtraHtml(row);
-              const job = jobLine(row, kind);
-              const detail = transactionDetail(row, kind);
-              const sub = job
-                ? `<div class="statement-row-sub">${[...job.details, kind === 'vendor' && detail ? esc(detail) : ''].filter(Boolean).join(' · ')}</div>`
-                : transactionSubHtml(row, kind);
-              const side = kind === 'vendor' ? esc(supplierRef(row) || '') : (row.kind === 'invoice' && row.due_date ? esc(fmtDate(row.due_date)) : '');
+              const line = particulars(row, kind).filter(Boolean).join(' · ');
+              const details = detailLines(row, kind);
+              const side = kind === 'vendor' ? supplierRef(row) : (row.kind === 'invoice' && row.due_date ? fmtDate(row.due_date, { short: true }) : '');
               return `
-                <tr>
-                  <td class="nowrap">${esc(fmtDate(row.date))}${entryTimeHtml(row.date, row.created_at)}</td>
+                <tr class="statement-row">
+                  <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
-                  <td>
-                    <div class="statement-desc">
-                      <span class="statement-desc-dot ${KIND_TONES[row.kind] || 'slate'}" aria-hidden="true"></span>
-                      <div class="statement-desc-content">
-                        <div class="statement-desc-title">${esc(job ? job.title : transactionTitle(row, kind))}</div>
-                        ${sub}
-                        ${extra ? `<button type="button" class="statement-row-toggle no-print" data-statement-row-toggle aria-expanded="false" aria-controls="statement-extra-${index}">Details</button>
-                          <div id="statement-extra-${index}" class="statement-extra-wrap">${extra}</div>` : ''}
-                      </div>
-                    </div>
-                  </td>
-                  <td class="statement-side">${side}</td>
-                  <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : '<span class="statement-zero">—</span>'}</td>
-                  <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : '<span class="statement-zero">—</span>'}</td>
+                  <td class="statement-line-cell"><span class="statement-line" title="${esc(line)}">${esc(line)}</span>${details.length ? `<button type="button" class="statement-row-toggle no-print" data-statement-row-toggle aria-expanded="false" aria-controls="statement-extra-${index}" aria-label="Details of ${esc(row.reference)}"></button>` : ''}</td>
+                  <td class="statement-side${kind === 'customer' ? ' nowrap' : ''}">${esc(side)}</td>
+                  <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : ''}</td>
+                  <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : ''}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
+                ${details.length ? `<tr class="statement-detail-row" id="statement-extra-${index}"><td></td><td colspan="6"><div class="statement-detail">${details.map((text) => `<div>${esc(text)}</div>`).join('')}</div></td></tr>` : ''}
               `;
             }).join('') : `
               <tr><td colspan="7" class="statement-empty">No transactions in this period.</td></tr>

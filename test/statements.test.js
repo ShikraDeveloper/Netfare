@@ -141,7 +141,7 @@ test('each line says what it was for: booking route, PNR, passengers and tickets
   const sold = statements.customerStatement(db, traveller, { from: '2026-01-01' }).transactions;
   const ticketLine = sold.find((row) => row.id === booking.invoice_id && row.kind === 'invoice');
   assert.deepEqual([ticketLine.booking.number, ticketLine.booking.pnr, ticketLine.booking.travel_date], [booking.number, 'CJYUEN', '2026-04-10']);
-  assert.deepEqual(ticketLine.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734' }]);
+  assert.deepEqual(ticketLine.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734', amount_cents: 272_000 }]);
   const visaLine = sold.find((row) => row.id === visa.invoice_id && row.kind === 'invoice');
   assert.equal(visaLine.visa.applicant_name, 'Samina Akram');
   assert.ok(visaLine.visa.passport_masked.endsWith('2151'));
@@ -149,7 +149,7 @@ test('each line says what it was for: booking route, PNR, passengers and tickets
 
   const bought = statements.vendorStatement(db, airline, { from: '2026-01-01' }).transactions.filter((row) => row.kind === 'bill');
   const ticketBill = bought.find((row) => row.booking);
-  assert.deepEqual(ticketBill.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734' }]);
+  assert.deepEqual(ticketBill.booking.passengers, [{ name: 'Mr REPON', ticket: '1763936143734', amount_cents: 255_700 }], 'the cost on the supplier side');
   assert.equal(ticketBill.customer_name, 'Line Customer');
   const visaBill = bought.find((row) => row.visa);
   assert.equal(visaBill.visa.passport, 'HV1232151', 'the supplier statement has the full passport');

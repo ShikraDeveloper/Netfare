@@ -31,7 +31,7 @@ function bookingDetails(db, bookingId, vendorId = null) {
   const booking = db.prepare('SELECT number, destination, pnr, travel_date, return_date FROM bookings WHERE id = ?').get(bookingId);
   if (!booking) return null;
   const lines = db.prepare(`
-    SELECT item_type, passenger_name, supplier_ref, vendor_id FROM booking_items
+    SELECT item_type, passenger_name, supplier_ref, vendor_id, amount_cents FROM booking_items
     WHERE booking_id = ? AND passenger_name <> '' ORDER BY sort_order, id
   `).all(bookingId);
   const tickets = new Map();
@@ -41,9 +41,11 @@ function bookingDetails(db, bookingId, vendorId = null) {
     if (!ref) continue;
     tickets.set(line.passenger_name, [...(tickets.get(line.passenger_name) || []), ref]);
   }
-  const names = lines.filter((line) => (vendorId ? line.item_type === 'cost' && line.vendor_id === vendorId : line.item_type === 'sale'))
-    .map((line) => line.passenger_name);
-  return { ...booking, passengers: [...new Set(names)].map((name) => ({ name, ticket: (tickets.get(name) || []).join(', ') })) };
+  // Sale lines on the customer's statement, this supplier's cost lines on theirs.
+  const own = lines.filter((line) => (vendorId ? line.item_type === 'cost' && line.vendor_id === vendorId : line.item_type === 'sale'));
+  const amounts = new Map();
+  for (const line of own) amounts.set(line.passenger_name, (amounts.get(line.passenger_name) || 0) + line.amount_cents);
+  return { ...booking, passengers: [...amounts.keys()].map((name) => ({ name, ticket: (tickets.get(name) || []).join(', '), amount_cents: amounts.get(name) })) };
 }
 
 // Receive payment shares one receipt over several invoices, one payment on
@@ -228,6 +230,14 @@ function customerTransactions(db, customerId) {
     });
   }
 
+  // Where each credit note went: the invoices it was used on.
+  const creditUse = new Map();
+  for (const use of db.prepare(`
+    SELECT ca.credit_note_id, i.number AS invoice, ca.amount_cents FROM credit_applications ca
+    JOIN credit_notes cn ON cn.id = ca.credit_note_id JOIN invoices i ON i.id = ca.invoice_id
+    WHERE cn.customer_id = ? ORDER BY ca.applied_date, ca.id
+  `).all(customerId)) creditUse.set(use.credit_note_id, [...(creditUse.get(use.credit_note_id) || []), { document: use.invoice, amount_cents: use.amount_cents }]);
+
   const bookingByInvoice = new Map(db.prepare(`
     SELECT i.id, i.booking_id FROM invoices i WHERE i.customer_id = ? AND ${ON_STATEMENT} AND i.booking_id IS NOT NULL
   `).all(customerId).map((row) => [row.id, bookingDetails(db, row.booking_id)]));
@@ -240,7 +250,7 @@ function customerTransactions(db, customerId) {
         booking: bookingByInvoice.get(row.id) || null,
         beneficiary: beneficiaryByInvoice.get(row.id) || null,
       }
-    : row);
+    : row.kind === 'credit_note' ? { ...row, used_on: creditUse.get(row.id) || [] } : row);
 }
 
 // Statement lines run by date, then by when each was entered (created_at is
@@ -270,6 +280,24 @@ function vendorTransactions(db, vendorId) {
     if (!paidFromDeposit.has(row.bill_id)) paidFromDeposit.set(row.bill_id, []);
     paidFromDeposit.get(row.bill_id).push({ payment: row.number, date: row.payment_date, amount_cents: row.amount_cents });
   }
+  const creditUse = new Map();
+  for (const use of db.prepare(`
+    SELECT sca.credit_note_id, b.number AS bill, sca.amount_cents FROM supplier_credit_applications sca
+    JOIN supplier_credit_notes scn ON scn.id = sca.credit_note_id JOIN bills b ON b.id = sca.bill_id
+    WHERE scn.vendor_id = ? ORDER BY sca.applied_date, sca.id
+  `).all(vendorId)) creditUse.set(use.credit_note_id, [...(creditUse.get(use.credit_note_id) || []), { document: use.bill, amount_cents: use.amount_cents }]);
+  const movedToWallet = new Map(db.prepare(`
+    SELECT id, portal_settled_cents FROM supplier_credit_notes WHERE vendor_id = ? AND portal_settled_cents > 0
+  `).all(vendorId).map((row) => [row.id, row.portal_settled_cents]));
+  const depositFrom = new Map(db.prepare(`
+    SELECT t.id, a.name AS account FROM portal_topups t JOIN supplier_portals p ON p.id = t.portal_id
+    LEFT JOIN accounts a ON a.id = t.deposit_account_id WHERE p.vendor_id = ?
+  `).all(vendorId).map((row) => [row.id, row.account || '']));
+  const billLines = new Map();
+  for (const line of db.prepare(`
+    SELECT bi.bill_id, bi.description, bi.amount_cents FROM bill_items bi JOIN bills b ON b.id = bi.bill_id
+    WHERE b.vendor_id = ? AND b.status = 'received' ORDER BY bi.bill_id, bi.sort_order, bi.id
+  `).all(vendorId)) billLines.set(line.bill_id, [...(billLines.get(line.bill_id) || []), { description: line.description, amount_cents: line.amount_cents }]);
   // What each bill was for: its booking or visa (with the customer and, for
   // our own records, the full passport), its first line and the supplier's reference.
   const billInfo = new Map(db.prepare(`
@@ -351,11 +379,12 @@ function vendorTransactions(db, vendorId) {
         debit_cents: 0,
         credit_cents: row.amount_cents,
         paid_from_deposit: paidFromDeposit.get(row.id) || [],
+        lines: billLines.get(row.id) || [],
         ...billInfo.get(row.id),
       };
     }
     if (row.kind === 'deposit') {
-      return { ...row, description: `Deposit ${row.reference} · ${row.method}`, debit_cents: row.amount_cents, credit_cents: 0 };
+      return { ...row, description: `Deposit ${row.reference} · ${row.method}`, debit_cents: row.amount_cents, credit_cents: 0, from_account: depositFrom.get(row.id) || '' };
     }
     if (row.kind === 'deposit_return') {
       return { ...row, description: `Deposit returned · ${row.method}`, debit_cents: 0, credit_cents: row.amount_cents };
@@ -371,6 +400,8 @@ function vendorTransactions(db, vendorId) {
     if (row.kind === 'supplier_credit') {
       return {
         ...row,
+        used_on: creditUse.get(row.id) || [],
+        moved_to_wallet_cents: movedToWallet.get(row.id) || 0,
         description: `Supplier credit ${row.reference}${row.related ? ` · ${row.related}` : ''}`,
         debit_cents: row.amount_cents,
         credit_cents: 0,
