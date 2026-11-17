@@ -466,6 +466,15 @@ Verification:
 - **Checked:** the browser test records a 10.00 cash payment on a booking's and a visa's invoice, then checks the count and "Paid · Cash" total against the API, and "Not paid yet". On the demo (fresh sample books, after the scratchpad was cleared): bookings Paid 12,200 equals the API; BK-2026-0002 shows under "Advance or credit" with 2,000 advance and 1,175 bank; visas Bank transfer 4 of 6. `npm test` 374, `npm run test:e2e` 50 passed.
 - **Not pushed or released.**
 
+### Supplier credit: Apply to bill shows overdue bills — code commit `53726aa`
+
+- **Why:** The user recorded an old security deposit (paid before the books started) as SCN-2026-0002, HolidaySpace, 970.00, and wanted it on HolidaySpace's bills. Apply to bill said "This supplier has no open bills to apply the credit to", though HolidaySpace had 11 unpaid bills (read-only copy of the user's books, deleted after).
+- **Cause:** `supplier-credit-detail.js` fetched `/bills?status=received`, which means "not yet due and nothing paid". All 11 bills were past their due date (overdue) and one was part paid. The server accepts overdue bills; only the screen left them out. The customer credit, advance and visa deposit screens already ask for `outstanding`.
+- **Fix:** `status: 'outstanding'` (every bill with money still to pay, not draft, void or paid).
+- **Checked:** a new browser test makes a bill dated 20 days ago (overdue), a 300.00 supplier credit, and applies it through the screen: the bill balance drops to 150.00. It fails without the fix. `npm test` 374, `npm run test:e2e` 51 passed.
+- **The user's books:** the user also posted a journal entry (1 Nov, ref SCN-2026-0002): Dr 1200 Prepayments 970 / Cr 3900 Opening Balance Equity 970, so the credit note's Cr 1200 no longer leaves Prepayments at −970. Checked on a read-only copy: 1200 = 0, 1450 = 970 waiting to be applied. Applying it needs this fix in the desktop app (a release).
+- **Not pushed or released** (the user said "Sirf fix").
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
