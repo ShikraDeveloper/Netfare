@@ -195,6 +195,12 @@ function postJobDocuments(db, {
 }
 
 // Status history: when a job moved between statuses, and why.
+/**
+ * @param {any} db
+ * @param {string} sourceType
+ * @param {number|string} jobId
+ * @param {{ from?: string|null, to: string, eventDate?: string, remarks?: string }} [change]
+ */
 function recordStatus(db, sourceType, jobId, { from = null, to, eventDate = todayISO(), remarks = '' } = {}) {
   jobConfig(sourceType);
   db.prepare(`

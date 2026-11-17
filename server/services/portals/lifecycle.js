@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const { bad, notFound, str, optionalStr, cents } = require('../../util');
@@ -11,6 +12,10 @@ const {
   serializePortal,
 } = require('./common');
 
+/**
+ * @param {any} db
+ * @param {Record<string, string>} [filters] Query-string filters from the list screen.
+ */
 function listPortals(db, { search, settlement, type, status } = {}) {
   const agg = aggregates(db);
   const outstanding = outstandingByVendor(db);

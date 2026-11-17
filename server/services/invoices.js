@@ -205,6 +205,30 @@ function invoiceRow(db, id) {
   return db.prepare('SELECT * FROM invoices WHERE id = ?').get(id);
 }
 
+/**
+ * The full invoice getInvoice returns: the row (the full passport only on a
+ * draft) plus what is worked out or joined. Lists inside stay loosely typed.
+ * @typedef {Omit<InvoiceRow, 'beneficiary_passport'> & {
+ *   beneficiary_passport?: string,
+ *   beneficiary_passport_masked: string,
+ *   status_display: string,
+ *   balance_cents: number,
+ *   allowed_actions: string[],
+ *   document_kind: string,
+ *   source_cancellation_id: number|null,
+ *   source_cancellation_number: string|null,
+ *   items: Record<string, any>[],
+ *   payments: Record<string, any>[],
+ *   credits: Record<string, any>[],
+ *   journal_entry?: Record<string, any>|null,
+ * }} Invoice
+ */
+
+/**
+ * @param {any} db
+ * @param {number|string} id
+ * @returns {Invoice}
+ */
 function getInvoice(db, id) {
   const invoice = db.prepare(`${invoiceSelect} WHERE i.id = ?`).get(id);
   if (!invoice) throw notFound('Invoice not found');

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -63,6 +64,10 @@ function getAdvance(db, id) {
   return serializeAdvance(advance);
 }
 
+/**
+ * @param {any} db
+ * @param {Record<string, string>} [filters] Query-string filters from the list screen.
+ */
 function listAdvances(db, { customer_id, booking_id, visa_id, status } = {}) {
   const clauses = [];
   const params = [];

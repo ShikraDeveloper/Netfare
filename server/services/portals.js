@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const { lockBalance } = require('./portals/common');

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const { bad, notFound, notFuture, optionalStr, cents, dateISO, todayISO } = require('../../util');

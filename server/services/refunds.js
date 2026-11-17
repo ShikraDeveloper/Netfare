@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -87,6 +88,10 @@ function serializeRefund(row) {
   };
 }
 
+/**
+ * @param {any} db
+ * @param {Record<string, string>} [filters] Query-string filters from the list screen.
+ */
 function listRefunds(db, { type, status, search, from, to } = {}) {
   if (type && !['all', 'customer', 'supplier'].includes(type)) {
     throw bad('Refund type must be customer or supplier');

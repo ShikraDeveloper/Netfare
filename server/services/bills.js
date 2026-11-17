@@ -83,6 +83,26 @@ function billRow(db, id) {
   return db.prepare('SELECT * FROM bills WHERE id = ?').get(id);
 }
 
+/**
+ * The full bill getBill returns: the row plus what is worked out or joined.
+ * Lists inside stay loosely typed.
+ * @typedef {BillRow & {
+ *   status_display: string,
+ *   balance_cents: number,
+ *   allowed_actions: string[],
+ *   items: Record<string, any>[],
+ *   payments: Record<string, any>[],
+ *   supplier_credits: Record<string, any>[],
+ *   credit_applications: Record<string, any>[],
+ *   journal_entry?: Record<string, any>|null,
+ * }} Bill
+ */
+
+/**
+ * @param {any} db
+ * @param {number|string} id
+ * @returns {Bill}
+ */
 function getBill(db, id) {
   const bill = db.prepare(`${billSelect} WHERE b.id = ?`).get(id);
   if (!bill) throw notFound('Bill not found');

@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -105,6 +106,10 @@ function getCancellationForSource(db, sourceType, sourceId) {
   return row ? getCancellation(db, row.id) : null;
 }
 
+/**
+ * @param {any} db
+ * @param {Record<string, string>} [filters] Query-string filters from the list screen.
+ */
 function listCancellations(db, { from, to, search, source_type } = {}) {
   const clauses = [];
   const params = [];
@@ -189,6 +194,10 @@ function normalizeSupplierCredits(db, sourceType, sourceId, values) {
   return result;
 }
 
+/**
+ * @param {any} db
+ * @param {{ sourceType?: string, sourceId?: number|string, payload?: Record<string, any> }} [job]
+ */
 function cancelSource(db, { sourceType, sourceId, payload = {} } = {}) {
   if (!['booking', 'visa'].includes(sourceType)) throw bad('Cancellation source must be a booking or visa application');
   return db.transaction(() => {
