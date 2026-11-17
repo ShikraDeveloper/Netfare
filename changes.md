@@ -598,6 +598,14 @@ Verification:
 - **Checked:** `test/phone.test.js` adds the Dhaka landline and the UAE 800 number (saved) and the new messages ("7 to 9", "6 to 12"); the staff sign-in browser test checks the company phone box is locked. `npm test` 386, `npm run test:e2e` 54 passed.
 - **Not pushed or released.**
 
+### Release 1.0.25 — `1e61116`, tag `v1.0.25`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** statements of account to standard (one line per Receive payment receipt, credit notes when issued, supplier deposits, ageing, Pay by bank, customer TRN; tied to the ledger by a test); two-line statement lines (applicant, nationality, passport, visa type and days, or passenger with PNR and ticket; group bookings list their passengers, always printed), also on portal statements; Supplier ref on bills; phone numbers with a country list and one saved form (existing numbers tidied once; UAE 7 to 9 digits, others 6 to 12); floating searchable lists; demo data with passengers, tickets and real-looking visas; the phone audit fixes.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 386 and `npm run test:e2e` 54. GitHub run 44187270873: Build (mac), Build (win), Publish release succeeded; the smoke test passed on both. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.25 with the notes); releases/latest is v1.0.25.
+- **Old release deleted:** v1.0.20 (tag kept); five releases remain, 1.0.21 to 1.0.25.
+- **On update in the office:** the 27 customer and supplier phone numbers and the company phone are tidied to "+971 50 806 7050" on the first start (checked on a copy: all 28, digits kept).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
