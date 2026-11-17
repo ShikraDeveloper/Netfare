@@ -445,6 +445,17 @@ Verification:
 - **Checked:** on the demo at 375×812: New booking 60px, the quick-add form (modal-sm) 16px. `npm run check`, `npm run test:e2e` 50 passed.
 - **Not pushed or released.**
 
+### Type checking: refunds, cancellations, advances, portals; full invoice and bill — code commit `46cccec`
+
+- **Why:** The user picked "Type checking aage" from the pending list: more money files, and types for the full invoice and bill.
+- **What:**
+  - `// @ts-check` on `refunds.js`, `cancellations.js`, `advances.js`, `portals.js` and the four files in `portals/`. `npm run check` now checks 11 files.
+  - 33 reports, all option names with no default value that TypeScript cannot see (list filters, `cancelSource`'s payload, `jobs.recordStatus`'s `to`). JSDoc on `listAdvances`, `listCancellations`, `listPortals`, `listRefunds`, `cancelSource` and `jobs.recordStatus` removes them. No real bug found.
+  - `getInvoice` returns `Invoice` and `getBill` returns `Bill`: the row plus `balance_cents`, `status_display`, `allowed_actions` and the lists (items, payments, credits…). The lists inside stay loosely typed.
+- **Checked:** a probe reading `getInvoice(…).balance_cent` and `getBill(…).amount_paid_cent` (the bill through `require('./bills')`) failed with "Did you mean 'balance_cents'?" and "Did you mean 'amount_paid_cents'?"; removed. `npm test` 374, `npm run test:e2e` 50 passed.
+- **Not yet:** items and payments inside a document are loosely typed; bookings, visas, jobs, credits, supplier credits and the routes are not checked.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
