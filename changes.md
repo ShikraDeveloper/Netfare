@@ -568,6 +568,18 @@ Verification:
 - **Checked:** on the demo, Emirates Consolidator's wallet statement and Dubai Visa Services (credit account) read as above; no console errors. The portal statement browser test now checks "Portal Visitor · Pakistani" over "AX9999999 · Tourist · 30 days" and the customer. `npm test` 383, `npm run test:e2e` 52 passed.
 - **Not pushed or released.**
 
+### Phone numbers: country list with flags, one saved form — code commit `51f43c4`
+
+- **Why:** The user asked for a country list with flags and codes where a phone is typed, and one format however it is typed, fixed on save; saw the mockup and said "Haan, purane bhi" (convert the existing numbers too). On a read-only copy (deleted) the books had 27 numbers in four shapes ("+971 50 806 7050", "+971508067050", "0508067050", and two with invisible marks) and the company phone as "052 331 9696".
+- **What:**
+  - `public/js/countries.json`: 198 countries: ISO code, name, dial code, digits allowed after the code. Shared by the field and the server.
+  - `server/phone.js`: `normalizePhone` saves "+<code> <digits grouped from the end>" ("+971 50 806 7050", "+92 300 123 4567", "+1 242 357 1234"); + or 00 gives the country, otherwise the field's country (UAE by default); a typed code without + is understood when the number is too long to be local; a leading 0 and invisible marks are dropped; letters or a wrong length are refused ("a United Arab Emirates number has 8 to 9 digits after +971"). Used on customer and supplier create/edit (also quick add) and the company phone.
+  - `server/migrations.js`: on start, customers', suppliers' and the company phone are tidied; a number that cannot be read is left as it was.
+  - `public/js/phone-field.js`: `input[data-phone]` (customer/supplier form, quick add, Settings company phone) gets a country list (flag and +code, the name to search by; UAE, Pakistan, India, Bangladesh, Saudi Arabia, the Gulf and a few more first, then A–Z; it becomes the searchable picker) and a number box; the original input stays hidden in the form with "+code number". A number typed or pasted with + or 00 switches the country. Opening a saved number shows its country and grouped digits.
+- **Checked:** `test/phone.test.js` (the mockup's examples, refusals, tidying on start with an unreadable number kept); browser tests (choose Pakistan by search and type 0300 1234567 → "+92 300 123 4567"; edit shows +92 and "300 123 4567"; pasting +880 switches to Bangladesh; quick add saves "+971 50 000 0000"). On the read-only copy: all 28 numbers end in the new form with their digits kept. On the demo: the edit form shows the flag list and the number. `npm test` 386, `npm run test:e2e` 53 passed.
+- **Note:** Windows shows the two letters (AE, PK) where a Mac shows the flag; the codes and names are the same.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
