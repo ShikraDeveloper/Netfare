@@ -252,6 +252,9 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
           </select>
         </div>
         <div class="field full">
+          <label class="checkbox-row"><input type="checkbox" name="auto_apply" id="sc-auto-apply" checked> Use it on this supplier's open bills now</label>
+        </div>
+        <div class="field full">
           <label for="sc-notes">Notes</label>
           <textarea class="input" id="sc-notes" name="notes" rows="2" maxlength="2000" placeholder="Reason, supplier reference or credit memo number"></textarea>
         </div>
@@ -333,6 +336,7 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
         notes: values.get('notes'),
         booking_id: values.get('booking_id') ? Number(values.get('booking_id')) : null,
         visa_id: values.get('visa_id') ? Number(values.get('visa_id')) : null,
+        auto_apply: values.get('auto_apply') === 'on',
       };
       if (billId) {
         payload.bill_id = billId;
@@ -350,7 +354,11 @@ async function openNewCredit({ vendors, onSaved, preset = {} }) {
         }];
       }
       const credit = await api.post('/supplier-credits', payload);
-      toast(`Supplier credit ${credit.number} recorded · ${fmtMoney(credit.remaining_cents)} open`);
+      // Where the money went: open bills, the prepaid wallet, or still open as credit.
+      const parts = [
+        [credit.applied_cents, 'on bills'], [credit.portal_settled_cents, 'to the wallet'], [credit.remaining_cents, 'open'],
+      ].filter(([cents]) => cents > 0).map(([cents, where]) => `${fmtMoney(cents)} ${where}`);
+      toast(`Supplier credit ${credit.number} recorded · ${parts.join(' · ')}`);
       if (onSaved) onSaved(credit);
     },
   });

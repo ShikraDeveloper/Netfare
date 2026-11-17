@@ -337,8 +337,41 @@ function insertSupplierCredit(db, payload, { applyToBill = false } = {}) {
 function createSupplierCredit(db, payload = {}) {
   return db.transaction(() => {
     const id = insertSupplierCredit(db, payload, { applyToBill: false });
+    if (payload.auto_apply === true) useOnOpenBills(db, id);
     return getSupplierCredit(db, id);
   })();
+}
+
+// "Use it on open bills now": the new credit pays the supplier's open bills,
+// the chosen bill first, then the oldest; what is left goes into the
+// supplier's prepaid wallet, if it has one, or stays open as credit.
+function useOnOpenBills(db, creditId) {
+  const note = db.prepare('SELECT * FROM supplier_credit_notes WHERE id = ?').get(creditId);
+  if (note.credit_date > todayISO()) return; // applications cannot be dated ahead
+  const bills = db.prepare(`
+    SELECT * FROM bills
+    WHERE vendor_id = ? AND status = 'received' AND total_cents > amount_paid_cents + credit_applied_cents
+    ORDER BY id = ? DESC, bill_date, id
+  `).all(note.vendor_id, note.bill_id || 0);
+  let left = remainingCents(note);
+  for (const bill of bills) {
+    if (left <= 0) break;
+    const amount = Math.min(left, billBalanceCents(bill));
+    applySupplierCreditRow(db, creditId, bill.id, amount, bill.bill_date > note.credit_date ? bill.bill_date : note.credit_date);
+    left -= amount;
+  }
+  const wallet = left > 0 && db.prepare(`
+    SELECT id FROM supplier_portals WHERE vendor_id = ? AND settlement = 'prepaid' AND is_active = 1 ORDER BY id LIMIT 1
+  `).get(note.vendor_id);
+  if (wallet) {
+    portalService.recordPortalCredit(db, {
+      portal_id: wallet.id,
+      supplier_credit_note_id: creditId,
+      credit_date: note.credit_date,
+      amount_cents: left,
+      notes: `Supplier credit ${note.number} moved to portal wallet`,
+    });
+  }
 }
 
 // Called inside a cancellation transaction after the cancellation row exists.
