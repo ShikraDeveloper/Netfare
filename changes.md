@@ -588,6 +588,16 @@ Verification:
 - **Checked:** on the demo the visa row keeps its height (152px before and after) and the full supplier list shows. New browser test (row height unchanged, list taller than 100px) fails without the fix and passes with it. `npm run test:e2e` 54 passed.
 - **Not pushed or released.**
 
+### Phone audit fixes — code commit `bfd1284`
+
+- **Why:** The audit found (1) real numbers refused, e.g. a Dhaka landline "+880 2 9661234" and a UAE toll-free "+971 800 4277", which blocks saving the customer or supplier; (2) the phone controls on Settings unlocked for staff without Edit rights; (3) the grouping rule written in both `server/phone.js` and `phone-field.js`. The user said "do fix and nice to have also".
+- **What:**
+  1. `server/phone.js`: lengths now live here: the UAE 7 to 9 digits (800 numbers, landlines, mobiles), every other country 6 to 12. `countries.json` keeps ISO code, name and dial code only.
+  2. `phone-field.js`: the country list and number box take the hidden input's locked state.
+  3. `phone-field.js`: `group` and `shownCode` went; opening a saved number shows the text after its code as saved ("50 806 7050"); the server alone groups. The +1 area-code countries list as "+1242".
+- **Checked:** `test/phone.test.js` adds the Dhaka landline and the UAE 800 number (saved) and the new messages ("7 to 9", "6 to 12"); the staff sign-in browser test checks the company phone box is locked. `npm test` 386, `npm run test:e2e` 54 passed.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
