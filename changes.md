@@ -544,6 +544,13 @@ Verification:
 - **Checked:** on the demo, Corporate Travel Co shows "Group — 3 delegates · Mixed / •••• S-03 · Business · 365 days", "Multiple — group booking / PNR GROUP-118" and the receipt "Bank transfer / INV-0005, 0011"; no console errors. Tests updated (unit: passengers are name and ticket; browser: the visa applicant and nationality on top, masked passport below, no switch; the cancelled sale's lines). `npm test` 383, `npm run test:e2e` 51 passed.
 - **Not pushed or released.**
 
+### Demo data: passengers, tickets and a real visa applicant — code commit `1178651`
+
+- **Why:** The user said the demo customer statements "bilkul b sai nai hy". The numbers were right; the sample data was old: no booking had a passenger or ticket (lines showed the city instead of a name) and the US group visa had applicant "Group — 3 delegates", nationality "Mixed", passport "GROUP-US-03". The user said "Haan, demo naya karo".
+- **What (`server/services/demo.js`):** sale and cost lines take an optional passenger (and ticket on the cost line); a passenger's lines share a line group. Passengers: Rahul Menon (ticket 176-2381045571), Aisha Khan (141-7712093318), Omar Haddad (176-3345120987), Fatima Al Zaabi, and on the safari, visa booking and Singapore hotel. The group booking is four passengers (James Carter, Linda Moore, Arjun Rao, Mei Lin) at the same 150 / 130 each with tickets 176-1180223401…04, destination London, United Kingdom. The US visa applicant is Daniel Brooks, American, passport 584930217. All amounts and counts are unchanged (5 customers, 5 suppliers, 8 bookings, 6 visas, 3 portals).
+- **Checked:** `npm test` 383 and `npm run test:e2e` 51 passed on the new data. Reloaded the scratchpad demo (fresh temporary books): Corporate Travel Co reads "Daniel Brooks · American / •••• 0217 · Business · 365 days" and "James Carter +3 / PNR GROUP-118 · Ticket 176-1180223401, …"; Aisha Khan, Rahul Menon and Gulf Tech (Omar Haddad) show names, PNRs and tickets.
+- **Not pushed or released.**
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
