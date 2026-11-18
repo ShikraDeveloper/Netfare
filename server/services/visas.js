@@ -241,7 +241,7 @@ function normalizeDates(db, payload, existing = {}) {
   const pick = (key) => (payload[key] !== undefined ? payload[key] : existing[key]);
   const applicationDate = dateISO(pick('application_date'), 'Application date');
   const dueRaw = pick('due_date');
-  const dueDate = dueRaw ? dateISO(dueRaw, 'Payment due date') : jobs.defaultDueDate(db, applicationDate);
+  const dueDate = dueRaw ? dateISO(dueRaw, 'Payment due date') : jobs.defaultDueDate(db, applicationDate, pick('customer_id'));
   if (dueDate < applicationDate) throw bad('Due date cannot be before the application date');
   const travelRaw = pick('travel_date');
   const passportRaw = pick('passport_expiry');

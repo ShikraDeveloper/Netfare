@@ -1,12 +1,11 @@
 import { partyLabel } from '../quick-add.js';
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
-import { bindCustomerHint } from '../customer-hint.js';
+import { bindCustomerHint, bindDueDate, dueDateFor } from '../customer-hint.js';
 import { bindMethodAccount } from '../payment-methods.js';
 import { depositAccounts } from './job-modals.js';
 import { activeCustomers, activeVendors, purchaseAccounts, revenueAccounts, store } from '../store.js';
 import {
-  addDaysISO,
   centsToInput,
   currencySymbol,
   esc,
@@ -86,7 +85,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
     return null;
   }
   const applicationDate = todayISO();
-  const dueDate = addDaysISO(applicationDate, Number(store.settings?.payment_terms_days ?? 0));
+  const dueDate = dueDateFor(applicationDate);
 
   const body = `
     <div class="form-grid">
@@ -222,6 +221,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
       overlayRef = overlay;
       const customerSelect = overlay.querySelector('#vg-customer');
       bindCustomerHint(customerSelect);
+      bindDueDate(customerSelect, overlay.querySelector('#vg-date'), overlay.querySelector('#vg-due'));
       const wrap = overlay.querySelector('[data-va-rows]');
       let firstNameAuto = true;
 

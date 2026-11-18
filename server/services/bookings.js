@@ -177,7 +177,7 @@ function createBooking(db, payload) {
   return db.transaction(() => {
     const customer = assertCustomer(db, payload.customer_id);
     const bookingDate = dateISO(payload.booking_date, 'Booking date');
-    const dueDate = payload.due_date ? dateISO(payload.due_date, 'Due date') : jobs.defaultDueDate(db, bookingDate);
+    const dueDate = payload.due_date ? dateISO(payload.due_date, 'Due date') : jobs.defaultDueDate(db, bookingDate, customer.id);
     if (dueDate < bookingDate) throw bad('Due date cannot be before the booking date');
     const { travelDate, returnDate } = tripDates(payload);
     const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');
@@ -220,7 +220,7 @@ function writeBooking(db, existing, payload) {
   const bookingDate = dateISO(payload.booking_date ?? existing.booking_date, 'Booking date');
   const dueDate = payload.due_date
     ? dateISO(payload.due_date, 'Due date')
-    : (existing.due_date && existing.due_date >= bookingDate ? existing.due_date : jobs.defaultDueDate(db, bookingDate));
+    : (existing.due_date && existing.due_date >= bookingDate ? existing.due_date : jobs.defaultDueDate(db, bookingDate, customer.id));
   if (dueDate < bookingDate) throw bad('Due date cannot be before the booking date');
   const { travelDate, returnDate } = tripDates(payload);
   const saleItems = jobs.normalizeJobItems(db, payload.sale_items || [], 'sale');

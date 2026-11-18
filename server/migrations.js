@@ -546,4 +546,15 @@ require('./party-numbers').numberMissing(db);
   }
 }
 
+// A customer is a person or a company. A company has a contact person; any
+// customer may have their own payment days (empty: the usual terms in
+// Settings). Customers saved with a TRN before this are companies.
+if (!hasColumn('customers', 'kind')) {
+  ensureColumn('customers', 'kind', "TEXT NOT NULL DEFAULT 'person'");
+  db.exec("UPDATE customers SET kind = 'company' WHERE trn <> ''");
+}
+ensureColumn('customers', 'contact_name', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('customers', 'contact_phone', "TEXT NOT NULL DEFAULT ''");
+ensureColumn('customers', 'payment_days', 'INTEGER');
+
 };

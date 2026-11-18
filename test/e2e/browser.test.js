@@ -2779,7 +2779,7 @@ test('phone: a country list with flags beside the number, saved in one form', as
   await clickPageAction('[data-action="new-party"]');
   const form = page.locator('[role="dialog"]');
   await form.locator('#party-name').fill(`Phone Customer ${Date.now()}`);
-  const field = form.locator('.phone-field');
+  const field = form.locator('#party-phone + .phone-field');
   await field.waitFor();
   assert.match(await field.locator('.picker-value').innerText(), /\+971/, 'UAE by default');
   // Choose Pakistan by name, then type the number the local way.
@@ -2795,14 +2795,44 @@ test('phone: a country list with flags beside the number, saved in one form', as
   // Opened again, the country and the number come back; a pasted +880 number picks Bangladesh.
   await page.locator(`[data-edit="${saved.id}"]`).click();
   const edit = page.locator('[role="dialog"]');
-  await edit.locator('.phone-field').waitFor();
-  assert.match(await edit.locator('.phone-field .picker-value').innerText(), /\+92/);
+  await edit.locator('#party-phone + .phone-field').waitFor();
+  assert.match(await edit.locator('#party-phone + .phone-field .picker-value').innerText(), /\+92/);
   assert.equal(await edit.locator('#party-phone-number').inputValue(), '300 123 4567');
   await edit.locator('#party-phone-number').fill('+880 1712-345678');
-  assert.match(await edit.locator('.phone-field .picker-value').innerText(), /\+880/, 'the pasted code picks its country');
+  assert.match(await edit.locator('#party-phone + .phone-field .picker-value').innerText(), /\+880/, 'the pasted code picks its country');
   await edit.locator('[data-submit]').click();
   await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
   assert.equal((await getJson(baseUrl, '/api/customers')).find((row) => row.id === saved.id).phone, '+880 171 234 5678');
+  assertNoConsoleErrors();
+});
+
+test('a company customer: TRN and contact instead of nationality, its own payment days set the invoice due date', async () => {
+  await openRoute('/customers');
+  await clickPageAction('[data-action="new-party"]');
+  const form = page.locator('[role="dialog"]');
+  assert.equal(await form.locator('#party-nationality').isVisible(), true, 'a person by default');
+  assert.equal(await form.locator('#party-trn').isVisible(), false);
+  await form.locator('[data-seg="customer-kind"] [data-seg-value="company"]').click();
+  assert.equal(await form.locator('#party-nationality').isVisible(), false);
+  assert.equal(await form.locator('label[for="party-name"]').innerText(), 'Company name');
+  const name = `Company Customer ${Date.now()}`;
+  await form.locator('#party-name').fill(name);
+  await form.locator('#party-trn').fill('100245678900003');
+  await form.locator('#party-contact').fill('Imran Qureshi');
+  await form.locator('#party-days').selectOption('15');
+  await form.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  const saved = (await getJson(baseUrl, '/api/customers')).find((row) => row.name === name);
+  assert.deepEqual([saved.kind, saved.trn, saved.contact_name, saved.payment_days], ['company', '100245678900003', 'Imran Qureshi', 15]);
+
+  await openRoute('/invoices?new=1');
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.waitFor();
+  await dialog.locator('#invoice-issue').fill('2026-11-18');
+  await dialog.locator('#invoice-issue').dispatchEvent('change');
+  await dialog.locator('#invoice-customer').selectOption(String(saved.id));
+  assert.equal(await dialog.locator('#invoice-due').inputValue(), '2026-12-03', '15 days after the invoice date');
+  await page.keyboard.press('Escape');
   assertNoConsoleErrors();
 });
 

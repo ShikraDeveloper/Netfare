@@ -92,9 +92,11 @@ function insertJobItems(db, sourceType, jobId, saleItems, costItems) {
   });
 }
 
-// The due date defaults to the company payment terms, like a direct invoice.
-function defaultDueDate(db, issueDate) {
-  const days = Number(getSettings(db)?.payment_terms_days ?? 0);
+// The due date defaults to the customer's own payment days, else the usual
+// terms in Settings, like a direct invoice.
+function defaultDueDate(db, issueDate, customerId) {
+  const own = customerId ? db.prepare('SELECT payment_days FROM customers WHERE id = ?').get(customerId)?.payment_days : null;
+  const days = Number(own ?? getSettings(db)?.payment_terms_days ?? 0);
   return addDays(issueDate, Number.isFinite(days) && days > 0 ? days : 0);
 }
 

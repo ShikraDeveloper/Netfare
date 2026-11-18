@@ -617,6 +617,16 @@ Verification:
 - **Print preview:** Checked in the desktop app (Electron, current code, a copy of the real books on a spare port): Print on the HolidaySpace statement opened the preview window in 0.4 s with all six columns and the bills under each top-up. No change was needed in the preview itself; what looked broken was the cut-off table.
 - **Checked:** `npm run check`; `npm test` 387 (new: a bill over two top-ups is a part of each, oldest money first); `npm run test:e2e` 55 (new: top-up line, its bills open, the table fits its box). Screen at 1280 and 1000 px wide and the print PDF checked on a read-only copy of the real books (deleted after).
 
+### Customers: Individual or Company, a contact person, their own payment days
+
+- **Why:** The user asked how to record company customers ("customers me companies b hoti hy … need improvement"), saw the mockup and said "Haan, bana do".
+- **Form:** The customer form starts with Individual / Company. A person has Nationality. A company has TRN, Contact person and Contact phone instead, and the name field reads "Company name". Only the chosen kind's fields are saved: a person keeps no TRN or contact, a company keeps no nationality. TRN stays optional (not every company is VAT registered).
+- **Pays within:** Every customer has "Pays within": Usual terms (Settings), Due now, 7, 15, 30, 45, 60 or 90 days. A new invoice, booking, visa or group visa gets its due date from the customer's days, and changes it when the customer or the date changes, until the due date is typed by hand. Editing an existing document never moves its due date. The server does the same for a booking or visa saved without a due date (`jobs.defaultDueDate(db, date, customerId)`).
+- **Shown:** The invoice's Bill to and the customer statement print "Attn: contact person" under the TRN. The customer list shows "Company" and the days under the name; the line under a customer picker shows the days when set.
+- **Data:** New columns `customers.kind` ('person' or 'company'), `contact_name`, `contact_phone`, `payment_days` (empty: the usual terms). On first start, customers saved with a TRN become companies; on the real books (read-only copy) none has a TRN, so all 24 stay Individual and AL AQSA BUSINESSMEN SERVICES and other companies are switched by hand. Staff without the Customers right also get `payment_days` in the picker list, for the due date.
+- **Demo:** Gulf Tech FZE and Corporate Travel Co are companies on 30 days with a contact person.
+- **Checked:** `npm run check`; `npm test` 389 (new `test/customer-kind.test.js`: TRN customers become companies once; due date from the customer's days, due now, else Settings); `npm run test:e2e` 56 (new: the company form and a 15-day customer's invoice due date; the phone test now names the main phone box, as the form has two).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

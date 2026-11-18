@@ -78,6 +78,10 @@ function loadDemo(db) {
       customers[row[0]] = Number(info.lastInsertRowid);
       assignPartyNumber(db, 'customers', info.lastInsertRowid);
     }
+    // Two of them are companies on 30 days' credit, with a contact person.
+    const company = db.prepare("UPDATE customers SET kind = 'company', contact_name = ?, payment_days = 30 WHERE id = ?");
+    company.run('Sameer Nair', customers['Gulf Tech FZE']);
+    company.run('Linda Moore', customers['Corporate Travel Co']);
 
     const insertVendor = db.prepare('INSERT INTO vendors (name, email, phone, address) VALUES (?, ?, ?, ?)');
     const vendors = {};

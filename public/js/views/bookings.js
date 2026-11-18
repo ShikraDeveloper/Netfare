@@ -9,10 +9,9 @@ import {
   revenueAccounts,
   store,
 } from '../store.js';
-import { bindCustomerHint } from '../customer-hint.js';
+import { bindCustomerHint, bindDueDate, dueDateFor } from '../customer-hint.js';
 import { mountPassengerEditor, passengerSectionHtml, rowsFromItems } from './booking-passengers.js';
 import {
-  addDaysISO,
   avatar,
   bindDateRange,
   centsToInput,
@@ -225,8 +224,8 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
   }
 
   const issueDate = booking?.booking_date || todayISO();
-  // New bookings default to the company payment terms, like invoices.
-  const dueDate = booking?.due_date || addDaysISO(issueDate, Number(store.settings?.payment_terms_days ?? 0));
+  // New bookings default to the customer's payment days, like invoices.
+  const dueDate = booking?.due_date || dueDateFor(issueDate, booking?.customer_id);
   const travelDate = booking?.travel_date || '';
   const returnDate = booking?.return_date || '';
   const rows = rowsFromItems(booking?.sale_items || [], booking?.cost_items || []);
@@ -330,6 +329,7 @@ export function openBookingModal({ booking = null, correct = false, onSaved = ()
     },
     onMount(overlay) {
       bindCustomerHint(overlay.querySelector('#bk-customer'));
+      if (!isEdit) bindDueDate(overlay.querySelector('#bk-customer'), overlay.querySelector('#bk-date'), overlay.querySelector('#bk-due'));
       overlay._bookingEditor = mountPassengerEditor(overlay);
     },
   });

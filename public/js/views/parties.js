@@ -2,7 +2,7 @@ import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { canEnterOpening, openingChanged, openingFieldsHtml, readOpening } from '../opening-balance.js';
-import { refreshMeta } from '../store.js';
+import { refreshMeta, store } from '../store.js';
 import {
   avatar,
   confirmDialog,
@@ -13,6 +13,7 @@ import {
   openModal,
   setHeader,
   recordMetaHtml,
+  segmentedHtml,
   toast,
 } from '../ui.js';
 
@@ -56,7 +57,7 @@ function partyRow(party, config) {
           ${avatar(party.name, 34)}
           <div class="party-info">
             <div class="cell-main">${esc(party.name)} ${party.is_active ? '' : '<span class="chip chip-archived">Archived</span>'}</div>
-            <div class="cell-sub">${esc([party.number, party.email || 'No email'].filter(Boolean).join(' · '))}</div>
+            <div class="cell-sub">${esc([party.number, party.kind === 'company' ? 'Company' : '', party.payment_days != null ? (Number(party.payment_days) ? `${party.payment_days} days` : 'Due now') : '', party.email || 'No email'].filter(Boolean).join(' · '))}</div>
           </div>
         </div>
       </td>
@@ -76,6 +77,42 @@ function partyRow(party, config) {
   `;
 }
 
+const PAY_DAYS = [0, 7, 15, 30, 45, 60, 90];
+
+// A customer is a person or a company: a company has a TRN and a contact
+// person instead of a nationality. Either may pay within their own days.
+function customerFieldsHtml(party) {
+  const kind = party?.kind || 'person';
+  const own = party?.payment_days ?? null;
+  const usual = Number(store.settings?.payment_terms_days ?? 0);
+  const days = [...new Set([...PAY_DAYS, ...(own != null ? [Number(own)] : [])])].sort((a, b) => a - b);
+  const only = (which) => `data-kind-only="${which}"${kind === which ? '' : ' hidden'}`;
+  return `
+    <div class="field" ${only('person')}>
+      <label for="party-nationality">Nationality</label>
+      <input class="input" id="party-nationality" name="nationality" maxlength="80" autocomplete="off" value="${esc(party?.nationality || '')}" placeholder="Start typing, e.g. Indian" ${nationalityList()}>
+    </div>
+    <div class="field" ${only('company')}>
+      <label for="party-trn">TRN</label>
+      <input class="input" id="party-trn" name="trn" maxlength="30" autocomplete="off" value="${esc(party?.trn || '')}" placeholder="100123456700003">
+    </div>
+    <div class="field">
+      <label for="party-days">Pays within</label>
+      <select class="input" id="party-days" name="payment_days">
+        <option value="">Usual terms (${usual ? `${usual} days` : 'due now'})</option>
+        ${days.map((d) => `<option value="${d}" ${own != null && Number(own) === d ? 'selected' : ''}>${d ? `${d} days` : 'Due now'}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" ${only('company')}>
+      <label for="party-contact">Contact person</label>
+      <input class="input" id="party-contact" name="contact_name" maxlength="160" autocomplete="off" value="${esc(party?.contact_name || '')}" placeholder="Who you deal with">
+    </div>
+    <div class="field" ${only('company')}>
+      <label for="party-contact-phone">Contact phone</label>
+      <input class="input" id="party-contact-phone" name="contact_phone" data-phone value="${esc(party?.contact_phone || '')}">
+    </div>`;
+}
+
 async function partyModal({ party = null, config, onSaved }) {
   const isEdit = Boolean(party);
   const opening = isEdit && canEnterOpening() ? await api.get(`${config.base}/${party.id}/opening`) : null;
@@ -83,8 +120,12 @@ async function partyModal({ party = null, config, onSaved }) {
     title: isEdit ? `Edit ${party.name}` : config.addLabel,
     body: `
       <div class="form-grid">
+        ${config.singular === 'customer' ? `<div class="field full">${segmentedHtml('customer-kind', [
+    { value: 'person', label: 'Individual' },
+    { value: 'company', label: 'Company' },
+  ], party?.kind || 'person')}</div>` : ''}
         <div class="field full">
-          <label for="party-name">Name</label>
+          <label for="party-name">${config.singular === 'customer' && party?.kind === 'company' ? 'Company name' : 'Name'}</label>
           <input class="input" id="party-name" name="name" value="${esc(party?.name || '')}" placeholder="${config.singular === 'customer' ? 'Acme Studios' : 'Office Depot'}" required>
         </div>
         <div class="field">
@@ -95,16 +136,7 @@ async function partyModal({ party = null, config, onSaved }) {
           <label for="party-phone">Phone</label>
           <input class="input" id="party-phone" name="phone" data-phone value="${esc(party?.phone || '')}">
         </div>
-        ${config.singular === 'customer' ? `
-        <div class="field">
-          <label for="party-nationality">Nationality</label>
-          <input class="input" id="party-nationality" name="nationality" maxlength="80" autocomplete="off" value="${esc(party?.nationality || '')}" placeholder="Start typing, e.g. Indian" ${nationalityList()}>
-        </div>` : ''}
-        ${config.singular === 'customer' ? `
-        <div class="field">
-          <label for="party-trn">TRN (companies)</label>
-          <input class="input" id="party-trn" name="trn" maxlength="30" autocomplete="off" value="${esc(party?.trn || '')}" placeholder="100123456700003">
-        </div>` : ''}
+        ${config.singular === 'customer' ? customerFieldsHtml(party) : ''}
         <div class="field full">
           <label for="party-address">Address</label>
           <textarea class="input" id="party-address" name="address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(party?.address || '')}</textarea>
@@ -118,6 +150,17 @@ async function partyModal({ party = null, config, onSaved }) {
       ${isEdit ? recordMetaHtml(party) : ''}
     `,
     submitLabel: isEdit ? 'Save changes' : `Add ${config.singular}`,
+    onMount(overlay) {
+      // Individual / Company shows that kind's fields.
+      overlay.querySelectorAll('[data-seg="customer-kind"] [data-seg-value]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const kind = button.dataset.segValue;
+          overlay.querySelectorAll('[data-seg="customer-kind"] [data-seg-value]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+          overlay.querySelectorAll('[data-kind-only]').forEach((field) => { field.hidden = field.dataset.kindOnly !== kind; });
+          overlay.querySelector('label[for="party-name"]').textContent = kind === 'company' ? 'Company name' : 'Name';
+        });
+      });
+    },
     async onSubmit(form) {
       const values = new FormData(form);
       const payload = {
@@ -128,8 +171,17 @@ async function partyModal({ party = null, config, onSaved }) {
         notes: values.get('notes'),
       };
       if (config.singular === 'customer') {
-        payload.nationality = values.get('nationality');
-        payload.trn = values.get('trn');
+        // Only the chosen kind's fields are kept: a person has no TRN or contact.
+        const kind = form.querySelector('[data-seg="customer-kind"] [aria-pressed="true"]')?.dataset.segValue || 'person';
+        const company = kind === 'company';
+        Object.assign(payload, {
+          kind,
+          nationality: company ? '' : values.get('nationality'),
+          trn: company ? values.get('trn') : '',
+          contact_name: company ? values.get('contact_name') : '',
+          contact_phone: company ? values.get('contact_phone') : '',
+          payment_days: values.get('payment_days'),
+        });
       }
       if (!isEdit) payload.opening = readOpening(form);
       if (!String(payload.name || '').trim()) throw new Error('Name is required');

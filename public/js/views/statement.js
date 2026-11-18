@@ -151,6 +151,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           <strong>${esc(data.party.name)}</strong>
           ${data.party.number ? `<p class="statement-contact">${partyLabel} no. ${esc(data.party.number)}</p>` : ''}
           ${data.party.trn ? `<p class="statement-contact">TRN ${esc(data.party.trn)}</p>` : ''}
+          ${data.party.contact_name ? `<p class="statement-contact">Attn: ${esc(data.party.contact_name)}</p>` : ''}
           ${data.party.address ? `<p class="statement-address">${esc(data.party.address)}</p>` : ''}
           ${data.party.email || data.party.phone ? `<p class="statement-contact">${esc([data.party.phone, data.party.email].filter(Boolean).join(' · '))}</p>` : ''}
         </div>

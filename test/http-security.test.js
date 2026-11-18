@@ -721,7 +721,7 @@ test('customers keep a nationality and their own documents, behind the customers
 
   const pickerOnly = await jsonRequest('/api/customers', { headers: { Cookie: outsider.cookie } });
   const row = pickerOnly.data.find((customer) => customer.id === id);
-  assert.deepEqual(Object.keys(row).sort(), ['id', 'is_active', 'name', 'nationality'], 'staff without Customers rights get picker fields only');
+  assert.deepEqual(Object.keys(row).sort(), ['id', 'is_active', 'name', 'nationality', 'payment_days'], 'staff without Customers rights get picker fields only (payment days set the due date)');
   const full = (await jsonRequest('/api/customers', { headers: { Cookie: desk.cookie } })).data.find((customer) => customer.id === id);
   assert.ok('email' in full && 'outstanding_cents' in full, 'Customers View still sees the full list');
 

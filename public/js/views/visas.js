@@ -4,7 +4,6 @@ import { nationalityList } from '../nationalities.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import { activeCustomers, store } from '../store.js';
 import {
-  addDaysISO,
   bindDateRange,
   dateRangeHtml,
   emptyState,
@@ -23,7 +22,7 @@ import {
   toast,
   fmtEntryTime,
 } from '../ui.js';
-import { bindCustomerHint } from '../customer-hint.js';
+import { bindCustomerHint, bindDueDate, dueDateFor } from '../customer-hint.js';
 import { costRow, mountBookingLines, saleRow, summaryBarHtml } from './bookings.js';
 import { openVisaGroupModal } from './visa-group-form.js';
 
@@ -118,8 +117,8 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
   }
 
   const applicationDate = visa?.application_date || todayISO();
-  // New applications default to the company payment terms, like invoices.
-  const dueDate = visa?.due_date || addDaysISO(applicationDate, Number(store.settings?.payment_terms_days ?? 0));
+  // New applications default to the customer's payment days, like invoices.
+  const dueDate = visa?.due_date || dueDateFor(applicationDate, visa?.customer_id);
   const saleItems = visa?.sale_items?.length ? visa.sale_items : [{}];
   const costItems = visa?.cost_items?.length ? visa.cost_items : [{}];
   const defaults = defaultAccounts();
@@ -309,6 +308,7 @@ export function openVisaModal({ visa = null, correct = false, onSaved = () => {}
       overlay._visaEditor = mountBookingLines(overlay, defaults);
       const customerSelect = overlay.querySelector('#visa-customer');
       bindCustomerHint(customerSelect);
+      if (!isEdit) bindDueDate(customerSelect, overlay.querySelector('#visa-date'), overlay.querySelector('#visa-due'));
       const applicant = overlay.querySelector('#visa-applicant');
       const otherToggle = overlay.querySelector('#visa-applicant-other');
 

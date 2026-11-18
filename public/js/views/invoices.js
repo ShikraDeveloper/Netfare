@@ -2,11 +2,10 @@ import { paidByAmount, paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import { nationalityList } from '../nationalities.js';
 import { activeCustomers, revenueAccounts, store } from '../store.js';
-import { bindCustomerHint } from '../customer-hint.js';
+import { bindCustomerHint, bindDueDate, dueDateFor } from '../customer-hint.js';
 import { lineItemsHtml, mountLineItems } from '../line-items.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
 import {
-  addDaysISO,
   avatar,
   bindDateRange,
   dateRangeHtml,
@@ -253,10 +252,9 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
     return;
   }
 
-  const settings = store.settings || {};
   const forSomeoneElse = invoice ? Number(invoice.beneficiary_is_customer) === 0 : false;
   const issueDate = invoice?.issue_date || todayISO();
-  const dueDate = invoice?.due_date || addDaysISO(issueDate, Number(settings.payment_terms_days ?? 30));
+  const dueDate = invoice?.due_date || dueDateFor(issueDate, invoice?.customer_id);
 
   // Tickets, packages and visas are sold from a booking or visa, so their
   // supplier cost is recorded too; the switch at the top goes there.
@@ -376,15 +374,7 @@ export function openInvoiceModal({ invoice = null, correct = false, onSaved = ()
       beneficiaryName.addEventListener('input', syncTraveller);
 
       if (!isEdit) {
-        const issueInput = overlay.querySelector('#invoice-issue');
-        const dueInput = overlay.querySelector('#invoice-due');
-        let dueTouched = false;
-        dueInput.addEventListener('change', () => { dueTouched = true; });
-        issueInput.addEventListener('change', () => {
-          if (!dueTouched && issueInput.value) {
-            dueInput.value = addDaysISO(issueInput.value, Number(settings.payment_terms_days ?? 30));
-          }
-        });
+        bindDueDate(overlay.querySelector('#invoice-customer'), overlay.querySelector('#invoice-issue'), overlay.querySelector('#invoice-due'));
       }
     },
     async onSubmit(form) {
