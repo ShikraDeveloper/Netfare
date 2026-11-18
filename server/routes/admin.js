@@ -3,7 +3,7 @@
 const router = require('express').Router();
 const db = require('../db');
 const { bad, todayISO } = require('../util');
-const { assertLedgerEmpty, loadDemo, resetAll } = require('../services/demo');
+const { assertLedgerEmpty, ledgerIsEmpty, loadDemo, resetAll } = require('../services/demo');
 const { createDatabaseBackup, createTemporaryBackup, listBackups, dataDir } = require('../services/backup');
 const backupMirror = require('../services/backup-mirror');
 const network = require('../network');
@@ -121,6 +121,11 @@ router.get('/backup', (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="netfare-backup-${todayISO()}.json"`);
   res.setHeader('Content-Type', 'application/json');
   res.send(JSON.stringify(data, null, 2));
+});
+
+// Whether Settings may offer sample data (only to empty books).
+router.get('/demo', (req, res) => {
+  res.json({ allowed: ledgerIsEmpty(db) });
 });
 
 router.post('/demo', (req, res) => {

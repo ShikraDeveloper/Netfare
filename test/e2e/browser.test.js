@@ -2708,6 +2708,12 @@ test('help panel answers for the invoice on screen, points at the refund button,
   // Restore needs the desktop app on the main computer: a browser gets the way there, not a button.
   assert.equal(await page.locator('#restore-backup').count(), 0);
   await page.getByText('Settings → Restore from backup').waitFor();
+  // Books with data: no sample data offer; Clear all data waits behind a closed fold.
+  assert.equal((await getJson(baseUrl, '/api/admin/demo')).allowed, false);
+  assert.equal(await page.locator('#load-demo').isVisible(), false, 'no sample data on books with data');
+  assert.equal(await page.locator('#reset-data').isVisible(), false, 'folded away');
+  await page.locator('.settings-advanced > summary').click();
+  assert.equal(await page.locator('#reset-data').isVisible(), true, 'shown once opened on purpose');
   await openRoute('/settings');
   assert.equal(await page.locator('[data-settings-tab="backup"]').getAttribute('aria-current'), 'true', 'remembered');
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll');

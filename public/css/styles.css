@@ -1378,6 +1378,13 @@ html:not(.show-accounting) .acct-col { display: none; }
 .danger-card .card-head { border-color: #fee2e2; background: #fffafa; }
 .danger-card .card-title h2 { color: #b91c1c; }
 .danger-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 0; border-bottom: 1px solid #fee2e2; }
+.danger-row[hidden] { display: none; }
+/* Clear all data waits behind a closed fold, opened on purpose. */
+.settings-advanced > summary { cursor: pointer; list-style: none; }
+.settings-advanced > summary::-webkit-details-marker { display: none; }
+.settings-advanced > summary h2::before { content: '▸ '; }
+.settings-advanced[open] > summary h2::before { content: '▾ '; }
+.settings-advanced:not([open]) > summary { border-bottom: 0; }
 .danger-row:first-child { padding-top: 0; }
 .danger-row:last-child { padding-bottom: 0; border-bottom: none; }
 .danger-row h4 { font-size: 13px; font-weight: 650; }

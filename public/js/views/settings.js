@@ -297,7 +297,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
               </div>
               <a class="btn btn-ghost btn-sm" href="/api/admin/backup" download>${icon('download', 15)} Export JSON</a>
             </div>
-            <div class="danger-row" style="border-color:var(--border)">
+            <div class="danger-row" style="border-color:var(--border)" data-sample-row hidden>
               <div>
                 <h4>Sample data</h4>
               </div>
@@ -308,10 +308,10 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
 
         ${store.user?.is_admin ? backupMirrorCardHtml() : ''}
 
-        <div class="card danger-card admin-only">
-          <div class="card-head">
-            <div class="card-title"><h2>Danger zone</h2></div>
-          </div>
+        <details class="card danger-card admin-only settings-advanced">
+          <summary class="card-head">
+            <div class="card-title"><h2>Advanced</h2></div>
+          </summary>
           <div class="card-body">
             <div class="danger-row">
               <div>
@@ -320,7 +320,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
               <button class="btn btn-danger btn-sm" id="reset-data">${icon('trash', 15)} Clear</button>
             </div>
           </div>
-        </div>
+        </details>
 
       </div>
       <div ${group('system')}>
@@ -491,6 +491,14 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
       button.disabled = false;
     }
   });
+
+  // Sample data is offered only to empty books (the server refuses it otherwise).
+  if (store.user?.is_admin) {
+    api.get('/admin/demo').then(({ allowed }) => {
+      const row = container.querySelector('[data-sample-row]');
+      if (row) row.hidden = !allowed;
+    }).catch(() => {});
+  }
 
   container.querySelector('#load-demo').addEventListener('click', async () => {
     const confirmed = await confirmDialog({

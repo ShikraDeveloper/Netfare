@@ -654,6 +654,13 @@ Verification:
 - **Bug found on the way:** the select hidden behind every searchable list was full width (`select.input` beat `.picker-native`), so the page scrolled sideways to 2,235px on Settings. It is 1px again everywhere (`styles.css`).
 - **Checked:** `npm run check`; `npm test` 389; `npm run test:e2e` 57 (the Settings tests open their group; new checks: one group at a time, the group is remembered, no sideways scroll, staff see three groups; the axe audit passes). Demo at 1440px and phone width.
 
+### Settings: sample data only for empty books; Clear all data behind a closed fold
+
+- **Why:** The user worried Danger zone and Load sample data could be clicked by mistake. Both were already guarded (Clear needs RESET typed, checked by the server too, and makes a pre-reset backup; sample data is refused by the server on books with data, after a pre-demo backup), but they sat in plain view. The user agreed to hide them ("do this").
+- **Sample data:** The row shows only when the books are empty. New `GET /api/admin/demo` returns `{ allowed }` from `ledgerIsEmpty()` in `server/services/demo.js` (no customers, invoices, bills, bookings or visas), the same rule `assertLedgerEmpty()` uses for loading.
+- **Clear all data:** The Danger zone card is now a closed fold "▸ Advanced" at the bottom of Backup and data. Opening it shows Clear all data; RESET and the backup before clearing are unchanged.
+- **Checked:** `npm run check`; `npm test` 389; `npm run test:e2e` 57 (new checks: on the demo books `/api/admin/demo` says not allowed and the Load button is hidden; Clear is hidden until the fold is opened). Demo screenshot of Backup and data.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
