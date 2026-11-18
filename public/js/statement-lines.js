@@ -1,4 +1,4 @@
-import { esc, fmtDate } from './ui.js';
+import { esc, fmtDate, fmtMoney } from './ui.js';
 
 // A statement line is one row per document. Its particulars are two short
 // lines: who it was for on top (name and nationality), and below the passport,
@@ -38,7 +38,8 @@ export function particulars(row, kind) {
     return {
       top: [passengers.length ? `${passengers[0].name}${passengers.length > 1 ? ` +${passengers.length - 1}` : ''}` : booking.destination],
       sub: [...(known ? ids : [passengers.length ? booking.destination : '', dates]), customer, ref],
-      passengers: group ? passengers : [],
+      list: group ? passengers.map((p) => ({ text: p.name, detail: p.ticket ? `Ticket ${p.ticket}` : '' })) : [],
+      listLabel: `${passengers.length} passengers`,
     };
   }
   switch (row.kind) {
@@ -57,31 +58,55 @@ export function particulars(row, kind) {
     case 'cancellation': return { top: ['Cancelled'], sub: [`${row.related} reversed`] };
     case 'cancellation_charge': return { top: ['Cancellation charges'], sub: [] };
     case 'refund': return { top: [kind === 'vendor' ? 'Supplier refund' : 'Refund'], sub: [row.method, row.related] };
-    case 'deposit': return { top: ['Deposit'], sub: [row.method] };
-    case 'deposit_return': return { top: ['Deposit returned'], sub: [row.method] };
+    case 'deposit': return topupLines(row, kind);
+    case 'deposit_return': return { top: ['Withdrawal'], sub: [row.method] };
     case 'supplier_credit': return { top: ['Supplier credit'], sub: [row.related] };
     case 'credit_refund': return { top: ['Refund received'], sub: [row.method] };
     default: return { top: [row.description], sub: [] };
   }
 }
 
-// A group booking's passengers, one row each under its line: folded on
-// screen until the "N passengers" button opens them, always printed.
-export function paxToggleHtml(passengers, index) {
-  return passengers.length
-    ? ` <button type="button" class="statement-pax-toggle no-print" data-statement-pax="${index}" aria-expanded="false">${passengers.length} passengers</button>`
+// A top-up, with the bills it paid (and any withdrawal or visa deposit)
+// listed under it, as a receipt lists the invoices it paid.
+function topupLines(row, kind) {
+  const paid = row.paid || [];
+  const bills = [...new Set(paid.filter((use) => use.kind === 'bill').map((use) => use.number))];
+  const list = paid.map((use) => {
+    if (use.kind !== 'bill') {
+      return { text: use.kind === 'withdrawal' ? `Withdrawal${use.number ? ` ${use.number}` : ''}` : `Visa deposit ${use.number}`, detail: fmtMoney(use.amount_cents) };
+    }
+    const lines = use.bill ? particulars({ kind: 'bill', ...use.bill }, kind) : { top: [] };
+    return {
+      text: [shortRef(use.number), lines.top[0], use.bill?.customer_name].filter(Boolean).join(' · '),
+      detail: `${fmtMoney(use.amount_cents)}${use.part ? ' · part' : ''}`,
+    };
+  });
+  return {
+    top: ['Top-up'],
+    sub: [row.method, bills.length ? `Paid ${documentList(bills)}` : ''],
+    list,
+    listLabel: bills.length === paid.length ? `${bills.length} ${bills.length === 1 ? 'bill' : 'bills'}` : `Paid for ${paid.length}`,
+  };
+}
+
+// A list under a line (a group booking's passengers, the bills a top-up
+// paid), one row each: folded on screen until its button opens it, always
+// printed.
+export function listToggleHtml(lines, index) {
+  return lines.list?.length
+    ? ` <button type="button" class="statement-pax-toggle no-print" data-statement-pax="${index}" aria-expanded="false">${esc(lines.listLabel)}</button>`
     : '';
 }
 
-export function paxRowsHtml(passengers, index, colspan = 4) {
-  return passengers.map((p) => `
+export function listRowsHtml(lines, index, colspan = 4) {
+  return (lines.list || []).map((item) => `
     <tr class="statement-pax" data-pax-of="${index}" hidden>
       <td></td><td></td>
-      <td colspan="${colspan}"><div class="statement-pax-line"><span>${esc(p.name)}</span>${p.ticket ? `<span>Ticket ${esc(p.ticket)}</span>` : ''}</div></td>
+      <td colspan="${colspan}"><div class="statement-pax-line"><span>${esc(item.text)}</span>${item.detail ? `<span>${esc(item.detail)}</span>` : ''}</div></td>
     </tr>`).join('');
 }
 
-export function bindPaxToggles(container) {
+export function bindListToggles(container) {
   container.querySelectorAll('[data-statement-pax]').forEach((button) => {
     button.addEventListener('click', () => {
       const open = button.getAttribute('aria-expanded') !== 'true';

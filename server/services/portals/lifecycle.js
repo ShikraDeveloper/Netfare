@@ -84,8 +84,11 @@ function getPortal(db, id) {
     ORDER BY bp.payment_date DESC, bp.id DESC
   `).all(id);
   // What each bill paid from the wallet was for, named as on the supplier statement.
-  const { billDetails } = require('../statements');
+  const { billDetails, topupUses } = require('../statements');
   result.settlements = result.settlements.map((settlement) => ({ ...settlement, bill: billDetails(db, settlement.bill_id) }));
+  // What each top-up paid, as the supplier statement lists it.
+  const paid = topupUses(db, id);
+  result.topups = result.topups.map((topup) => ({ ...topup, paid: paid.get(topup.id) || [] }));
 
   result.deposit_movements = db.prepare(`
     SELECT e.*, d.number AS deposit_number, d.visa_id, va.number AS visa_number, va.applicant_name

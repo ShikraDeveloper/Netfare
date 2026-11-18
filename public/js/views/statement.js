@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { bindPaxToggles, particulars, paxRowsHtml, paxToggleHtml } from '../statement-lines.js';
+import { bindListToggles, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
 import { cashAccounts } from '../store.js';
 import {
   bindDateRange,
@@ -171,12 +171,12 @@ export async function render(container, { params = [], query = new URLSearchPara
       <div class="table-wrap">
         <table class="data statement-table"><caption class="sr-only">Account statement</caption>
           <colgroup>
-            <col style="width:11%">
+            <col style="width:9%">
             <col style="width:15%">
             <col>
-            <col style="width:11%">
-            <col style="width:11%">
-            <col style="width:12%">
+            <col style="width:14%">
+            <col style="width:14%">
+            <col style="width:15%">
           </colgroup>
           <thead>
             <tr>
@@ -190,7 +190,7 @@ export async function render(container, { params = [], query = new URLSearchPara
           </thead>
           <tbody>
             <tr class="statement-opening">
-              <td>${data.from ? esc(fmtDate(data.from)) : '—'}</td>
+              <td class="nowrap">${data.from ? esc(fmtDate(data.from, { short: true })) : '—'}</td>
               <td></td>
               <td><strong>Opening balance</strong></td>
               <td class="num"></td>
@@ -198,7 +198,8 @@ export async function render(container, { params = [], query = new URLSearchPara
               <td class="num"><strong>${fmtMoney(data.opening_balance_cents)}</strong></td>
             </tr>
             ${data.transactions.length ? data.transactions.map((row, index) => {
-              const { top, sub, passengers = [] } = particulars(row, kind);
+              const lines = particulars(row, kind);
+              const { top, sub } = lines;
               const topText = top.filter(Boolean).join(' · ');
               const subText = sub.filter(Boolean).join(' · ');
               return `
@@ -206,14 +207,14 @@ export async function render(container, { params = [], query = new URLSearchPara
                   <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
                   <td class="nowrap"><span class="statement-ref">${esc(row.reference)}</span></td>
                   <td class="statement-line-cell" title="${esc([topText, subText].filter(Boolean).join(' · '))}">
-                    <div class="statement-line">${esc(topText)}${paxToggleHtml(passengers, index)}</div>
+                    <div class="statement-line">${esc(topText)}${listToggleHtml(lines, index)}</div>
                     ${subText ? `<div class="statement-line-sub">${esc(subText)}</div>` : ''}
                   </td>
                   <td class="num">${row.debit_cents ? fmtMoney(row.debit_cents) : ''}</td>
                   <td class="num">${row.credit_cents ? fmtMoney(row.credit_cents) : ''}</td>
                   <td class="num">${fmtMoney(row.balance_cents)}</td>
                 </tr>
-                ${paxRowsHtml(passengers, index)}
+                ${listRowsHtml(lines, index)}
               `;
             }).join('') : `
               <tr><td colspan="6" class="statement-empty">No transactions in this period.</td></tr>
@@ -260,7 +261,7 @@ export async function render(container, { params = [], query = new URLSearchPara
   });
   markActivePreset(container);
 
-  bindPaxToggles(container);
+  bindListToggles(container);
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);

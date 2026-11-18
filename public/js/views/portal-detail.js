@@ -18,7 +18,7 @@ import {
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
-import { bindPaxToggles, particulars, paxRowsHtml, paxToggleHtml } from '../statement-lines.js';
+import { bindListToggles, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
 
 function visaApplicantLine(row) {
   if (!row.visa_id) return '';
@@ -113,6 +113,7 @@ export async function render(container, { params, query } = {}) {
       voidKind: 'topup',
       voidId: topup.id,
       correct: ['topup', topup],
+      paid: topup.paid,
     })),
     ...portal.credits.map((credit) => ({
       date: credit.credit_date,
@@ -224,22 +225,23 @@ export async function render(container, { params, query } = {}) {
   // and payments by what they were.
   const statementRows = periodRows.length
     ? periodRows.map((row, index) => {
-      const lines = row.bill ? particulars({ kind: 'bill', ...row.bill }, 'vendor') : { top: [row.label], sub: [row.detail] };
-      const passengers = lines.passengers || [];
+      const lines = row.bill ? particulars({ kind: 'bill', ...row.bill }, 'vendor')
+        : row.paid ? { ...particulars({ kind: 'deposit', method: row.detail, paid: row.paid }, 'vendor'), top: [row.label] }
+          : { top: [row.label], sub: [row.detail] };
       const sub = lines.sub.filter(Boolean).join(' · ');
       return `
         <tr class="statement-row">
           <td class="nowrap">${esc(fmtDate(row.date, { short: true }))}</td>
           <td class="ref">${esc(row.ref || '—')}</td>
           <td class="statement-line-cell">
-            <div class="statement-line">${esc(lines.top.filter(Boolean).join(' · '))}${paxToggleHtml(passengers, index)}</div>
+            <div class="statement-line">${esc(lines.top.filter(Boolean).join(' · '))}${listToggleHtml(lines, index)}</div>
             ${sub ? `<div class="statement-line-sub">${esc(sub)}</div>` : ''}
           </td>
           <td class="num">${row.inCents ? fmtMoney(row.inCents) : ''}</td>
           <td class="num">${row.outCents ? fmtMoney(row.outCents) : ''}</td>
           <td class="num balance-cell">${fmtMoney(row.balanceCents)}</td>
         </tr>
-        ${paxRowsHtml(passengers, index)}
+        ${listRowsHtml(lines, index)}
       `;
     }).join('')
     : `<tr><td colspan="6" class="muted">${isCredit ? 'No bills or payments in this period.' : 'No wallet activity in this period.'}</td></tr>`;
@@ -456,11 +458,11 @@ export async function render(container, { params, query } = {}) {
           <table class="doc-items stmt-items"><caption class="sr-only">${esc(portal.name)} statement</caption>
             <thead>
               <tr>
-                <th scope="col" style="width:13%">Date</th>
-                <th scope="col" style="width:18%">Reference</th>
+                <th scope="col" style="width:10%">Date</th>
+                <th scope="col" style="width:17%">Reference</th>
                 <th scope="col">Description</th>
-                <th scope="col" class="num" style="width:12%">${isCredit ? (hasCreditRefunds ? 'Billed / refunded' : 'Billed') : 'In'}</th>
-                <th scope="col" class="num" style="width:12%">${isCredit ? 'Paid' : 'Out'}</th>
+                <th scope="col" class="num" style="width:14%">${isCredit ? (hasCreditRefunds ? 'Billed / refunded' : 'Billed') : 'In'}</th>
+                <th scope="col" class="num" style="width:14%">${isCredit ? 'Paid' : 'Out'}</th>
                 <th scope="col" class="num" style="width:15%">Balance</th>
               </tr>
             </thead>
@@ -604,7 +606,7 @@ export async function render(container, { params, query } = {}) {
   on('[data-action="edit"]', () => openPortalModal({ portal, onSaved: () => refresh() }));
 
   bindPortalActions({ portal, id, refresh, refreshIncluding });
-  bindPaxToggles(container);
+  bindListToggles(container);
 
   // Reconciliation links arrive as #/portals/:id?record=topup&date=…&amount=…
   // Open the matching modal with the imported values filled in, then strip the

@@ -958,7 +958,7 @@ body.modal-open { overflow: hidden; }
 .doc-dates dt { color: var(--muted); }
 .doc-dates dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .doc-number .badge { font-size: 10.5px; vertical-align: middle; margin-left: 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-.doc-items-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.doc-items-wrap { border: 1px solid var(--border); border-radius: 10px; overflow-x: auto; }
 .doc-items-wrap .doc-items { margin: 0; }
 .doc-items-wrap .doc-items th { background: var(--surface-2); padding: 9px 10px; border: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .doc-items-wrap .doc-items td { padding-left: 10px; padding-right: 10px; }
@@ -1521,6 +1521,10 @@ html:not(.show-accounting) .acct-col { display: none; }
 .statement-table th, .statement-table td { padding-left: 10px; padding-right: 10px; }
 .statement-table .statement-row td { padding-top: 7px; padding-bottom: 7px; }
 .statement-table .statement-ref { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+/* Columns keep their widths: a long name ends in … on screen (in full
+   when printed) instead of pushing the amounts off the page. */
+.statement-table, .stmt-items { table-layout: fixed; min-width: 720px; }
+.statement-table td.num, .stmt-items td.num { white-space: nowrap; }
 /* One row per document: who it was for on top, passport or PNR below. */
 .statement-line-cell { overflow: hidden; }
 .statement-line, .statement-line-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1539,7 +1543,6 @@ html:not(.show-accounting) .acct-col { display: none; }
 .statement-foot { display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid var(--border); margin-top: 20px; padding-top: 14px; color: var(--muted); font-size: 11px; }
 @media (max-width: 700px) {
   .statement-card { padding: 22px 18px; }
-  .statement-table { min-width: 720px; }
   .statement-head, .statement-parties { flex-direction: column; }
   .statement-head-right { text-align: left; }
   .statement-summary { grid-template-columns: 1fr 1fr; }
@@ -1557,6 +1560,7 @@ html:not(.show-accounting) .acct-col { display: none; }
   .doc, .report-card, .statement-card { border: none; box-shadow: none; border-radius: 0; padding: 0; max-width: none; }
   .statement-card { font-size: 11px; }
   .statement-table { font-size: 10px; }
+  .statement-table, .stmt-items { min-width: 0; }
   .statement-table th, .statement-table td { padding: 5px 6px; }
   .statement-table tr { page-break-inside: avoid; }
   .statement-head { border-bottom-color: #111827; }
@@ -1573,6 +1577,7 @@ html:not(.show-accounting) .acct-col { display: none; }
   .statement-summary-due strong { font-size: 14px; }
   .statement-table td { padding-top: 4px; padding-bottom: 4px; }
   .statement-line-sub { font-size: 9px; }
+  .statement-line, .statement-line-sub { white-space: normal; overflow-wrap: anywhere; }
   /* A group's passengers always print, even when folded on screen. */
   .statement-pax[hidden] { display: table-row !important; }
   .statement-pax-line { font-size: 9px; }

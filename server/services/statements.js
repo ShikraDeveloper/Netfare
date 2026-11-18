@@ -80,6 +80,62 @@ function billDetails(db, billId) {
   };
 }
 
+// What each top-up of a wallet paid. A wallet payment does not name its
+// top-up, so the wallet is read first in, first out: money in (top-ups,
+// supplier credits, visa deposits returned) is used by money out (bills,
+// withdrawals, visa deposits paid) in the order they were entered.
+// Returns Map(top-up id → [{ kind, number, amount_cents, part, bill }]).
+function topupUses(db, portalId) {
+  const inOrder = (a, b) => a.date.localeCompare(b.date) || String(a.created_at).localeCompare(String(b.created_at)) || a.seq - b.seq;
+  const sources = db.prepare(`
+    SELECT 'topup' AS kind, id, topup_date AS date, created_at, amount_cents, 0 AS seq FROM portal_topups WHERE portal_id = ? AND status = 'posted'
+    UNION ALL
+    SELECT 'credit', id, credit_date, created_at, amount_cents, 1 FROM portal_credits WHERE portal_id = ? AND status = 'posted'
+    UNION ALL
+    SELECT 'deposit', id, event_date, created_at, amount_cents - deduction_cents, 2 FROM visa_deposit_events
+    WHERE portal_id = ? AND voided_at IS NULL AND event_type = 'supplier_return'
+  `).all(portalId, portalId, portalId).sort(inOrder).map((source) => ({ ...source, left: source.amount_cents }));
+  const uses = db.prepare(`
+    SELECT 'bill' AS kind, bp.id AS seq, bp.payment_date AS date, bp.created_at, bp.amount_cents,
+           b.id AS bill_id, b.number, b.total_cents
+    FROM bill_payments bp JOIN bills b ON b.id = bp.bill_id
+    WHERE bp.portal_id = ? AND bp.status = 'posted'
+    UNION ALL
+    SELECT 'withdrawal', id, refund_date, created_at, amount_cents, NULL, COALESCE(NULLIF(reference, ''), ''), NULL
+    FROM portal_refunds WHERE portal_id = ? AND status = 'posted'
+    UNION ALL
+    SELECT 'visa_deposit', e.id, e.event_date, e.created_at, e.amount_cents, NULL, d.number, NULL
+    FROM visa_deposit_events e JOIN visa_deposits d ON d.id = e.deposit_id
+    WHERE e.portal_id = ? AND e.voided_at IS NULL AND e.event_type = 'to_supplier'
+  `).all(portalId, portalId, portalId).sort(inOrder);
+
+  const paid = new Map();
+  const details = new Map();
+  let at = 0;
+  for (const use of uses) {
+    let need = use.amount_cents;
+    while (need > 0 && at < sources.length) {
+      const source = sources[at];
+      const take = Math.min(need, source.left);
+      if (take > 0 && source.kind === 'topup') {
+        if (use.bill_id && !details.has(use.bill_id)) details.set(use.bill_id, billDetails(db, use.bill_id));
+        if (!paid.has(source.id)) paid.set(source.id, []);
+        paid.get(source.id).push({
+          kind: use.kind,
+          number: use.number,
+          amount_cents: take,
+          part: use.kind === 'bill' && take < use.total_cents,
+          bill: use.bill_id ? details.get(use.bill_id) : null,
+        });
+      }
+      source.left -= take;
+      need -= take;
+      if (source.left === 0) at += 1;
+    }
+  }
+  return paid;
+}
+
 // Receive payment shares one receipt over several invoices, one payment on
 // each. On the statement that is money received once: one line for the
 // receipt, with what it paid in its details.
@@ -295,6 +351,12 @@ const VENDOR_KIND_ORDER = { bill: 1, payment: 2, deposit: 2, supplier_credit: 3,
 const WALLET = "(SELECT id FROM accounts WHERE code = '1400')";
 
 function vendorTransactions(db, vendorId) {
+  let paidByTopup = null;
+  const topupPaid = () => {
+    paidByTopup ||= new Map(db.prepare('SELECT id FROM supplier_portals WHERE vendor_id = ?').all(vendorId)
+      .flatMap((portal) => [...topupUses(db, portal.id)]));
+    return paidByTopup;
+  };
   return db.prepare(`
     SELECT 'bill' AS kind, b.id, b.number AS reference, b.bill_date AS date,
            b.due_date, b.total_cents AS amount_cents, b.status,
@@ -353,10 +415,16 @@ function vendorTransactions(db, vendorId) {
       };
     }
     if (row.kind === 'deposit') {
-      return { ...row, description: `Deposit ${row.reference} · ${row.method}`, debit_cents: row.amount_cents, credit_cents: 0 };
+      return {
+        ...row,
+        description: `Top-up ${row.reference} · ${row.method}`,
+        debit_cents: row.amount_cents,
+        credit_cents: 0,
+        paid: topupPaid().get(row.id) || [],
+      };
     }
     if (row.kind === 'deposit_return') {
-      return { ...row, description: `Deposit returned · ${row.method}`, debit_cents: 0, credit_cents: row.amount_cents };
+      return { ...row, description: `Withdrawal · ${row.method}`, debit_cents: 0, credit_cents: row.amount_cents };
     }
     if (row.kind === 'payment') {
       return {
@@ -577,6 +645,7 @@ function buildStatement(db, { kind, partyId, from, to }) {
 
 module.exports = {
   billDetails,
+  topupUses,
   customerStatement(db, customerId, range = {}) {
     return buildStatement(db, { kind: 'customer', partyId: Number(customerId), ...range });
   },

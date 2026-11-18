@@ -606,6 +606,17 @@ Verification:
 - **Old release deleted:** v1.0.20 (tag kept); five releases remain, 1.0.21 to 1.0.25.
 - **On update in the office:** the 27 customer and supplier phone numbers and the company phone are tidied to "+971 50 806 7050" on the first start (checked on a copy: all 28, digits kept).
 
+### Supplier statement: top-ups list the bills they paid; long lines keep the amounts in view
+
+- **Why:** The user saw top-up amounts missing from the supplier statement, wanted a limit on long names so the screen does not break, said print preview did not come, and asked for a top-up to show the bills it paid, the way a customer receipt shows its invoices ("Statement (abhi wali baat). ye sub ker do bilkul clean").
+- **Cause:** The line under a statement row (ticket, PNR, customer) did not wrap, and the table had no fixed column widths. A long customer name such as "AL AQSA BUSINESSMEN SERVICES" widened Particulars and pushed Debit, Credit and Balance off the screen and off the printed page. The top-up amount sits in Debit, so it was the one that went missing.
+- **Width:** The statement tables (supplier and customer statement, portal statement) keep fixed column widths (`table-layout: fixed`). On screen a long line ends in "…" (the full text is in the tooltip); in print it wraps, so nothing is cut. Money columns are wider (14/14/15%), amounts never wrap, and the opening balance date is short ("Nov 13"). In a narrow window the table scrolls inside its box (at least 720px) instead of squeezing the reference into the name. The portal statement box scrolls the same way.
+- **Top-up:** A top-up line reads "Top-up · Bank transfer · Paid BILL-0030, 0031, …" (it was "Deposit"); a wallet withdrawal reads "Withdrawal". A "N bills" button opens the bills the top-up paid, one row each with the bill, applicant or passenger, customer and amount, "part" when a bill was paid from two top-ups. Folded on screen, always printed. The same list shows under top-ups on the portal statement.
+- **How it is matched:** A wallet payment does not record which top-up it came from, so `topupUses()` in `server/services/statements.js` reads the wallet first in, first out: money in (top-ups, supplier credits added to the wallet, visa deposits returned) is used by money out (bills, withdrawals, visa deposits paid) in the order entered. On the real books (read-only copy) every HolidaySpace and Akbar Travel top-up matched its bills exactly.
+- **Shared code:** `public/js/statement-lines.js` now has one list-under-a-line helper (`listToggleHtml`, `listRowsHtml`, `bindListToggles`) for a group booking's passengers and a top-up's bills; `particulars()` returns `list` and `listLabel`.
+- **Print preview:** Checked in the desktop app (Electron, current code, a copy of the real books on a spare port): Print on the HolidaySpace statement opened the preview window in 0.4 s with all six columns and the bills under each top-up. No change was needed in the preview itself; what looked broken was the cut-off table.
+- **Checked:** `npm run check`; `npm test` 387 (new: a bill over two top-ups is a part of each, oldest money first); `npm run test:e2e` 55 (new: top-up line, its bills open, the table fits its box). Screen at 1280 and 1000 px wide and the print PDF checked on a read-only copy of the real books (deleted after).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

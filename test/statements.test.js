@@ -103,6 +103,36 @@ test('a prepaid supplier: deposits are the money sent; wallet payments sit in th
   assert.equal(statement.deposit_held_cents, portals.getPortal(db, wallet.id).balance_cents);
 });
 
+test('a top-up lists the bills it paid, oldest money first; a bill over two top-ups is a part of each', () => {
+  const vendor = party('vendors', 'Statement Wallet Two');
+  const portal = portals.createPortal(db, { name: 'Second wallet', portal_type: 'consolidator', settlement: 'prepaid', vendor_id: vendor });
+  const topUp = (date, cents) => portals.topUp(db, { portal_id: portal.id, amount_cents: cents, topup_date: date, deposit_account_id: account('1010'), method: 'Bank transfer' });
+  const billPaid = (date, cents) => {
+    const bill = bills.createBill(db, {
+      vendor_id: vendor, bill_date: date, due_date: date, status: 'received',
+      items: [{ description: 'Fare', quantity: 1, unit_price_cents: cents, account_id: account('5000') }],
+    });
+    portals.settleBillFromPortal(db, { bill_id: bill.id, portal_id: portal.id, settle_date: date });
+    return bill;
+  };
+  topUp('2026-05-01', 50_000);
+  const first = billPaid('2026-05-02', 30_000);
+  topUp('2026-05-03', 40_000);
+  // 200 left from the first top-up, 400 from the second.
+  const second = billPaid('2026-05-04', 60_000);
+
+  const lines = statements.vendorStatement(db, vendor, { from: '2026-01-01' }).transactions.filter((row) => row.kind === 'deposit');
+  const shown = lines.map((row) => row.paid.map((use) => [use.number, use.amount_cents, use.part]));
+  assert.deepEqual(shown, [
+    [[first.number, 30_000, false], [second.number, 20_000, true]],
+    [[second.number, 40_000, true]],
+  ]);
+  assert.match(lines[0].description, /^Top-up /);
+  // The portal statement shows the same list under each top-up.
+  const wallet = portals.getPortal(db, portal.id);
+  assert.deepEqual(wallet.topups.map((t) => t.paid.length).sort(), [1, 2]);
+});
+
 test('all statements together agree with the ledger', () => {
   const sum = (table, statementOf) => db.prepare(`SELECT id FROM ${table}`).all()
     .reduce((total, row) => total + statementOf(db, row.id, { from: '2000-01-01' }).closing_balance_cents, 0);

@@ -2758,6 +2758,22 @@ test('a group booking on the statement: first name +3, its passengers open under
   assertNoConsoleErrors();
 });
 
+test('a supplier statement: a top-up is one line with the bills it paid under it; long lines keep the amounts in view', async () => {
+  const portals = await getJson(baseUrl, '/api/portals');
+  const wallet = portals.find((portal) => portal.settlement === 'prepaid' && portal.vendor_id);
+  await openRoute(`/vendors/${wallet.vendor_id}/statement`);
+  const row = page.locator('tr.statement-row', { hasText: 'TOP-' }).first();
+  assert.match(await row.locator('.statement-line').innerText(), /^Top-up/);
+  const toggle = row.locator('[data-statement-pax]');
+  assert.match(await toggle.innerText(), /\d+ bills?/);
+  await toggle.click();
+  assert.match(await page.locator('tr.statement-pax').first().innerText(), /BILL-\d+[\s\S]*AED/);
+  // The table never grows past its box, however long a name is.
+  const [table, box] = await page.evaluate(() => [document.querySelector('.statement-table').scrollWidth, document.querySelector('.statement-card .table-wrap').clientWidth]);
+  assert.ok(table <= box, `table ${table}px fits its ${box}px box`);
+  assertNoConsoleErrors();
+});
+
 test('phone: a country list with flags beside the number, saved in one form', async () => {
   await openRoute('/customers');
   await clickPageAction('[data-action="new-party"]');
