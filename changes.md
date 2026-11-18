@@ -633,6 +633,12 @@ Verification:
 - **Change:** `ageingHtml()` in `public/js/views/statement.js` returns nothing when every bucket (and credits and other) is zero. A statement with anything open, or a credit, still shows it.
 - **Checked:** `npm run check`; `npm test` 389; `npm run test:e2e` 57 (new: a settled customer's statement has no ageing box, one that owes has it).
 
+### Type checking for bookings, visas and credits
+
+- **Why:** The user asked for the pending item "Bookings, visas aur credits ke code mein type checking".
+- **What:** `// @ts-check` at the top of `server/services/bookings.js`, `visas.js` and `credits.js`, so `npm run check` now checks 14 server files (was 11). TypeScript found 12 problems, all one kind: the list filters `{ status, search, from, to } = {}` had no type, so it read them as an empty object. Each list function (`listBookings`, `listVisas`, `listCredits`) now says its filters are query-string values, the same JSDoc `listPortals` uses. Comments only: the app runs the same code.
+- **Checked:** `npm run check` (Types: 0 errors, 14 files); `npm test` 389.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

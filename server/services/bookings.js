@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -147,6 +148,10 @@ function getBooking(db, id) {
   return jobCosts.withActualResult(db, 'booking', [serializeBooking(booking)])[0];
 }
 
+/**
+ * @param {any} db
+ * @param {Record<string, string>} [filters] Query-string filters from the list screen.
+ */
 function listBookings(db, { status, search, from, to } = {}) {
   const clauses = [];
   const params = [];

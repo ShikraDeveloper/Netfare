@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 
 const {
@@ -65,6 +66,10 @@ function getCredit(db, id) {
   return serializeCredit(credit);
 }
 
+/**
+ * @param {any} db
+ * @param {Record<string, string>} [filters] Query-string filters from the list screen.
+ */
 function listCredits(db, { status, search, from, to } = {}) {
   const clauses = [];
   const params = [];
