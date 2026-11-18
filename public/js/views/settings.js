@@ -18,6 +18,16 @@ import { bindRecoveryKeyCard, recoveryKeyCardHtml } from './recovery-key-card.js
 import { backupMirrorCardHtml, bindBackupMirrorCard } from './backup-mirror-card.js';
 import { bindHelpQuestionsCard, helpQuestionsCardHtml } from './help-questions-card.js';
 
+// Settings in five groups; the menu on the left shows one group at a time.
+const GROUPS = [
+  { key: 'company', label: 'Company', icon: 'home' },
+  { key: 'invoicing', label: 'Invoicing', icon: 'invoice' },
+  { key: 'users', label: 'Users and security', icon: 'shield', admin: true },
+  { key: 'backup', label: 'Backup and data', icon: 'archive', admin: true },
+  { key: 'system', label: 'App and network', icon: 'settings' },
+];
+const TAB_KEY = 'netfare.settingsTab';
+
 const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -36,7 +46,7 @@ window.addEventListener('theme-changed', (event) => {
   syncThemeButtons(event.detail?.theme || getTheme());
 });
 
-export async function render(container) {
+export async function render(container, { query = new URLSearchParams() } = {}) {
   const settings = store.settings || await api.get('/settings');
   store.settings = settings;
 
@@ -48,9 +58,20 @@ export async function render(container) {
   const theme = getTheme();
   const menuMode = getMenuMode();
 
+  const groups = GROUPS.filter((group) => !group.admin || store.user?.is_admin);
+  let saved = '';
+  try { saved = localStorage.getItem(TAB_KEY) || ''; } catch { /* private window */ }
+  const wanted = query.get('tab') || saved;
+  const tab = groups.some((group) => group.key === wanted) ? wanted : groups[0].key;
+  const group = (key) => `data-settings-group="${key}"${key === tab ? '' : ' hidden'}`;
+
   container.innerHTML = `
-    <div class="settings-grid">
-      <div class="settings-stack">
+    <div class="settings-layout">
+      <nav class="settings-nav" aria-label="Settings sections">
+        ${groups.map((g) => `<button type="button" class="settings-nav-item" data-settings-tab="${g.key}" aria-current="${g.key === tab}">${icon(g.icon, 16)}<span>${esc(g.label)}</span></button>`).join('')}
+      </nav>
+      <div class="settings-groups">
+      <div ${group('system')}>
         <div class="card appearance-card">
           <div class="card-head">
             <div class="card-title"><h2>Appearance</h2></div>
@@ -101,13 +122,15 @@ export async function render(container) {
           </div>
         </div>
 
-        <div class="card">
+      </div>
+      <div ${group('company')}>
+        <div class="card settings-wide">
           <div class="card-head">
             <div class="card-title"><h2>Company profile</h2></div>
           </div>
           <form id="company-form" class="settings-form" novalidate>
             <div class="card-body">
-              <div class="form-grid">
+              <div class="form-grid cols-3">
                 <div class="field full">
                   <label for="company-name">Company name</label>
                   <input class="input" id="company-name" name="company_name" value="${esc(settings.company_name)}" required>
@@ -120,17 +143,17 @@ export async function render(container) {
                   <label for="company-phone">Phone</label>
                   <input class="input" id="company-phone" name="company_phone" data-phone value="${esc(settings.company_phone)}">
                 </div>
-                <div class="field full">
-                  <label for="company-address">Address</label>
-                  <textarea class="input" id="company-address" name="company_address" rows="3" placeholder="Street address&#10;City, State ZIP">${esc(settings.company_address)}</textarea>
-                </div>
-                <div class="field full">
+                <div class="field">
                   <label for="company-logo">Logo on invoices and receipts</label>
                   <div class="logo-field">
                     <img class="logo-preview" data-logo-preview alt="Company logo" ${settings.company_logo ? `src="${esc(settings.company_logo)}"` : 'hidden'}>
                     <input class="input" id="company-logo" type="file" accept="image/png,image/jpeg,image/webp">
                     <button type="button" class="btn btn-ghost btn-sm" data-logo-remove ${settings.company_logo ? '' : 'hidden'}>Remove</button>
                   </div>
+                </div>
+                <div class="field full">
+                  <label for="company-address">Address</label>
+                  <textarea class="input" id="company-address" name="company_address" rows="2" placeholder="Street address&#10;City, State ZIP">${esc(settings.company_address)}</textarea>
                 </div>
                 <div class="field">
                   <label for="bank-name">Bank</label>
@@ -140,10 +163,13 @@ export async function render(container) {
                   <label for="bank-account-name">Account name</label>
                   <input class="input" id="bank-account-name" name="bank_account_name" ${store.user?.is_admin ? '' : 'disabled'} value="${esc(settings.bank_account_name || '')}" placeholder="Skyline Travels LLC" maxlength="160">
                 </div>
-                <div class="field full">
+                <div class="field">
                   <label for="bank-iban">IBAN</label>
                   <input class="input" id="bank-iban" name="bank_iban" ${store.user?.is_admin ? '' : 'disabled'} value="${esc(settings.bank_iban || '')}" placeholder="AE07 0331 2345 6789 0123 456" maxlength="42" autocomplete="off">
                 </div>
+                <details class="field full settings-more">
+                  <summary>Brand colours and terms on documents</summary>
+                  <div class="form-grid">
                 <div class="field full">
                   <label for="doc-color-dark">Brand line on documents</label>
                   <div class="doc-color-field">
@@ -165,6 +191,8 @@ export async function render(container) {
                   <label for="invoice-terms">Default terms</label>
                   <textarea class="input" id="invoice-terms" name="invoice_terms" rows="2" maxlength="1000" placeholder="Services once delivered are not refundable.">${esc(settings.invoice_terms || '')}</textarea>
                 </div>
+                  </div>
+                </details>
               </div>
             </div>
             <div class="settings-actions">
@@ -173,13 +201,15 @@ export async function render(container) {
           </form>
         </div>
 
-        <div class="card">
+      </div>
+      <div ${group('invoicing')}>
+        <div class="card settings-wide">
           <div class="card-head">
             <div class="card-title"><h2>Invoicing &amp; ledger defaults</h2></div>
           </div>
           <form id="defaults-form" class="settings-form" novalidate>
             <div class="card-body">
-              <div class="form-grid">
+              <div class="form-grid cols-3">
                 <div class="field">
                   <label>Currency</label>
                   <div class="readonly-box">
@@ -236,9 +266,9 @@ export async function render(container) {
           </form>
         </div>
       </div>
-
-      <div class="settings-stack">
-        ${store.user?.is_admin ? usersCardHtml() + recoveryKeyCardHtml() + networkCardHtml() + updatesCardHtml() + helpQuestionsCardHtml() : ''}
+      ${store.user?.is_admin ? `<div ${group('users')}>${usersCardHtml()}${recoveryKeyCardHtml()}</div>` : ''}
+      <div ${group('system')}>${store.user?.is_admin ? networkCardHtml() + updatesCardHtml() + helpQuestionsCardHtml() : ''}</div>
+      <div ${group('backup')}>
         <div class="card admin-only">
           <div class="card-head">
             <div class="card-title"><h2>Data &amp; backup</h2></div>
@@ -292,6 +322,8 @@ export async function render(container) {
           </div>
         </div>
 
+      </div>
+      <div ${group('system')}>
         <div class="card">
           <div class="card-head">
             <div class="card-title"><h2>About Netfare</h2></div>
@@ -310,8 +342,19 @@ export async function render(container) {
           </div>
         </div>
       </div>
+      </div>
     </div>
   `;
+
+  // The menu shows one group; the choice is remembered on this computer.
+  container.querySelectorAll('[data-settings-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const key = button.dataset.settingsTab;
+      container.querySelectorAll('[data-settings-tab]').forEach((b) => b.setAttribute('aria-current', String(b === button)));
+      container.querySelectorAll('[data-settings-group]').forEach((el) => { el.hidden = el.dataset.settingsGroup !== key; });
+      try { localStorage.setItem(TAB_KEY, key); } catch { /* private window */ }
+    });
+  });
 
   const companyForm = container.querySelector('#company-form');
   // The logo is made small (at most 480 px wide) before it is saved.

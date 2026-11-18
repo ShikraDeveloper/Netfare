@@ -1359,8 +1359,19 @@ html:not(.show-accounting) .acct-col { display: none; }
 .account-group:first-child .account-group-head { border-top: none; }
 .account-group-head span:last-child { color: var(--text-soft); font-variant-numeric: tabular-nums; letter-spacing: 0; font-size: 11.5px; }
 
-.settings-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-.settings-stack { display: flex; flex-direction: column; gap: 16px; }
+/* Settings: a menu of five groups on the left, one group's cards on the right. */
+.settings-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; align-items: start; }
+.settings-nav { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 2px; }
+.settings-nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 0; border-radius: 8px; background: none; font: inherit; font-size: 13.5px; color: var(--text-soft); text-align: left; cursor: pointer; white-space: nowrap; }
+.settings-nav-item:hover { background: var(--surface-2); }
+.settings-nav-item[aria-current="true"] { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+.settings-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+[data-settings-group] { display: contents; }
+[data-settings-group][hidden] { display: none; }
+.settings-wide { grid-column: 1 / -1; }
+.form-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settings-more > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-soft); }
+.settings-more[open] > summary { margin-bottom: 12px; }
 .settings-form .card-body { padding: 20px 22px 22px; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 22px; border-top: 1px solid var(--border); background: #fcfcfe; }
 .danger-card { border-color: #fecaca; }
@@ -1383,7 +1394,9 @@ html:not(.show-accounting) .acct-col { display: none; }
 }
 
 @media (max-width: 1080px) {
-    .settings-grid { grid-template-columns: 1fr; }
+  .settings-layout, .settings-groups { grid-template-columns: 1fr; }
+  .settings-nav { position: static; flex-direction: row; overflow-x: auto; }
+  .form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
   .detail-grid { grid-template-columns: 1fr; }
 }
 
@@ -1410,7 +1423,7 @@ html:not(.show-accounting) .acct-col { display: none; }
   .page-heading { flex: 1 1 auto; }
   .page-actions { flex-wrap: wrap; gap: 6px; }
   .page-actions .btn { padding: 0 10px; font-size: 12.5px; }
-  .form-grid { grid-template-columns: 1fr; }
+  .form-grid, .form-grid.cols-3 { grid-template-columns: 1fr; }
   .form-row, .form-row.route, .form-row.two { grid-template-columns: 1fr; }
   .form-sum { margin: 2px -17px -16px; padding: 12px 17px; bottom: -16px; }
   .doc { padding: 22px 18px; border-radius: 12px; }
@@ -1847,7 +1860,8 @@ html:not(.is-admin) .admin-only { display: none; }
 }
 
 /* Long-list picker (public/js/picker.js): the real select stays, hidden. */
-.picker-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+/* The real select stays in the form, 1px and unseen (select.input would make it full width). */
+.picker-native, select.input.picker-native { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; border: 0; opacity: 0; pointer-events: none; overflow: hidden; }
 .picker { position: relative; min-width: 0; }
 .picker-button { display: flex; align-items: center; justify-content: space-between; gap: 8px; text-align: left; cursor: pointer; font: inherit; font-size: 13.5px; }
 .picker-button .picker-value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

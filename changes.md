@@ -639,6 +639,21 @@ Verification:
 - **What:** `// @ts-check` at the top of `server/services/bookings.js`, `visas.js` and `credits.js`, so `npm run check` now checks 14 server files (was 11). TypeScript found 12 problems, all one kind: the list filters `{ status, search, from, to } = {}` had no type, so it read them as an empty object. Each list function (`listBookings`, `listVisas`, `listCredits`) now says its filters are query-string values, the same JSDoc `listPortals` uses. Comments only: the app runs the same code.
 - **Checked:** `npm run check` (Types: 0 errors, 14 files); `npm test` 389.
 
+### Settings in five groups, one at a time
+
+- **Why:** The user said the Settings page was too long ("setiing page compact kero ziada lamba hy"), saw the mockup and said "Haan, bana do". On the demo it was 2,796px tall at 1440px wide: 12 cards in two columns.
+- **What:** A menu on the left (`public/js/views/settings.js`, `GROUPS`) with five groups; only the chosen one shows:
+  - **Company:** the company profile in three columns (email, phone, logo / address / bank, account name, IBAN). The brand colours and the three terms sit under "Brand colours and terms on documents" (a fold), as they rarely change.
+  - **Invoicing:** the defaults and the five number prefixes in three columns.
+  - **Users and security:** users and the recovery key (admin only).
+  - **Backup and data:** data and backup, the second copy, the danger zone (admin only).
+  - **App and network:** appearance, office network, updates, help questions, about.
+  
+  No setting was removed or added; the cards and their forms are the same. The last group opened is remembered on that computer (`localStorage`, with a fallback when it is blocked); `#/settings?tab=backup` opens a group directly. Staff see only Company, Invoicing and App and network. On a phone the menu is one row that scrolls sideways.
+- **Height now:** Company, Invoicing, Users and Backup each fit one 900px screen; App and network is 1,334px (five cards).
+- **Bug found on the way:** the select hidden behind every searchable list was full width (`select.input` beat `.picker-native`), so the page scrolled sideways to 2,235px on Settings. It is 1px again everywhere (`styles.css`).
+- **Checked:** `npm run check`; `npm test` 389; `npm run test:e2e` 57 (the Settings tests open their group; new checks: one group at a time, the group is remembered, no sideways scroll, staff see three groups; the axe audit passes). Demo at 1440px and phone width.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

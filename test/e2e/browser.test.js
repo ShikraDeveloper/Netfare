@@ -633,7 +633,7 @@ test('pagination, page-size and filter reset work on compliance and cheques', as
 });
 
 test('theme persists across reload and printing stays light', async () => {
-  await openRoute('/settings');
+  await openRoute('/settings?tab=system');
   await page.locator('[data-theme-choice="dark"]').click();
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
   assert.equal(await page.evaluate(() => localStorage.getItem('ledgerly.theme')), 'dark');
@@ -2120,13 +2120,13 @@ test('documents show the agency initial, not a Netfare or old Ledgerly mark', as
   const mark = page.locator('.doc-brand .brand-mark');
   await mark.waitFor();
   assert.equal((await mark.innerText()).trim(), settings.company_name.trim().charAt(0).toUpperCase());
-  await openRoute('/settings');
+  await openRoute('/settings?tab=system');
   assert.ok(await page.locator('.about-logo-light').evaluate((img) => img.complete && img.naturalWidth > 0), 'About logo loads');
   assertNoConsoleErrors();
 });
 
 test('sign-in: the admin adds a staff user in Settings, who signs in without admin cards', async () => {
-  await openRoute('/settings');
+  await openRoute('/settings?tab=users');
   await page.locator('#recovery-key-status', { hasText: 'Made on' }).waitFor();
   const card = page.locator('#users-card');
   await card.waitFor();
@@ -2219,8 +2219,10 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
     await guestPage.goto(`${baseUrl}/?staff=2#/invoices`);
     await guestPage.locator('#view table').first().waitFor();
     assert.equal(await visible('#page-actions [data-action="new-invoice"]'), 0, 'View only: no New invoice');
-    await guestPage.goto(`${baseUrl}/?staff=3#/settings`);
+    await guestPage.goto(`${baseUrl}/?staff=3#/settings?tab=company`);
     await guestPage.locator('#company-form').waitFor();
+    assert.deepEqual(await guestPage.locator('[data-settings-tab]').evaluateAll((tabs) => tabs.map((t) => t.dataset.settingsTab)),
+      ['company', 'invoicing', 'system'], 'staff see no Users or Backup groups');
     assert.equal(await guestPage.locator('#users-card').count(), 0, 'no Users card for staff');
     assert.equal(await guestPage.locator('#recovery-key-card').count(), 0, 'no recovery key card for staff');
     assert.equal(await guestPage.locator('#reset-data').isVisible(), false, 'no Clear all data for staff');
@@ -2236,7 +2238,7 @@ test('sign-in: the admin adds a staff user in Settings, who signs in without adm
 });
 
 test('menu: Settings switches to the top menu, its panels and search work, and back to the side', async () => {
-  await openRoute('/settings');
+  await openRoute('/settings?tab=system');
   await page.locator('[data-menu-choice="top"]').click();
   assert.equal(await page.evaluate(() => document.documentElement.classList.contains('menu-top')), true);
   assert.equal(await page.locator('#sidebar').isVisible(), false, 'no side menu with the top menu');
@@ -2290,7 +2292,7 @@ test('menu: Settings switches to the top menu, its panels and search work, and b
   await page.evaluate(() => { document.documentElement.dataset.theme = 'light'; });
   await page.keyboard.press('Escape');
 
-  await openRoute('/settings');
+  await openRoute('/settings?tab=system');
   await page.locator('[data-menu-choice="side"]').click();
   assert.equal(await page.locator('#sidebar').isVisible(), true);
   assert.equal(await topNav.isVisible(), false);
@@ -2700,9 +2702,16 @@ test('help panel answers for the invoice on screen, points at the refund button,
   assert.match(saved.page, new RegExp(`^${invoice.number}`), 'saved with the screen it was asked on');
   await page.keyboard.press('Escape');
   await openRoute('/settings');
+  // The menu shows one group at a time and remembers the last one.
+  await page.locator('[data-settings-tab="backup"]').click();
+  assert.equal(await page.locator('#company-form').isVisible(), false, 'one group at a time');
   // Restore needs the desktop app on the main computer: a browser gets the way there, not a button.
   assert.equal(await page.locator('#restore-backup').count(), 0);
   await page.getByText('Settings → Restore from backup').waitFor();
+  await openRoute('/settings');
+  assert.equal(await page.locator('[data-settings-tab="backup"]').getAttribute('aria-current'), 'true', 'remembered');
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'no sideways scroll');
+  await page.locator('[data-settings-tab="system"]').click();
   const card = page.locator('#help-questions-card');
   await card.locator('.cell-main', { hasText: 'zxqv plorb' }).waitFor();
   await card.locator('[data-help-done]').first().click();
