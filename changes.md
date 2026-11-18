@@ -661,6 +661,14 @@ Verification:
 - **Clear all data:** The Danger zone card is now a closed fold "▸ Advanced" at the bottom of Backup and data. Opening it shows Clear all data; RESET and the backup before clearing are unchanged.
 - **Checked:** `npm run check`; `npm test` 389; `npm run test:e2e` 57 (new checks: on the demo books `/api/admin/demo` says not allowed and the Load button is hidden; Clear is hidden until the fold is opened). Demo screenshot of Backup and data.
 
+### Release 1.0.26 — `4fd12b7`, tag `v1.0.26`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** statements with fixed column widths (long names no longer push Debit, Credit or Balance off screen or paper, as on Hassan Babar's statement in 1.0.25) and no all-zero ageing row on a settled statement; a supplier top-up lists the bills it paid, also on the portal statement; customers as Individual or Company with a contact person and their own payment days for due dates; Settings in five groups, sample data only for empty books, Clear all data behind a closed Advanced fold; type checking for bookings, visas and credits; the hidden select behind searchable lists back to 1px.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 389 and `npm run test:e2e` 57. The first push failed: this Mac's DNS did not answer (github.com could not be resolved while 1.1.1.1 was reachable); it was pushed once DNS came back. GitHub run 44296776863: Build (mac), Build (win), Publish release succeeded; the smoke test passed on both. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.26 with the notes); releases/latest is v1.0.26.
+- **Old release deleted:** v1.0.21 (tag kept); five releases remain, 1.0.22 to 1.0.26.
+- **After the update in the office:** customers with a TRN become companies (none on the real books, so all stay Individual); the user switches company customers by hand and sets their payment days.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
