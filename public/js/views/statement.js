@@ -58,6 +58,8 @@ function ageingHtml(ageing) {
   if (!ageing) return '';
   const cells = [['Current', ageing.current], ['1–30 days', ageing.days_30], ['31–60', ageing.days_60], ['61–90', ageing.days_90], ['Over 90', ageing.over_90]];
   if (ageing.other_cents) cells.push(['Credits and other', ageing.other_cents]);
+  // Nothing open: no row of zeros (it can take a printed page of its own).
+  if (cells.every(([, cents]) => !cents)) return '';
   return `<div class="statement-ageing" data-statement-ageing>${cells.map(([label, cents]) => `
     <div${label === 'Over 90' && cents ? ' class="is-late"' : ''}><span>${label}</span><strong>${fmtMoney(cents)}</strong></div>`).join('')}</div>`;
 }

@@ -627,6 +627,12 @@ Verification:
 - **Demo:** Gulf Tech FZE and Corporate Travel Co are companies on 30 days with a contact person.
 - **Checked:** `npm run check`; `npm test` 389 (new `test/customer-kind.test.js`: TRN customers become companies once; due date from the customer's days, due now, else Settings); `npm run test:e2e` 56 (new: the company form and a 15-day customer's invoice due date; the phone test now names the main phone box, as the form has two).
 
+### Statement: no ageing box when nothing is open
+
+- **Why:** The user asked to check the customer statement in print ("customer statement b dekho print ker k"). On a read-only copy of the real books the Mohsan Ashraf, AL AQSA and Priya Gulati statements printed well, but a settled statement still printed a row of AED 0.00 ageing boxes, and on Priya Gulati's it went alone onto a second page. The user said "Haan, chhupa do".
+- **Change:** `ageingHtml()` in `public/js/views/statement.js` returns nothing when every bucket (and credits and other) is zero. A statement with anything open, or a credit, still shows it.
+- **Checked:** `npm run check`; `npm test` 389; `npm run test:e2e` 57 (new: a settled customer's statement has no ageing box, one that owes has it).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

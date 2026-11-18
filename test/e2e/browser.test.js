@@ -2758,6 +2758,23 @@ test('a group booking on the statement: first name +3, its passengers open under
   assertNoConsoleErrors();
 });
 
+test('the ageing box shows only when something is open', async () => {
+  const customers = await getJson(baseUrl, '/api/customers');
+  let settled = null;
+  for (const row of customers.filter((c) => c.invoice_count > 0)) {
+    const statement = await getJson(baseUrl, `/api/customers/${row.id}/statement`);
+    if (statement.closing_balance_cents === 0) { settled = row; break; }
+  }
+  assert.ok(settled, 'the demo has a settled customer');
+  const owing = customers.find((row) => row.outstanding_cents > 0);
+  await openRoute(`/customers/${settled.id}/statement`);
+  await page.locator('.statement-table').waitFor();
+  assert.equal(await page.locator('[data-statement-ageing]').count(), 0, 'no row of zeros');
+  await openRoute(`/customers/${owing.id}/statement`);
+  await page.locator('[data-statement-ageing]').waitFor();
+  assertNoConsoleErrors();
+});
+
 test('a supplier statement: a top-up is one line with the bills it paid under it; long lines keep the amounts in view', async () => {
   const portals = await getJson(baseUrl, '/api/portals');
   const wallet = portals.find((portal) => portal.settlement === 'prepaid' && portal.vendor_id);
