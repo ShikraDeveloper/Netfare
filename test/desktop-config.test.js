@@ -74,6 +74,12 @@ test('a document PDF is named after the page, and a share opens only WhatsApp or
   }
 });
 
+test('WhatsApp opens in its app on the same chat', () => {
+  assert.equal(config.whatsappAppUrl('https://wa.me/971555013647?text=Dear%20Hassan'), 'whatsapp://send?phone=971555013647&text=Dear%20Hassan');
+  assert.equal(config.whatsappAppUrl('https://wa.me/?text=Hi'), 'whatsapp://send?text=Hi', 'no number: WhatsApp asks for the chat');
+  assert.equal(config.whatsappAppUrl('mailto:a@b.ae?subject=x'), '', 'email stays email');
+});
+
 test('a PDF saved to Downloads never replaces a file already there', () => {
   const taken = new Set(['INV-1.pdf', 'INV-1 (2).pdf']);
   assert.equal(config.freeName('INV-2.pdf', (name) => taken.has(name)), 'INV-2.pdf');

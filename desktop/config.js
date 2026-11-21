@@ -105,7 +105,16 @@ function isShareUrl(url) {
   return /^https:\/\/wa\.me\/\d*\?text=/.test(String(url || '')) || /^mailto:/.test(String(url || ''));
 }
 
+// The WhatsApp app's own link for a wa.me chat link (same number and
+// message), so the installed app opens the chat without a browser page.
+function whatsappAppUrl(url) {
+  const match = /^https:\/\/wa\.me\/(\d*)\?text=(.*)$/.exec(String(url || ''));
+  if (!match) return '';
+  return `whatsapp://send?${match[1] ? `phone=${match[1]}&` : ''}text=${match[2]}`;
+}
+
 module.exports = {
+  whatsappAppUrl,
   pdfName,
   freeName,
   isShareUrl,

@@ -309,7 +309,9 @@ function openShareModal(invoice, settings) {
             closeThen(async () => {
               try {
                 const result = await docs.share(document.title, text.value, url);
-                if (result?.shared === 'file') toast(`${result.file} is in Downloads: drag it into the chat or email`);
+                const where = link === whatsapp ? 'the chat' : 'the email';
+                if (result?.copied) toast(`${result.file} is copied: press ⌘V in ${where}, or drag it from Downloads`);
+                else if (result?.shared === 'file') toast(`${result.file} is in Downloads: drag it into ${where}`);
                 if (result?.error) throw new Error(result.error);
               } catch (error) {
                 toast(error.message || 'The PDF could not be made', 'error');

@@ -8,7 +8,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell, ShareMenu } = require('electron');
+const { execFile } = require('child_process');
+const { app, BrowserWindow, dialog, ipcMain, Menu, net, session, shell } = require('electron');
 const config = require('./config');
 
 app.setName('Netfare');
@@ -167,21 +168,30 @@ ipcMain.handle('docs:save', async (event, title) => {
   return { saved: path.basename(filePath) };
 });
 
-// On the Mac the system share menu takes the PDF straight to WhatsApp, Mail
-// and the rest. Elsewhere the PDF is saved to Downloads and shown, and the
-// WhatsApp chat or email opens with the message, ready for the file.
+// WhatsApp and Email open the customer's own chat or a new email with the
+// message, and the PDF is saved to Downloads and shown there. On the Mac the
+// PDF is also copied, so ⌘V attaches it, and WhatsApp opens in its app
+// (WhatsApp Web when the app is not installed).
 ipcMain.handle('docs:share', async (event, request = {}) => {
   if (!fromNetfarePage(event)) return { error: 'Not allowed' };
-  const text = String(request.text || '').slice(0, 4000);
-  if (process.platform === 'darwin') {
-    const file = await writePdf(pdfFolder(), request.title);
-    new ShareMenu({ filePaths: [file], texts: text ? [text] : [] }).popup({ window: mainWindow });
-    return { shared: 'menu' };
-  }
+  const url = config.isShareUrl(request.url) ? request.url : '';
   const file = await writePdf(app.getPath('downloads'), request.title, { keepExisting: true });
   shell.showItemInFolder(file);
-  if (config.isShareUrl(request.url)) await shell.openExternal(request.url);
-  return { shared: 'file', file: path.basename(file) };
+  // The file itself on the clipboard, as Finder copies it (Electron has no
+  // way to); the path goes as an argument, never inside the script.
+  const copied = process.platform === 'darwin' && await new Promise((resolve) => {
+    execFile('osascript', ['-e', 'on run argv', '-e', 'set the clipboard to (POSIX file (item 1 of argv))', '-e', 'end run', file],
+      { timeout: 5000 }, (error) => resolve(!error));
+  });
+  if (url) {
+    const appUrl = process.platform === 'darwin' ? config.whatsappAppUrl(url) : '';
+    try {
+      await shell.openExternal(appUrl || url);
+    } catch {
+      if (appUrl) await shell.openExternal(url);
+    }
+  }
+  return { shared: 'file', file: path.basename(file), copied };
 });
 
 function showSetup(message = '') {

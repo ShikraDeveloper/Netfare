@@ -669,6 +669,16 @@ Verification:
 - **Old release deleted:** v1.0.21 (tag kept); five releases remain, 1.0.22 to 1.0.26.
 - **After the update in the office:** customers with a TRN become companies (none on the real books, so all stay Individual); the user switches company customers by hand and sets their payment days.
 
+### Share on the Mac: WhatsApp opens the customer's chat, Email a new email, the PDF ready to paste
+
+- **Why:** The user said WhatsApp did nothing in Share ("when we share incoice and click in whats app its not work"), then asked for Email too ("dekho email ka b sai kero"). In the desktop app on a Mac, WhatsApp and Email both opened the Mac's general share menu with the PDF; the customer's number and email were not used, so it looked as if nothing happened. Windows already opened the chat or email.
+- **Now (`desktop/main.js`, `docs:share`):** on every computer the PDF is saved to Downloads (never over a file already there) and shown in Finder / Explorer, then the customer's WhatsApp chat or a new email opens with the message. On the Mac:
+  - WhatsApp opens in its app (`whatsapp://send?phone=…&text=…`, from `config.whatsappAppUrl`), and WhatsApp Web when the app is not installed;
+  - the PDF is put on the clipboard as a file, as Finder copies it (`osascript`, the path passed as an argument), so ⌘V attaches it in the chat or the email.
+  
+  The message says "INV-….pdf is copied: press ⌘V in the chat (the email), or drag it from Downloads". The share menu path is gone (nothing else used it). Electron 44 has no clipboard call for files, hence `osascript`.
+- **Checked:** `npm run check`; `npm test` 390 (new: the WhatsApp app link keeps the number and message; no number lets WhatsApp ask; email stays email); `npm run test:e2e` 57. In the desktop app on a demo copy (WhatsApp and Finder not really opened, PDFs saved to a temp folder): WhatsApp → `whatsapp://send?phone=971505550110&text=Dear Rahul Menon…`, Email → `mailto:rahul.menon@example.com?subject=…`, both with the PDF shown and on the clipboard. Not checked: pasting into the real WhatsApp app, and a Mac without WhatsApp installed. One demo PDF from the first try landed in the user's Downloads; it was moved to the Trash.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
