@@ -1550,6 +1550,9 @@ html:not(.show-accounting) .acct-col { display: none; }
 .statement-line, .statement-line-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .statement-line { font-weight: 600; }
 .statement-line-sub { font-size: 11.5px; color: var(--muted); }
+/* Details off: only the first line of each document (screen and print). */
+.statement-compact .statement-line-sub { display: none; }
+.statement-details-switch { margin-left: auto; white-space: nowrap; }
 .statement-pax-toggle { border: 0; background: none; padding: 0 0 0 6px; font: inherit; font-size: 11.5px; font-weight: 500; color: var(--primary); cursor: pointer; }
 .statement-pax-toggle::after { content: ' ▸'; }
 .statement-pax-toggle[aria-expanded="true"]::after { content: ' ▾'; }

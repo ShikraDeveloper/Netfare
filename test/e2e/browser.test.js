@@ -261,6 +261,8 @@ before(async () => {
       colorScheme: 'light',
       reducedMotion: 'reduce',
     });
+    // Statements open with Details on, so tests can read each line's second line.
+    await context.addInitScript(() => { try { if (!localStorage.getItem('netfare.statementDetails')) localStorage.setItem('netfare.statementDetails', '1'); } catch { /* blocked */ } });
     const [cookieName, ...cookieValue] = sessionCookie.split('=');
     await context.addCookies([{ name: cookieName, value: cookieValue.join('='), url: baseUrl }]);
     page = await context.newPage();
@@ -600,7 +602,7 @@ test('customer statement shows the visa applicant and invoice item', async () =>
     (await page.locator('.statement-parties').innerText()).includes(invoice.customer_name),
     'Bill To should stay with the paying customer',
   );
-  assert.equal(await page.locator('[data-statement-details]').count(), 0, 'no Show details switch: the lines say it all');
+  assert.equal(await page.locator('[data-statement-details]').count(), 1, 'one Details switch');
   assertNoConsoleErrors();
 });
 
@@ -2770,6 +2772,24 @@ test('a group booking on the statement: first name +3, its passengers open under
   await page.emulateMedia({ media: 'print' });
   assert.equal(await passengers.first().isVisible(), true, 'printed even when folded');
   await page.emulateMedia({ media: 'screen' });
+  assertNoConsoleErrors();
+});
+
+test('the Details switch hides or shows the second line of each statement line, and is remembered', async () => {
+  const customers = await getJson(baseUrl, '/api/customers');
+  const owing = customers.find((row) => row.outstanding_cents > 0);
+  await openRoute(`/customers/${owing.id}/statement`);
+  const sub = page.locator('.statement-line-sub').first();
+  await sub.waitFor();
+  await page.locator('[data-statement-details]').uncheck();
+  assert.equal(await sub.isVisible(), false, 'details off: one line per document');
+  await page.emulateMedia({ media: 'print' });
+  assert.equal(await sub.isVisible(), false, 'and printed the same way');
+  await page.emulateMedia({ media: 'screen' });
+  await openRoute(`/customers/${owing.id}/statement`);
+  assert.equal(await page.locator('[data-statement-details]').isChecked(), false, 'remembered');
+  await page.locator('[data-statement-details]').check();
+  assert.equal(await page.locator('.statement-line-sub').first().isVisible(), true);
   assertNoConsoleErrors();
 });
 

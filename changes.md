@@ -685,6 +685,12 @@ Verification:
 - **Now:** on a credit account's statement and Ledger, each top-up is one line ("Top-up · Bank transfer", with the "N bills" list of what it paid, from the same `topupUses()` as the supplier statement), and the wallet payments it made are not repeated. Withdrawals from the account show as "Withdrawal" lines. Payments made from the bank straight to a bill still show as payments. The closing balance is what is owed less money paid in and not used yet, and the "matches" check uses the same figure.
 - **Checked:** `npm run check`; `npm test` 390 (the credit account test now checks two top-up lines and no payment lines, the first top-up's bills, and the closing balance); `npm run test:e2e` 57. On a read-only copy of the real books (deleted after): HolidaySpace 12–17 Nov shows TOP-2026-0009 (13 bills), TOP-2026-0012 (11 bills), TOP-2026-0014 (11 bills) and closes at AED 0.00.
 
+### Statements: a Details switch
+
+- **Why:** The user asked for a details button ("details wala button rakho details dekhnay k liye") and chose one switch on the statements.
+- **What:** Supplier, customer and portal statements have a "Details" switch beside the period. Off: each line shows only its first line (who it was for, or what it was); on: the second line too (passport, visa type and days, PNR, ticket, customer, supplier ref). Print follows the switch. The "N passengers" / "N bills" lists work either way. The choice is remembered on that computer (`localStorage` `netfare.statementDetails`, off by default); helpers `detailsSwitchHtml` / `bindDetailsSwitch` in `public/js/statement-lines.js`, the class `statement-compact` on the statement table.
+- **Checked:** `npm run check`; `npm test` 390; `npm run test:e2e` 58 (new: off hides the second line on screen and in print, the choice is remembered, on shows it; the browser tests start with Details on so they can read the second lines; the old "no switch" check now expects one). Demo supplier statement in the browser pane.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

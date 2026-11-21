@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { bindListToggles, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
+import { bindDetailsSwitch, bindListToggles, detailsSwitchHtml, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
 import { cashAccounts } from '../store.js';
 import {
   bindDateRange,
@@ -131,6 +131,7 @@ export async function render(container, { params = [], query = new URLSearchPara
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="year" aria-pressed="false">This year</button>
         <button type="button" class="btn btn-ghost btn-sm" data-statement-preset="all" aria-pressed="false">All time</button>
       </div>
+      ${detailsSwitchHtml()}
     </div>
 
     <div class="card statement-card">
@@ -265,6 +266,7 @@ export async function render(container, { params = [], query = new URLSearchPara
   markActivePreset(container);
 
   bindListToggles(container);
+  bindDetailsSwitch(container);
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);

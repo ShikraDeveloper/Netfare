@@ -116,3 +116,25 @@ export function bindListToggles(container) {
     });
   });
 }
+
+// The Details switch: off, each line is just who it was for; on, the second
+// line (passport, visa type, PNR, ticket, customer) shows too, on screen and
+// on paper. The choice is remembered on this computer.
+const DETAILS_KEY = 'netfare.statementDetails';
+
+export function detailsSwitchHtml() {
+  let on = false;
+  try { on = localStorage.getItem(DETAILS_KEY) === '1'; } catch { /* private window */ }
+  return `<label class="checkbox-row statement-details-switch no-print"><input type="checkbox" data-statement-details ${on ? 'checked' : ''}><span>Details</span></label>`;
+}
+
+export function bindDetailsSwitch(container) {
+  const box = container.querySelector('[data-statement-details]');
+  if (!box) return;
+  const apply = () => container.querySelectorAll('.statement-table, .stmt-items').forEach((table) => table.classList.toggle('statement-compact', !box.checked));
+  box.addEventListener('change', () => {
+    apply();
+    try { localStorage.setItem(DETAILS_KEY, box.checked ? '1' : '0'); } catch { /* private window */ }
+  });
+  apply();
+}

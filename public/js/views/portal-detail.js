@@ -18,7 +18,7 @@ import {
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
 import { openPortalModal } from './portals.js';
 import { bindPortalActions } from './portal-detail/actions.js';
-import { bindListToggles, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
+import { bindDetailsSwitch, bindListToggles, detailsSwitchHtml, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
 
 function visaApplicantLine(row) {
   if (!row.visa_id) return '';
@@ -407,6 +407,7 @@ export async function render(container, { params, query } = {}) {
         <button class="btn btn-ghost btn-sm" data-preset="year">This year</button>
         <button class="btn btn-ghost btn-sm" data-preset="all">All time</button>
       </div>
+      ${detailsSwitchHtml()}
     </div>
 
 
@@ -607,6 +608,7 @@ export async function render(container, { params, query } = {}) {
 
   bindPortalActions({ portal, id, refresh, refreshIncluding });
   bindListToggles(container);
+  bindDetailsSwitch(container);
 
   // Reconciliation links arrive as #/portals/:id?record=topup&date=…&amount=…
   // Open the matching modal with the imported values filled in, then strip the
