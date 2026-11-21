@@ -114,6 +114,18 @@ test('a credit account top-up pays the oldest open bills, and the rest pays the 
   assert.equal(settled.settled_cents, 50_000, 'the next bill is paid from the advance');
   assert.equal(portalService.getPortal(db, portal.id).balance_cents, 150_000);
 
+  // The account's statement shows the top-ups (with the bills each paid),
+  // not one payment line per bill; it closes at what is owed less the advance.
+  const ledger = portalService.portalLedger(db, portal.id, {});
+  assert.deepEqual(ledger.rows.filter((row) => row.kind !== 'bill').map((row) => [row.kind, row.debit_cents]), [
+    ['topup', 900_000], ['topup', 500_000],
+  ]);
+  assert.deepEqual(ledger.rows.find((row) => row.kind === 'topup').paid.map((use) => [use.number, use.amount_cents, use.part]), [
+    [a.number, 400_000, false], [b.number, 500_000, true],
+  ]);
+  assert.equal(ledger.closing_cents, ledger.current_balance_cents);
+  assert.equal(ledger.closing_cents, 1_250_000 - 900_000 - 500_000, 'owed nothing; 1,500 waits with the supplier');
+
   const used = db.prepare('SELECT id FROM portal_topups WHERE portal_id = ? ORDER BY id LIMIT 1').get(portal.id);
   assert.throws(() => portalService.voidTopup(db, used.id, {}), /already paid bills/);
 

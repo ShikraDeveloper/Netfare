@@ -679,6 +679,12 @@ Verification:
   The message says "INV-….pdf is copied: press ⌘V in the chat (the email), or drag it from Downloads". The share menu path is gone (nothing else used it). Electron 44 has no clipboard call for files, hence `osascript`.
 - **Checked:** `npm run check`; `npm test` 390 (new: the WhatsApp app link keeps the number and message; no number lets WhatsApp ask; email stays email); `npm run test:e2e` 57. In the desktop app on a demo copy (WhatsApp and Finder not really opened, PDFs saved to a temp folder): WhatsApp → `whatsapp://send?phone=971505550110&text=Dear Rahul Menon…`, Email → `mailto:rahul.menon@example.com?subject=…`, both with the PDF shown and on the clipboard. Not checked: pasting into the real WhatsApp app, and a Mac without WhatsApp installed. One demo PDF from the first try landed in the user's Downloads; it was moved to the Trash.
 
+### Credit account statement (HolidaySpace): top-ups, not one payment per bill
+
+- **Why:** The user said "Holiday space still show payment instead of top ups". 1.0.26 fixed the supplier statement, but HolidaySpace is a credit account, and its portal page builds its statement from `creditPortalLedger()` (`server/services/portals/ledger.js`), which listed every bill paid from a top-up as its own "Payment · …" line (BPMT-…) and no top-up at all.
+- **Now:** on a credit account's statement and Ledger, each top-up is one line ("Top-up · Bank transfer", with the "N bills" list of what it paid, from the same `topupUses()` as the supplier statement), and the wallet payments it made are not repeated. Withdrawals from the account show as "Withdrawal" lines. Payments made from the bank straight to a bill still show as payments. The closing balance is what is owed less money paid in and not used yet, and the "matches" check uses the same figure.
+- **Checked:** `npm run check`; `npm test` 390 (the credit account test now checks two top-up lines and no payment lines, the first top-up's bills, and the closing balance); `npm run test:e2e` 57. On a read-only copy of the real books (deleted after): HolidaySpace 12–17 Nov shows TOP-2026-0009 (13 bills), TOP-2026-0012 (11 bills), TOP-2026-0014 (11 bills) and closes at AED 0.00.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

@@ -18,7 +18,7 @@ function creditPortalLedger(db, portal, options = {}) {
       `).all(vendorId)
     : [];
 
-  const payments = vendorId
+  const allPayments = vendorId
     ? db.prepare(`
         SELECT p.*, b.number AS bill_number, b.bill_date,
                a.name AS payment_account_name
@@ -29,6 +29,10 @@ function creditPortalLedger(db, portal, options = {}) {
         ORDER BY p.payment_date, p.id
       `).all(vendorId)
     : [];
+  // Bills paid from this account's top-ups show as the top-ups themselves
+  // (with the bills each paid listed under it), as on the supplier statement.
+  const payments = allPayments.filter((payment) => payment.portal_id !== portal.id);
+  const topupPaid = require('../statements').topupUses(db, portal.id);
 
   // Old supplier refunds reduced a bill payment and reopened A/P. Supplier
   // credit refunds settle 1450 and must not appear as A/P activity.
@@ -74,6 +78,8 @@ function creditPortalLedger(db, portal, options = {}) {
     ...bills.map((bill) => bill.journal_entry_id),
     ...payments.map((payment) => payment.journal_entry_id),
     ...supplierRefunds.map((refund) => refund.journal_entry_id),
+    ...portal.topups.map((topup) => topup.journal_entry_id),
+    ...portal.refunds.map((refund) => refund.journal_entry_id),
     ...supplierCredits.map((credit) => credit.journal_entry_id),
     ...creditApplications.map((application) => application.journal_entry_id),
   ].filter(Boolean);
@@ -135,6 +141,37 @@ function creditPortalLedger(db, portal, options = {}) {
       bill_id: payment.bill_id,
       source_id: payment.id,
       lines: linesByEntry.get(payment.journal_entry_id) || [],
+    })),
+    ...portal.topups.map((topup) => ({
+      key: `topup-${topup.id}`,
+      kind: 'topup',
+      date: topup.topup_date,
+      created_at: topup.created_at || '',
+      order: 1,
+      reference: topup.number,
+      description: `Top-up · ${topup.method}`,
+      detail: [topup.deposit_account_name, topup.reference].filter(Boolean).join(' · '),
+      debit_cents: topup.amount_cents,
+      credit_cents: 0,
+      entry_id: topup.journal_entry_id || null,
+      source_id: topup.id,
+      paid: topupPaid.get(topup.id) || [],
+      lines: linesByEntry.get(topup.journal_entry_id) || [],
+    })),
+    ...portal.refunds.map((refund) => ({
+      key: `withdrawal-${refund.id}`,
+      kind: 'withdrawal',
+      date: refund.refund_date,
+      created_at: refund.created_at || '',
+      order: 2,
+      reference: refund.reference || '—',
+      description: `Withdrawal · ${refund.method}`,
+      detail: refund.payment_account_name,
+      debit_cents: 0,
+      credit_cents: refund.amount_cents,
+      entry_id: refund.journal_entry_id || null,
+      source_id: refund.id,
+      lines: linesByEntry.get(refund.journal_entry_id) || [],
     })),
     ...supplierRefunds.map((refund) => ({
       key: `supplier-refund-${refund.id}`,
@@ -215,7 +252,7 @@ function creditPortalLedger(db, portal, options = {}) {
   const totalDebitCents = rows.reduce((sum, row) => sum + row.debit_cents, 0);
   const closingCents = openingCents + totalCreditCents - totalDebitCents;
   const periodBills = rows.filter((row) => row.kind === 'bill').length;
-  const periodPayments = rows.filter((row) => row.kind === 'bill_payment').length;
+  const periodPayments = rows.filter((row) => row.kind === 'bill_payment' || row.kind === 'topup').length;
   const periodRefunds = rows.filter((row) => row.kind === 'supplier_refund').length;
   const periodCredits = rows.filter((row) => row.kind === 'supplier_credit_applied').length;
 
@@ -247,21 +284,22 @@ function creditPortalLedger(db, portal, options = {}) {
     total_debit_cents: totalDebitCents,
     total_credit_cents: totalCreditCents,
     closing_cents: closingCents,
-    current_balance_cents: portal.outstanding_ap_cents,
+    // What is owed, less money paid in and not used yet (as on the supplier statement).
+    current_balance_cents: portal.outstanding_ap_cents - Math.max(0, portal.balance_cents),
     unapplied_supplier_credits_cents: openSupplierCredits,
     account_code: AP,
     account_name: 'Trade Payables',
     rows,
     counts: {
       bills: bills.length,
-      payments: payments.length,
+      payments: payments.length + portal.topups.length,
       refunds: supplierRefunds.length,
       credits: supplierCredits.length,
       period_bills: periodBills,
       period_payments: periodPayments,
       period_refunds: periodRefunds,
       period_credits: periodCredits,
-      topups: 0,
+      topups: portal.topups.length,
       settlements: 0,
     },
     reconciliation: null,
