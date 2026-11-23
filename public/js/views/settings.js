@@ -370,7 +370,7 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
     const file = event.target.files[0];
     if (!file) return;
     try {
-      logo = await shrinkImage(file, 480);
+      logo = await shrinkImage(file, 1200);
       showLogo();
     } catch {
       toast('That picture could not be read. Use a PNG or JPG.', 'error');
@@ -568,19 +568,34 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
   return () => {};
 }
 
+// The logo prints about 2.3 inches wide, so up to 1,200 pixels keeps it
+// sharp on paper and in a zoomed PDF. A PNG that is too large for the books
+// is made narrower first (it keeps a clear background); JPG is the last step.
 function shrinkImage(file, maxWidth) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
-      const scale = Math.min(1, maxWidth / image.width);
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(image.width * scale);
-      canvas.height = Math.round(image.height * scale);
-      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      const draw = (width) => {
+        const scale = Math.min(1, width / image.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(image.width * scale);
+        canvas.height = Math.round(image.height * scale);
+        const context = canvas.getContext('2d');
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        return canvas;
+      };
+      let canvas;
+      for (const width of [maxWidth, 900, 600]) {
+        canvas = draw(width);
+        const png = canvas.toDataURL('image/png');
+        if (png.length < 390_000) {
+          URL.revokeObjectURL(image.src);
+          return resolve(png);
+        }
+      }
       URL.revokeObjectURL(image.src);
-      const png = canvas.toDataURL('image/png');
-      // A photo saved as PNG can be large; JPG keeps it under the limit.
-      resolve(png.length < 390_000 ? png : canvas.toDataURL('image/jpeg', 0.85));
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
     };
     image.onerror = reject;
     image.src = URL.createObjectURL(file);

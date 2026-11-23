@@ -2825,6 +2825,25 @@ test('the Details switch hides or shows the second line of each statement line, 
   assertNoConsoleErrors();
 });
 
+test('a company logo keeps up to 1,200 pixels and its clear background, so it prints sharp', async () => {
+  await openRoute('/settings?tab=company');
+  const base64 = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2400; canvas.height = 420;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0b2a4a';
+    ctx.font = 'bold 300px sans-serif';
+    ctx.fillText('SHIKRA', 20, 330);
+    return canvas.toDataURL('image/png').split(',')[1];
+  });
+  await page.locator('#company-logo').setInputFiles({ name: 'logo.png', mimeType: 'image/png', buffer: Buffer.from(base64, 'base64') });
+  const preview = page.locator('[data-logo-preview]');
+  await page.waitForFunction(() => document.querySelector('[data-logo-preview]')?.naturalWidth > 0);
+  assert.equal(await preview.evaluate((img) => img.naturalWidth), 1200, 'not shrunk to 480 any more');
+  assert.match(await preview.getAttribute('src'), /^data:image\/png;base64,/, 'stays PNG with its clear background');
+  assertNoConsoleErrors();
+});
+
 test('the ageing box shows only when something is open', async () => {
   const customers = await getJson(baseUrl, '/api/customers');
   let settled = null;

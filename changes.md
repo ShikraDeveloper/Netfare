@@ -733,6 +733,14 @@ Verification:
 - **What:** `public/js/views/invoice-detail.js` Bill to starts with the address. The customer number stays on the statement ("Customer no. …"), in the customer list and search, and beside the name on the customer's page.
 - **Checked:** `npm run check`; `npm run test:e2e` 59 (the visa invoice test now checks the Bill to has no CUS number).
 
+### Company logo kept sharp for print and PDF
+
+- **Why:** The user sent INV-2026-0070.pdf and asked why the logo is not clear in the PDF and in print ("LOGO ITNA CLEAR Q NAI HY PDF ME OR PRINT ME ?"), then said "Haan, theek karo".
+- **Cause:** Settings shrank every logo to 480 pixels wide on upload. The Shikra logo in the books is 480 × 83 pixels; it prints about 2.3 inches wide (220 CSS px), where sharp print needs about 700 pixels, and a zoomed PDF more.
+- **What:** `shrinkImage()` in `public/js/views/settings.js` keeps a logo up to 1,200 pixels wide with high-quality smoothing. A PNG too large for the books (the 300 KB limit is unchanged) is first made narrower (900, then 600 pixels), keeping its clear background; JPG is the last step.
+- **Note:** the logo already saved stays 480 pixels. The user uploads the original logo file again in Settings → Company after the update.
+- **Checked:** `npm run check`; `npm run test:e2e` 60 (new: a 2,400-pixel logo becomes a 1,200-pixel PNG). The PDF itself could not be opened as a picture here (no PDF renderer on this Mac); the cause was confirmed from the saved logo's size.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
