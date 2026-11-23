@@ -10,7 +10,7 @@ const { currentUser } = require('./request-context');
 const CREATED_BY_TABLES = [
   'bookings', 'visa_applications', 'visa_groups', 'visa_deposits',
   'invoices', 'payments', 'customer_advances', 'credit_notes', 'refunds', 'cancellations',
-  'bills', 'bill_payments', 'supplier_credit_notes',
+  'bills', 'bill_payments', 'supplier_payments', 'supplier_credit_notes',
   'portal_topups', 'portal_refunds', 'portal_credits',
   'cash_deposits', 'post_dated_cheques', 'card_settlements', 'petty_cash_counts',
   'journal_entries',

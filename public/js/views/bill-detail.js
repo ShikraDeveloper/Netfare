@@ -178,6 +178,7 @@ export async function render(container, { params } = {}) {
             ${payment.cheque_number ? `<span class="cell-sub">Cheque ${esc(payment.cheque_number)}${payment.bank_name ? ` · ${esc(payment.bank_name)}` : ''}${payment.cheque_date ? ` · ${esc(fmtDate(payment.cheque_date))}` : ''}</span>` : ''}
             ${payment.bank_charges_cents ? `<span class="cell-sub">Bank charges ${fmtMoney(payment.bank_charges_cents)}</span>` : ''}
             ${payment.portal_id ? `<span class="cell-sub">Paid from ${esc(payment.portal_name || 'supplier wallet')}</span>` : ''}
+            ${payment.supplier_payment_id ? `<span class="cell-sub">Part of ${esc(payment.supplier_payment_number)}, one payment for ${payment.supplier_payment_bills} bills</span>` : ''}
             ${refunded > 0 ? `<span class="cell-sub">${fmtMoney(refunded)} refunded · ${fmtMoney(refundable)} refundable</span>` : ''}
           </div>
           <div class="payment-amount">
@@ -185,7 +186,8 @@ export async function render(container, { params } = {}) {
             ${refunded > 0 ? `<div class="cell-sub">net ${fmtMoney(payment.amount_cents - refunded)}</div>` : ''}
           </div>
           ${refundable > 0 && bill.status === 'received' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Record supplier refund">${icon('arrowUp', 16)}</button>` : ''}
-          ${refunded > 0 || bill.status !== 'received' || payment.portal_id || payment.status === 'void' ? '' : correctButtonHtml('bill_payment', payment)}
+          ${refunded > 0 || bill.status !== 'received' || payment.portal_id || payment.supplier_payment_id || payment.status === 'void' ? '' : correctButtonHtml('bill_payment', payment)}
+          ${payment.supplier_payment_id && payment.status === 'posted' && bill.status === 'received' && refunded === 0 ? `<button class="btn btn-ghost btn-sm" data-void-supplier-payment="${payment.supplier_payment_id}" data-number="${esc(payment.supplier_payment_number)}" title="Void the whole payment">Void ${esc(payment.supplier_payment_number)}</button>` : ''}
           ${refunded > 0 || bill.status !== 'received' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;
@@ -499,6 +501,26 @@ export async function render(container, { params } = {}) {
         },
         onSaved: () => refresh(),
       });
+    });
+  });
+
+  document.querySelectorAll('[data-void-supplier-payment]').forEach((button) => {
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const result = await voidDialog({
+        title: `Void ${button.dataset.number}?`,
+        message: 'The whole payment is voided: every bill it paid reopens, and the bank gets back the amount and its bank charges. The record and its audit trail are kept.',
+        warning: 'This cannot be undone.',
+        confirmLabel: 'Void payment',
+      });
+      if (!result.confirmed) return;
+      try {
+        await api.post(`/bills/supplier-payments/${button.dataset.voidSupplierPayment}/void`, { remarks: result.remarks });
+        toast(`${button.dataset.number} voided`);
+        refresh();
+      } catch (error) {
+        toast(error.message, 'error');
+      }
     });
   });
 

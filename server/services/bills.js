@@ -116,6 +116,8 @@ function getBill(db, id) {
   `).all(id);
   bill.payments = db.prepare(`
     SELECT p.*, a.name AS payment_account_name, sp.name AS portal_name,
+           spay.number AS supplier_payment_number,
+           (SELECT COUNT(*) FROM bill_payments x WHERE x.supplier_payment_id = p.supplier_payment_id) AS supplier_payment_bills,
            COALESCE((
              SELECT SUM(r.amount_cents) FROM refunds r
              WHERE r.bill_payment_id = p.id AND r.status = 'paid'
@@ -123,6 +125,7 @@ function getBill(db, id) {
     FROM bill_payments p
     JOIN accounts a ON a.id = p.payment_account_id
     LEFT JOIN supplier_portals sp ON sp.id = p.portal_id
+    LEFT JOIN supplier_payments spay ON spay.id = p.supplier_payment_id
     WHERE p.bill_id = ?
     ORDER BY p.payment_date, p.id
   `).all(id).map((payment) => ({
@@ -558,7 +561,11 @@ function deleteBillPayment(db, paymentId, payload = {}) {
     }
     chequeService.unlinkPayment(db, paymentId);
     let voidEntryId = null;
-    if (payment.journal_entry_id) {
+    if (payment.supplier_payment_id) {
+      // A share of one payment for several bills: its entry holds the other
+      // bills too, so only this share goes back to the bank.
+      voidEntryId = require('./supplier-payments').reverseShare(db, payment, audit.withRemarks(`Void bill payment ${payment.number}`, remarks));
+    } else if (payment.journal_entry_id) {
       voidEntryId = reverseEntry(db, payment.journal_entry_id, {
         entry_date: todayISO(),
         memo: audit.withRemarks(`Void bill payment ${payment.number}`, remarks),

@@ -557,4 +557,9 @@ ensureColumn('customers', 'contact_name', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('customers', 'contact_phone', "TEXT NOT NULL DEFAULT ''");
 ensureColumn('customers', 'payment_days', 'INTEGER');
 
+
+// Pay supplier: each bill's share points at its supplier payment.
+ensureColumn('bill_payments', 'supplier_payment_id', 'INTEGER REFERENCES supplier_payments(id)');
+ensureColumn('settings', 'next_supplier_payment_number', 'INTEGER NOT NULL DEFAULT 1');
+
 };

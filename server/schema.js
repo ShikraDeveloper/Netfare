@@ -202,6 +202,26 @@ CREATE TABLE IF NOT EXISTS bill_payments (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- One payment to a supplier for several bills (Pay supplier): one entry,
+-- the bank out once; each bill's share is a bill_payments row linked to it.
+CREATE TABLE IF NOT EXISTS supplier_payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  number TEXT NOT NULL UNIQUE,
+  vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE RESTRICT,
+  payment_date TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  method TEXT NOT NULL DEFAULT 'Bank transfer',
+  reference TEXT NOT NULL DEFAULT '',
+  payment_account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+  bank_charges_cents INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'posted' CHECK (status IN ('posted', 'void')),
+  journal_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  void_entry_id INTEGER REFERENCES journal_entries(id) ON DELETE SET NULL,
+  voided_at TEXT,
+  created_by TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS bookings (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT NOT NULL UNIQUE,

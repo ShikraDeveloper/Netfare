@@ -342,7 +342,7 @@ function byDateThenEntry(a, b) {
   return x < y ? -1 : x > y ? 1 : 0;
 }
 
-const VENDOR_KIND_ORDER = { bill: 1, payment: 2, deposit: 2, supplier_credit: 3, credit_refund: 4, refund: 5, deposit_return: 6 };
+const VENDOR_KIND_ORDER = { bill: 1, payment: 2, supplier_payment: 2, deposit: 2, supplier_credit: 3, credit_refund: 4, refund: 5, deposit_return: 6 };
 
 // Money held on the supplier's portals (prepaid wallets) is part of the
 // account: a top-up is money sent to the supplier, a withdrawal is money back.
@@ -369,6 +369,15 @@ function vendorTransactions(db, vendorId) {
     JOIN bills b ON b.id = p.bill_id
     WHERE p.vendor_id = ? AND b.status <> 'void' AND p.status = 'posted'
       AND COALESCE(p.payment_account_id, 0) <> ${WALLET}
+      AND p.supplier_payment_id IS NULL
+    UNION ALL
+    -- One payment for several bills (Pay supplier): one line, the bills under it.
+    SELECT 'supplier_payment', sp.id, sp.number, sp.payment_date, NULL,
+           (SELECT SUM(bp.amount_cents) FROM bill_payments bp WHERE bp.supplier_payment_id = sp.id AND bp.status = 'posted'),
+           'paid', sp.method, sp.reference, sp.created_at
+    FROM supplier_payments sp
+    WHERE sp.vendor_id = ? AND sp.status = 'posted'
+      AND EXISTS (SELECT 1 FROM bill_payments bp WHERE bp.supplier_payment_id = sp.id AND bp.status = 'posted')
     UNION ALL
     SELECT 'deposit', t.id, t.number, t.topup_date, NULL, t.amount_cents, t.status, t.method, p.name, t.created_at
     FROM portal_topups t JOIN supplier_portals p ON p.id = t.portal_id
@@ -398,7 +407,7 @@ function vendorTransactions(db, vendorId) {
     FROM refunds r
     JOIN supplier_credit_notes scn ON scn.id = r.supplier_credit_note_id
     WHERE r.refund_type = 'supplier' AND r.party_id = ? AND r.status = 'paid'
-  `).all(vendorId, vendorId, vendorId, vendorId, vendorId, vendorId, vendorId)
+  `).all(vendorId, vendorId, vendorId, vendorId, vendorId, vendorId, vendorId, vendorId)
     // Same day: in the order they were entered (then bill, payment, credit,
     // refund when entered in the same second).
     .sort((a, b) => byDateThenEntry(a, b)
@@ -422,6 +431,17 @@ function vendorTransactions(db, vendorId) {
         credit_cents: 0,
         paid: topupPaid().get(row.id) || [],
       };
+    }
+    if (row.kind === 'supplier_payment') {
+      const paid = db.prepare(`
+        SELECT b.id AS bill_id, b.number, b.total_cents, bp.amount_cents
+        FROM bill_payments bp JOIN bills b ON b.id = bp.bill_id
+        WHERE bp.supplier_payment_id = ? AND bp.status = 'posted' ORDER BY bp.id
+      `).all(row.id).map((share) => ({
+        kind: 'bill', number: share.number, amount_cents: share.amount_cents,
+        part: share.amount_cents < share.total_cents, bill: billDetails(db, share.bill_id),
+      }));
+      return { ...row, description: `Payment ${row.reference}`, debit_cents: row.amount_cents, credit_cents: 0, paid };
     }
     if (row.kind === 'deposit_return') {
       return { ...row, description: `Withdrawal · ${row.method}`, debit_cents: 0, credit_cents: row.amount_cents };

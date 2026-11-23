@@ -2727,6 +2727,38 @@ test('help panel answers for the invoice on screen, points at the refund button,
   assertNoConsoleErrors();
 });
 
+test('Pay supplier: one transfer with bank charges pays two bills; the statement shows one line with both', async () => {
+  const accounts = await getJson(baseUrl, '/api/accounts');
+  const code = (value) => accounts.find((row) => row.code === value).id;
+  const vendor = await postJson(baseUrl, '/api/vendors', { name: `Two Visa Supplier ${Date.now()}` });
+  const day = new Date(Date.now() - 2 * 86_400_000).toLocaleDateString('en-CA');
+  const bills = [];
+  for (const who of ['Ali Raza', 'Sana Ali']) {
+    bills.push(await postJson(baseUrl, '/api/bills', {
+      vendor_id: vendor.id, bill_date: day, due_date: day, status: 'received',
+      items: [{ description: `Visa · ${who}`, quantity: 1, unit_price_cents: 70_000, account_id: code('5000') }],
+    }));
+  }
+  await openRoute(`/vendors/${vendor.id}/statement`);
+  await clickPageAction('[data-action="pay-supplier"]');
+  const form = page.locator('[role="dialog"]');
+  await form.locator('[data-bill-share]').first().waitFor();
+  await form.locator('#ps-amount').fill('1400');
+  assert.deepEqual(await form.locator('[data-bill-share]').evaluateAll((inputs) => inputs.map((input) => input.value)), ['700.00', '700.00'], 'shared out oldest first');
+  await form.locator('#ps-ref').fill('FT2611230045');
+  await form.locator('#bank-charges').fill('10.50');
+  await form.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  for (const bill of bills) assert.equal((await getJson(baseUrl, `/api/bills/${bill.id}`)).balance_cents, 0);
+
+  const row = page.locator('tr.statement-row', { hasText: 'SPAY-' });
+  await row.waitFor();
+  assert.match(await row.locator('.statement-line').innerText(), /^Paid · Bank transfer/);
+  assert.match(await row.locator('[data-statement-pax]').innerText(), /2 bills/);
+  assert.equal(await page.locator('[data-action="pay-supplier"]').count(), 0, 'nothing left to pay');
+  assertNoConsoleErrors();
+});
+
 test('a supplier credit applies to an overdue bill', async () => {
   const accounts = await getJson(baseUrl, '/api/accounts');
   const code = (value) => accounts.find((row) => row.code === value).id;

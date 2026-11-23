@@ -58,7 +58,8 @@ export function particulars(row, kind) {
     case 'cancellation': return { top: ['Cancelled'], sub: [`${row.related} reversed`] };
     case 'cancellation_charge': return { top: ['Cancellation charges'], sub: [] };
     case 'refund': return { top: [kind === 'vendor' ? 'Supplier refund' : 'Refund'], sub: [row.method, row.related] };
-    case 'deposit': return topupLines(row, kind);
+    case 'deposit': return paidLines(row, kind, 'Top-up', row.method);
+    case 'supplier_payment': return paidLines(row, kind, `Paid · ${row.method}`, row.related);
     case 'deposit_return': return { top: ['Withdrawal'], sub: [row.method] };
     case 'supplier_credit': return { top: ['Supplier credit'], sub: [row.related] };
     case 'credit_refund': return { top: ['Refund received'], sub: [row.method] };
@@ -66,9 +67,10 @@ export function particulars(row, kind) {
   }
 }
 
-// A top-up, with the bills it paid (and any withdrawal or visa deposit)
-// listed under it, as a receipt lists the invoices it paid.
-function topupLines(row, kind) {
+// A top-up or one payment for several bills, with the bills it paid (and,
+// for a top-up, any withdrawal or visa deposit) listed under it, as a
+// receipt lists the invoices it paid.
+function paidLines(row, kind, title, first) {
   const paid = row.paid || [];
   const bills = [...new Set(paid.filter((use) => use.kind === 'bill').map((use) => use.number))];
   const list = paid.map((use) => {
@@ -82,8 +84,8 @@ function topupLines(row, kind) {
     };
   });
   return {
-    top: ['Top-up'],
-    sub: [row.method, bills.length ? `Paid ${documentList(bills)}` : ''],
+    top: [title],
+    sub: [first, bills.length ? `Paid ${documentList(bills)}` : ''],
     list,
     listLabel: bills.length === paid.length ? `${bills.length} ${bills.length === 1 ? 'bill' : 'bills'}` : `Paid for ${paid.length}`,
   };

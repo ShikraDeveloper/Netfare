@@ -691,6 +691,16 @@ Verification:
 - **What:** Supplier, customer and portal statements have a "Details" switch beside the period. Off: each line shows only its first line (who it was for, or what it was); on: the second line too (passport, visa type and days, PNR, ticket, customer, supplier ref). Print follows the switch. The "N passengers" / "N bills" lists work either way. The choice is remembered on that computer (`localStorage` `netfare.statementDetails`, off by default); helpers `detailsSwitchHtml` / `bindDetailsSwitch` in `public/js/statement-lines.js`, the class `statement-compact` on the statement table.
 - **Checked:** `npm run check`; `npm test` 390; `npm run test:e2e` 58 (new: off hides the second line on screen and in print, the choice is remembered, on shows it; the browser tests start with Details on so they can read the second lines; the old "no switch" check now expects one). Demo supplier statement in the browser pane.
 
+### Pay supplier: one transfer for several bills, with bank charges
+
+- **Why:** The user had to pay a supplier AED 1,400 for two visas in one bank transfer. A plain supplier (no portal) could only be paid bill by bill. The user agreed to a "Pay supplier" like the customer's Receive payment ("han ye sai hy") and asked for a bank charges field ("with bank charges field b rakho").
+- **What:**
+  - **Pay supplier** on the Bills page (choose the supplier) and on a supplier's statement (when something is payable). Amount paid, date, method (no cheques: those stay on each bill so they can be matched), paid from, reference, bank charges, and the supplier's open bills, each named as on the statement. The amount is shared out oldest first and each bill's share can be changed. The whole amount must go on bills.
+  - **Books:** new `supplier_payments` table (`SPAY-2026-0001`, `server/services/supplier-payments.js`), one journal entry for the transfer (Dr Trade Payables per bill, Cr bank once, plus 6700 bank charges), and each bill's share as a `bill_payments` row with `supplier_payment_id`, in that entry. Routes `POST /api/bills/supplier-payments`, `GET …/:id`, `POST …/:id/void` (admin).
+  - **Statement:** one line "Paid · Bank transfer" with the reference and "N bills ▸" listing each bill and its share (the same list as top-ups), instead of one line per bill.
+  - **Voids:** a single share voided on its bill (or by voiding the bill) gives back only that share; "Void SPAY-…" on any of its bills voids the rest and the bank charges. A share cannot be corrected (void and pay again). The bill page says "Part of SPAY-…, one payment for N bills".
+- **Checked:** `npm run check`; `npm test` 393 (new `test/supplier-payments.test.js`: refuses an amount not all on bills, more than a bill owes, and cheques; 1,400 + 10.50 charges pays two bills in one entry; the statement line and its bills; one share voided alone, then the rest with the charges; the statement still ties to the ledger); `npm run test:e2e` 59 (new: Pay supplier from the statement shares 700 + 700, saves with charges, both bills paid, one "2 bills" line). Demo Bills page in the browser pane.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

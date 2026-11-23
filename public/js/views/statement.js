@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { bindDetailsSwitch, bindListToggles, detailsSwitchHtml, listRowsHtml, listToggleHtml, particulars } from '../statement-lines.js';
-import { cashAccounts } from '../store.js';
+import { can, cashAccounts } from '../store.js';
+import { openPaySupplier } from './pay-supplier.js';
 import {
   bindDateRange,
   centsToInput,
@@ -118,6 +119,7 @@ export async function render(container, { params = [], query = new URLSearchPara
     title: `${data.party.name} statement`,
     actions: `
       <a class="btn btn-ghost" href="#/${routeBase}">${icon('chevron', 15)}<span>All ${routeBase}</span></a>
+      ${kind === 'vendor' && closing > 0 && can('suppliers', 'edit') ? `<button class="btn btn-secondary" data-action="pay-supplier">${icon('send', 15)}<span>Pay supplier</span></button>` : ''}
       ${held > 0 ? `<button class="btn btn-secondary" data-action="receive-refund">${icon('arrowUp', 15)}<span>Receive refund · ${fmtMoney(held)}</span></button>` : ''}
       <button class="btn btn-primary" data-action="print-statement">${icon('print', 15)}<span>Print</span></button>
     `,
@@ -270,6 +272,11 @@ export async function render(container, { params = [], query = new URLSearchPara
 
   const printButton = document.querySelector('[data-action="print-statement"]');
   if (printButton) printButton.addEventListener('click', printPage);
+
+  document.querySelector('[data-action="pay-supplier"]')?.addEventListener('click', () => openPaySupplier({
+    vendor: { id: partyId, name: data.party.name },
+    onDone: () => render(container, { query, params: [partyId], kind }),
+  }));
 
   document.querySelector('[data-action="receive-refund"]')?.addEventListener('click', () => {
     const accounts = cashAccounts().sort((a, b) => a.code.localeCompare(b.code));

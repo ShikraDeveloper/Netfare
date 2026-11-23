@@ -40,6 +40,7 @@ const KINDS = {
     fields: [...PAYMENT_FIELDS, 'payment_account_id'],
     check(row) {
       if (row.portal_id) throw bad('This bill was paid from a portal wallet. Void it and settle the bill from the portal again.');
+      if (row.supplier_payment_id) throw bad('This is part of one payment for several bills. Void it and pay the supplier again.');
     },
     void(db, row, remarks) {
       require('./bills').deleteBillPayment(db, row.id, { remarks });

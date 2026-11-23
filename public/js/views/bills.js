@@ -1,6 +1,7 @@
 import { paidByAmount, paidByHtml, paidByMatches } from '../payment-methods.js';
 import { api } from '../api.js';
 import { openQuickExpenseModal } from './quick-expense.js';
+import { openPaySupplier } from './pay-supplier.js';
 import { activeVendors, purchaseAccounts, store } from '../store.js';
 import { lineItemsHtml, mountLineItems } from '../line-items.js';
 import { DEFAULT_PAGE_SIZE, bindPagination, paginationHtml } from '../pagination.js';
@@ -57,9 +58,11 @@ export async function render(container, { query } = {}) {
   setHeader({
     title: 'Bills & expenses',
     actions: `
+      <button class="btn btn-secondary" data-action="pay-supplier">${icon('send', 16)}<span>Pay supplier</span></button>
       <button class="btn btn-secondary" data-action="quick-expense">${icon('cash', 16)}<span>Quick expense</span></button>
       <button class="btn btn-primary" data-action="new-bill">${icon('plus', 16)}<span>New bill</span></button>`,
   });
+  document.querySelector('[data-action="pay-supplier"]')?.addEventListener('click', () => openPaySupplier({ onDone: () => render(container, { query }) }));
   const quick = () => openQuickExpenseModal({ onSaved: (bill) => { location.hash = `#/bills/${bill.id}`; } });
   document.querySelectorAll('[data-action="quick-expense"]').forEach((button) => button.addEventListener('click', quick));
 

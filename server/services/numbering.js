@@ -111,6 +111,12 @@ function allocateNumber(db, kind, dateStr) {
       next: settings.next_cancellation_number,
       column: 'next_cancellation_number',
     },
+    supplier_payment: {
+      table: 'supplier_payments',
+      prefix: 'SPAY',
+      next: settings.next_supplier_payment_number || 1,
+      column: 'next_supplier_payment_number',
+    },
     portal_credit: {
       table: 'portal_credits',
       prefix: settings.portal_credit_prefix || 'PCR',

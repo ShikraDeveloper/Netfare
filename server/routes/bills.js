@@ -17,6 +17,18 @@ router.post('/quick-expense', (req, res) => {
   res.status(201).json(service.createQuickExpense(db, req.body || {}));
 });
 
+// Pay supplier: one payment for several bills. Void is admin only (permissions.js).
+const supplierPayments = require('../services/supplier-payments');
+router.post('/supplier-payments', (req, res) => {
+  res.status(201).json(supplierPayments.paySupplier(db, req.body || {}));
+});
+router.get('/supplier-payments/:id', (req, res) => {
+  res.json(supplierPayments.getSupplierPayment(db, Number(req.params.id)));
+});
+router.post('/supplier-payments/:id/void', (req, res) => {
+  res.json(supplierPayments.voidSupplierPayment(db, Number(req.params.id), req.body || {}));
+});
+
 router.get('/:id', (req, res) => {
   res.json(service.getBill(db, Number(req.params.id)));
 });
