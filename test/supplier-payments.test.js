@@ -92,3 +92,26 @@ test('one share voided on its bill gives back only that share; voiding the payme
   // The statement still ties to the ledger.
   assert.equal(statements.vendorStatement(db, vendorId, { from: '2000-01-01' }).closing_balance_cents, -ledger('2000'));
 });
+
+test('on a credit account the transfer is one line too, and the bank fees report names the transfer', () => {
+  const portals = require('../server/services/portals');
+  const { bankChargesReport } = require('../server/services/reports/bank-charges');
+  const creditVendor = Number(db.prepare("INSERT INTO vendors (name) VALUES ('Credit Visa Supplier')").run().lastInsertRowid);
+  const portal = portals.createPortal(db, { name: 'Credit visas', portal_type: 'consolidator', settlement: 'credit', vendor_id: creditVendor });
+  const credit = (date) => bills.createBill(db, {
+    vendor_id: creditVendor, bill_date: date, due_date: date, status: 'received',
+    items: [{ description: 'Visa', quantity: 1, unit_price_cents: 70_000, account_id: account('5000') }],
+  });
+  credit('2026-11-20');
+  credit('2026-11-21');
+  const payment = paySupplier(db, {
+    vendor_id: creditVendor, payment_date: '2026-11-23', amount_cents: 140_000, payment_account_id: account('1010'),
+    method: 'Bank transfer', reference: 'FT-CREDIT', bank_charges_cents: 525,
+  });
+  const rows = portals.portalLedger(db, portal.id, {}).rows.filter((row) => row.kind !== 'bill');
+  assert.deepEqual(rows.map((row) => [row.kind, row.reference, row.debit_cents, row.paid.length]), [['supplier_payment', payment.number, 140_000, 2]]);
+
+  const fee = bankChargesReport(db, '2026-11-23', '2026-11-23').rows.find((row) => row.amount_cents === 525);
+  assert.equal(fee.document.number, payment.number);
+  assert.equal(fee.detail, '2 bills');
+});

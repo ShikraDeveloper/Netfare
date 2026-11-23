@@ -31,8 +31,18 @@ function creditPortalLedger(db, portal, options = {}) {
     : [];
   // Bills paid from this account's top-ups show as the top-ups themselves
   // (with the bills each paid listed under it), as on the supplier statement.
-  const payments = allPayments.filter((payment) => payment.portal_id !== portal.id);
-  const topupPaid = require('../statements').topupUses(db, portal.id);
+  // A Pay supplier transfer is one line with its bills, as on the supplier statement.
+  const payments = allPayments.filter((payment) => payment.portal_id !== portal.id && !payment.supplier_payment_id);
+  const { topupUses, supplierPaymentShares } = require('../statements');
+  const topupPaid = topupUses(db, portal.id);
+  const transfers = (vendorId
+    ? db.prepare(`
+        SELECT sp.*, a.name AS payment_account_name FROM supplier_payments sp
+        JOIN accounts a ON a.id = sp.payment_account_id
+        WHERE sp.vendor_id = ? AND sp.status = 'posted'
+      `).all(vendorId)
+    : []).map((transfer) => ({ ...transfer, paid: supplierPaymentShares(db, transfer.id) }))
+    .filter((transfer) => transfer.paid.length);
 
   // Old supplier refunds reduced a bill payment and reopened A/P. Supplier
   // credit refunds settle 1450 and must not appear as A/P activity.
@@ -80,6 +90,7 @@ function creditPortalLedger(db, portal, options = {}) {
     ...supplierRefunds.map((refund) => refund.journal_entry_id),
     ...portal.topups.map((topup) => topup.journal_entry_id),
     ...portal.refunds.map((refund) => refund.journal_entry_id),
+    ...transfers.map((transfer) => transfer.journal_entry_id),
     ...supplierCredits.map((credit) => credit.journal_entry_id),
     ...creditApplications.map((application) => application.journal_entry_id),
   ].filter(Boolean);
@@ -157,6 +168,23 @@ function creditPortalLedger(db, portal, options = {}) {
       source_id: topup.id,
       paid: topupPaid.get(topup.id) || [],
       lines: linesByEntry.get(topup.journal_entry_id) || [],
+    })),
+    ...transfers.map((transfer) => ({
+      key: `supplier-payment-${transfer.id}`,
+      kind: 'supplier_payment',
+      date: transfer.payment_date,
+      created_at: transfer.created_at || '',
+      order: 1,
+      reference: transfer.number,
+      description: `Paid · ${transfer.method}`,
+      detail: [transfer.payment_account_name, transfer.reference].filter(Boolean).join(' · '),
+      debit_cents: transfer.paid.reduce((sum, share) => sum + share.amount_cents, 0),
+      credit_cents: 0,
+      entry_id: transfer.journal_entry_id || null,
+      bill_id: transfer.paid[0].bill_id,
+      source_id: transfer.id,
+      paid: transfer.paid,
+      lines: linesByEntry.get(transfer.journal_entry_id) || [],
     })),
     ...portal.refunds.map((refund) => ({
       key: `withdrawal-${refund.id}`,
@@ -252,7 +280,7 @@ function creditPortalLedger(db, portal, options = {}) {
   const totalDebitCents = rows.reduce((sum, row) => sum + row.debit_cents, 0);
   const closingCents = openingCents + totalCreditCents - totalDebitCents;
   const periodBills = rows.filter((row) => row.kind === 'bill').length;
-  const periodPayments = rows.filter((row) => row.kind === 'bill_payment' || row.kind === 'topup').length;
+  const periodPayments = rows.filter((row) => ['bill_payment', 'supplier_payment', 'topup'].includes(row.kind)).length;
   const periodRefunds = rows.filter((row) => row.kind === 'supplier_refund').length;
   const periodCredits = rows.filter((row) => row.kind === 'supplier_credit_applied').length;
 

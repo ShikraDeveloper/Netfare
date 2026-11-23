@@ -296,7 +296,7 @@ export async function render(container, { params, query } = {}) {
 
   const creditPaymentRows = isCredit
     ? periodRows
-      .filter((row) => row.kind === 'bill_payment' || row.kind === 'supplier_refund')
+      .filter((row) => ['bill_payment', 'supplier_payment', 'supplier_refund'].includes(row.kind))
       .slice()
       .reverse()
       .map((row) => {

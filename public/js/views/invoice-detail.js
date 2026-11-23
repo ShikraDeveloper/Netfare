@@ -308,7 +308,7 @@ function openShareModal(invoice, settings) {
             const url = link.href;
             closeThen(async () => {
               try {
-                const result = await docs.share(document.title, text.value, url);
+                const result = await docs.share(document.title, url);
                 const where = link === whatsapp ? 'the chat' : 'the email';
                 if (result?.copied) toast(`${result.file} is copied: press ⌘V in ${where}, or drag it from Downloads`);
                 else if (result?.shared === 'file') toast(`${result.file} is in Downloads: drag it into ${where}`);

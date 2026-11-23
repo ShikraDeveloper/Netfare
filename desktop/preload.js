@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld('netfareSetup', {
 contextBridge.exposeInMainWorld('netfareDocs', {
   preview: (title) => ipcRenderer.invoke('docs:preview', String(title || '')),
   save: (title) => ipcRenderer.invoke('docs:save', String(title || '')),
-  share: (title, text, url) => ipcRenderer.invoke('docs:share', { title: String(title || ''), text: String(text || ''), url: String(url || '') }),
+  share: (title, url) => ipcRenderer.invoke('docs:share', { title: String(title || ''), url: String(url || '') }),
 });
 
 contextBridge.exposeInMainWorld('netfareBooks', {

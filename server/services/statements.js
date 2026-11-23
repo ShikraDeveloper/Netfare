@@ -80,6 +80,18 @@ function billDetails(db, billId) {
   };
 }
 
+// The bills one Pay supplier transfer paid, each with its share.
+function supplierPaymentShares(db, supplierPaymentId) {
+  return db.prepare(`
+    SELECT b.id AS bill_id, b.number, b.total_cents, bp.amount_cents
+    FROM bill_payments bp JOIN bills b ON b.id = bp.bill_id
+    WHERE bp.supplier_payment_id = ? AND bp.status = 'posted' ORDER BY bp.id
+  `).all(supplierPaymentId).map((share) => ({
+    kind: 'bill', bill_id: share.bill_id, number: share.number, amount_cents: share.amount_cents,
+    part: share.amount_cents < share.total_cents, bill: billDetails(db, share.bill_id),
+  }));
+}
+
 // What each top-up of a wallet paid. A wallet payment does not name its
 // top-up, so the wallet is read first in, first out: money in (top-ups,
 // supplier credits, visa deposits returned) is used by money out (bills,
@@ -433,15 +445,7 @@ function vendorTransactions(db, vendorId) {
       };
     }
     if (row.kind === 'supplier_payment') {
-      const paid = db.prepare(`
-        SELECT b.id AS bill_id, b.number, b.total_cents, bp.amount_cents
-        FROM bill_payments bp JOIN bills b ON b.id = bp.bill_id
-        WHERE bp.supplier_payment_id = ? AND bp.status = 'posted' ORDER BY bp.id
-      `).all(row.id).map((share) => ({
-        kind: 'bill', number: share.number, amount_cents: share.amount_cents,
-        part: share.amount_cents < share.total_cents, bill: billDetails(db, share.bill_id),
-      }));
-      return { ...row, description: `Payment ${row.reference}`, debit_cents: row.amount_cents, credit_cents: 0, paid };
+      return { ...row, description: `Payment ${row.reference}`, debit_cents: row.amount_cents, credit_cents: 0, paid: supplierPaymentShares(db, row.id) };
     }
     if (row.kind === 'deposit_return') {
       return { ...row, description: `Withdrawal · ${row.method}`, debit_cents: 0, credit_cents: row.amount_cents };
@@ -666,6 +670,7 @@ function buildStatement(db, { kind, partyId, from, to }) {
 module.exports = {
   billDetails,
   topupUses,
+  supplierPaymentShares,
   customerStatement(db, customerId, range = {}) {
     return buildStatement(db, { kind: 'customer', partyId: Number(customerId), ...range });
   },

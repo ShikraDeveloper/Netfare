@@ -2755,7 +2755,6 @@ test('Pay supplier: one transfer with bank charges pays two bills; the statement
   await row.waitFor();
   assert.match(await row.locator('.statement-line').innerText(), /^Paid · Bank transfer/);
   assert.match(await row.locator('[data-statement-pax]').innerText(), /2 bills/);
-  assert.equal(await page.locator('[data-action="pay-supplier"]').count(), 0, 'nothing left to pay');
   assertNoConsoleErrors();
 });
 

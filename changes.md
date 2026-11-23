@@ -709,6 +709,17 @@ Verification:
 - **Old release deleted:** v1.0.22 (tag kept); five releases remain, 1.0.23 to 1.0.27.
 - **To try in the office:** WhatsApp from an invoice's Share (⌘V the PDF into the chat, not checked in the real WhatsApp app yet), Pay supplier for the two visas, HolidaySpace's portal statement.
 
+### Audit fixes after Pay supplier
+
+- **Why:** `/ponytail-audit` found six points in the newest money paths; the user said "do".
+- **1. Credit account statement:** a Pay supplier transfer to a credit-account supplier (HolidaySpace) showed as one "Payment" per bill on the portal page while the supplier statement showed one line. `creditPortalLedger` now shows one "Paid · …" line with its bills (shared helper `supplierPaymentShares()` in `statements.js`), also in the page's payments card.
+- **2. Void SPAY reachable:** the "Void SPAY-…" button on a bill stays while the transfer is posted, also after that bill's share was voided, so its bank charges can always be undone.
+- **3. Smoke test for Share:** `scripts/smoke-desktop.js` now shares a PDF to a WhatsApp link (opening nothing, into a throwaway Downloads) and checks the PDF and the chat link (`whatsapp://…` on the Mac, wa.me on Windows). The same check passed in the dev desktop app.
+- **4. Bank & card fees report:** a Pay supplier charge is named as the transfer ("SPAY-… · 2 bills", linking to the supplier statement), not as its first bill.
+- **5. Pay supplier button:** on every supplier statement for staff who can edit suppliers, also when the supplier holds money of ours (the net balance hid it).
+- **6. Lean:** the Share message text is no longer sent to the desktop app (it travels in the link).
+- **Checked:** `npm run check`; `npm test` 394 (new: a credit account shows one transfer line with two bills; the fees report names the transfer); `npm run test:e2e` 59; the Share smoke check in the dev desktop app.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

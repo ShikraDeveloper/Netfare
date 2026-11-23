@@ -39,6 +39,15 @@ function describe(db, entryId) {
   if (payment) {
     return { kind: 'payment', party: payment.party, detail: payment.number, document: { number: payment.invoice_number, href: `#/invoices/${payment.invoice_id}` } };
   }
+  // Pay supplier: one entry for several bills, so it is named as the transfer.
+  const transfer = db.prepare(`
+    SELECT sp.number, sp.vendor_id, v.name AS party,
+           (SELECT COUNT(*) FROM bill_payments bp WHERE bp.supplier_payment_id = sp.id) AS bills
+    FROM supplier_payments sp JOIN vendors v ON v.id = sp.vendor_id WHERE sp.journal_entry_id = ?
+  `).get(entryId);
+  if (transfer) {
+    return { kind: 'bill_payment', party: transfer.party, detail: `${transfer.bills} bills`, document: { number: transfer.number, href: `#/vendors/${transfer.vendor_id}/statement` } };
+  }
   const billPayment = db.prepare(`
     SELECT bp.number, b.id AS bill_id, b.number AS bill_number, v.name AS party
     FROM bill_payments bp JOIN bills b ON b.id = bp.bill_id JOIN vendors v ON v.id = b.vendor_id WHERE bp.journal_entry_id = ?

@@ -187,7 +187,7 @@ export async function render(container, { params } = {}) {
           </div>
           ${refundable > 0 && bill.status === 'received' ? `<button class="icon-btn" data-refund-payment="${payment.id}" title="Record supplier refund">${icon('arrowUp', 16)}</button>` : ''}
           ${refunded > 0 || bill.status !== 'received' || payment.portal_id || payment.supplier_payment_id || payment.status === 'void' ? '' : correctButtonHtml('bill_payment', payment)}
-          ${payment.supplier_payment_id && payment.status === 'posted' && bill.status === 'received' && refunded === 0 ? `<button class="btn btn-ghost btn-sm" data-void-supplier-payment="${payment.supplier_payment_id}" data-number="${esc(payment.supplier_payment_number)}" title="Void the whole payment">Void ${esc(payment.supplier_payment_number)}</button>` : ''}
+          ${payment.supplier_payment_status === 'posted' && refunded === 0 ? `<button class="btn btn-ghost btn-sm" data-void-supplier-payment="${payment.supplier_payment_id}" data-number="${esc(payment.supplier_payment_number)}" title="Void the whole payment">Void ${esc(payment.supplier_payment_number)}</button>` : ''}
           ${refunded > 0 || bill.status !== 'received' ? '' : `<button class="icon-btn danger" data-delete-payment="${payment.id}" title="Void payment">${icon('trash', 16)}</button>`}
         </div>
       `;

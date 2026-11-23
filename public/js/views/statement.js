@@ -119,7 +119,7 @@ export async function render(container, { params = [], query = new URLSearchPara
     title: `${data.party.name} statement`,
     actions: `
       <a class="btn btn-ghost" href="#/${routeBase}">${icon('chevron', 15)}<span>All ${routeBase}</span></a>
-      ${kind === 'vendor' && closing > 0 && can('suppliers', 'edit') ? `<button class="btn btn-secondary" data-action="pay-supplier">${icon('send', 15)}<span>Pay supplier</span></button>` : ''}
+      ${kind === 'vendor' && can('suppliers', 'edit') ? `<button class="btn btn-secondary" data-action="pay-supplier">${icon('send', 15)}<span>Pay supplier</span></button>` : ''}
       ${held > 0 ? `<button class="btn btn-secondary" data-action="receive-refund">${icon('arrowUp', 15)}<span>Receive refund · ${fmtMoney(held)}</span></button>` : ''}
       <button class="btn btn-primary" data-action="print-statement">${icon('print', 15)}<span>Print</span></button>
     `,

@@ -116,7 +116,7 @@ function getBill(db, id) {
   `).all(id);
   bill.payments = db.prepare(`
     SELECT p.*, a.name AS payment_account_name, sp.name AS portal_name,
-           spay.number AS supplier_payment_number,
+           spay.number AS supplier_payment_number, spay.status AS supplier_payment_status,
            (SELECT COUNT(*) FROM bill_payments x WHERE x.supplier_payment_id = p.supplier_payment_id) AS supplier_payment_bills,
            COALESCE((
              SELECT SUM(r.amount_cents) FROM refunds r

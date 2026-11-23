@@ -64,6 +64,22 @@ async function main() {
     const pdfFile = fs.readdirSync(folder).find((name) => name.endsWith('.pdf'));
     if (!pdfFile) throw new Error('Print preview made no PDF');
     if (hasWindowTint(fs.readFileSync(path.join(folder, pdfFile)))) throw new Error('The printed PDF has tinted margins, not white paper');
+    // Share → WhatsApp: the PDF goes to Downloads and the customer's chat
+    // opens (in the WhatsApp app on the Mac). Nothing is really opened here,
+    // and Downloads is a throwaway folder.
+    const downloads = fs.mkdtempSync(path.join(os.tmpdir(), 'netfare-smoke-dl-'));
+    await app.evaluate(({ app: electronApp, shell }, dir) => {
+      electronApp.setPath('downloads', dir);
+      globalThis.smokeOpened = [];
+      shell.openExternal = async (url) => { globalThis.smokeOpened.push(url); };
+      shell.showItemInFolder = () => {};
+    }, downloads);
+    const shared = await win.evaluate(() => window.netfareDocs.share('Smoke share', 'https://wa.me/971500000000?text=Hi'));
+    const opened = await app.evaluate(() => globalThis.smokeOpened);
+    const chat = process.platform === 'darwin' ? 'whatsapp://send?phone=971500000000&text=Hi' : 'https://wa.me/971500000000?text=Hi';
+    if (shared?.shared !== 'file' || !fs.existsSync(path.join(downloads, shared.file))) throw new Error(`Share made no PDF in Downloads: ${JSON.stringify(shared)}`);
+    if (opened[0] !== chat) throw new Error(`Share opened ${opened[0]} instead of the WhatsApp chat ${chat}`);
+    fs.rmSync(downloads, { recursive: true, force: true });
     // Settings → Restore from backup… reaches the app's restore: the file
     // dialog opens (answered here with Cancel), and nothing restarts.
     const asked = await app.evaluate(({ dialog }) => {
@@ -100,7 +116,7 @@ async function main() {
     }));
     const code = await Promise.race([exited, new Promise((resolve) => setTimeout(() => resolve('still open'), 10_000))]);
     if (!/will close/.test(title) || code !== 1) throw new Error(`An unexpected error did not show the message and close the app (message "${title}", exit ${code})`);
-    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, opens Restore from backup, reloads a crashed window and closes with a message on an error.`);
+    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, shares to the WhatsApp chat, opens Restore from backup, reloads a crashed window and closes with a message on an error.`);
   } finally {
     await app.close().catch(() => {});
     fs.rmSync(userData, { recursive: true, force: true });
