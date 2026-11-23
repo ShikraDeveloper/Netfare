@@ -990,7 +990,8 @@ body.modal-open { overflow: hidden; }
 .doc-terms-foot { margin-top: 14px; font-size: 10.5px; color: var(--muted-2); line-height: 1.6; white-space: pre-line; max-width: 620px; }
 .brand-logo { height: 52px; width: auto; max-width: 180px; object-fit: contain; object-position: left center; flex: none; }
 /* With a logo: the logo on top, the address and contact lines below it. */
-.doc-brand:has(.brand-logo) { flex-direction: column; align-items: flex-start; gap: 10px; }
+.doc-brand:has(.brand-logo) { flex-direction: column; align-items: flex-start; gap: 6px; }
+.doc-brand:has(.brand-logo) .doc-company-detail { line-height: 1.45; margin-top: 0; }
 /* The logo carries the company's name; the address and contact lines stay. */
 .doc-brand:has(.brand-logo) .doc-company-name { display: none; }
 /* On documents the logo's box is the logo itself (no empty band above or

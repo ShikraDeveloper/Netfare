@@ -741,6 +741,15 @@ Verification:
 - **Note:** the logo already saved stays 480 pixels. The user uploads the original logo file again in Settings → Company after the update.
 - **Checked:** `npm run check`; `npm run test:e2e` 60 (new: a 2,400-pixel logo becomes a 1,200-pixel PNG). The PDF itself could not be opened as a picture here (no PDF renderer on this Mac); the cause was confirmed from the saved logo's size.
 
+### Invoice: company details lined up under the logo
+
+- **Why:** On the printed INV-2026-0070 the logo started a little to the right of the address under it, and the four detail lines sat loose and far below it. The user wanted only that adjusted, keeping the four lines ("jesa print me hy na mene just nichay company ki details adjustment ka bola hy", "4 lines rehne do").
+- **What:**
+  - `public/js/views/settings.js`: on upload, the logo's clear or white edges are cut off (`inkBox()`), so its ink starts on the same edge as the address. The saved Shikra logo had about 5 pixels of empty space on its left.
+  - `public/css/styles.css`: with a logo, the details sit 6px under it (was 10px) at line height 1.45 (was 1.6). Still four lines; nothing else on the invoice changed.
+- **Note:** the saved logo is trimmed when it is uploaded again (needed anyway for the sharper logo).
+- **Checked:** `npm run check`; `npm run test:e2e` 60 (the logo test now checks that clear margins are cut: a 2,100 × 210 logo inside margins becomes 1,200 × 120). On a copy of the real books (deleted after), uploading the saved logo again gave 462 × 67 and the printed header lines up.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

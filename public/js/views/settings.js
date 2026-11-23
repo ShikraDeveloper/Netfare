@@ -568,6 +568,30 @@ export async function render(container, { query = new URLSearchParams() } = {}) 
   return () => {};
 }
 
+// The part of a logo that is not empty: clear or white edges around it are
+// cut off, so the logo starts on the same edge as the address under it.
+function inkBox(image) {
+  const canvas = document.createElement('canvas');
+  canvas.width = image.width;
+  canvas.height = image.height;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  context.drawImage(image, 0, 0);
+  const { data, width, height } = context.getImageData(0, 0, canvas.width, canvas.height);
+  let left = width; let right = -1; let top = height; let bottom = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const i = (y * width + x) * 4;
+      const empty = data[i + 3] < 16 || (data[i] > 245 && data[i + 1] > 245 && data[i + 2] > 245);
+      if (empty) continue;
+      if (x < left) left = x;
+      if (x > right) right = x;
+      if (y < top) top = y;
+      if (y > bottom) bottom = y;
+    }
+  }
+  return right < 0 ? { x: 0, y: 0, w: width, h: height } : { x: left, y: top, w: right - left + 1, h: bottom - top + 1 };
+}
+
 // The logo prints about 2.3 inches wide, so up to 1,200 pixels keeps it
 // sharp on paper and in a zoomed PDF. A PNG that is too large for the books
 // is made narrower first (it keeps a clear background); JPG is the last step.
@@ -575,14 +599,15 @@ function shrinkImage(file, maxWidth) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => {
+      const box = inkBox(image);
       const draw = (width) => {
-        const scale = Math.min(1, width / image.width);
+        const scale = Math.min(1, width / box.w);
         const canvas = document.createElement('canvas');
-        canvas.width = Math.round(image.width * scale);
-        canvas.height = Math.round(image.height * scale);
+        canvas.width = Math.max(1, Math.round(box.w * scale));
+        canvas.height = Math.max(1, Math.round(box.h * scale));
         const context = canvas.getContext('2d');
         context.imageSmoothingQuality = 'high';
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        context.drawImage(image, box.x, box.y, box.w, box.h, 0, 0, canvas.width, canvas.height);
         return canvas;
       };
       let canvas;
