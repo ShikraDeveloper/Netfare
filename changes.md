@@ -720,6 +720,13 @@ Verification:
 - **6. Lean:** the Share message text is no longer sent to the desktop app (it travels in the link).
 - **Checked:** `npm run check`; `npm test` 394 (new: a credit account shows one transfer line with two bills; the fees report names the transfer); `npm run test:e2e` 59; the Share smoke check in the dev desktop app.
 
+### Release 1.0.28 — `66cf2a9`, tag `v1.0.28`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** the audit fixes after Pay supplier: a transfer to a credit-account supplier is one line on the portal page; Void SPAY stays on its bills until the transfer is void; the fees report names the transfer; Pay supplier on every supplier statement; the Share message no longer sent twice; the release check tests Share to WhatsApp.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 394 and `npm run test:e2e` 59. GitHub run 45170133005: Build (mac), Build (win), Publish release succeeded; the smoke test, now with "shares to the WhatsApp chat", passed on both. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.28); releases/latest is v1.0.28.
+- **Old release deleted:** v1.0.23 (tag kept); five releases remain, 1.0.24 to 1.0.28.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
