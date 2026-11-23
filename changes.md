@@ -750,6 +750,14 @@ Verification:
 - **Note:** the saved logo is trimmed when it is uploaded again (needed anyway for the sharper logo).
 - **Checked:** `npm run check`; `npm run test:e2e` 60 (the logo test now checks that clear margins are cut: a 2,100 × 210 logo inside margins becomes 1,200 × 120). On a copy of the real books (deleted after), uploading the saved logo again gave 462 × 67 and the printed header lines up.
 
+### Release 1.0.29 — `e90eb68`, tag `v1.0.29`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** the company logo kept up to 1,200 pixels with smooth shrinking; empty edges cut off a logo on upload, with the details under it closer and lined up; invoices without the internal customer number under Bill to.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 394 and `npm run test:e2e` 60. GitHub run 45207139148 (8m40s): Build (mac), Build (win), Publish release succeeded; the smoke test passed on both. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.29); releases/latest is v1.0.29.
+- **Old release deleted:** v1.0.24 (tag kept); five releases remain, 1.0.25 to 1.0.29.
+- **After the update in the office:** upload the logo again in Settings → Company (the original, largest file if there is one).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
