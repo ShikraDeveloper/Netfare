@@ -785,6 +785,7 @@ test('visa invoice names the visitor in its passenger table', async () => {
     (await page.locator('.doc-parties').first().innerText()).includes(visitor.customer_name),
     'Bill To should stay with the paying customer',
   );
+  assert.doesNotMatch(await page.locator('.doc-parties').first().innerText(), /CUS-\d{4}/, 'no internal customer number on the invoice');
   assertNoConsoleErrors();
 });
 

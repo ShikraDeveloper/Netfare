@@ -571,7 +571,7 @@ export async function render(container, { params } = {}) {
           <div>
             <div class="doc-label">Bill to</div>
             <div class="doc-party-name">${esc(invoice.customer_name)}</div>
-            <div class="doc-party-detail">${esc([[invoice.customer_number, invoice.customer_address].filter(Boolean).join(' · '), [invoice.customer_email, invoice.customer_phone].filter(Boolean).join(' · '), invoice.customer_trn ? `TRN ${invoice.customer_trn}` : '', invoice.customer_contact ? `Attn: ${invoice.customer_contact}` : ''].filter(Boolean).join('\n'))}</div>
+            <div class="doc-party-detail">${esc([invoice.customer_address, [invoice.customer_email, invoice.customer_phone].filter(Boolean).join(' · '), invoice.customer_trn ? `TRN ${invoice.customer_trn}` : '', invoice.customer_contact ? `Attn: ${invoice.customer_contact}` : ''].filter(Boolean).join('\n'))}</div>
           </div>
           ${partiesRightHtml(invoice, hasJobDetails)}
         </div>

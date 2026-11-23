@@ -727,6 +727,12 @@ Verification:
 - **Checked:** a clean copy of main passed `npm run check`, `npm test` 394 and `npm run test:e2e` 59. GitHub run 45170133005: Build (mac), Build (win), Publish release succeeded; the smoke test, now with "shares to the WhatsApp chat", passed on both. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.28); releases/latest is v1.0.28.
 - **Old release deleted:** v1.0.23 (tag kept); five releases remain, 1.0.24 to 1.0.28.
 
+### Invoice: no customer number under Bill to
+
+- **Why:** The user said the invoice should not print "CUS-0026" ("INVOICE PAY CUS-0026 AYSA NAI anna chaiye right ?", then "Haan, invoice se hatao"). It sat unlabelled before the address, means nothing to the customer, shows how many customers there are, and a UAE tax invoice does not need it.
+- **What:** `public/js/views/invoice-detail.js` Bill to starts with the address. The customer number stays on the statement ("Customer no. …"), in the customer list and search, and beside the name on the customer's page.
+- **Checked:** `npm run check`; `npm run test:e2e` 59 (the visa invoice test now checks the Bill to has no CUS number).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
