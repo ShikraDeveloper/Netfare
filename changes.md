@@ -701,6 +701,14 @@ Verification:
   - **Voids:** a single share voided on its bill (or by voiding the bill) gives back only that share; "Void SPAY-…" on any of its bills voids the rest and the bank charges. A share cannot be corrected (void and pay again). The bill page says "Part of SPAY-…, one payment for N bills".
 - **Checked:** `npm run check`; `npm test` 393 (new `test/supplier-payments.test.js`: refuses an amount not all on bills, more than a bill owes, and cheques; 1,400 + 10.50 charges pays two bills in one entry; the statement line and its bills; one share voided alone, then the rest with the charges; the statement still ties to the ledger); `npm run test:e2e` 59 (new: Pay supplier from the statement shares 700 + 700, saves with charges, both bills paid, one "2 bills" line). Demo Bills page in the browser pane.
 
+### Release 1.0.27 — `3407144`, tag `v1.0.27`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** Pay supplier (one transfer with bank charges for several bills, one statement line with the bills under it); Share on the Mac opening the customer's WhatsApp chat or a new email with the PDF copied for ⌘V; credit account statements (HolidaySpace) showing top-ups with their bills instead of one payment per bill; the statements' Details switch.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 393 and `npm run test:e2e` 59. GitHub run 45167060537: Build (mac), Build (win), Publish release succeeded; the smoke test passed on both. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.27 with the notes); releases/latest is v1.0.27.
+- **Old release deleted:** v1.0.22 (tag kept); five releases remain, 1.0.23 to 1.0.27.
+- **To try in the office:** WhatsApp from an invoice's Share (⌘V the PDF into the chat, not checked in the real WhatsApp app yet), Pay supplier for the two visas, HolidaySpace's portal statement.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
