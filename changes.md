@@ -839,6 +839,13 @@ Verification:
 - **2. Deposit cash on its own line:** deposit cash sits in the visa row's Cash column, so the cash box showed it as "Visa sales (cash)". The server now gives each visa row `deposit_cash_cents` (`server/services/reports/dsr-sections.js`), and the cash box shows "Security deposits (cash)" on its own line, with visa sales without it. Cash in hand is unchanged.
 - **Checked:** `npm run check`; `npm test` 400; `npm run test:e2e` 61.
 
+### Release 1.0.30 — `cff3ae3`, tag `v1.0.30`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** Reminders (suggestions for overdue invoices, travel without a ticket and visas open 10 days or more; WhatsApp; quick times and snooze choices; given to a staff member; late count on the menu and the Dock) with their audit fixes; the Daily Sales Report in the counter format laid out like the approved mockup (Ticket and Visa Sales lists with Cash, Card, Bank and Credit columns; boxes for payments, cash in hand, sales by how they were paid, the bank, and suppliers and wallets), with its audit fixes (refunds counted once, right net sales after a cancellation before payment, deposit cash on its own line, one page number, no gaps between boxes).
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 400 and `npm run test:e2e` 61. GitHub run 45593839049 (2m40s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.30); releases/latest is v1.0.30.
+- **Old release deleted:** v1.0.25 (tag kept); five releases remain, 1.0.26 to 1.0.30.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
