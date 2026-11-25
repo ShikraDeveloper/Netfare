@@ -75,7 +75,7 @@ function ticketList(rows) {
         ${payCells(row.split, other)}
         <td class="dsr-staff">${esc(firstName(row.staff))}</td>
       </tr>`;
-  }).join('') : emptyRow(12, 'No ticket sales in this period');
+  }).join('') : emptyRow(14, 'No ticket sales in this period');
   return `
     ${title('Ticket Sales List')}
     <table class="dsr-table" data-dsr-table="tickets"><caption class="sr-only">Ticket sales</caption>
@@ -106,7 +106,7 @@ function visaList(rows) {
         ${profitCells(row)}
         ${payCells(row.split, other)}
         <td class="dsr-staff">${esc(firstName(row.staff))}</td>
-      </tr>`).join('') : emptyRow(10, 'No visa sales in this period');
+      </tr>`).join('') : emptyRow(13, 'No visa sales in this period');
   return `
     ${title('Visa Sales List')}
     <table class="dsr-table" data-dsr-table="visas"><caption class="sr-only">Visa sales</caption>
@@ -230,8 +230,8 @@ function closingBoxes(data) {
   const s = data.sections;
   const { settlement, collected, position } = s.summary;
   const out = s.cash_out.map((row) => ({ label: row.label, cents: row.cash_out_cents + row.bank_out_cents })).filter((row) => row.cents);
-  const refunds = s.summary.refunds_cents || 0;
-  const paidOut = sumOf(out, (row) => row.cents) + refunds;
+  // Refunds paid are already in here (as "Customer refunds" etc.), so no line of their own.
+  const paidOut = sumOf(out, (row) => row.cents);
   const cash = position.cash;
   const bank = position.bank;
   const cashOf = (rows) => sumOf(rows, (r) => r.split.cash);
@@ -246,7 +246,6 @@ function closingBoxes(data) {
     <div class="dsr-boxes">
       ${box('Payments', `
         ${out.map((row) => boxRow(row.label, -row.cents, 'neg')).join('')}
-        ${boxRow('Refunds paid', -refunds, refunds ? 'neg' : '')}
         ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}`, 'data-dsr-payments')}
       ${cash ? box('Summary · cash in hand', `
         ${boxRow('Opening cash', cash.opening_cents)}

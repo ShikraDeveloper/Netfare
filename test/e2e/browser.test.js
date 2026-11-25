@@ -1595,6 +1595,12 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   const modes = (await boxRows('data-dsr-modes'));
   const total = modes.splice(modes.findIndex(([label]) => label === 'Total sales')).shift();
   assert.equal(modes.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(total[1]));
+  // ...and Total sales is what the ticket, visa and service lists total.
+  const listTotals = await page.locator('[data-dsr-table="tickets"], [data-dsr-table="visas"], [data-dsr-table="services"]').evaluateAll((tables) => tables.map((table) => {
+    const column = [...table.tHead.rows[0].cells].findIndex((th) => th.textContent.trim() === 'Total');
+    return table.tFoot.rows[0].cells[column - 2].textContent; // the first foot cell spans 3 columns
+  }));
+  assert.equal(listTotals.reduce((sum, value) => sum + toCents(value), 0), toCents(total[1]), 'Total sales = the lists');
   // Cash in hand: opening plus every line in and out.
   const cash = await boxRows('data-dsr-cash');
   const hand = cash.pop();
@@ -1602,6 +1608,12 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   assert.equal(cash.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(hand[1]), 'the lines add up to the cash in hand');
   assert.ok(cash.some(([label, value]) => label === 'Visa sales (cash)' || (label === 'Ticket sales (cash)' && toCents(value) >= 0)));
   for (const attr of ['data-dsr-payments', 'data-dsr-bank', 'data-dsr-parties']) await page.locator(`[${attr}]`).waitFor();
+  // Payments: all money out of cash and bank, refunds counted once.
+  const paid = await boxRows('data-dsr-payments');
+  const cashOut = cash.find(([label]) => label === 'Refunds and payments (cash)');
+  const bankOut = (await boxRows('data-dsr-bank')).find(([label]) => label === 'Out');
+  assert.equal(toCents(paid.pop()[1]), toCents(cashOut[1]) + toCents(bankOut[1]), 'payments total = cash out + bank out');
+  assert.equal(paid.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(cashOut[1]) + toCents(bankOut[1]));
   assertNoConsoleErrors();
 });
 

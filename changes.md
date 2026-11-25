@@ -810,6 +810,14 @@ Verification:
   - The old tile, card, bar, fold and section styles and the fold click handler (`reports.js`) are gone.
 - **Checked:** `npm run check`; `npm test` 398; `npm run test:e2e` 61 (the DSR test reads the list titles and columns, checks the modes box adds to Total sales and the cash box lines add to Cash in hand). The 12 Nov DSR printed from a read-only copy of the real books (deleted after): 2 pages, figures unchanged (visas 7,235.36; cash in hand 0.00; bank closing 1,489.20; HolidaySpace 3,200.00 owed).
 
+### DSR mockup audit fixes: refunds counted once, tests that can fail, full-width empty rows
+
+- **Why:** `/ponytail-audit` of the mockup DSR; the user said "Fix all three".
+- **1. Refunds counted once:** the Payments box added a "Refunds paid" line on top of the money-out lines, which already hold the refund (as "Customer refunds" and the like), so a refund was counted twice in the total. The extra line is gone; refunds still show in full under Cancellations & Refunds.
+- **2. Tests that can fail:** the DSR e2e test now checks that Total sales equals the Total columns of the ticket, visa and service lists, and that the Payments total (and its lines) equals cash out plus bank out. Run against the old code it failed (-300.00 against -200.00), as it should.
+- **3. Empty rows:** "No ticket sales" and "No visa sales" span the whole table also with Show profit and the Adv. column on.
+- **Checked:** `npm run check`; `npm run test:e2e` 61.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
