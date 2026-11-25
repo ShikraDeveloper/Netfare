@@ -772,6 +772,16 @@ Verification:
 - **Fixed on the way:** two refreshes of the Reminders page at once bound "New reminder" twice, so one click opened two forms. The button is now bound before the page waits for data.
 - **Checked:** `npm run check`; `npm test` 397 (new: giving a reminder to someone, an invoice link with the customer's phone and what is due, suggestions skip what is reminded or ignored and follow rights, the table migration keeps old reminders); `npm run test:e2e` 61 (new: Remind on a suggested invoice, its WhatsApp message, snooze 1 hour, quick time Tomorrow 10:00, the For list, the late count). The Dock number checked in the dev desktop app, and added to the release smoke test. On a read-only copy of the real books the Suggested list would show 5 invoices and 20 visas (visas stay "submitted" until marked approved or issued in Netfare).
 
+### Audit fixes after the Reminders work
+
+- **Why:** `/ponytail-audit` found five points in the new Reminders code; the user said "fix all and nice to have aslo".
+- **1. WhatsApp from a reminder opens the app:** in the desktop app on a Mac, a wa.me link (a reminder's WhatsApp button) now opens `whatsapp://…` like Share does, falling back to WhatsApp Web (`desktop/main.js`, window open handler). The release smoke test checks it.
+- **2. Ignore lasts a week:** an ignored suggestion comes back after 7 days if it is still open (an overdue invoice cannot drop out of sight for good after one wrong click); ignoring again starts a new week.
+- **3. Late count cleared on sign-out:** when the check for due reminders fails (signed out, session ended), the menu and Dock counts go to zero.
+- **4. Visa suggestion wording:** "Open since …" instead of "Submitted …", as the date is the visa invoice's date.
+- **5. Menu count after a redraw:** the red number is put back as soon as the menu is drawn again (side or top menu), not after the next 20-second check; it only touches the page when the number changes.
+- **Checked:** `npm run check`; `npm test` 397 (the suggestions test now checks a week-old Ignore comes back and ignoring again resets it); `npm run test:e2e` 61 (the count comes back right after it is removed); in the dev desktop app a wa.me link opened `whatsapp://send?phone=…&text=…`.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

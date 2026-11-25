@@ -64,7 +64,11 @@ function createWindow() {
     if (appOrigin && config.isSameOrigin(url, appOrigin)) {
       if (isFilePreview(url)) openFilePreview(url);
     } else if (/^https?:\/\//.test(url)) {
-      shell.openExternal(url);
+      // A WhatsApp link (a reminder's chat) opens in the WhatsApp app on the
+      // Mac, as Share does; WhatsApp Web when the app is not there.
+      const appUrl = process.platform === 'darwin' ? config.whatsappAppUrl(url) : '';
+      if (appUrl) shell.openExternal(appUrl).catch(() => shell.openExternal(url));
+      else shell.openExternal(url);
     }
     return { action: 'deny' };
   });

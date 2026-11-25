@@ -5,7 +5,7 @@
 import { api } from './api.js';
 import { whatsappNumber, whatsappUrl } from './share-links.js';
 import { store } from './store.js';
-import { esc, fmtDate, fmtMoney, icon, openModal, toast } from './ui.js';
+import { esc, fmtDate, fmtMoney, icon, openModal, toast, watchPage } from './ui.js';
 
 const REPEAT_LABELS = { never: 'Once', daily: 'Every day', weekly: 'Every week', monthly: 'Every month' };
 
@@ -213,19 +213,25 @@ export async function snooze(reminder, minutes = 10) {
 
 export const SNOOZES = [[10, '10 minutes'], [60, '1 hour'], ['tomorrow', 'Tomorrow 9:00']];
 
-// The late count on the menu and, in the desktop app, on its icon.
-function showLateCount(count) {
+// The late count on the menu and, in the desktop app, on its icon. The menu
+// is drawn again at times (side or top menu), so it is put back on any new
+// menu link; only a change touches the page, so this cannot loop.
+let lateCount = 0;
+function markMenu() {
   document.querySelectorAll('a[data-section="reminders"]').forEach((item) => {
-    let badge = item.querySelector('.menu-count');
-    if (!count) { badge?.remove(); return; }
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'menu-count';
-      item.appendChild(badge);
-    }
-    badge.textContent = String(count);
-    badge.setAttribute('aria-label', `${count} late`);
+    const badge = item.querySelector('.menu-count');
+    if (!lateCount) { badge?.remove(); return; }
+    if (badge?.textContent === String(lateCount)) return;
+    const mark = badge || item.appendChild(document.createElement('span'));
+    mark.className = 'menu-count';
+    mark.textContent = String(lateCount);
+    mark.setAttribute('aria-label', `${lateCount} late`);
   });
+}
+
+function showLateCount(count) {
+  lateCount = count;
+  markMenu();
   try { window.netfareApp?.setBadge(count); } catch { /* not the desktop app */ }
 }
 
@@ -321,6 +327,8 @@ async function checkDue() {
   try {
     open = await api.get('/reminders', { status: 'open' });
   } catch {
+    // Signed out or the session ended: no late count for the next person.
+    showLateCount(0);
     return;
   }
   const now = localStamp();
@@ -346,6 +354,7 @@ export function startReminderAlerts() {
   if (timer) return;
   ['pointerdown', 'keydown'].forEach((type) => window.addEventListener(type, unlockAudio, { once: true }));
   window.addEventListener('reminders-changed', () => setTimeout(checkDue, 300));
+  watchPage(markMenu);
   checkDue();
   timer = setInterval(checkDue, CHECK_MS);
 }

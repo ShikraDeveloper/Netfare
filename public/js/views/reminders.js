@@ -31,7 +31,7 @@ import {
 const SUGGESTED = {
   invoice: { icon: 'invoice', title: 'Payment reminder', detail: (row) => `${fmtMoney(row.due_cents)} · due ${fmtDate(row.date, { short: true })}` },
   booking: { icon: 'plane', title: 'Issue the tickets', detail: (row) => `Travels ${row.date === localStamp().slice(0, 10) ? 'today' : 'tomorrow'} · a ticket number is missing` },
-  visa: { icon: 'visa', title: 'Follow up the visa', detail: (row) => `Submitted ${fmtDate(row.date, { short: true })} · no result yet` },
+  visa: { icon: 'visa', title: 'Follow up the visa', detail: (row) => `Open since ${fmtDate(row.date, { short: true })} · no result yet` },
 };
 
 function suggestionHtml(row) {

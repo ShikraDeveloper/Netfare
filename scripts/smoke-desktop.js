@@ -79,6 +79,11 @@ async function main() {
     const chat = process.platform === 'darwin' ? 'whatsapp://send?phone=971500000000&text=Hi' : 'https://wa.me/971500000000?text=Hi';
     if (shared?.shared !== 'file' || !fs.existsSync(path.join(downloads, shared.file))) throw new Error(`Share made no PDF in Downloads: ${JSON.stringify(shared)}`);
     if (opened[0] !== chat) throw new Error(`Share opened ${opened[0]} instead of the WhatsApp chat ${chat}`);
+    // A reminder's WhatsApp link (a plain wa.me link) opens the same chat.
+    await win.evaluate(() => window.open('https://wa.me/971500000000?text=Hi', '_blank'));
+    await new Promise((wait) => setTimeout(wait, 300));
+    const linked = (await app.evaluate(() => globalThis.smokeOpened))[1];
+    if (linked !== chat) throw new Error(`A WhatsApp link opened ${linked} instead of the chat ${chat}`);
     fs.rmSync(downloads, { recursive: true, force: true });
     // Late reminders show on the Dock icon (the Mac only; Windows has no number).
     if (process.platform === 'darwin') {

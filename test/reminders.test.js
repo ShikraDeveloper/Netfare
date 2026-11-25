@@ -118,6 +118,10 @@ test('a payment reminder linked to an invoice knows the customer, phone and what
   assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 1, 'back once the reminder is done');
   reminders.dismissSuggestion(db, `invoice:${invoice.id}`);
   assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 0, 'ignored stays away');
+  db.prepare("UPDATE reminder_dismissals SET dismissed_at = datetime('now', '-8 days') WHERE key = ?").run(`invoice:${invoice.id}`);
+  assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 1, 'back after a week while still unpaid');
+  reminders.dismissSuggestion(db, `invoice:${invoice.id}`);
+  assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 0, 'ignoring again starts a new week');
   assert.throws(() => reminders.dismissSuggestion(db, 'drop table'), /suggestion/);
 
   const forCustomer = reminders.createReminder(db, boss, { title: 'Statement', due_at: '2026-11-26T10:00', link_type: 'customer', link_id: customer });

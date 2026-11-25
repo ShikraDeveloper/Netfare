@@ -188,10 +188,12 @@ function people(db) {
 // Reminders the books suggest, each made only when someone clicks Remind:
 // invoices past their due date, bookings travelling today or tomorrow with a
 // passenger's ticket number missing, and visas submitted 10 days ago or more.
-// One already linked to an open reminder, or ignored, is left out.
+// One already linked to an open reminder, or ignored in the last week, is
+// left out.
 function suggestions(db, user, today = todayISO()) {
   const skip = new Set([
-    ...db.prepare('SELECT key FROM reminder_dismissals').all().map((row) => row.key),
+    // An ignored one comes back after a week if it is still open.
+    ...db.prepare("SELECT key FROM reminder_dismissals WHERE dismissed_at >= datetime('now', '-7 days')").all().map((row) => row.key),
     ...db.prepare("SELECT link_type || ':' || link_id AS key FROM reminders WHERE status = 'open' AND link_type IS NOT NULL").all().map((row) => row.key),
   ]);
   const rows = [];
@@ -228,7 +230,7 @@ function suggestions(db, user, today = todayISO()) {
 
 function dismissSuggestion(db, key) {
   if (!/^(invoice|booking|visa):\d+$/.test(String(key || ''))) throw bad('Choose a suggestion');
-  db.prepare('INSERT OR IGNORE INTO reminder_dismissals (key) VALUES (?)').run(String(key));
+  db.prepare("INSERT INTO reminder_dismissals (key) VALUES (?) ON CONFLICT(key) DO UPDATE SET dismissed_at = datetime('now')").run(String(key));
   return { ok: true };
 }
 

@@ -2883,6 +2883,9 @@ test('reminders: a suggested payment reminder, its WhatsApp message, quick times
   const late = await postJson(baseUrl, '/api/reminders', { title: 'Late one', due_at: `${past.toLocaleDateString('en-CA')}T${pad(past.getHours())}:${pad(past.getMinutes())}` });
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('reminders-changed')));
   await page.locator('a[data-section="reminders"] .menu-count').first().waitFor({ state: 'attached' });
+  // A menu drawn again gets the count back without waiting for the next check.
+  await page.evaluate(() => document.querySelectorAll('a[data-section="reminders"] .menu-count').forEach((badge) => badge.remove()));
+  await page.locator('a[data-section="reminders"] .menu-count').first().waitFor({ state: 'attached', timeout: 2_000 });
   // Done, so its alert does not cover the next tests.
   await postJson(baseUrl, `/api/reminders/${late.id}/done`, {}, 200);
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('reminders-changed')));
