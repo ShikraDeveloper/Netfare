@@ -1,8 +1,15 @@
 # Netfare: start here
 
-Read this file in full before doing anything. It is the handover for any AI or developer who opens this folder. It covers what the project is, the rules, how to work with the owner, how to test and release, where things stand, and what is still open.
+Read this file in full before doing anything. It is the handover for any AI or developer who opens this folder. It covers what the project is, the rules, how to work with the owner, how to test and release, where things stand, and what is still open. **The owner must never have to repeat anything written here.**
 
 When you finish a piece of work, update **Where things stand** and **Open items** below in the same commit.
+
+## First thing in a new session
+
+1. Read this whole file.
+2. Run `git status`, `git log --oneline -10`, and `git fetch` to see whether `main` is level with GitHub.
+3. Run `npm run check && npm test` (and `npm run test:e2e` before a release).
+4. Say in a few lines of Roman Urdu where things stand and what is open (from the sections below). Then ask what to do, or carry on with what the owner asked.
 
 ## What it is
 
@@ -53,6 +60,35 @@ Netfare is a local-first invoicing and double-entry accounting app for a Dubai t
 - When showing results, prove them: print a PDF or take a screenshot from a copy of the books or the demo server.
 - Audits: the owner often runs `/ponytail-audit` or `/ponytail-review` on new work, then says which findings to fix ("fix all", "fix 1"). Number the findings.
 
+### The owner's words
+
+| They say | It means |
+| --- | --- |
+| "mock up dekhao", "Pehle mockup" | Show a mockup with real figures; build nothing yet |
+| "bana do", "Haan", "do", "ok do" | Approved: build it |
+| "fix all", "fix 1 and 3", "fix all and nice to have also" | Fix those findings from the last audit or review |
+| "Sirf push" | Push `main` only, no release |
+| "Push aur release" | Full release (steps below) |
+| "kuch change mat kerna, just report" | Report only; change nothing |
+| "check kero actual book se" | Check on a read-only copy of the real books |
+| "server chalao demo k sath" | Run the demo server (scratch data) and check there |
+| "whats pending" | List the open items below |
+
+### Business words
+
+- **Booking**: a ticket job (`BK`), with passengers, a PNR, and an invoice and supplier bill. **Visa**: a visa application (`VIS`). Both are "jobs"; the invoice and bill come from the job.
+- **Portal**: a supplier account the agency books through. **Prepaid** portals are **wallets**: we top up first (`TOP`), and bills are paid from the wallet. **Credit** portals are credit accounts: we owe and pay later (Pay supplier, `SPAY`).
+- The real portals today: HolidaySpace (visa agent, credit), NDC Portal, Akbar Travel Online and AirArabia (wallets).
+- **DSR**: Daily Sales Report (Reports → Daily sales), the counter's day-end sheet. The owner checks it daily against cash in hand.
+- **Customer kinds**: a person, or a company with payment days (its invoices get a due date from them).
+- **Security deposit** (`SD`): money held for a visa, not a sale (account 2600).
+- **Cancellation** (`CNC`): reverses a job's sale; charges kept and supplier credit go on it. **Refund** (`REF`) pays a customer back.
+- **Move** (`DEP`): money between our own accounts (cash to bank, cash to petty cash). It is not a payment.
+
+Document numbers: INV invoice, BILL supplier bill, PMT and RCP customer receipt, BPMT bill payment, SPAY supplier payment (one transfer for several bills), BK booking, VIS visa, VG visa group, SD visa deposit, ADV customer advance, TOP wallet top-up, REF refund, DEP cash move, CR credit note, SCN supplier credit note, CNC cancellation, CS card settlement, PCR portal credit. Customers CUS-0001, suppliers SUP-0001. Numbers look like `INV-2026-0079`.
+
+Main accounts: 1000 Cash, 1010 Bank Account, 1020 Petty Cash, 1030 Card & Payment Link Clearing, 1100 Trade Receivables, 1400 Advances to Suppliers, 1450 Supplier Credits, 2000 Trade Payables, 2400 Customer Advances, 2450 Customer Credits, 2500 Refund Liabilities, 2600 Security Deposits Held, 3900 Opening Balance Equity, 4000 Ticket Sales, 4300 Service Fee Income, 4320 Visa Revenue, 4330 Cancellation Fee Income, 4340 Forfeited Deposit Income, 5000 Cost of Air Tickets, 5120 Cost of Visas, 6700 Bank Charges, 6710 Card & Payment Link Fees. The full chart is in `server/default-accounts.js`.
+
 ## Commands
 
 ```bash
@@ -83,6 +119,7 @@ Demo server for looking at screens (scratch data only):
 ## Where things stand (update this)
 
 - Latest release: **1.0.33** (25 Nov 2026). `main` is pushed and level with GitHub.
+- This file was written on 25 Nov 2026 and is kept current with every change.
 - Recent work: the Daily Sales Report (DSR) in the counter format (sales lists with Cash, Card, Bank and Credit columns, then boxes for payments, cash in hand, sales by how paid, bank, petty cash, and supplier and wallet balances); moves between our own accounts shown as moves, not payments; Reminders with suggestions and WhatsApp; Pay supplier; company customers with payment days; Settings in five groups.
 - The multi-user plan is done through step 5: security, logins with per-user rights, office network, desktop app, update notice. Step 6 (download page) is open, and where the site is hosted is not recorded: ask the owner.
 
@@ -101,6 +138,10 @@ Later (only when asked):
 - 4 security leads remain from audit run-2 (`~/security-audit-skill/ledgerly/run-2/`, NEEDS-VALIDATION.md). Each depends on an office or deployment fact.
 - "Print without prices" for invoices.
 - Apple Notes "Shikra Travel (Business Notes)" folder with categories and tasks: started once, stopped (no access to Notes), never finished.
+
+## Files for other AI tools
+
+`CLAUDE.md` (Claude Code), `GEMINI.md` (Gemini) and `.github/copilot-instructions.md` (GitHub Copilot) only point here. Codex, Cursor and most other tools read `AGENTS.md` directly. Keep everything in this one file.
 
 ## Things learned the hard way
 

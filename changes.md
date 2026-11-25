@@ -932,6 +932,12 @@ Verification:
 - **What:** `AGENTS.md` (read by most AI coding tools) holds what Netfare is, where the code, the real books, the installed app and the logo live, the binding safety rules, how the owner works (Roman Urdu, mockup first, changes.md with every change, no AI trailers, push only when asked), the commands, the demo server, push and release steps, where things stand (1.0.33), open items and lessons learned. `CLAUDE.md` loads it for Claude Code (`@AGENTS.md`). The stale "Next session" steps (Phase 1 commit `49b3f93`) now point to `AGENTS.md`.
 - **Checked:** facts in it checked against the code: version lines (1.0.33 in all four places), the session cookie name (`server/routes/auth.js`), sessions stored as a sha256 hash (`server/services/auth.js`), `/api/admin/reset` and `/api/admin/demo` (`server/routes/admin.js`), the smoke-test line, the e2e Chrome path; `npm run check` passes.
 
+### AGENTS.md: nothing for the owner to repeat; pointers for other AI tools
+
+- **Why:** The owner asked that any AI attached to the folder learns everything, so they never have to repeat themselves ("aysa banao file k kisi b ai k sath folder attach ker k sub us ko pata lag jay kuch b muje repeat na kerna paray").
+- **What:** `AGENTS.md` gained a first-session checklist, the owner's usual phrases and what each means ("bana do", "Sirf push", "Push aur release", "fix 1 and 3"…), business words (jobs, portals as wallets or credit accounts, DSR, moves, deposits, cancellations), every document number prefix (from `server/services/numbering.js` and `server/party-numbers.js`) and the main account codes (from `server/default-accounts.js`). `GEMINI.md` and `.github/copilot-instructions.md` point to it, like `CLAUDE.md`.
+- **Checked:** prefixes and account codes read from the code; the four portals from the real books (read-only); `npm run check` passes.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
