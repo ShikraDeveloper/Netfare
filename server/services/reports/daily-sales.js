@@ -10,6 +10,23 @@ const { dsrSections } = require('./dsr-sections');
 // invoice itself. Records from before logins have no name.
 const NO_STAFF = 'Not recorded';
 
+// Suppliers and portal wallets at the end of the period, only those with a
+// balance: plus is what we owe, minus is money of ours with them (a wallet,
+// or credit they hold), as on each supplier statement.
+function partyBalances(db, end) {
+  const { vendorStatement } = require('../statements');
+  const kinds = new Map(db.prepare('SELECT vendor_id, settlement FROM supplier_portals WHERE vendor_id IS NOT NULL ORDER BY is_active').all()
+    .map((portal) => [portal.vendor_id, portal.settlement === 'prepaid' ? 'Wallet' : 'Credit account']));
+  return db.prepare('SELECT id, name FROM vendors ORDER BY name COLLATE NOCASE').all()
+    .map((vendor) => ({
+      id: vendor.id,
+      name: vendor.name,
+      kind: kinds.get(vendor.id) || 'Supplier',
+      balance_cents: vendorStatement(db, vendor.id, { to: end }).closing_balance_cents,
+    }))
+    .filter((row) => row.balance_cents !== 0);
+}
+
 function dailySales(db, from, to, { staff = '' } = {}) {
   const start = dateISO(from, 'From date');
   const end = dateISO(to, 'To date');
@@ -324,6 +341,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
 
   const sections = dsrSections(db, start, end, items);
   sections.summary.sales.total_cents = totals.sale_cents;
+  sections.parties = partyBalances(db, end);
 
   return {
     from: start,

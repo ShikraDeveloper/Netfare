@@ -37,20 +37,18 @@ function dateLine(date, createdAt) {
   return `<div class="cell-sub dsr-when">${esc(fmtDate(date))}${createdAt ? ` · ${esc(timeOf(createdAt))}` : ''}</div>`;
 }
 
-const PAID_LABELS = { cash: 'Cash', card: 'Card', bank: 'Bank', other: 'Advance / credit' };
-const PAY_HEADS = '<th scope="col">Paid by</th><th scope="col" class="num">Due</th>';
+// How each sale was settled, one column each as on a counter's DSR; the
+// advance / credit note column only when some sale used one.
+const usesOther = (rows) => rows.some((row) => row.split?.other);
+const payKeys = (other) => (other ? ['cash', 'card', 'bank', 'other', 'credit'] : ['cash', 'card', 'bank', 'credit']);
+const PAY_HEAD_LABELS = { cash: 'Cash', card: 'Card', bank: 'Bank', other: 'Adv.', credit: 'Credit' };
+function payHeads(other) {
+  return payKeys(other).map((key) => `<th scope="col" class="num dsr-mode" ${key === 'other' ? 'title="Advance or credit note used"' : ''}>${PAY_HEAD_LABELS[key]}</th>`).join('');
+}
 const PROFIT_HEADS = '<th scope="col" class="num dsr-profit">Cost</th><th scope="col" class="num dsr-profit">Gross profit</th>';
 
-// "Cash 3,000.00 · Card 1,500.00" as small chips, then what is still due.
-function paidChips(parts) {
-  const chips = Object.entries(PAID_LABELS)
-    .filter(([key]) => parts[key])
-    .map(([key, label]) => `<span class="dsr-pay" data-mode="${key}">${esc(label)} ${amt(parts[key])}</span>`);
-  return chips.length ? chips.join('') : '<span class="dsr-zero">—</span>';
-}
-
-function payCells(split) {
-  return `<td class="dsr-paid">${paidChips(split)}</td><td class="num ${split.credit ? 'dsr-due' : ''}">${amt(split.credit)}</td>`;
+function payCells(split, other) {
+  return payKeys(other).map((key) => `<td class="num ${key === 'credit' && split.credit ? 'dsr-due' : ''}">${amt(split[key])}</td>`).join('');
 }
 
 function profitCells(row) {
@@ -62,10 +60,8 @@ function sumOf(rows, pick) {
   return rows.reduce((total, row) => total + (Number(pick(row)) || 0), 0);
 }
 
-function payTotals(rows) {
-  const total = (key) => sumOf(rows, (row) => row.split[key]);
-  return `<td class="dsr-paid">${paidChips({ cash: total('cash'), card: total('card'), bank: total('bank'), other: total('other') })}</td>
-    <td class="num">${amt(total('credit'), { blank: false })}</td>`;
+function payTotals(rows, other) {
+  return payKeys(other).map((key) => `<td class="num">${amt(sumOf(rows, (row) => row.split[key]), { blank: false })}</td>`).join('');
 }
 
 // Who made the sale: the staff member who created the booking, visa or invoice.
@@ -101,6 +97,7 @@ function emptyRow(colspan, text) {
 }
 
 function ticketTable(rows) {
+  const other = usesOther(rows);
   const body = rows.length ? rows.map((row) => {
     const people = row.passengers.length
       ? row.passengers.map((p) => `<div>${esc(p.name)}${p.ticket_no ? ` <span class="cell-sub">· ${esc(p.ticket_no)}</span>` : ''}</div>`).join('')
@@ -111,29 +108,34 @@ function ticketTable(rows) {
           <div class="cell-sub"><a href="#/bookings/${row.reference_id}">${esc(row.reference || '')}</a></div>${staffLine(row)}${cancelledNote(row)}</td>
         <td><div class="cell-main">${esc(row.customer_name)}</div><div class="dsr-people">${people}</div>${row.remarks ? `<div class="cell-sub">${esc(row.remarks)}</div>` : ''}</td>
         <td><span class="dsr-pnr">${esc(row.pnr || '—')}</span><div class="cell-sub">${esc(row.route)}</div></td>
-        <td class="num"><strong>${amt(row.total_cents, { blank: false })}</strong>${row.fee_cents ? `<div class="cell-sub">fee ${amt(row.fee_cents)}</div>` : ''}</td>
+        <td class="num">${amt(row.fare_cents)}</td>
+        <td class="num">${amt(row.fee_cents)}</td>
+        <td class="num"><strong>${amt(row.total_cents, { blank: false })}</strong></td>
         ${profitCells(row)}
-        ${payCells(row.split)}
+        ${payCells(row.split, other)}
       </tr>`;
-  }).join('') : emptyRow(8, 'No ticket or booking sales in this period.');
+  }).join('') : emptyRow(12, 'No ticket or booking sales in this period.');
   return `
     <table class="report-table dsr-table" data-dsr-table="tickets"><caption class="sr-only">Ticket and booking sales</caption>
       <thead><tr>
         <th scope="col">Invoice / booking</th><th scope="col">Customer · passengers · ticket no.</th>
-        <th scope="col">PNR / route</th><th scope="col" class="num">Total</th>${PROFIT_HEADS}${PAY_HEADS}
+        <th scope="col">PNR / route</th><th scope="col" class="num">Fare</th><th scope="col" class="num">S.Fee</th><th scope="col" class="num">Total</th>${PROFIT_HEADS}${payHeads(other)}
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr>
         <td colspan="3">Total · ${plural(rows.length, 'sale')}</td>
+        <td class="num">${amt(sumOf(rows, (r) => r.fare_cents), { blank: false })}</td>
+        <td class="num">${amt(sumOf(rows, (r) => r.fee_cents), { blank: false })}</td>
         <td class="num">${amt(sumOf(rows, (r) => r.total_cents), { blank: false })}</td>
         <td class="num dsr-profit">${amt(sumOf(rows, (r) => r.cost_cents), { blank: false })}</td>
         <td class="num dsr-profit">${amt(sumOf(rows, (r) => r.margin_cents), { blank: false })}</td>
-        ${payTotals(rows)}
+        ${payTotals(rows, other)}
       </tr></tfoot>
     </table>`;
 }
 
 function visaTable(rows) {
+  const other = usesOther(rows);
   const typeLabel = (type) => (type ? `${type.charAt(0).toUpperCase()}${type.slice(1)}` : '');
   const body = rows.length ? rows.map((row) => `
       <tr>
@@ -143,13 +145,13 @@ function visaTable(rows) {
         <td>${esc([row.country, typeLabel(row.visa_type)].filter(Boolean).join(' · ') || '—')}</td>
         <td class="num"><strong>${amt(row.total_cents, { blank: false })}</strong>${row.fee_cents ? `<div class="cell-sub">fee ${amt(row.fee_cents)}</div>` : ''}${row.deposit_cents ? `<div class="cell-sub" title="${esc((row.deposit_numbers || []).join(', '))}">+ deposit ${amt(row.deposit_cents)}</div>` : ''}</td>
         ${profitCells(row)}
-        ${payCells(row.split)}
-      </tr>`).join('') : emptyRow(8, 'No visa sales in this period.');
+        ${payCells(row.split, other)}
+      </tr>`).join('') : emptyRow(10, 'No visa sales in this period.');
   return `
     <table class="report-table dsr-table" data-dsr-table="visas"><caption class="sr-only">Visa sales</caption>
       <thead><tr>
         <th scope="col">Invoice / visa</th><th scope="col">Applicant</th>
-        <th scope="col">Country / type</th><th scope="col" class="num">Total</th>${PROFIT_HEADS}${PAY_HEADS}
+        <th scope="col">Country / type</th><th scope="col" class="num">Total</th>${PROFIT_HEADS}${payHeads(other)}
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr>
@@ -157,31 +159,32 @@ function visaTable(rows) {
         <td class="num">${amt(sumOf(rows, (r) => r.total_cents), { blank: false })}</td>
         <td class="num dsr-profit">${amt(sumOf(rows, (r) => r.cost_cents), { blank: false })}</td>
         <td class="num dsr-profit">${amt(sumOf(rows, (r) => r.margin_cents), { blank: false })}</td>
-        ${payTotals(rows)}
+        ${payTotals(rows, other)}
       </tr></tfoot>
     </table>`;
 }
 
 function serviceTable(rows) {
+  const other = usesOther(rows);
   const body = rows.length ? rows.map((row) => `
       <tr>
         <td class="dsr-doc"><a href="#/invoices/${row.id}">${esc(row.number)}</a>${dateLine(row.date, row.created_at)}${staffLine(row)}</td>
         <td><div class="cell-main">${esc(row.customer_name)}</div>${row.remarks ? `<div class="cell-sub">${esc(row.remarks)}</div>` : ''}</td>
         <td>${esc(row.description || '—')}</td>
         <td class="num"><strong>${amt(row.total_cents, { blank: false })}</strong></td>
-        ${payCells(row.split)}
-      </tr>`).join('') : emptyRow(6, 'No service income in this period.');
+        ${payCells(row.split, other)}
+      </tr>`).join('') : emptyRow(8, 'No service income in this period.');
   return `
     <table class="report-table dsr-table" data-dsr-table="services"><caption class="sr-only">Service income</caption>
       <thead><tr>
         <th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Description</th>
-        <th scope="col" class="num">Total</th>${PAY_HEADS}
+        <th scope="col" class="num">Total</th>${payHeads(other)}
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr>
         <td colspan="3">Total · ${plural(rows.length, 'invoice')}</td>
         <td class="num">${amt(sumOf(rows, (r) => r.total_cents), { blank: false })}</td>
-        ${payTotals(rows)}
+        ${payTotals(rows, other)}
       </tr></tfoot>
     </table>`;
 }
@@ -257,25 +260,26 @@ function cancellationTables(cancellations, refunds) {
 }
 
 function collectionsTable(rows) {
+  const modes = rows.some((row) => row.mode === 'other') ? ['cash', 'card', 'bank', 'other'] : ['cash', 'card', 'bank'];
   const body = rows.length ? rows.map((row) => `
       <tr>
         <td class="nowrap">${esc(fmtDate(row.date))}</td>
         <td class="nowrap">${row.kind === 'payment' ? `<a href="#/receipts/${row.id}">${esc(row.number)}</a>` : esc(row.number)}</td>
         <td>${esc(row.customer_name)}</td>
         <td>${esc(row.against)}</td>
-        <td class="dsr-paid">${paidChips({ [row.mode]: row.amount_cents })}</td>
-      </tr>`).join('') : emptyRow(5, 'No other money received in this period.');
+        ${modes.map((mode) => `<td class="num">${amt(row.mode === mode ? row.amount_cents : 0)}</td>`).join('')}
+      </tr>`).join('') : emptyRow(4 + modes.length, 'No other money received in this period.');
   const byMode = (mode) => sumOf(rows.filter((r) => r.mode === mode), (r) => r.amount_cents);
   return `
     <table class="report-table dsr-table" data-dsr-table="collections"><caption class="sr-only">Money collected for older invoices and advances</caption>
       <thead><tr>
         <th scope="col">Date</th><th scope="col">Receipt</th><th scope="col">Customer</th><th scope="col">Against</th>
-        <th scope="col">Paid by</th>
+        ${modes.map((mode) => `<th scope="col" class="num dsr-mode">${PAY_HEAD_LABELS[mode]}</th>`).join('')}
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr>
         <td colspan="4">Total · ${amt(sumOf(rows, (r) => r.amount_cents), { blank: false })}</td>
-        <td class="dsr-paid">${paidChips({ cash: byMode('cash'), card: byMode('card'), bank: byMode('bank'), other: byMode('other') })}</td>
+        ${modes.map((mode) => `<td class="num">${amt(byMode(mode), { blank: false })}</td>`).join('')}
       </tr></tfoot>
     </table>`;
 }
@@ -343,6 +347,36 @@ function overviewHtml(data) {
             ${line('Closing', (p) => p.closing_cents, 'dsr-cb-total')}
           </div>
         </div>` : ''}
+      </div>
+    </div>`;
+}
+
+// The counter's closing: the cash it should hold, and what each supplier and
+// portal wallet stands at (only those with a balance; minus is ours with them).
+function closingHtml(data) {
+  const { settlement, collected, position } = data.sections.summary;
+  const cash = position.cash;
+  const parties = data.sections.parties || [];
+  const row = (label, cents, className = '') => `<div class="dsr-close-row ${className}"><span>${esc(label)}</span><span class="num">${amt(cents, { blank: false })}</span></div>`;
+  const otherIn = cash ? cash.in_cents - settlement.cash - (collected.cash || 0) : 0;
+  return `
+    <div class="dsr-cards dsr-closing" data-dsr-section="closing">
+      ${cash ? `
+      <div class="dsr-card" data-dsr-cash>
+        <h4>Summary · cash in hand</h4>
+        ${row('Opening cash', cash.opening_cents)}
+        ${row('Sales paid in cash', settlement.cash)}
+        ${row('Received for older invoices', collected.cash || 0)}
+        ${otherIn ? row('Other cash in', otherIn) : ''}
+        ${row('Paid out and deposited', -cash.out_cents, cash.out_cents ? 'margin-negative' : '')}
+        ${row('Cash in hand', cash.closing_cents, 'dsr-close-total')}
+      </div>` : ''}
+      <div class="dsr-card" data-dsr-parties>
+        <h4>Suppliers and portal wallets · ${esc(fmtDate(data.to))}</h4>
+        ${parties.length ? parties.map((party) => `
+          <div class="dsr-close-row"><span>${esc(party.name)} <span class="cell-sub">${esc(party.kind)}</span></span><span class="num ${party.balance_cents < 0 ? 'margin-positive' : ''}">${amt(party.balance_cents, { blank: false })}</span></div>`).join('')
+          : '<div class="dsr-close-row"><span class="cell-sub">Every supplier and wallet is at 0.00</span></div>'}
+        ${parties.length ? row(parties.some((party) => party.balance_cents < 0) ? 'Net' : 'We owe in all', sumOf(parties, (party) => party.balance_cents), 'dsr-close-total') : ''}
       </div>
     </div>`;
 }
@@ -416,8 +450,9 @@ export function dailySales(data) {
       ${section('Cancellations & refunds', cancellationTables(s.cancellations, s.refunds) + depositKeptTable(s.deposit_kept || []), { id: 'cancellations', count: String(refundsAndCancellations), total: total(s.cancellations, (r) => r.sale_cents) })}
       ${section('Collected for older invoices & advances', collectionsTable(s.collections), { id: 'collections', count: String(s.collections.length), total: total(s.collections, (r) => r.amount_cents) })}
       ${section('Money paid out', cashOutTable(s.cash_out, s.summary.position), { id: 'cash-out', count: 'own transfers not counted', total: total(s.cash_out.filter((r) => r.source_type !== 'cash_deposit'), (r) => r.cash_out_cents + r.bank_out_cents) })}
+      ${closingHtml(data)}
       ${staffRows.length ? section('By staff', staffTable(data), { id: 'staff', count: plural(staffRows.length, 'person', 'people'), total: total(staffRows, (r) => r.sale_cents) }) : ''}
-      <div class="dsr-footnote">A sale stays on its own day; a cancellation is a line on its cancellation day. Paid by shows how each sale was settled by the end of the period; Due is still unpaid. Visa deposits are not sales.</div>
+      <div class="dsr-footnote">A sale stays on its own day; a cancellation is a line on its cancellation day. Cash, Card and Bank show how each sale was settled by the end of the period; Credit is still unpaid. Suppliers and wallets: plus is what we owe, minus (green) is money of ours with them. Visa deposits are not sales.</div>
     </div>
   `;
 }

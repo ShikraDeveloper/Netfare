@@ -782,6 +782,16 @@ Verification:
 - **5. Menu count after a redraw:** the red number is put back as soon as the menu is drawn again (side or top menu), not after the next 20-second check; it only touches the page when the number changes.
 - **Checked:** `npm run check`; `npm test` 397 (the suggestions test now checks a week-old Ignore comes back and ignoring again resets it); `npm run test:e2e` 61 (the count comes back right after it is removed); in the dev desktop app a wa.me link opened `whatsapp://send?phone=…&text=…`.
 
+### DSR in the counter format: Cash, Card, Bank and Credit columns, cash in hand, supplier and wallet balances
+
+- **Why:** The user sent a counter DSR (Cozmo, 9 Jan 2019) and asked to improve Netfare's Daily Sales Report to that format ("i need to improve daily sale report , according to givem format"), then to add suppliers and portal wallets with a balance, only those not at zero ("supplier or portal wallet ki b summary jis me balance ho ya minus bus wohi dikhay baki nai"). Mockups from the 12 Nov books were approved ("Haan, bana do").
+- **What (`public/js/views/reports/daily-sales.js`):**
+  - Ticket, visa and service lists show how each sale was settled in its own columns, **Cash, Card, Bank, Credit** (Credit = still unpaid), each totalled, instead of "Paid by" chips and Due. An **Adv.** column (advance or credit note used) shows only when a sale used one. Tickets also show **Fare** and **S.Fee** in their own columns.
+  - Money received for older invoices has Cash, Card and Bank columns.
+  - **Summary · cash in hand:** opening cash, sales paid in cash, received for older invoices, other cash in (when any), paid out and deposited, and cash in hand (the cash closing).
+  - **Suppliers and portal wallets** at the end of the period: only those with a balance, with their kind (Supplier, Wallet, Credit account); plus is what we owe, minus is money of ours with them. The figure is each supplier's statement closing (`partyBalances()` in `server/services/reports/daily-sales.js`, `sections.parties`).
+- **Checked:** `npm run check`; `npm test` 398 (new: a supplier at 0.00 is left out, a topped-up wallet is a minus, every balance equals the supplier statement); `npm run test:e2e` 61 (the DSR test now reads the Cash, Card, Bank, Credit columns, the cash in hand against the cash closing, and the supplier box). The 12 Nov DSR printed from a read-only copy of the real books (deleted after): visas 7,235.36 = cash 1,150.00 + card 2,895.36 + bank 2,050.00 + credit 1,140.00; cash in hand 0.00; HolidaySpace 3,200.00 owed, the four wallets at 0.00 not listed.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

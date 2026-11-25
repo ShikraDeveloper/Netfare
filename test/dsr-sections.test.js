@@ -192,3 +192,20 @@ test('a second bank account counts in the DSR bank figures', () => {
   assert.equal(position.bank.label, 'Bank accounts');
   assert.equal(position.bank.closing_cents, position.bank.opening_cents + position.bank.in_cents - position.bank.out_cents);
 });
+
+test('suppliers and wallets at the end of the day: only those with a balance, as on their statements', () => {
+  const statements = require('../server/services/statements');
+  const portals = require('../server/services/portals');
+  const quiet = Number(db.prepare("INSERT INTO vendors (name) VALUES ('Zero Supplier')").run().lastInsertRowid);
+  const walletVendor = Number(db.prepare("INSERT INTO vendors (name) VALUES ('Wallet Consolidator')").run().lastInsertRowid);
+  const wallet = portals.createPortal(db, { name: 'Wallet', portal_type: 'consolidator', settlement: 'prepaid', vendor_id: walletVendor });
+  portals.topUp(db, { portal_id: wallet.id, amount_cents: 50_000, topup_date: DAY, deposit_account_id: account('1010').id, method: 'Bank transfer' });
+
+  const parties = dailySales(db, DAY, DAY).sections.parties;
+  assert.ok(!parties.some((row) => row.id === quiet), 'a supplier at 0.00 is left out');
+  const held = parties.find((row) => row.id === walletVendor);
+  assert.deepEqual([held.kind, held.balance_cents], ['Wallet', -50_000], 'money of ours in the wallet is a minus');
+  for (const row of parties) {
+    assert.equal(row.balance_cents, statements.vendorStatement(db, row.id, { to: DAY }).closing_balance_cents, row.name);
+  }
+});

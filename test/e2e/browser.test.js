@@ -1580,7 +1580,7 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   }
   const row = page.locator('[data-dsr-table="services"] tr', { has: page.locator(`a[href="#/invoices/${service.id}"]`) });
   const cells = (await row.locator('td').allInnerTexts()).map((text) => text.trim());
-  assert.deepEqual(cells.slice(3), ['300.00', 'Cash 100.00', '200.00'], 'total, paid by, due');
+  assert.deepEqual(cells.slice(3), ['300.00', '100.00', '—', '—', '200.00'], 'total, then cash, card, bank and credit (still due)');
   assert.equal(await page.locator('[data-dsr-section="collections"] .dsr-section-body').isVisible(), false, 'smaller sections start folded');
   await page.locator('[data-dsr-section="collections"] [data-dsr-fold]').click();
   assert.equal(await page.locator('[data-dsr-section="collections"] .dsr-section-body').isVisible(), true, 'and open on a click');
@@ -1598,6 +1598,14 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   const legend = (await page.locator('[data-dsr-summary] .dsr-legend span').allInnerTexts()).map((text) => toCents(text.split(' ').pop()));
   assert.equal(received, legend.reduce((sum, cents) => sum + cents, 0), 'Received equals cash + card + bank');
   assert.ok(received >= 10_000, 'it includes the 100.00 cash taken today');
+  // As on a counter's DSR: each way of paying in its own column, and the closing.
+  assert.deepEqual((await page.locator('[data-dsr-table="services"] thead th.dsr-mode').allTextContents()).filter((text) => text !== 'Adv.'), ['Cash', 'Card', 'Bank', 'Credit']);
+  const cashCard = await page.locator('[data-dsr-cash]').innerText();
+  assert.match(cashCard, /Opening cash[\s\S]*Sales paid in cash[\s\S]*Cash in hand/);
+  const closingCash = toCents(await page.locator('[data-dsr-cash] .dsr-close-total .num').innerText());
+  const positionCash = toCents((await page.locator('[data-dsr-summary] .dsr-cashbank .dsr-cb-total.num').first().innerText()));
+  assert.equal(closingCash, positionCash, 'cash in hand is the cash closing');
+  await page.locator('[data-dsr-parties]').waitFor();
   assertNoConsoleErrors();
 });
 
