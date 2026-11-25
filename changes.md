@@ -919,6 +919,13 @@ Verification:
 - **Checked:** a clean copy of main passed `npm run check` (299 files), `npm test` 402 and `npm run test:e2e` 61. Before the release, the demo server (port 4792, scratch data) had 5 moves added, one corrected: the list showed DEP-0001, 0002, 0004 and 0005 (not the corrected 0003 or its void), cash in hand "Moved from Bank Account 500.00" and "Moved to Petty Cash −30.00", Petty Cash "From Cash 30.00", every box added up, no console errors. GitHub run 45637482924 (8m31s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.33); releases/latest is v1.0.33.
 - **Old release deleted:** v1.0.28 (tag kept); five releases remain, 1.0.29 to 1.0.33.
 
+### Folder clean-up: old builds to the Trash, stale ignore rules gone
+
+- **Why:** The user asked to organise and clean the whole folder ("pura folder orgnise and clean kero", then "jo b faltu hy or humaray current system se match nai kerta hata do").
+- **What:** `desktop/dist` (975 MB of old local .dmg builds; releases are built on GitHub), `desktop/build` (34 MB, made again by `scripts/build-desktop.js`) and `netfare-website.zip` (made again by `npm run website:zip`) went to the Trash on Mac SSD (not emptied). `.gitignore` lost `test-results/` and `OpenCode*.pdf`, which nothing makes any more; the old "phase4-check" server (another session's folder) left `.claude/launch.json` (not in git). The code folders were left as they are: every script is used (package.json, tests or DESIGN.md), and moving files would only break imports, tests and the build.
+- **Left alone:** `data/` (a 2 Nov dev database inside the project, not the real books) because of the rule never to touch `data/accounting.db`; the user can move it to the Trash.
+- **Checked:** `git status` showed no tracked file touched before this commit; `npm run check` (299 files) and `npm test` 402 pass; the folder went from about 1.5 GB to 528 MB.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
