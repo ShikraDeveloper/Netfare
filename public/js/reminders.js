@@ -3,7 +3,9 @@
 // time (YYYY-MM-DDTHH:MM), compared here in the browser.
 
 import { api } from './api.js';
-import { esc, fmtDate, icon, openModal, toast } from './ui.js';
+import { whatsappNumber, whatsappUrl } from './share-links.js';
+import { store } from './store.js';
+import { esc, fmtDate, fmtMoney, icon, openModal, toast } from './ui.js';
 
 const REPEAT_LABELS = { never: 'Once', daily: 'Every day', weekly: 'Every week', monthly: 'Every month' };
 
@@ -46,10 +48,34 @@ export function repeatLabel(repeat) {
   return REPEAT_LABELS[repeat] || REPEAT_LABELS.never;
 }
 
+const LINK_PAGES = { booking: 'bookings', visa: 'visas', invoice: 'invoices', customer: 'customer-balances' };
+
 export function linkHtml(reminder) {
   if (!reminder.link_type || !reminder.link_number) return '';
-  const href = `#/${reminder.link_type === 'booking' ? 'bookings' : 'visas'}/${reminder.link_id}`;
+  const href = `#/${LINK_PAGES[reminder.link_type]}/${reminder.link_id}`;
   return `<a href="${href}">${esc(reminder.link_number)}</a>${reminder.link_name ? ` · ${esc(reminder.link_name)}` : ''}`;
+}
+
+// The customer's WhatsApp chat with the reminder as a message: what is owed
+// for an invoice or a customer, else the reminder itself. Nothing is sent
+// until the user presses Send in WhatsApp.
+function reminderMessage(reminder) {
+  const company = store.settings?.company_name || '';
+  const due = Number(reminder.due_cents || 0);
+  let body;
+  if (reminder.link_type === 'invoice' && due > 0) {
+    body = `a reminder that invoice ${reminder.link_number} for ${fmtMoney(due)}${reminder.invoice_due_date ? ` was due on ${fmtDate(reminder.invoice_due_date, { long: true })}` : ' is open'}. Please arrange the payment.`;
+  } else if (reminder.link_type === 'customer' && due > 0) {
+    body = `a reminder that ${fmtMoney(due)} is due on your account. Please arrange the payment.`;
+  } else {
+    body = `${reminder.title}${reminder.link_type && reminder.link_type !== 'customer' ? ` (${reminder.link_number})` : ''}.`;
+  }
+  return [`Dear ${reminder.customer_name || 'customer'},`, body, company].filter(Boolean).join('\n\n');
+}
+
+export function whatsappHtml(reminder) {
+  if (!whatsappNumber(reminder.customer_phone)) return '';
+  return `<a class="btn btn-secondary btn-sm reminder-whatsapp" href="${esc(whatsappUrl(reminder.customer_phone, reminderMessage(reminder)))}" target="_blank" rel="noopener">${icon('send', 14)} WhatsApp</a>`;
 }
 
 export function notifyChanged() {
@@ -62,14 +88,44 @@ function askNotificationPermission() {
   } catch { /* not available */ }
 }
 
-// The new or edit form. `link` ({ type, id, label }) comes from a booking or
-// visa page.
-export function openReminderForm({ reminder = null, link = null, onDone = null } = {}) {
+// Quick times for the form: today 17:00 (or the next hour when that is gone),
+// tomorrow 10:00, next week 10:00, and the day before travel 10:00.
+function at(daysAhead, hour) {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  date.setHours(hour, 0, 0, 0);
+  return localStamp(date);
+}
+
+function quickTimes(travelDate) {
+  const later = new Date(Date.now() + 60 * 60 * 1000);
+  later.setMinutes(0, 0, 0);
+  const today = at(0, 17) > localStamp() ? at(0, 17) : localStamp(later);
+  const times = [['Today', today], ['Tomorrow 10:00', at(1, 10)], ['Next week', at(7, 10)]];
+  if (travelDate) {
+    const before = new Date(`${travelDate}T10:00`);
+    before.setDate(before.getDate() - 1);
+    if (localStamp(before) > localStamp()) times.push(['1 day before travel', localStamp(before)]);
+  }
+  return times;
+}
+
+// The new or edit form. `link` ({ type, id, label, travel_date }) comes from
+// a booking, visa, invoice or customer page.
+export async function openReminderForm({ reminder = null, link = null, onDone = null } = {}) {
   const now = new Date(Date.now() + 60 * 60 * 1000);
   const due = reminder ? reminder.due_at : localStamp(new Date(now.setMinutes(0)));
   const linked = reminder?.link_type
-    ? { type: reminder.link_type, id: reminder.link_id, label: [reminder.link_number, reminder.link_name].filter(Boolean).join(' · ') }
+    ? { type: reminder.link_type, id: reminder.link_id, label: [reminder.link_number, reminder.link_name].filter(Boolean).join(' · '), travel_date: reminder.travel_date }
     : link;
+  const people = await api.get('/reminders/people').catch(() => []);
+  const owner = reminder ? (reminder.for_all ? 'all' : String(reminder.owner_user_id)) : String(store.user?.id || '');
+  const forOptions = [
+    `<option value="${esc(String(store.user?.id || ''))}" ${owner === String(store.user?.id) ? 'selected' : ''}>Me</option>`,
+    `<option value="all" ${owner === 'all' ? 'selected' : ''}>Everyone</option>`,
+    ...people.filter((person) => person.id !== store.user?.id)
+      .map((person) => `<option value="${person.id}" ${owner === String(person.id) ? 'selected' : ''}>${esc(person.full_name)}</option>`),
+  ].join('');
   openModal({
     title: reminder ? 'Edit reminder' : 'New reminder',
     submitLabel: 'Save',
@@ -87,6 +143,9 @@ export function openReminderForm({ reminder = null, link = null, onDone = null }
           <label for="rm-time">Time</label>
           <input class="input" id="rm-time" name="time" type="time" required value="${due.slice(11, 16)}">
         </div>
+        <div class="field full reminder-quick" role="group" aria-label="Quick times">
+          ${quickTimes(linked?.travel_date).map(([label, stamp]) => `<button type="button" class="btn btn-ghost btn-sm" data-quick="${stamp}">${esc(label)}</button>`).join('')}
+        </div>
         <div class="field">
           <label for="rm-repeat">Repeat</label>
           <select class="input" id="rm-repeat" name="repeat">
@@ -95,10 +154,7 @@ export function openReminderForm({ reminder = null, link = null, onDone = null }
         </div>
         <div class="field">
           <label for="rm-for">For</label>
-          <select class="input" id="rm-for" name="for_all">
-            <option value="0">Me</option>
-            <option value="1" ${reminder?.for_all ? 'selected' : ''}>Everyone</option>
-          </select>
+          <select class="input" id="rm-for" name="for">${forOptions}</select>
         </div>
         ${linked ? `<div class="field full"><label>Linked to</label><div class="muted">${esc(linked.label)}</div></div>` : ''}
         <div class="field full">
@@ -107,13 +163,24 @@ export function openReminderForm({ reminder = null, link = null, onDone = null }
         </div>
       </div>
     `,
+    onMount(overlay) {
+      overlay.querySelectorAll('[data-quick]').forEach((button) => button.addEventListener('click', () => {
+        const date = overlay.querySelector('#rm-date');
+        const time = overlay.querySelector('#rm-time');
+        date.value = button.dataset.quick.slice(0, 10);
+        time.value = button.dataset.quick.slice(11, 16);
+        date.dispatchEvent(new Event('change', { bubbles: true }));
+      }));
+    },
     async onSubmit(form) {
       const values = new FormData(form);
+      const chosen = values.get('for');
       const payload = {
         title: values.get('title'),
         due_at: `${values.get('date')}T${values.get('time')}`,
         repeat: values.get('repeat'),
-        for_all: values.get('for_all') === '1',
+        for_all: chosen === 'all',
+        assign_to: chosen === 'all' ? null : Number(chosen),
         notes: values.get('notes'),
         link_type: linked?.type || null,
         link_id: linked?.id || null,
@@ -135,11 +202,31 @@ export async function markDone(reminder) {
   return saved;
 }
 
+// Snooze for some minutes, or until a time ("tomorrow" = tomorrow 9:00).
 export async function snooze(reminder, minutes = 10) {
-  const saved = await api.post(`/reminders/${reminder.id}/snooze`, { due_at: localStamp(new Date(Date.now() + minutes * 60_000)) });
-  toast(`Snoozed until ${saved.due_at.slice(11, 16)}`);
+  const until = minutes === 'tomorrow' ? at(1, 9) : localStamp(new Date(Date.now() + minutes * 60_000));
+  const saved = await api.post(`/reminders/${reminder.id}/snooze`, { due_at: until });
+  toast(`Snoozed until ${whenLabel(saved.due_at)}`);
   notifyChanged();
   return saved;
+}
+
+export const SNOOZES = [[10, '10 minutes'], [60, '1 hour'], ['tomorrow', 'Tomorrow 9:00']];
+
+// The late count on the menu and, in the desktop app, on its icon.
+function showLateCount(count) {
+  document.querySelectorAll('a[data-section="reminders"]').forEach((item) => {
+    let badge = item.querySelector('.menu-count');
+    if (!count) { badge?.remove(); return; }
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'menu-count';
+      item.appendChild(badge);
+    }
+    badge.textContent = String(count);
+    badge.setAttribute('aria-label', `${count} late`);
+  });
+  try { window.netfareApp?.setBadge(count); } catch { /* not the desktop app */ }
 }
 
 // ---- The alert when a reminder is due ----------------------------------
@@ -238,6 +325,7 @@ async function checkDue() {
   }
   const now = localStamp();
   const due = open.filter((reminder) => reminder.due_at <= now);
+  showLateCount(due.length);
   // Alerts for reminders no longer due (done or snoozed elsewhere) go away.
   document.querySelectorAll('#reminder-alerts [data-alert]').forEach((card) => {
     if (!due.some((reminder) => String(reminder.id) === card.dataset.alert)) card.remove();

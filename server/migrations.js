@@ -562,4 +562,40 @@ ensureColumn('customers', 'payment_days', 'INTEGER');
 ensureColumn('bill_payments', 'supplier_payment_id', 'INTEGER REFERENCES supplier_payments(id)');
 ensureColumn('settings', 'next_supplier_payment_number', 'INTEGER NOT NULL DEFAULT 1');
 
+
+// Reminders can be linked to an invoice or a customer too, and remember who
+// made one given to someone else. SQLite cannot change a CHECK, so the table
+// is copied once into its new shape.
+{
+  const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'reminders'").get()?.sql || '';
+  if (sql && !sql.includes("'invoice'")) {
+    db.transaction(() => {
+      db.exec(`
+        ALTER TABLE reminders RENAME TO reminders_old;
+        CREATE TABLE reminders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          title TEXT NOT NULL,
+          notes TEXT NOT NULL DEFAULT '',
+          due_at TEXT NOT NULL,
+          repeat TEXT NOT NULL DEFAULT 'never' CHECK (repeat IN ('never', 'daily', 'weekly', 'monthly')),
+          for_all INTEGER NOT NULL DEFAULT 0 CHECK (for_all IN (0, 1)),
+          owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          link_type TEXT CHECK (link_type IN ('booking', 'visa', 'invoice', 'customer')),
+          link_id INTEGER,
+          status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done')),
+          done_at TEXT,
+          done_by TEXT NOT NULL DEFAULT '',
+          created_by TEXT NOT NULL DEFAULT '',
+          made_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO reminders (id, title, notes, due_at, repeat, for_all, owner_user_id, link_type, link_id, status, done_at, done_by, created_by, made_by_user_id, created_at)
+          SELECT id, title, notes, due_at, repeat, for_all, owner_user_id, link_type, link_id, status, done_at, done_by, created_by, owner_user_id, created_at FROM reminders_old;
+        DROP TABLE reminders_old;
+        CREATE INDEX IF NOT EXISTS idx_reminders_due ON reminders(status, due_at);
+      `);
+    })();
+  }
+}
+
 };

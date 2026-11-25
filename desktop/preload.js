@@ -23,3 +23,8 @@ contextBridge.exposeInMainWorld('netfareDocs', {
 contextBridge.exposeInMainWorld('netfareBooks', {
   restore: () => ipcRenderer.invoke('books:restore'),
 });
+
+// The number of late reminders on the app's icon (Dock on the Mac).
+contextBridge.exposeInMainWorld('netfareApp', {
+  setBadge: (count) => ipcRenderer.send('app:badge', Number(count) || 0),
+});

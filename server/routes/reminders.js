@@ -8,6 +8,18 @@ router.get('/', (req, res) => {
   res.json(service.listReminders(db, req.user, req.query));
 });
 
+router.get('/people', (req, res) => {
+  res.json(service.people(db));
+});
+
+router.get('/suggestions', (req, res) => {
+  res.json(service.suggestions(db, req.user));
+});
+
+router.post('/suggestions/dismiss', (req, res) => {
+  res.json(service.dismissSuggestion(db, req.body?.key));
+});
+
 router.post('/', (req, res) => {
   res.status(201).json(service.createReminder(db, req.user, req.body || {}));
 });

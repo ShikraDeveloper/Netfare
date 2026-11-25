@@ -365,7 +365,7 @@ export async function render(container, { params } = {}) {
   bindCorrections(container, () => render(container, { params: [String(id)] }));
   bindRefunds(container, booking, 'booking', () => render(container, { params: [String(id)] }));
   document.querySelector('[data-action="add-reminder"]')?.addEventListener('click', () => openReminderForm({
-    link: { type: 'booking', id: booking.id, label: [booking.number, booking.customer_name].filter(Boolean).join(' · ') },
+    link: { type: 'booking', id: booking.id, label: [booking.number, booking.customer_name].filter(Boolean).join(' · '), travel_date: booking.travel_date },
   }));
 
   function refresh() {

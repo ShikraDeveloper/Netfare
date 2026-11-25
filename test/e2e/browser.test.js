@@ -2845,6 +2845,51 @@ test('a company logo keeps up to 1,200 pixels and its clear background, without 
   assertNoConsoleErrors();
 });
 
+test('reminders: a suggested payment reminder, its WhatsApp message, quick times, snooze choices and the late count', async () => {
+  const invoices = await getJson(baseUrl, '/api/invoices');
+  const today = new Date().toLocaleDateString('en-CA');
+  const overdue = invoices.find((row) => row.status === 'sent' && row.due_date < today && row.balance_cents > 0);
+  assert.ok(overdue, 'the demo has an overdue invoice');
+  await openRoute('/reminders');
+  await page.locator('.reminders-suggested').waitFor();
+  if (await page.locator('.suggested-more summary').count()) await page.locator('.suggested-more summary').click();
+  const suggestion = page.locator(`[data-suggestion="invoice:${overdue.id}"]`);
+  await suggestion.waitFor();
+  await suggestion.locator('[data-suggest="remind"]').click();
+  const row = page.locator('.reminders-card .reminder-row', { hasText: 'Payment reminder' }).first();
+  await row.waitFor();
+  assert.equal(await page.locator(`[data-suggestion="invoice:${overdue.id}"]`).count(), 0, 'no longer suggested once reminded');
+  const wa = await row.locator('.reminder-whatsapp').getAttribute('href');
+  assert.match(decodeURIComponent(wa), new RegExp(`${overdue.number}[\\s\\S]*Please arrange the payment`), 'the message names the invoice');
+
+  // Snooze choices: one hour moves it on.
+  await row.locator('.snooze-menu summary').click();
+  await row.locator('[data-minutes="60"]').click();
+  await page.locator('.toast', { hasText: 'Snoozed until' }).waitFor();
+
+  // The form: quick times and who it is for.
+  await clickPageAction('[data-action="new-reminder"]');
+  const form = page.locator('[role="dialog"]');
+  await form.locator('#rm-title').fill('Call the bank');
+  await form.locator('[data-quick]', { hasText: 'Tomorrow 10:00' }).click();
+  assert.equal(await form.locator('#rm-time').inputValue(), '10:00');
+  assert.deepEqual((await form.locator('#rm-for option').allInnerTexts()).slice(0, 2), ['Me', 'Everyone']);
+  await form.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+
+  // A late reminder shows its count on the menu.
+  const past = new Date(Date.now() - 5 * 60_000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const late = await postJson(baseUrl, '/api/reminders', { title: 'Late one', due_at: `${past.toLocaleDateString('en-CA')}T${pad(past.getHours())}:${pad(past.getMinutes())}` });
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('reminders-changed')));
+  await page.locator('a[data-section="reminders"] .menu-count').first().waitFor({ state: 'attached' });
+  // Done, so its alert does not cover the next tests.
+  await postJson(baseUrl, `/api/reminders/${late.id}/done`, {}, 200);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('reminders-changed')));
+  await page.waitForFunction(() => !document.querySelector('#reminder-alerts [data-alert]') && !document.querySelector('a[data-section="reminders"] .menu-count'));
+  assertNoConsoleErrors();
+});
+
 test('the ageing box shows only when something is open', async () => {
   const customers = await getJson(baseUrl, '/api/customers');
   let settled = null;

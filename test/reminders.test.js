@@ -86,3 +86,59 @@ test('staff with no rights can still use reminders', () => {
   assert.equal(refusal(db, sara, req('DELETE', '/reminders/1')), null);
   assert.ok(refusal(db, sara, req('GET', '/bookings')), 'other screens still need rights');
 });
+
+test('a reminder given to someone: they see it and can change it, so can the one who made it', () => {
+  const given = reminders.createReminder(db, sara, { title: 'Call Farooq', due_at: '2026-11-26T10:00', assign_to: omar.id });
+  assert.equal(given.owner_name, 'Omar');
+  assert.ok(reminders.listReminders(db, omar).some((row) => row.id === given.id), 'Omar sees it');
+  assert.ok(reminders.listReminders(db, sara).some((row) => row.id === given.id), 'Sara, who made it, still sees it');
+  assert.equal(reminders.updateReminder(db, omar, given.id, { title: 'Call Farooq today' }).title, 'Call Farooq today');
+  assert.equal(reminders.updateReminder(db, sara, given.id, { assign_to: sara.id }).owner_name, 'Sara');
+  assert.throws(() => reminders.createReminder(db, sara, { title: 'X', due_at: '2026-11-26T10:00', assign_to: 9999 }), /who the reminder is for/);
+  assert.deepEqual(reminders.people(db).map((row) => row.full_name), ['Boss', 'Omar', 'Sara']);
+});
+
+test('a payment reminder linked to an invoice knows the customer, phone and what is due; suggestions skip what is handled or ignored', () => {
+  const account = (code) => db.prepare('SELECT id FROM accounts WHERE code = ?').get(code).id;
+  const customer = Number(db.prepare("INSERT INTO customers (name, phone) VALUES ('Farooq Engineering', '+971 6 743 5263')").run().lastInsertRowid);
+  const invoice = require('../server/services/invoices').createInvoice(db, {
+    customer_id: customer, issue_date: '2026-11-20', due_date: '2026-11-23', status: 'sent',
+    items: [{ description: 'Ticket', quantity: 1, unit_price_cents: 152_000, account_id: account('4300') }],
+  });
+  const boss = { ...admin };
+  const suggested = reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice');
+  assert.deepEqual(suggested.map((row) => [row.key, row.name, row.due_cents]), [[`invoice:${invoice.id}`, 'Farooq Engineering', 152_000]]);
+  assert.equal(reminders.suggestions(db, sara, '2026-11-25').length, 0, 'staff without Invoices see no invoice suggestions');
+
+  const linked = reminders.createReminder(db, boss, { title: 'Payment reminder', due_at: '2026-11-26T10:00', link_type: 'invoice', link_id: invoice.id });
+  assert.deepEqual([linked.link_number, linked.customer_name, linked.customer_phone, linked.due_cents, linked.invoice_due_date],
+    [invoice.number, 'Farooq Engineering', '+971 6 743 5263', 152_000, '2026-11-23']);
+  assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 0, 'already has a reminder');
+  reminders.doneReminder(db, boss, linked.id);
+  assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 1, 'back once the reminder is done');
+  reminders.dismissSuggestion(db, `invoice:${invoice.id}`);
+  assert.equal(reminders.suggestions(db, boss, '2026-11-25').filter((row) => row.link_type === 'invoice').length, 0, 'ignored stays away');
+  assert.throws(() => reminders.dismissSuggestion(db, 'drop table'), /suggestion/);
+
+  const forCustomer = reminders.createReminder(db, boss, { title: 'Statement', due_at: '2026-11-26T10:00', link_type: 'customer', link_id: customer });
+  assert.deepEqual([forCustomer.link_number, forCustomer.due_cents], ['Farooq Engineering', 152_000]);
+});
+
+test('books from before keep their reminders when the table takes its new shape', () => {
+  const runMigrations = require('../server/migrations');
+  db.exec(`
+    DROP TABLE reminders;
+    CREATE TABLE reminders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '', due_at TEXT NOT NULL,
+      repeat TEXT NOT NULL DEFAULT 'never', for_all INTEGER NOT NULL DEFAULT 0, owner_user_id INTEGER,
+      link_type TEXT CHECK (link_type IN ('booking', 'visa')), link_id INTEGER,
+      status TEXT NOT NULL DEFAULT 'open', done_at TEXT, done_by TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')));
+  `);
+  db.prepare("INSERT INTO reminders (id, title, due_at, owner_user_id, created_by) VALUES (7, 'Old one', '2026-11-25T09:00', ?, 'Sara')").run(sara.id);
+  runMigrations(db);
+  const kept = reminders.getReminder(db, sara, 7);
+  assert.deepEqual([kept.title, kept.made_by_user_id], ['Old one', sara.id]);
+  const customer = Number(db.prepare("INSERT INTO customers (name) VALUES ('After move')").run().lastInsertRowid);
+  assert.equal(reminders.createReminder(db, sara, { title: 'New', due_at: '2026-11-26T09:00', link_type: 'customer', link_id: customer }).link_type, 'customer');
+});

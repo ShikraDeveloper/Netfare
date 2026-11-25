@@ -1,5 +1,6 @@
 import { api } from '../api.js';
 import { can } from '../store.js';
+import { openReminderForm } from '../reminders.js';
 import { attachmentFoldHtml, bindAttachmentSection, loadAttachments } from '../attachments.js';
 import { openApplyAdvance, openReceivePayment, openRecordAdvance, openRefundAdvance, voidAdvance } from './customer-advance-modals.js';
 import { bindCorrections, correctButtonHtml } from '../corrections.js';
@@ -126,6 +127,7 @@ export async function render(container, { params } = {}) {
       <button class="btn btn-primary" data-action="receive-payment">${icon('check', 15)}<span>Receive payment</span></button>
       ${moreMenuHtml([
     `<button class="btn btn-ghost" data-action="record-advance">${icon('plus', 15)}<span>Record advance</span></button>`,
+    `<button class="btn btn-ghost" data-action="add-reminder">${icon('clock', 15)}<span>Add reminder</span></button>`,
     `<a class="btn btn-ghost" href="#/customers/${customer.id}/statement">${icon('file', 15)}<span>Statement</span></a>`,
     `<a class="btn btn-ghost" href="#/settlement-queue">${icon('clock', 15)}<span>Settlements</span></a>`,
     `<a class="btn btn-ghost" href="#/customer-balances"><span>All balances</span></a>`,
@@ -218,6 +220,9 @@ export async function render(container, { params } = {}) {
   const refresh = () => render(container, { params: [String(id)] });
   if (showDocuments) bindAttachmentSection(container, { entityType: 'customer', entityId: id });
   document.querySelector('#page-actions [data-action="record-advance"]')?.addEventListener('click', () => openRecordAdvance(customer, refresh));
+  document.querySelector('#page-actions [data-action="add-reminder"]')?.addEventListener('click', () => openReminderForm({
+    link: { type: 'customer', id: customer.id, label: customer.name },
+  }));
   document.querySelector('#page-actions [data-action="receive-payment"]')?.addEventListener('click', () => openReceivePayment(
     customer,
     data.open_invoices,

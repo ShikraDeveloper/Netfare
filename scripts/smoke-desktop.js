@@ -80,6 +80,14 @@ async function main() {
     if (shared?.shared !== 'file' || !fs.existsSync(path.join(downloads, shared.file))) throw new Error(`Share made no PDF in Downloads: ${JSON.stringify(shared)}`);
     if (opened[0] !== chat) throw new Error(`Share opened ${opened[0]} instead of the WhatsApp chat ${chat}`);
     fs.rmSync(downloads, { recursive: true, force: true });
+    // Late reminders show on the Dock icon (the Mac only; Windows has no number).
+    if (process.platform === 'darwin') {
+      await win.evaluate(() => window.netfareApp.setBadge(2));
+      await new Promise((wait) => setTimeout(wait, 300));
+      const badge = await app.evaluate(({ app: electronApp }) => electronApp.getBadgeCount());
+      await win.evaluate(() => window.netfareApp.setBadge(0));
+      if (badge !== 2) throw new Error(`The Dock icon shows ${badge} late reminders instead of 2`);
+    }
     // Settings → Restore from backup… reaches the app's restore: the file
     // dialog opens (answered here with Cancel), and nothing restarts.
     const asked = await app.evaluate(({ dialog }) => {
@@ -116,7 +124,7 @@ async function main() {
     }));
     const code = await Promise.race([exited, new Promise((resolve) => setTimeout(() => resolve('still open'), 10_000))]);
     if (!/will close/.test(title) || code !== 1) throw new Error(`An unexpected error did not show the message and close the app (message "${title}", exit ${code})`);
-    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, shares to the WhatsApp chat, opens Restore from backup, reloads a crashed window and closes with a message on an error.`);
+    console.log(`  Smoke test passed: Netfare ${health.version} runs its own server, created the books, prints on white paper, shares to the WhatsApp chat, shows late reminders on the icon, opens Restore from backup, reloads a crashed window and closes with a message on an error.`);
   } finally {
     await app.close().catch(() => {});
     fs.rmSync(userData, { recursive: true, force: true });

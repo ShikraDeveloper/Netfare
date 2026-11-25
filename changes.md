@@ -758,6 +758,20 @@ Verification:
 - **Old release deleted:** v1.0.24 (tag kept); five releases remain, 1.0.25 to 1.0.29.
 - **After the update in the office:** upload the logo again in Settings → Company (the original, largest file if there is one).
 
+### Reminders: suggestions, WhatsApp, quick times, snooze choices, given to a person, late count
+
+- **Why:** The user asked to improve Reminders, saw a mockup of six ideas and said "Sab bana do". On the real books reminders are mostly about collecting money and booking work ("Payment Reminder", "Installments", "Issue Flight G9").
+- **What:**
+  1. **Invoice and customer links, WhatsApp:** a reminder can be linked to an invoice or a customer too ("Add reminder" in the More menu of an invoice and of a customer's page). A reminder whose customer has a phone shows **WhatsApp**: the customer's chat opens with a message (for an invoice: its number, what is still due and when it was due; for a customer: what is due on the account).
+  2. **Suggested:** the Reminders page lists what the books suggest: invoices past their due date, bookings travelling today or tomorrow with a passenger's ticket number missing, and visas submitted 10 or more days ago with no result. **Remind** makes the reminder (tomorrow 10:00, linked); **Ignore** keeps it away (`reminder_dismissals`). One already linked to an open reminder is left out, and each kind only shows to staff who may see invoices, bookings or visas. Five show; the rest wait behind "N more".
+  3. **Quick times and snooze:** the form has Today, Tomorrow 10:00, Next week and, from a booking, 1 day before travel. Snooze offers 10 minutes, 1 hour or tomorrow 9:00, also before a reminder is late.
+  4. **Given to a person:** "For" lists Me, Everyone and each active user. The person it is for and the one who made it both see and can change it (`made_by_user_id`).
+  5. **Late count on the menu:** a red number beside Reminders.
+  6. **Dock:** the desktop app shows the late count on its icon (Mac; `netfareApp.setBadge`, IPC `app:badge`).
+- **Data:** the `reminders` table is copied once into a new shape (SQLite cannot change its CHECK) to allow invoice and customer links and add `made_by_user_id`; existing reminders keep their ids and makers. New table `reminder_dismissals`.
+- **Fixed on the way:** two refreshes of the Reminders page at once bound "New reminder" twice, so one click opened two forms. The button is now bound before the page waits for data.
+- **Checked:** `npm run check`; `npm test` 397 (new: giving a reminder to someone, an invoice link with the customer's phone and what is due, suggestions skip what is reminded or ignored and follow rights, the table migration keeps old reminders); `npm run test:e2e` 61 (new: Remind on a suggested invoice, its WhatsApp message, snooze 1 hour, quick time Tomorrow 10:00, the For list, the late count). The Dock number checked in the dev desktop app, and added to the release smoke test. On a read-only copy of the real books the Suggested list would show 5 invoices and 20 visas (visas stay "submitted" until marked approved or issued in Netfare).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

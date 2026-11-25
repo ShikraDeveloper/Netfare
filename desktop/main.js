@@ -172,6 +172,12 @@ ipcMain.handle('docs:save', async (event, title) => {
 // message, and the PDF is saved to Downloads and shown there. On the Mac the
 // PDF is also copied, so ⌘V attaches it, and WhatsApp opens in its app
 // (WhatsApp Web when the app is not installed).
+// Late reminders on the app's icon; 0 clears it. Windows shows no number.
+ipcMain.on('app:badge', (event, count) => {
+  if (!fromNetfarePage(event)) return;
+  app.setBadgeCount(Math.max(0, Math.min(99, Math.floor(Number(count) || 0))));
+});
+
 ipcMain.handle('docs:share', async (event, request = {}) => {
   if (!fromNetfarePage(event)) return { error: 'Not allowed' };
   const url = config.isShareUrl(request.url) ? request.url : '';

@@ -1,4 +1,5 @@
 import { api } from '../api.js';
+import { openReminderForm } from '../reminders.js';
 import { bindMethodAccount, MONEY_IN_METHODS, methodOptionsHtml } from '../payment-methods.js';
 import { bankChargesFieldHtml, bindBankCharges, readBankCharges } from '../bank-charges.js';
 import { cashAccounts, store } from '../store.js';
@@ -450,6 +451,7 @@ export async function render(container, { params } = {}) {
   const menu = [];
   if (!isDraft && !isVoid) {
     menu.push(`<button class="btn btn-ghost" data-action="share">${icon('send', 15)}<span>Share</span></button>`);
+    menu.push(`<button class="btn btn-ghost" data-action="add-reminder">${icon('clock', 15)}<span>Add reminder</span></button>`);
   }
   if (invoice.booking_id) {
     menu.push(`<a class="btn btn-ghost" href="#/bookings/${invoice.booking_id}">${icon('plane', 15)}<span>Booking</span></a>`);
@@ -645,6 +647,9 @@ export async function render(container, { params } = {}) {
   });
 
   document.querySelector('[data-action="share"]')?.addEventListener('click', () => openShareModal(invoice, settings));
+  document.querySelector('[data-action="add-reminder"]')?.addEventListener('click', () => openReminderForm({
+    link: { type: 'invoice', id: invoice.id, label: [invoice.number, invoice.customer_name].filter(Boolean).join(' · ') },
+  }));
   document.querySelector('[data-action="payment-link"]')?.addEventListener('click', () => {
     openModal({
       // Printed on the invoice and added to the share message; empty removes it.
