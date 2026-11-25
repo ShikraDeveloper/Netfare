@@ -244,3 +244,17 @@ test('a visa with a deposit taken in cash, part of it used on the invoice: every
     assert.equal(columns - (sale.deposit_cents || 0) + sale.from_deposit_cents + sale.unpaid_cancelled_cents, sale.total_cents, sale.number);
   }
 });
+
+test('cash moved to petty cash: listed as a move, petty cash has its own position', () => {
+  const { createDeposit } = require('../server/services/cash-deposits');
+  const day = '2026-11-21';
+  pay(service.id, 5_000, 'Cash', '1000', day);
+  const move = createDeposit(db, { amount_cents: 2_000, deposit_date: day, from_account_id: account('1000').id, to_account_id: account('1020').id });
+  const sections = dailySales(db, day, day).sections;
+  assert.deepEqual(sections.transfers.map((row) => [row.number, row.from_code, row.to_code, row.amount_cents]), [[move.number, '1000', '1020', 2_000]]);
+  const flow = sections.cash_out.find((row) => row.source_type === 'cash_deposit');
+  assert.deepEqual([flow.cash_out_cents, flow.petty_in_cents], [2_000, 2_000]);
+  const { petty, cash } = sections.summary.position;
+  assert.equal(petty.closing_cents, petty.opening_cents + 2_000);
+  assert.equal(cash.closing_cents, cash.opening_cents + 5_000 - 2_000);
+});

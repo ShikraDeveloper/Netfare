@@ -229,7 +229,22 @@ const box = (heading, rows, attr = '') => `<div class="dsr-box" ${attr}><div cla
 function closingBoxes(data) {
   const s = data.sections;
   const { settlement, collected, position } = s.summary;
-  const out = s.cash_out.map((row) => ({ label: row.label, cents: row.cash_out_cents + row.bank_out_cents })).filter((row) => row.cents);
+  // Money moved between our own accounts is not a payment: it has its own list.
+  const out = s.cash_out.filter((row) => row.source_type !== 'cash_deposit')
+    .map((row) => ({ label: row.label, cents: row.cash_out_cents + row.bank_out_cents })).filter((row) => row.cents);
+  const transfers = s.transfers || [];
+  // Into or out of the cash account, by the other account, for the cash box.
+  const movedBy = (side, other) => {
+    const totals = new Map();
+    for (const row of transfers.filter((t) => t[`${side}_code`] === '1000')) totals.set(row[`${other}_name`], (totals.get(row[`${other}_name`]) || 0) + row.amount_cents);
+    return [...totals];
+  };
+  const movedOut = movedBy('from', 'to');
+  const movedIn = movedBy('to', 'from');
+  const movedOutTotal = sumOf(movedOut, ([, cents]) => cents);
+  const movedInTotal = sumOf(movedIn, ([, cents]) => cents);
+  const petty = position.petty;
+  const showPetty = petty && (petty.opening_cents || petty.in_cents || petty.out_cents);
   // Refunds paid are already in here (as "Customer refunds" etc.), so no line of their own.
   const paidOut = sumOf(out, (row) => row.cents);
   const cash = position.cash;
@@ -238,7 +253,7 @@ function closingBoxes(data) {
   // Deposit cash sits in the visa rows' Cash column but is not a sale.
   const depositCash = sumOf(s.visas, (r) => r.deposit_cash_cents);
   // Whatever the shown lines miss, so the box always adds up to cash in hand.
-  const otherIn = cash ? cash.in_cents - cashOf(s.tickets) - cashOf(s.visas) - cashOf(s.services) - (collected.cash || 0) : 0;
+  const otherIn = cash ? cash.in_cents - cashOf(s.tickets) - cashOf(s.visas) - cashOf(s.services) - (collected.cash || 0) - movedInTotal : 0;
   const parties = s.parties || [];
   // Sales by how they were settled, plus what no column holds, add up to the
   // lists' totals; cancellations (net of charges kept) after.
@@ -254,7 +269,9 @@ function closingBoxes(data) {
       <div class="dsr-col">
       ${box('Payments', `
         ${out.map((row) => boxRow(row.label, -row.cents, 'neg')).join('')}
-        ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}`, 'data-dsr-payments')}
+        ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}
+        ${transfers.length ? `<div class="dsr-box-row dsr-box-sub" data-dsr-moved><span>Moved between our accounts</span><span></span></div>
+        ${transfers.map((row) => boxRow(`${row.from_name} to ${row.to_name} · ${short(row.number)}${row.status === 'void' ? ' (void)' : ''}`, row.amount_cents)).join('')}` : ''}`, 'data-dsr-payments')}
       ${box('By how it was paid · sales', `
         ${modes.filter(([key]) => key !== 'other' || settlement.other).map(([key, label]) => boxRow(label, settlement[key])).join('')}
         ${deposits ? boxRow('Security deposits (not sales)', -deposits, 'neg') : ''}
@@ -275,15 +292,22 @@ function closingBoxes(data) {
         ${depositCash ? boxRow('Security deposits (cash)', depositCash) : ''}
         ${s.services.length ? boxRow('Service sales (cash)', cashOf(s.services)) : ''}
         ${boxRow('Received for older invoices (cash)', collected.cash || 0)}
+        ${movedIn.map(([name, cents]) => boxRow(`Moved from ${name}`, cents)).join('')}
         ${otherIn > 0 ? boxRow('Other cash in', otherIn) : ''}
         ${otherIn < 0 ? boxRow('Paid in cash, kept outside the cash account', otherIn, 'neg') : ''}
-        ${boxRow('Refunds and payments (cash)', -cash.out_cents, cash.out_cents ? 'neg' : '')}
+        ${movedOut.map(([name, cents]) => boxRow(`Moved to ${name}`, -cents, 'neg')).join('')}
+        ${boxRow('Refunds and payments (cash)', -(cash.out_cents - movedOutTotal), cash.out_cents - movedOutTotal ? 'neg' : '')}
         ${boxRow('Cash in hand', cash.closing_cents, 'dsr-box-total pos')}`, 'data-dsr-cash') : ''}
       ${bank ? box(bank.label, `
         ${boxRow('Opening', bank.opening_cents)}
         ${boxRow('In', bank.in_cents)}
         ${boxRow('Out', -bank.out_cents, bank.out_cents ? 'neg' : '')}
         ${boxRow('Closing', bank.closing_cents, 'dsr-box-total')}`, 'data-dsr-bank') : ''}
+      ${showPetty ? box(petty.label, `
+        ${boxRow('Opening', petty.opening_cents)}
+        ${boxRow('In', petty.in_cents)}
+        ${boxRow('Spent', -petty.out_cents, petty.out_cents ? 'neg' : '')}
+        ${boxRow('Closing', petty.closing_cents, 'dsr-box-total')}`, 'data-dsr-petty') : ''}
       ${(data.staff_totals || []).length > 1 ? box('By staff', `
         ${data.staff_totals.map((row) => boxRow(`${row.staff} · ${plural(row.sales, 'sale')}`, row.sale_cents, row.staff === data.staff ? 'dsr-box-total' : '')).join('')}`, 'data-dsr-staff-totals') : ''}
       </div>

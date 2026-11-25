@@ -1571,6 +1571,9 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
     amount_cents: 10_000, payment_date: today, deposit_account_id: code('1000'), method: 'Cash',
   });
 
+  // 20.00 moved from cash to petty cash: not a payment, its own lines.
+  await postJson(baseUrl, '/api/cash/deposits', { amount_cents: 2_000, deposit_date: today, from_account_id: code('1000'), to_account_id: code('1020') });
+
   await openRoute('/reports/daily-sales');
   await page.locator('[data-action="daily-today"]').click();
   await page.locator('[data-dsr-table="services"]').waitFor();
@@ -1608,12 +1611,20 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   assert.equal(cash.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(hand[1]), 'the lines add up to the cash in hand');
   assert.ok(cash.some(([label, value]) => label === 'Visa sales (cash)' || (label === 'Ticket sales (cash)' && toCents(value) >= 0)));
   for (const attr of ['data-dsr-payments', 'data-dsr-bank', 'data-dsr-parties']) await page.locator(`[${attr}]`).waitFor();
-  // Payments: all money out of cash and bank, refunds counted once.
+  // Payments: all money out of cash and bank, refunds counted once; money
+  // moved between our accounts listed under it, not in the total.
   const paid = await boxRows('data-dsr-payments');
+  const moved = paid.splice(paid.findIndex(([label]) => label === 'Moved between our accounts'));
+  const paidTotal = paid.pop();
+  assert.equal(paidTotal[0], 'Total');
   const cashOut = cash.find(([label]) => label === 'Refunds and payments (cash)');
   const bankOut = (await boxRows('data-dsr-bank')).find(([label]) => label === 'Out');
-  assert.equal(toCents(paid.pop()[1]), toCents(cashOut[1]) + toCents(bankOut[1]), 'payments total = cash out + bank out');
-  assert.equal(paid.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(cashOut[1]) + toCents(bankOut[1]));
+  assert.equal(toCents(paidTotal[1]), toCents(cashOut[1]) + toCents(bankOut[1]), 'payments total = cash out + bank out, without the move to petty cash');
+  assert.equal(paid.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(paidTotal[1]));
+  assert.ok(moved.some(([label, value]) => /^Cash to Petty Cash · DEP-/.test(label) && value === '20.00'), 'the move is listed');
+  assert.ok(cash.some(([label, value]) => label === 'Moved to Petty Cash' && value === '-20.00'));
+  const petty = await boxRows('data-dsr-petty');
+  assert.ok(petty.some(([label, value]) => label === 'In' && toCents(value) >= 2_000));
   assertNoConsoleErrors();
 });
 

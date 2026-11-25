@@ -846,6 +846,16 @@ Verification:
 - **Checked:** a clean copy of main passed `npm run check`, `npm test` 400 and `npm run test:e2e` 61. GitHub run 45593839049 (2m40s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.30); releases/latest is v1.0.30.
 - **Old release deleted:** v1.0.25 (tag kept); five releases remain, 1.0.26 to 1.0.30.
 
+### DSR: money moved to petty cash or the bank is a move, not a payment; a Petty cash box
+
+- **Why:** The user moved 20.00 from Cash to Petty Cash and asked how the DSR shows it ("mene petty cash me 20 cash add kiya to dsr me kesay show ho raha hy"). It showed as "Cash deposited / transferred −20" under Payments and inside "Refunds and payments (cash)", and petty cash was not in the DSR at all. A mockup was approved ("Haan, bana do").
+- **What:**
+  - Server (`server/services/reports/dsr-sections.js`): petty cash (1020) is counted with its own position (`summary.position.petty`), and the period's cash deposits and transfers come as `sections.transfers` (number, from and to account, amount, void ones too).
+  - Payments: a move between our own accounts is no longer in the money-out lines or the Total; it is listed under "Moved between our accounts" (for example "Cash to Petty Cash · DEP-0004 20.00").
+  - Summary · cash in hand: "Moved to Petty Cash −20.00" (or "Moved to …" / "Moved from …" for the bank) on its own line; "Refunds and payments (cash)" is only what was paid out. Cash in hand is unchanged.
+  - A **Petty Cash** box (opening, in, spent, closing) when petty cash had a balance or a movement.
+- **Checked:** `npm run check`; `npm test` 401 (new: a move of 20.00 from cash to petty cash is listed, its flow is 20.00 out of cash and into petty cash, and both positions close right); `npm run test:e2e` 61 (the DSR test moves 20.00 to petty cash: it is listed under the moves, not in the payments total, the cash box still adds up, the petty cash box shows it). Today's DSR (25 Nov) printed from a read-only copy of the real books (deleted after): Payments 0.00, Cash to Petty Cash · DEP-0004 20.00, cash in hand 1,850.00, Petty Cash closing 20.00, one page.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

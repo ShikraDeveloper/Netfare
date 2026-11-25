@@ -266,14 +266,14 @@ function dsrSections(db, start, end, items) {
       || ((a.created_at || '') < (b.created_at || '') ? -1 : (a.created_at || '') > (b.created_at || '') ? 1 : 0)
       || (a.kind === b.kind ? a.id - b.id : a.kind === 'payment' ? -1 : b.kind === 'payment' ? 1 : a.kind.localeCompare(b.kind)));
 
-  // Cash (1000) and the bank movements from the ledger, by what caused
-  // them. Every bank account counts in Bank (a second bank too); petty cash
-  // (1020) and card clearing (1030) have their own pages.
+  // Cash (1000), petty cash (1020) and the bank movements from the ledger,
+  // by what caused them. Every bank account counts in Bank (a second bank
+  // too); card clearing (1030) has its own page.
   const cashAccounts = db.prepare(`
     SELECT id, code, name FROM accounts
-    WHERE is_cash = 1 AND code NOT IN ('1020', '1030') ORDER BY code
+    WHERE is_cash = 1 AND code <> '1030' ORDER BY code
   `).all();
-  const keyOf = (code) => (code === '1000' ? 'cash' : 'bank');
+  const keyOf = (code) => (code === '1000' ? 'cash' : code === '1020' ? 'petty' : 'bank');
   const codes = cashAccounts.map((account) => account.code);
   const marks = codes.map(() => '?').join(', ') || "''";
   const balanceBefore = (code, date) => db.prepare(`
@@ -303,7 +303,7 @@ function dsrSections(db, start, end, items) {
     position[key].out_cents += flow.out_cents;
     const row = byType.get(flow.source_type) || {
       source_type: flow.source_type, label: flowLabel(flow.source_type),
-      cash_in_cents: 0, cash_out_cents: 0, bank_in_cents: 0, bank_out_cents: 0,
+      cash_in_cents: 0, cash_out_cents: 0, bank_in_cents: 0, bank_out_cents: 0, petty_in_cents: 0, petty_out_cents: 0,
     };
     row[`${key}_in_cents`] += flow.in_cents;
     row[`${key}_out_cents`] += flow.out_cents;
@@ -313,6 +313,15 @@ function dsrSections(db, start, end, items) {
     position[key].closing_cents = position[key].opening_cents + position[key].in_cents - position[key].out_cents;
   }
   const flowRows = [...byType.values()];
+  // Money moved between our own accounts (cash to bank, cash to petty cash),
+  // void ones too, so the list matches the cash_deposit flows above.
+  const transfers = db.prepare(`
+    SELECT d.id, d.number, d.deposit_date AS date, d.amount_cents, d.status,
+           f.code AS from_code, f.name AS from_name, t.code AS to_code, t.name AS to_name
+    FROM cash_deposits d JOIN accounts f ON f.id = d.from_account_id JOIN accounts t ON t.id = d.to_account_id
+    WHERE d.deposit_date >= ? AND d.deposit_date <= ?
+    ORDER BY d.deposit_date, d.id
+  `).all(start, end);
   const cashOut = flowRows.filter((row) => row.cash_out_cents || row.bank_out_cents)
     .sort((a, b) => (b.cash_out_cents + b.bank_out_cents) - (a.cash_out_cents + a.bank_out_cents));
   const cashIn = flowRows.filter((row) => row.cash_in_cents || row.bank_in_cents)
@@ -358,6 +367,7 @@ function dsrSections(db, start, end, items) {
     collections,
     cash_out: cashOut,
     cash_in: cashIn,
+    transfers,
     summary: {
       sales: {
         tickets_cents: sum(tickets, (row) => row.total_cents),

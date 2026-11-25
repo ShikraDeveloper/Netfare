@@ -473,6 +473,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dsr-box-row.neg .num { color: var(--red); }
 .dsr-box-row .num.pos, .dsr-box-row.pos .num { color: var(--green); }
 .dsr-box-total { border-top: 2px solid var(--text); font-weight: 700; font-size: 15px; background: var(--surface-2); }
+.dsr-box-sub { font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 10px; }
 @media (max-width: 680px) { .dsr-boxes { grid-template-columns: 1fr; } .dsr-report { overflow-x: auto; } }
 
 .dsr-report .dsr-profit { display: none; }
