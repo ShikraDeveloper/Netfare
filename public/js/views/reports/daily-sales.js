@@ -51,7 +51,7 @@ const profitTotals = (rows) => `<td class="num dsr-profit">${money(sumOf(rows, (
 
 function cancelledNote(row) {
   if (!row.cancelled_by) return '';
-  return `<div class="dsr-sub"><span class="badge badge-cancelled">Cancelled</span> <a href="#/cancellations/${row.cancelled_by.id}">${esc(short(row.cancelled_by.number))}</a></div>`;
+  return `<div class="dsr-sub dsr-cancelled">Cancelled · <a href="#/cancellations/${row.cancelled_by.id}">${esc(short(row.cancelled_by.number))}</a></div>`;
 }
 
 const emptyRow = (colspan, text) => `<tr><td colspan="${colspan}" class="dsr-empty">${esc(text)}</td></tr>`;
@@ -238,8 +238,13 @@ function closingBoxes(data) {
   // Whatever the shown lines miss, so the box always adds up to cash in hand.
   const otherIn = cash ? cash.in_cents - cashOf(s.tickets) - cashOf(s.visas) - cashOf(s.services) - (collected.cash || 0) : 0;
   const parties = s.parties || [];
-  // Sales by how they were settled; cancellations (net of charges kept) after.
-  const sold = sumOf(['cash', 'card', 'bank', 'other', 'credit'], (key) => settlement[key]);
+  // Sales by how they were settled, plus what no column holds, add up to the
+  // lists' totals; cancellations (net of charges kept) after.
+  const sales = [...s.tickets, ...s.visas, ...s.services];
+  const listed = sumOf(sales, (r) => r.total_cents);
+  const deposits = sumOf(s.visas, (r) => r.deposit_cents);
+  const fromDeposit = sumOf(sales, (r) => r.from_deposit_cents);
+  const unpaidCancelled = sumOf(sales, (r) => r.unpaid_cancelled_cents);
   const cancelled = s.summary.sales.cancellations_cents || 0;
   const modes = [['cash', 'Cash'], ['card', 'Card & payment link'], ['bank', 'Bank'], ['other', 'Advance or credit note used'], ['credit', 'Credit (unpaid)']];
   return `
@@ -259,8 +264,11 @@ function closingBoxes(data) {
         ${boxRow('Cash in hand', cash.closing_cents, 'dsr-box-total pos')}`, 'data-dsr-cash') : ''}
       ${box('By how it was paid · sales', `
         ${modes.filter(([key]) => key !== 'other' || settlement.other).map(([key, label]) => boxRow(label, settlement[key])).join('')}
-        ${boxRow('Total sales', sold, 'dsr-box-total')}
-        ${cancelled ? `${boxRow('Cancellations', cancelled, 'neg')}${boxRow('Net sales', sold + cancelled, 'dsr-box-total')}` : ''}`, 'data-dsr-modes')}
+        ${deposits ? boxRow('Security deposits (not sales)', -deposits, 'neg') : ''}
+        ${fromDeposit ? boxRow('Paid from a security deposit', fromDeposit) : ''}
+        ${unpaidCancelled ? boxRow('Cancelled before payment', unpaidCancelled) : ''}
+        ${boxRow('Total sales', listed, 'dsr-box-total')}
+        ${cancelled ? `${boxRow('Cancellations', cancelled, 'neg')}${boxRow('Net sales', listed + cancelled, 'dsr-box-total')}` : ''}`, 'data-dsr-modes')}
       ${bank ? box(bank.label, `
         ${boxRow('Opening', bank.opening_cents)}
         ${boxRow('In', bank.in_cents)}

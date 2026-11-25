@@ -451,6 +451,7 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dsr-name { margin: 0; font-size: 20px; font-weight: 700; }
 .dsr-printed { font-size: 12px; color: var(--muted); text-align: right; }
 .dsr-sub { font-size: 11.5px; color: var(--muted); }
+.dsr-cancelled { color: var(--red); }
 .dsr-controls { display: flex; justify-content: flex-end; align-items: center; gap: 16px; flex-wrap: wrap; margin: 8px 0 2px; font-size: 12.5px; }
 .dsr-title { margin: 18px 0 6px; text-align: center; font-size: 15px; font-weight: 600; }
 .dsr-caption { caption-side: top; text-align: left; font-size: 12px; font-weight: 600; padding: 10px 0 4px; }
@@ -1606,8 +1607,10 @@ html:not(.show-accounting) .acct-col { display: none; }
   .dsr-report .dsr-sub { font-size: 7.5px; }
   .dsr-report .dsr-title { margin: 10px 0 4px; font-size: 11pt; }
   .dsr-table tr, .dsr-box { page-break-inside: avoid; }
-  .dsr-box-row { padding: 4px 10px; font-size: 9pt; }
-  .dsr-box-total { font-size: 10pt; }
+  .dsr-boxes { gap: 8px; margin-top: 12px; }
+  .dsr-box-head { padding: 4px; font-size: 9.5pt; }
+  .dsr-box-row { padding: 2px 10px; font-size: 8.5pt; }
+  .dsr-box-total { font-size: 9.5pt; }
   .dsr-table th, .dsr-table tfoot td, .dsr-box-head, .dsr-box-total { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   a { color: inherit !important; text-decoration: none !important; }
   /* On paper the brand line sits above the content, not over it. */

@@ -818,6 +818,14 @@ Verification:
 - **3. Empty rows:** "No ticket sales" and "No visa sales" span the whole table also with Show profit and the Adv. column on.
 - **Checked:** `npm run check`; `npm run test:e2e` 61.
 
+### DSR: right net sales with a sale cancelled before payment, a plain "Cancelled" note, boxes on one page
+
+- **Why:** The user sent a demo DSR print (Claude11.pdf, 1–25 Nov) and said "see the pdf"; three problems were found and the user said "Haan, teeno fix karo".
+- **1. Net sales:** a ticket of 490.00 sold unpaid and then cancelled had no amount in any column, so "Total sales" read 1,000.00 and Net sales 510.00 (the 490.00 taken off twice). Total sales is now the lists' total (1,490.00), and the box shows what no column holds: "Cancelled before payment", "Security deposits (not sales)" (deposit money in a visa row's columns) and "Paid from a security deposit". Then Cancellations −490.00 and Net sales 1,000.00. The server gives each sale `unpaid_cancelled_cents` and `from_deposit_cents` (`server/services/reports/dsr-sections.js`).
+- **2. Cancelled note:** the struck-through "Cancelled" pill made the ticket row wide; it is now a short red line "Cancelled · CNC-0001".
+- **3. One page:** the closing boxes print smaller, so the suppliers box no longer goes alone to page 2 (each box still never splits across pages).
+- **Checked:** `npm run check`; `npm test` 399 (new: a ticket cancelled with 1,000.00 unpaid shows it as `unpaid_cancelled_cents`, and on every sale the columns − deposit + from deposit + unpaid cancelled = the total); `npm run test:e2e` 61. The same demo DSR printed from a copy (deleted after): 1 page, Total sales 1,490.00, Net sales 1,000.00.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

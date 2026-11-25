@@ -163,6 +163,9 @@ function dsrSections(db, start, end, items) {
       cost_cents: item.cost_cents,
       margin_cents: item.margin_cents,
       split,
+      // Not in any column: paid from a visa deposit, or cancelled before it was paid.
+      from_deposit_cents: fromDeposit,
+      unpaid_cancelled_cents: cancelled ? Math.max(0, invoice.total_cents - received) : 0,
       cancelled_by: item.cancelled_by || null,
       remarks: invoice.notes || '',
       staff: item.staff,

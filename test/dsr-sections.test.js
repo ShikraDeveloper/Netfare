@@ -209,3 +209,15 @@ test('suppliers and wallets at the end of the day: only those with a balance, as
     assert.equal(row.balance_cents, statements.vendorStatement(db, row.id, { to: DAY }).closing_balance_cents, row.name);
   }
 });
+
+test('a sale cancelled before it was paid: the unpaid part is in no column, and every row adds up', () => {
+  const later = '2026-11-14';
+  cancellationService.cancelSource(db, { sourceType: 'booking', sourceId: ticket.id, finalStatus: 'cancelled', payload: { cancellation_date: later } });
+  const sections = dailySales(db, DAY, later).sections;
+  const row = sections.tickets.find((r) => r.id === ticket.invoice_id);
+  assert.deepEqual([row.split.credit, row.unpaid_cancelled_cents], [0, 100_000], '406,000 sold, 306,000 paid, the rest cancelled');
+  for (const sale of [...sections.tickets, ...sections.visas, ...sections.services]) {
+    const columns = ['cash', 'card', 'bank', 'other', 'credit'].reduce((sum, key) => sum + sale.split[key], 0);
+    assert.equal(columns - (sale.deposit_cents || 0) + sale.from_deposit_cents + sale.unpaid_cancelled_cents, sale.total_cents, sale.number);
+  }
+});
