@@ -938,6 +938,15 @@ Verification:
 - **What:** `AGENTS.md` gained a first-session checklist, the owner's usual phrases and what each means ("bana do", "Sirf push", "Push aur release", "fix 1 and 3"…), business words (jobs, portals as wallets or credit accounts, DSR, moves, deposits, cancellations), every document number prefix (from `server/services/numbering.js` and `server/party-numbers.js`) and the main account codes (from `server/default-accounts.js`). `GEMINI.md` and `.github/copilot-instructions.md` point to it, like `CLAUDE.md`.
 - **Checked:** prefixes and account codes read from the code; the four portals from the real books (read-only); `npm run check` passes.
 
+### AGENTS.md audit fixes: no stale push claim, setup facts added, clearer rule 1, no counts
+
+- **Why:** `/ponytail-audit` of the handover files; the user said "Fix all four".
+- **1. No stale push claim:** "`main` is pushed and level with GitHub" was already false (2 commits ahead); it now says to check with `git status -sb`.
+- **2. Setup facts:** three facts that lived only in Claude's private memory are now in the file: `npm install` needs `npm_config_cache=<temp folder>` (root-owned `~/.npm`), commits use the repo's GitHub noreply email, and a fresh `gh` login uses a device code the owner approves in the browser.
+- **3. Rule 1:** names both the old `data/` books and the real books in `~/Library/Application Support/Netfare/data/`, and points to the guard in `server/data-dir.js`.
+- **4. No counts:** the Commands section no longer gives file and test counts that change with every commit.
+- **Checked:** read against the code and git config; `npm run check` passes.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

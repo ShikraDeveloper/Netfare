@@ -37,7 +37,7 @@ Netfare is a local-first invoicing and double-entry accounting app for a Dubai t
 
 ## Safety rules (binding, never break them)
 
-1. Never run destructive commands against `data/accounting.db`.
+1. Never run destructive commands against `data/accounting.db` (the old dev books in this folder) or against the real books in `~/Library/Application Support/Netfare/data/`. The server already refuses to open the old folder by mistake (`server/data-dir.js`).
 2. Never call `/api/admin/reset` or `/api/admin/demo` against the live database.
 3. Do not start a server against the live data directory.
 4. For any manual API or server testing, use a temporary `LEDGERLY_DATA_DIR` and a port that is not used in production (for example 4792).
@@ -92,11 +92,13 @@ Main accounts: 1000 Cash, 1010 Bank Account, 1020 Petty Cash, 1030 Card & Paymen
 ## Commands
 
 ```bash
-npm run check        # syntax of all 299 JS files (browser modules too) + helper-text budget + types
-npm test             # unit tests, about 400 (each uses its own temp database)
-npm run test:e2e     # browser tests, 61 (needs Google Chrome)
+npm run check        # syntax of every JS file (browser modules too) + helper-text budget + types
+npm test             # unit tests (each uses its own temp database)
+npm run test:e2e     # browser tests (needs Google Chrome)
 npm start            # server on PORT, data in LEDGERLY_DATA_DIR
 ```
+
+Installing packages: `~/.npm` has files owned by root, so run `npm_config_cache=<a temp folder> npm install` (same inside `desktop/`).
 
 Demo server for looking at screens (scratch data only):
 `LEDGERLY_DATA_DIR=<temp dir> PORT=4792 HOST=127.0.0.1 NETFARE_UPDATE_FEED=off LEDGERLY_AUTO_BACKUP_HOURS=0 node server/index.js`. Load sample data from Settings, or sign in by inserting a session row: `sessions(id = sha256(token), user_id)`, then cookie `netfare_session_<port>=<token>`.
@@ -115,10 +117,12 @@ Demo server for looking at screens (scratch data only):
   7. Add a `### Release X.Y.Z — <commit>, tag vX.Y.Z` entry to `changes.md`, commit and push.
 - The installed apps are unsigned (no Apple developer account). Updates arrive as a notice in the app that reads `latest.json`.
 - This Mac sometimes loses DNS for github.com for a few minutes. Retry; don't change the git setup.
+- Commits use the GitHub noreply email already set in this repo's git config (`git config user.email`). Don't change it; never commit with a private email.
+- If `gh` is logged out: run `~/.local/bin/gh auth login` in a terminal tab; it shows a device code, and the owner approves it in the browser.
 
 ## Where things stand (update this)
 
-- Latest release: **1.0.33** (25 Nov 2026). `main` is pushed and level with GitHub.
+- Latest release: **1.0.33** (25 Nov 2026). Check with `git status -sb` whether `main` is level with GitHub.
 - This file was written on 25 Nov 2026 and is kept current with every change.
 - Recent work: the Daily Sales Report (DSR) in the counter format (sales lists with Cash, Card, Bank and Credit columns, then boxes for payments, cash in hand, sales by how paid, bank, petty cash, and supplier and wallet balances); moves between our own accounts shown as moves, not payments; Reminders with suggestions and WhatsApp; Pay supplier; company customers with payment days; Settings in five groups.
 - The multi-user plan is done through step 5: security, logins with per-user rights, office network, desktop app, update notice. Step 6 (download page) is open, and where the site is hosted is not recorded: ask the owner.
