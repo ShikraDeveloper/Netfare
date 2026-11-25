@@ -463,6 +463,8 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dsr-when, .dsr-staff { white-space: nowrap; }
 .dsr-empty { text-align: center; color: var(--muted); }
 .dsr-boxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 20px; align-items: start; }
+/* Two stacked columns: a short box leaves no gap beside a tall one. */
+.dsr-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .dsr-box { border: 1px solid var(--border-strong); border-radius: 10px; overflow: hidden; }
 .dsr-box-head { background: var(--surface-2); text-align: center; font-weight: 600; padding: 8px; border-bottom: 1px solid var(--border); }
 .dsr-box-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 14px; border-top: 1px solid var(--border); font-size: 13px; }
@@ -1607,7 +1609,8 @@ html:not(.show-accounting) .acct-col { display: none; }
   .dsr-report .dsr-sub { font-size: 7.5px; }
   .dsr-report .dsr-title { margin: 10px 0 4px; font-size: 11pt; }
   .dsr-table tr, .dsr-box { page-break-inside: avoid; }
-  .dsr-boxes { gap: 8px; margin-top: 12px; }
+  .dsr-boxes, .dsr-col { gap: 8px; }
+  .dsr-boxes { margin-top: 12px; }
   .dsr-box-head { padding: 4px; font-size: 9.5pt; }
   .dsr-box-row { padding: 2px 10px; font-size: 8.5pt; }
   .dsr-box-total { font-size: 9.5pt; }

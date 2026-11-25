@@ -826,6 +826,12 @@ Verification:
 - **3. One page:** the closing boxes print smaller, so the suppliers box no longer goes alone to page 2 (each box still never splits across pages).
 - **Checked:** `npm run check`; `npm test` 399 (new: a ticket cancelled with 1,000.00 unpaid shows it as `unpaid_cancelled_cents`, and on every sale the columns − deposit + from deposit + unpaid cancelled = the total); `npm run test:e2e` 61. The same demo DSR printed from a copy (deleted after): 1 page, Total sales 1,490.00, Net sales 1,000.00.
 
+### DSR closing boxes: no gap under a short box
+
+- **Why:** The user selected the boxes on the DSR page and asked "why gap bro ?": the boxes sat in a grid of rows, so the short Payments box left an empty space beside the tall cash box.
+- **What:** the boxes now stand in two columns that stack on their own (`.dsr-col`): Payments, By how it was paid and Suppliers on the left; Summary · cash in hand, Bank and By staff on the right. On a phone they are one column as before.
+- **Checked:** `npm run check`; `npm run test:e2e` 61; on the demo (1–25 Nov) at desktop width each box starts right under the one above it, and at phone width they stack in one column. The demo server had been running the old server code, so "Cancelled before payment" was missing in the user's screenshot; after a restart it shows.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

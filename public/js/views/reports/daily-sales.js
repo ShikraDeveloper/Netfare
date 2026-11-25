@@ -249,9 +249,23 @@ function closingBoxes(data) {
   const modes = [['cash', 'Cash'], ['card', 'Card & payment link'], ['bank', 'Bank'], ['other', 'Advance or credit note used'], ['credit', 'Credit (unpaid)']];
   return `
     <div class="dsr-boxes">
+      <div class="dsr-col">
       ${box('Payments', `
         ${out.map((row) => boxRow(row.label, -row.cents, 'neg')).join('')}
         ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}`, 'data-dsr-payments')}
+      ${box('By how it was paid · sales', `
+        ${modes.filter(([key]) => key !== 'other' || settlement.other).map(([key, label]) => boxRow(label, settlement[key])).join('')}
+        ${deposits ? boxRow('Security deposits (not sales)', -deposits, 'neg') : ''}
+        ${fromDeposit ? boxRow('Paid from a security deposit', fromDeposit) : ''}
+        ${unpaidCancelled ? boxRow('Cancelled before payment', unpaidCancelled) : ''}
+        ${boxRow('Total sales', listed, 'dsr-box-total')}
+        ${cancelled ? `${boxRow('Cancellations', cancelled, 'neg')}${boxRow('Net sales', listed + cancelled, 'dsr-box-total')}` : ''}`, 'data-dsr-modes')}
+      ${box(`Suppliers and portal wallets · ${fmtDate(data.to, { short: true })}`, parties.length
+    ? `${parties.map((party) => `<div class="dsr-box-row"><span>${esc(party.name)} <span class="dsr-sub">${esc(party.kind)}</span></span><span class="num ${party.balance_cents < 0 ? 'pos' : ''}">${money(party.balance_cents)}</span></div>`).join('')}
+       ${boxRow(parties.some((party) => party.balance_cents < 0) ? 'Net' : 'We owe in all', sumOf(parties, (party) => party.balance_cents), 'dsr-box-total')}`
+    : '<div class="dsr-box-row"><span class="dsr-sub">Every supplier and wallet is at 0.00</span></div>', 'data-dsr-parties')}
+      </div>
+      <div class="dsr-col">
       ${cash ? box('Summary · cash in hand', `
         ${boxRow('Opening cash', cash.opening_cents)}
         ${boxRow('Ticket sales (cash)', cashOf(s.tickets))}
@@ -262,24 +276,14 @@ function closingBoxes(data) {
         ${otherIn < 0 ? boxRow('Paid in cash, kept outside the cash account', otherIn, 'neg') : ''}
         ${boxRow('Refunds and payments (cash)', -cash.out_cents, cash.out_cents ? 'neg' : '')}
         ${boxRow('Cash in hand', cash.closing_cents, 'dsr-box-total pos')}`, 'data-dsr-cash') : ''}
-      ${box('By how it was paid · sales', `
-        ${modes.filter(([key]) => key !== 'other' || settlement.other).map(([key, label]) => boxRow(label, settlement[key])).join('')}
-        ${deposits ? boxRow('Security deposits (not sales)', -deposits, 'neg') : ''}
-        ${fromDeposit ? boxRow('Paid from a security deposit', fromDeposit) : ''}
-        ${unpaidCancelled ? boxRow('Cancelled before payment', unpaidCancelled) : ''}
-        ${boxRow('Total sales', listed, 'dsr-box-total')}
-        ${cancelled ? `${boxRow('Cancellations', cancelled, 'neg')}${boxRow('Net sales', listed + cancelled, 'dsr-box-total')}` : ''}`, 'data-dsr-modes')}
       ${bank ? box(bank.label, `
         ${boxRow('Opening', bank.opening_cents)}
         ${boxRow('In', bank.in_cents)}
         ${boxRow('Out', -bank.out_cents, bank.out_cents ? 'neg' : '')}
         ${boxRow('Closing', bank.closing_cents, 'dsr-box-total')}`, 'data-dsr-bank') : ''}
-      ${box(`Suppliers and portal wallets · ${fmtDate(data.to, { short: true })}`, parties.length
-    ? `${parties.map((party) => `<div class="dsr-box-row"><span>${esc(party.name)} <span class="dsr-sub">${esc(party.kind)}</span></span><span class="num ${party.balance_cents < 0 ? 'pos' : ''}">${money(party.balance_cents)}</span></div>`).join('')}
-       ${boxRow(parties.some((party) => party.balance_cents < 0) ? 'Net' : 'We owe in all', sumOf(parties, (party) => party.balance_cents), 'dsr-box-total')}`
-    : '<div class="dsr-box-row"><span class="dsr-sub">Every supplier and wallet is at 0.00</span></div>', 'data-dsr-parties')}
       ${(data.staff_totals || []).length > 1 ? box('By staff', `
         ${data.staff_totals.map((row) => boxRow(`${row.staff} · ${plural(row.sales, 'sale')}`, row.sale_cents, row.staff === data.staff ? 'dsr-box-total' : '')).join('')}`, 'data-dsr-staff-totals') : ''}
+      </div>
     </div>`;
 }
 
