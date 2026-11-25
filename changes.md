@@ -862,6 +862,23 @@ Verification:
 - **What:** the box shows each balance the other way round from the supplier statement (`-balance_cents`): Akbar Travel Online Wallet 24.60 in green, HolidaySpace −1,780.00 in black; the Net (or "We owe in all") follows the same rule and is green only when it is in our favour. The server figures are unchanged.
 - **Checked:** `npm run check`; `npm run test:e2e` 61; today's DSR from a read-only copy of the real books (deleted after): Akbar Travel 24.60 green, HolidaySpace −1,780.00 black, Net −1,755.40 black.
 
+### Release 1.0.31 — `0fd0e62`, tag `v1.0.31`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** in the Daily Sales Report, money moved between our own accounts (cash to petty cash or the bank) is a move, not a payment, with its own line in cash in hand and a Petty Cash box; in Suppliers and portal wallets, our money in a wallet is a green plus and money we owe a black minus.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 401 and `npm run test:e2e` 61. GitHub run 45598883194 (3m45s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.31); releases/latest is v1.0.31.
+- **Old release deleted:** v1.0.26 (tag kept); five releases remain, 1.0.27 to 1.0.31.
+
+### DSR petty cash audit fixes: moves apart from spending, a voided move is a move back, wallet signs tested, petty-only days shown
+
+- **Why:** `/ponytail-audit` of the petty cash and wallet sign changes; the user said "Fix all four".
+- **1. Moves apart from spending:** the Petty Cash box called all money out "Spent", so 20.00 moved back to Cash read as spending. It now shows "From Cash", "Back to Cash" (and "Other in" when there is any) from the list of moves, and Spent is only what left petty cash for anything else.
+- **2. A voided move is a move back:** the void of a cash deposit was counted as a general reversal, so on the void day petty cash showed "Spent" and cash "Other cash in". The ledger query now counts a cash deposit's void entry as a move (`server/services/reports/dsr-sections.js`), and the list of moves shows it on its own date as "Void of DEP-… · Petty Cash to Cash"; the original shows "(voided)".
+- **3. Wallet signs tested:** the DSR e2e test tops up a wallet today and checks it shows 100.00 (no minus) in green.
+- **4. Petty-only days:** a day with only a move or petty cash spending now shows the report, not "No sales in this period".
+- **Also:** the supplier statement e2e test now opens the wallet whose top-up paid bills by name (it took the first wallet, which became the DSR test's new one).
+- **Checked:** `npm run check`; `npm test` 402 (new: a move voided the next day is a move back that day, not a reversal); `npm run test:e2e` 61 (the DSR test also moves 5.00 back to cash: "Back to Cash −5.00", and the petty cash lines add up to its closing).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

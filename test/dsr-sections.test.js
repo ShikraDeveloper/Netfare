@@ -258,3 +258,14 @@ test('cash moved to petty cash: listed as a move, petty cash has its own positio
   assert.equal(petty.closing_cents, petty.opening_cents + 2_000);
   assert.equal(cash.closing_cents, cash.opening_cents + 5_000 - 2_000);
 });
+
+test('a move voided on a later day is a move back that day, not a reversal or spending', () => {
+  const { createDeposit, voidDeposit } = require('../server/services/cash-deposits');
+  const move = createDeposit(db, { amount_cents: 1_000, deposit_date: '2026-11-22', from_account_id: account('1000').id, to_account_id: account('1020').id });
+  voidDeposit(db, move.id, { void_date: '2026-11-23', remarks: 'Wrong amount' });
+  const sections = dailySales(db, '2026-11-23', '2026-11-23').sections;
+  assert.deepEqual(sections.transfers.map((row) => [row.number, row.reversal, row.from_code, row.to_code, row.amount_cents]), [[move.number, 1, '1020', '1000', 1_000]]);
+  const flow = sections.cash_in.find((row) => row.source_type === 'cash_deposit');
+  assert.deepEqual([flow.cash_in_cents, flow.petty_out_cents], [1_000, 1_000]);
+  assert.ok(![...sections.cash_in, ...sections.cash_out].some((row) => row.source_type === 'void'), 'not a general reversal');
+});

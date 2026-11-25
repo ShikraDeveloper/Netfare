@@ -234,17 +234,24 @@ function closingBoxes(data) {
     .map((row) => ({ label: row.label, cents: row.cash_out_cents + row.bank_out_cents })).filter((row) => row.cents);
   const transfers = s.transfers || [];
   // Into or out of the cash account, by the other account, for the cash box.
-  const movedBy = (side, other) => {
+  // Moves into or out of one account, totalled by the other account.
+  const movedBy = (code, side, other) => {
     const totals = new Map();
-    for (const row of transfers.filter((t) => t[`${side}_code`] === '1000')) totals.set(row[`${other}_name`], (totals.get(row[`${other}_name`]) || 0) + row.amount_cents);
+    for (const row of transfers.filter((t) => t[`${side}_code`] === code)) totals.set(row[`${other}_name`], (totals.get(row[`${other}_name`]) || 0) + row.amount_cents);
     return [...totals];
   };
-  const movedOut = movedBy('from', 'to');
-  const movedIn = movedBy('to', 'from');
-  const movedOutTotal = sumOf(movedOut, ([, cents]) => cents);
-  const movedInTotal = sumOf(movedIn, ([, cents]) => cents);
+  const totalOf = (moves) => sumOf(moves, ([, cents]) => cents);
+  const movedOut = movedBy('1000', 'from', 'to');
+  const movedIn = movedBy('1000', 'to', 'from');
+  const movedOutTotal = totalOf(movedOut);
+  const movedInTotal = totalOf(movedIn);
   const petty = position.petty;
   const showPetty = petty && (petty.opening_cents || petty.in_cents || petty.out_cents);
+  const pettyIn = movedBy('1020', 'to', 'from');
+  const pettyOut = movedBy('1020', 'from', 'to');
+  // Petty cash out that is not a move to another account of ours is spending.
+  const pettySpent = petty ? petty.out_cents - totalOf(pettyOut) : 0;
+  const pettyOtherIn = petty ? petty.in_cents - totalOf(pettyIn) : 0;
   // Refunds paid are already in here (as "Customer refunds" etc.), so no line of their own.
   const paidOut = sumOf(out, (row) => row.cents);
   const cash = position.cash;
@@ -272,7 +279,9 @@ function closingBoxes(data) {
         ${out.map((row) => boxRow(row.label, -row.cents, 'neg')).join('')}
         ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}
         ${transfers.length ? `<div class="dsr-box-row dsr-box-sub" data-dsr-moved><span>Moved between our accounts</span><span></span></div>
-        ${transfers.map((row) => boxRow(`${row.from_name} to ${row.to_name} · ${short(row.number)}${row.status === 'void' ? ' (void)' : ''}`, row.amount_cents)).join('')}` : ''}`, 'data-dsr-payments')}
+        ${transfers.map((row) => boxRow(row.reversal
+          ? `Void of ${short(row.number)} · ${row.from_name} to ${row.to_name}`
+          : `${row.from_name} to ${row.to_name} · ${short(row.number)}${row.status === 'void' ? ' (voided)' : ''}`, row.amount_cents)).join('')}` : ''}`, 'data-dsr-payments')}
       ${box('By how it was paid · sales', `
         ${modes.filter(([key]) => key !== 'other' || settlement.other).map(([key, label]) => boxRow(label, settlement[key])).join('')}
         ${deposits ? boxRow('Security deposits (not sales)', -deposits, 'neg') : ''}
@@ -307,8 +316,10 @@ function closingBoxes(data) {
         ${boxRow('Closing', bank.closing_cents, 'dsr-box-total')}`, 'data-dsr-bank') : ''}
       ${showPetty ? box(petty.label, `
         ${boxRow('Opening', petty.opening_cents)}
-        ${boxRow('In', petty.in_cents)}
-        ${boxRow('Spent', -petty.out_cents, petty.out_cents ? 'neg' : '')}
+        ${pettyIn.map(([name, cents]) => boxRow(`From ${name}`, cents)).join('')}
+        ${pettyOtherIn ? boxRow('Other in', pettyOtherIn) : ''}
+        ${pettyOut.map(([name, cents]) => boxRow(`Back to ${name}`, -cents, 'neg')).join('')}
+        ${boxRow('Spent', -pettySpent, pettySpent ? 'neg' : '')}
         ${boxRow('Closing', petty.closing_cents, 'dsr-box-total')}`, 'data-dsr-petty') : ''}
       ${(data.staff_totals || []).length > 1 ? box('By staff', `
         ${data.staff_totals.map((row) => boxRow(`${row.staff} · ${plural(row.sales, 'sale')}`, row.sale_cents, row.staff === data.staff ? 'dsr-box-total' : '')).join('')}`, 'data-dsr-staff-totals') : ''}
@@ -334,7 +345,8 @@ export function dailySales(data) {
   const company = store.settings?.company_name || 'My Company';
   const s = data.sections;
   const hasAnything = s && (s.tickets.length || s.visas.length || s.services.length || s.cancellations.length
-    || s.refunds.length || s.collections.length || s.cash_out.length || (s.deposit_kept || []).length);
+    || s.refunds.length || s.collections.length || s.cash_out.length || (s.deposit_kept || []).length
+    || (s.transfers || []).length || s.summary.position.petty?.in_cents || s.summary.position.petty?.out_cents);
   if (!hasAnything) {
     return `
       <div class="report-card">

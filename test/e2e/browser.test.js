@@ -1573,6 +1573,11 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
 
   // 20.00 moved from cash to petty cash: not a payment, its own lines.
   await postJson(baseUrl, '/api/cash/deposits', { amount_cents: 2_000, deposit_date: today, from_account_id: code('1000'), to_account_id: code('1020') });
+  await postJson(baseUrl, '/api/cash/deposits', { amount_cents: 500, deposit_date: today, from_account_id: code('1020'), to_account_id: code('1000') });
+  // A wallet topped up today: our money with them, a green plus in the DSR.
+  const walletVendor = await postJson(baseUrl, '/api/vendors', { name: 'E2E DSR Wallet' });
+  const wallet = await postJson(baseUrl, '/api/portals', { name: 'E2E DSR Wallet', portal_type: 'visa_agent', settlement: 'prepaid', vendor_id: walletVendor.id });
+  await postJson(baseUrl, `/api/portals/${wallet.id}/topups`, { topup_date: today, amount_cents: 10_000, deposit_account_id: code('1010'), method: 'Bank transfer' });
 
   await openRoute('/reports/daily-sales');
   await page.locator('[data-action="daily-today"]').click();
@@ -1624,7 +1629,13 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   assert.ok(moved.some(([label, value]) => /^Cash to Petty Cash · DEP-/.test(label) && value === '20.00'), 'the move is listed');
   assert.ok(cash.some(([label, value]) => label === 'Moved to Petty Cash' && value === '-20.00'));
   const petty = await boxRows('data-dsr-petty');
-  assert.ok(petty.some(([label, value]) => label === 'In' && toCents(value) >= 2_000));
+  assert.ok(petty.some(([label, value]) => label === 'From Cash' && toCents(value) >= 2_000), 'a move in is not spending');
+  assert.ok(petty.some(([label, value]) => label === 'Back to Cash' && value === '-5.00'), 'a move back is not spending');
+  const pettyClosing = petty.pop();
+  assert.equal(petty.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(pettyClosing[1]), 'the petty cash lines add up');
+  const walletRow = page.locator('[data-dsr-parties] .dsr-box-row', { hasText: 'E2E DSR Wallet' });
+  assert.equal((await walletRow.locator('.num').textContent()).trim(), '100.00', 'our money in a wallet is a plus');
+  assert.match(await walletRow.locator('.num').getAttribute('class'), /\bpos\b/, 'and green');
   assertNoConsoleErrors();
 });
 
@@ -2939,7 +2950,8 @@ test('the ageing box shows only when something is open', async () => {
 
 test('a supplier statement: a top-up is one line with the bills it paid under it; long lines keep the amounts in view', async () => {
   const portals = await getJson(baseUrl, '/api/portals');
-  const wallet = portals.find((portal) => portal.settlement === 'prepaid' && portal.vendor_id);
+  // The wallet whose top-up paid bills (the DSR test's wallet has none).
+  const wallet = portals.find((portal) => portal.name === 'E2E Visa Portal');
   await openRoute(`/vendors/${wallet.vendor_id}/statement`);
   const row = page.locator('tr.statement-row', { hasText: 'TOP-' }).first();
   assert.match(await row.locator('.statement-line').innerText(), /^Top-up/);
