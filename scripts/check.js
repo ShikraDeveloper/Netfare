@@ -23,7 +23,14 @@ for (const directory of roots) walk(path.join(root, directory));
 let failed = 0;
 for (const file of files) {
   try {
-    execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+    // `node --check file.js` passes any file with import/export without parsing
+    // it, so browser modules go in on stdin as a module.
+    const source = fs.readFileSync(file, 'utf8');
+    if (/^(import|export) /m.test(source)) {
+      execFileSync(process.execPath, ['--input-type=module', '--check'], { input: source, stdio: 'pipe' });
+    } else {
+      execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+    }
   } catch (error) {
     failed += 1;
     console.error(`\nSyntax error: ${path.relative(root, file)}`);

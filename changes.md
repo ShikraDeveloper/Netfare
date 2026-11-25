@@ -900,6 +900,12 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 402; `npm run test:e2e` 61 (the DSR test moves 20.00 to petty cash, 5.00 back, and corrects a 10.00 move to 15.00: the list shows the 20.00, 5.00 and 15.00 moves and no void, the cash box one line "Moved to Petty Cash −30.00", the petty cash box "From Cash 30.00" and Spent 0.00, and every box adds up).
 - **Noticed:** `npm run check` (`node --check`) does not catch a duplicate name in the browser files (an `import` file is read as a script); the e2e tests do.
 
+### `npm run check` checks the browser files too
+
+- **Why:** `/ponytail-audit` found that `node --check` passes any file with `import`/`export` without parsing it (Node 22), so the 104 browser modules in `public/js` were never checked; the user said "Haan, fix 1".
+- **What (`scripts/check.js`):** a file with an `import` or `export` line is checked as a module (`node --input-type=module --check`, the source on stdin); other files as before.
+- **Checked:** `npm run check` passes on the repo; with a broken line added to `public/js/views/reports/daily-sales.js` it failed with "Syntax error: public/js/views/reports/daily-sales.js" (file restored after).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
