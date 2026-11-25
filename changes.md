@@ -926,12 +926,18 @@ Verification:
 - **Left alone:** `data/` (a 2 Nov dev database inside the project, not the real books) because of the rule never to touch `data/accounting.db`; the user can move it to the Trash.
 - **Checked:** `git status` showed no tracked file touched before this commit; `npm run check` (299 files) and `npm test` 402 pass; the folder went from about 1.5 GB to 528 MB.
 
+### Handover file for any AI or developer: AGENTS.md
+
+- **Why:** The owner asked for the folder to explain everything A to Z to any AI connected later, even after this session ends, so work starts where it stopped and nothing is missed ("folder ko aysa banao k agar ye session hatam b ho jay … sub a to z us ko pata chal jay … remember this always").
+- **What:** `AGENTS.md` (read by most AI coding tools) holds what Netfare is, where the code, the real books, the installed app and the logo live, the binding safety rules, how the owner works (Roman Urdu, mockup first, changes.md with every change, no AI trailers, push only when asked), the commands, the demo server, push and release steps, where things stand (1.0.33), open items and lessons learned. `CLAUDE.md` loads it for Claude Code (`@AGENTS.md`). The stale "Next session" steps (Phase 1 commit `49b3f93`) now point to `AGENTS.md`.
+- **Checked:** facts in it checked against the code: version lines (1.0.33 in all four places), the session cookie name (`server/routes/auth.js`), sessions stored as a sha256 hash (`server/services/auth.js`), `/api/admin/reset` and `/api/admin/demo` (`server/routes/admin.js`), the smoke-test line, the e2e Chrome path; `npm run check` passes.
+
 ### Next session
 
-1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
-2. Read this entry and run the full check suite.
-3. Use a disposable database for review; never modify live `data/accounting.db`.
-4. Append the next change under a new date heading before committing.
+1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
+2. Start from the latest `main` and run `npm run check && npm test && npm run test:e2e`.
+3. Use a disposable database for review; never modify live data.
+4. Insert each new change entry just above this heading, in the same commit as the code.
 
 ---
 
