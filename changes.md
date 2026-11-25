@@ -885,6 +885,13 @@ Verification:
 - **What:** the Suppliers and portal wallets box lists each supplier and wallet with its own balance and no total line.
 - **Checked:** `npm run check`; `npm run test:e2e` 61.
 
+### Release 1.0.32 — `a3fdacb`, tag `v1.0.32`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** the DSR petty cash audit fixes (moves in and back shown apart from spending, a voided move shown as a move back, petty-only days shown, wallet signs tested) and no Net line under suppliers and wallets.
+- **Checked:** a clean copy of main passed `npm run check`, `npm test` 402 and `npm run test:e2e` 61. The first push failed (github.com could not be resolved; the Mac was offline for a while) and went through once the network was back. GitHub run 45601380731 (3m11s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.32); releases/latest is v1.0.32.
+- **Old release deleted:** v1.0.27 (tag kept); five releases remain, 1.0.28 to 1.0.32.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
