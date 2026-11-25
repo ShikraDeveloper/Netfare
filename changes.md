@@ -912,6 +912,13 @@ Verification:
 - **What:** in `closingBoxes` the move lists `movedOut`, `movedIn`, `pettyIn` and `pettyOut` were only used for their totals since the net lines; the totals now call `movedBy` directly (−4 lines). Nothing on the page changes.
 - **Checked:** `npm run check`; `npm run test:e2e` 61.
 
+### Release 1.0.33 — `613e992`, tag `v1.0.33`
+
+- **Why:** The user checked the DSR on the demo server and said "Push aur release".
+- **What's in it:** a move corrected or voided in the same period is no longer listed with its void, and cash in hand and petty cash show one net line per account; `npm run check` checks the browser files too; four one-use move lists folded into their totals.
+- **Checked:** a clean copy of main passed `npm run check` (299 files), `npm test` 402 and `npm run test:e2e` 61. Before the release, the demo server (port 4792, scratch data) had 5 moves added, one corrected: the list showed DEP-0001, 0002, 0004 and 0005 (not the corrected 0003 or its void), cash in hand "Moved from Bank Account 500.00" and "Moved to Petty Cash −30.00", Petty Cash "From Cash 30.00", every box added up, no console errors. GitHub run 45637482924 (8m31s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.33); releases/latest is v1.0.33.
+- **Old release deleted:** v1.0.28 (tag kept); five releases remain, 1.0.29 to 1.0.33.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
