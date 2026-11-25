@@ -906,6 +906,12 @@ Verification:
 - **What (`scripts/check.js`):** a file with an `import` or `export` line is checked as a module (`node --input-type=module --check`, the source on stdin); other files as before.
 - **Checked:** `npm run check` passes on the repo; with a broken line added to `public/js/views/reports/daily-sales.js` it failed with "Syntax error: public/js/views/reports/daily-sales.js" (file restored after).
 
+### DSR moves: four one-use lists folded into their totals
+
+- **Why:** the "nice to have" from `/ponytail-audit`; the user asked what it meant and said "ok do".
+- **What:** in `closingBoxes` the move lists `movedOut`, `movedIn`, `pettyIn` and `pettyOut` were only used for their totals since the net lines; the totals now call `movedBy` directly (−4 lines). Nothing on the page changes.
+- **Checked:** `npm run check`; `npm run test:e2e` 61.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

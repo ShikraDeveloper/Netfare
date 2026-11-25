@@ -250,17 +250,13 @@ function closingBoxes(data) {
   // A move and its void both in the period cancel out, so neither is listed.
   const voidedHere = new Set(transfers.filter((t) => t.reversal).map((t) => t.id));
   const shownMoves = transfers.filter((t) => !(voidedHere.has(t.id) && transfers.some((o) => o.id === t.id && !o.reversal)));
-  const movedOut = movedBy('1000', 'from', 'to');
-  const movedIn = movedBy('1000', 'to', 'from');
-  const movedOutTotal = totalOf(movedOut);
-  const movedInTotal = totalOf(movedIn);
+  const movedOutTotal = totalOf(movedBy('1000', 'from', 'to'));
+  const movedInTotal = totalOf(movedBy('1000', 'to', 'from'));
   const petty = position.petty;
   const showPetty = petty && (petty.opening_cents || petty.in_cents || petty.out_cents);
-  const pettyIn = movedBy('1020', 'to', 'from');
-  const pettyOut = movedBy('1020', 'from', 'to');
   // Petty cash out that is not a move to another account of ours is spending.
-  const pettySpent = petty ? petty.out_cents - totalOf(pettyOut) : 0;
-  const pettyOtherIn = petty ? petty.in_cents - totalOf(pettyIn) : 0;
+  const pettySpent = petty ? petty.out_cents - totalOf(movedBy('1020', 'from', 'to')) : 0;
+  const pettyOtherIn = petty ? petty.in_cents - totalOf(movedBy('1020', 'to', 'from')) : 0;
   // Refunds paid are already in here (as "Customer refunds" etc.), so no line of their own.
   const paidOut = sumOf(out, (row) => row.cents);
   const cash = position.cash;
