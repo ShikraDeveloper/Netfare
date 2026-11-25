@@ -856,6 +856,12 @@ Verification:
   - A **Petty Cash** box (opening, in, spent, closing) when petty cash had a balance or a movement.
 - **Checked:** `npm run check`; `npm test` 401 (new: a move of 20.00 from cash to petty cash is listed, its flow is 20.00 out of cash and into petty cash, and both positions close right); `npm run test:e2e` 61 (the DSR test moves 20.00 to petty cash: it is listed under the moves, not in the payments total, the cash box still adds up, the petty cash box shows it). Today's DSR (25 Nov) printed from a read-only copy of the real books (deleted after): Payments 0.00, Cash to Petty Cash · DEP-0004 20.00, cash in hand 1,850.00, Petty Cash closing 20.00, one page.
 
+### DSR suppliers and wallets: our money a green plus, what we owe a black minus
+
+- **Why:** The user said the supplier and wallet balances read the wrong way round: money of ours in a wallet should show without a minus in green, and money we owe a supplier with a minus in black ("agar kisi me balance ho to - nai just green show ho or agar kisi ka paisa dena ho humne to - me ho black color").
+- **What:** the box shows each balance the other way round from the supplier statement (`-balance_cents`): Akbar Travel Online Wallet 24.60 in green, HolidaySpace −1,780.00 in black; the Net (or "We owe in all") follows the same rule and is green only when it is in our favour. The server figures are unchanged.
+- **Checked:** `npm run check`; `npm run test:e2e` 61; today's DSR from a read-only copy of the real books (deleted after): Akbar Travel 24.60 green, HolidaySpace −1,780.00 black, Net −1,755.40 black.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
