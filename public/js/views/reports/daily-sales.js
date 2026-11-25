@@ -233,7 +233,6 @@ function closingBoxes(data) {
   const out = s.cash_out.filter((row) => row.source_type !== 'cash_deposit')
     .map((row) => ({ label: row.label, cents: row.cash_out_cents + row.bank_out_cents })).filter((row) => row.cents);
   const transfers = s.transfers || [];
-  // Into or out of the cash account, by the other account, for the cash box.
   // Moves into or out of one account, totalled by the other account.
   const movedBy = (code, side, other) => {
     const totals = new Map();
@@ -241,6 +240,16 @@ function closingBoxes(data) {
     return [...totals];
   };
   const totalOf = (moves) => sumOf(moves, ([, cents]) => cents);
+  // One line per other account: what came in less what went out, so a move
+  // and its void (or a correction) read as what really moved.
+  const netMoves = (code) => {
+    const net = new Map(movedBy(code, 'to', 'from'));
+    for (const [name, cents] of movedBy(code, 'from', 'to')) net.set(name, (net.get(name) || 0) - cents);
+    return [...net].filter(([, cents]) => cents);
+  };
+  // A move and its void both in the period cancel out, so neither is listed.
+  const voidedHere = new Set(transfers.filter((t) => t.reversal).map((t) => t.id));
+  const shownMoves = transfers.filter((t) => !(voidedHere.has(t.id) && transfers.some((o) => o.id === t.id && !o.reversal)));
   const movedOut = movedBy('1000', 'from', 'to');
   const movedIn = movedBy('1000', 'to', 'from');
   const movedOutTotal = totalOf(movedOut);
@@ -277,8 +286,8 @@ function closingBoxes(data) {
       ${box('Payments', `
         ${out.map((row) => boxRow(row.label, -row.cents, 'neg')).join('')}
         ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}
-        ${transfers.length ? `<div class="dsr-box-row dsr-box-sub" data-dsr-moved><span>Moved between our accounts</span><span></span></div>
-        ${transfers.map((row) => boxRow(row.reversal
+        ${shownMoves.length ? `<div class="dsr-box-row dsr-box-sub" data-dsr-moved><span>Moved between our accounts</span><span></span></div>
+        ${shownMoves.map((row) => boxRow(row.reversal
           ? `Void of ${short(row.number)} · ${row.from_name} to ${row.to_name}`
           : `${row.from_name} to ${row.to_name} · ${short(row.number)}${row.status === 'void' ? ' (voided)' : ''}`, row.amount_cents)).join('')}` : ''}`, 'data-dsr-payments')}
       ${box('By how it was paid · sales', `
@@ -301,10 +310,9 @@ function closingBoxes(data) {
         ${depositCash ? boxRow('Security deposits (cash)', depositCash) : ''}
         ${s.services.length ? boxRow('Service sales (cash)', cashOf(s.services)) : ''}
         ${boxRow('Received for older invoices (cash)', collected.cash || 0)}
-        ${movedIn.map(([name, cents]) => boxRow(`Moved from ${name}`, cents)).join('')}
         ${otherIn > 0 ? boxRow('Other cash in', otherIn) : ''}
         ${otherIn < 0 ? boxRow('Paid in cash, kept outside the cash account', otherIn, 'neg') : ''}
-        ${movedOut.map(([name, cents]) => boxRow(`Moved to ${name}`, -cents, 'neg')).join('')}
+        ${netMoves('1000').map(([name, cents]) => (cents > 0 ? boxRow(`Moved from ${name}`, cents) : boxRow(`Moved to ${name}`, cents, 'neg'))).join('')}
         ${boxRow('Refunds and payments (cash)', -(cash.out_cents - movedOutTotal), cash.out_cents - movedOutTotal ? 'neg' : '')}
         ${boxRow('Cash in hand', cash.closing_cents, 'dsr-box-total pos')}`, 'data-dsr-cash') : ''}
       ${bank ? box(bank.label, `
@@ -314,9 +322,8 @@ function closingBoxes(data) {
         ${boxRow('Closing', bank.closing_cents, 'dsr-box-total')}`, 'data-dsr-bank') : ''}
       ${showPetty ? box(petty.label, `
         ${boxRow('Opening', petty.opening_cents)}
-        ${pettyIn.map(([name, cents]) => boxRow(`From ${name}`, cents)).join('')}
+        ${netMoves('1020').map(([name, cents]) => (cents > 0 ? boxRow(`From ${name}`, cents) : boxRow(`Back to ${name}`, cents, 'neg'))).join('')}
         ${pettyOtherIn ? boxRow('Other in', pettyOtherIn) : ''}
-        ${pettyOut.map(([name, cents]) => boxRow(`Back to ${name}`, -cents, 'neg')).join('')}
         ${boxRow('Spent', -pettySpent, pettySpent ? 'neg' : '')}
         ${boxRow('Closing', petty.closing_cents, 'dsr-box-total')}`, 'data-dsr-petty') : ''}
       ${(data.staff_totals || []).length > 1 ? box('By staff', `

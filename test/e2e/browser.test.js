@@ -1574,6 +1574,9 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   // 20.00 moved from cash to petty cash: not a payment, its own lines.
   await postJson(baseUrl, '/api/cash/deposits', { amount_cents: 2_000, deposit_date: today, from_account_id: code('1000'), to_account_id: code('1020') });
   await postJson(baseUrl, '/api/cash/deposits', { amount_cents: 500, deposit_date: today, from_account_id: code('1020'), to_account_id: code('1000') });
+  // A move corrected from 10.00 to 15.00: only the corrected one is listed.
+  const wrongMove = await postJson(baseUrl, '/api/cash/deposits', { amount_cents: 1_000, deposit_date: today, from_account_id: code('1000'), to_account_id: code('1020') });
+  await postJson(baseUrl, `/api/cash/deposits/${wrongMove.id}/correct`, { values: { amount_cents: 1_500 }, remarks: 'Typo' }, 200);
   // A wallet topped up today: our money with them, a green plus in the DSR.
   const walletVendor = await postJson(baseUrl, '/api/vendors', { name: 'E2E DSR Wallet' });
   const wallet = await postJson(baseUrl, '/api/portals', { name: 'E2E DSR Wallet', portal_type: 'visa_agent', settlement: 'prepaid', vendor_id: walletVendor.id });
@@ -1627,10 +1630,13 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   assert.equal(toCents(paidTotal[1]), toCents(cashOut[1]) + toCents(bankOut[1]), 'payments total = cash out + bank out, without the move to petty cash');
   assert.equal(paid.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(paidTotal[1]));
   assert.ok(moved.some(([label, value]) => /^Cash to Petty Cash · DEP-/.test(label) && value === '20.00'), 'the move is listed');
-  assert.ok(cash.some(([label, value]) => label === 'Moved to Petty Cash' && value === '-20.00'));
+  assert.ok(moved.some(([label, value]) => /^Cash to Petty Cash · DEP-/.test(label) && value === '15.00'), 'the corrected move is listed');
+  assert.ok(!moved.some(([label]) => /void/i.test(label)), 'the wrong move and its void cancel out and are not listed');
+  // One net line per account: 20.00 out, 5.00 back, 15.00 out after the correction.
+  assert.deepEqual(cash.filter(([label]) => label.startsWith('Moved')), [['Moved to Petty Cash', '-30.00']]);
   const petty = await boxRows('data-dsr-petty');
-  assert.ok(petty.some(([label, value]) => label === 'From Cash' && toCents(value) >= 2_000), 'a move in is not spending');
-  assert.ok(petty.some(([label, value]) => label === 'Back to Cash' && value === '-5.00'), 'a move back is not spending');
+  assert.deepEqual(petty.filter(([label]) => /^(From|Back to) /.test(label)), [['From Cash', '30.00']], 'moves in and back net to one line');
+  assert.ok(petty.some(([label, value]) => label === 'Spent' && value === '0.00'), 'a move back is not spending');
   const pettyClosing = petty.pop();
   assert.equal(petty.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(pettyClosing[1]), 'the petty cash lines add up');
   const walletRow = page.locator('[data-dsr-parties] .dsr-box-row', { hasText: 'E2E DSR Wallet' });

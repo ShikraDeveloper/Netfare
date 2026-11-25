@@ -892,6 +892,14 @@ Verification:
 - **Checked:** a clean copy of main passed `npm run check`, `npm test` 402 and `npm run test:e2e` 61. The first push failed (github.com could not be resolved; the Mac was offline for a while) and went through once the network was back. GitHub run 45601380731 (3m11s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.32); releases/latest is v1.0.32.
 - **Old release deleted:** v1.0.27 (tag kept); five releases remain, 1.0.28 to 1.0.32.
 
+### DSR moves: a corrected move reads as one move, one net line per account
+
+- **Why:** `/ponytail-audit` of the petty cash fixes; the user said "Fix both".
+- **1. Corrected moves:** a correction voids the old move on its own date and posts a new one, so the DSR listed three moves (the old one, its void, the new one) and the cash box showed "Moved to Petty Cash −45" and "Moved from Petty Cash +20" for a move corrected from 20.00 to 25.00. Now a move and its void that both fall in the period are left out of the list, and the cash and petty cash boxes show one net line per other account ("Moved to Petty Cash −25", "From Cash 25"). The background totals still use every move, so the boxes add up.
+- **2. Old comment:** a stale comment over the moves helper is gone.
+- **Checked:** `npm run check`; `npm test` 402; `npm run test:e2e` 61 (the DSR test moves 20.00 to petty cash, 5.00 back, and corrects a 10.00 move to 15.00: the list shows the 20.00, 5.00 and 15.00 moves and no void, the cash box one line "Moved to Petty Cash −30.00", the petty cash box "From Cash 30.00" and Spent 0.00, and every box adds up).
+- **Noticed:** `npm run check` (`node --check`) does not catch a duplicate name in the browser files (an `import` file is read as a script); the e2e tests do.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
