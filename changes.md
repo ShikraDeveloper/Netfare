@@ -800,6 +800,16 @@ Verification:
 - **3. Cash line:** when sales paid in cash went to an account outside the cash figures (for example Petty Cash), the summary showed "Other cash in" with a minus. That case now reads "Paid in cash, kept outside the cash account"; "Other cash in" shows only when it is more than zero.
 - **Checked:** `npm run check`; `npm run test:e2e` 61.
 
+### DSR laid out like the approved mockup: list tables, then the closing boxes
+
+- **Why:** The DSR still had the old layout (tiles, folds, sections) with the new columns inside; the user sent the mockup image and said "jesa mockup dekhaya aysa to bilkul nai hy dsr dekho".
+- **What (`public/js/views/reports/daily-sales.js`, rewritten; `public/css/styles.css`):**
+  - Header: report name, company, date and currency on the left; printed time and by whom on the right. Staff picker and Show profit sit under it.
+  - Titled list tables: **Ticket Sales List**, **Visa Sales List**, Service Sales List (only with rows), **Cancellations & Refunds** (only with rows), **Received for older invoices**. Short numbers (INV-0022), the ticket/PNR or visa number under the invoice, the payer under the applicant, blank cells for zero, a total row.
+  - Closing boxes in a grid: **Payments** (money out by kind, refunds, total), **Summary · cash in hand** (its lines always add up to cash in hand; anything the shown lines miss goes on "Other cash in" or "Paid in cash, kept outside the cash account"), **By how it was paid · sales** (with Cancellations and Net sales when there are any), **Bank Account**, **Suppliers and portal wallets**, and By staff when more than one.
+  - The old tile, card, bar, fold and section styles and the fold click handler (`reports.js`) are gone.
+- **Checked:** `npm run check`; `npm test` 398; `npm run test:e2e` 61 (the DSR test reads the list titles and columns, checks the modes box adds to Total sales and the cash box lines add to Cash in hand). The 12 Nov DSR printed from a read-only copy of the real books (deleted after): 2 pages, figures unchanged (visas 7,235.36; cash in hand 0.00; bank closing 1,489.20; HolidaySpace 3,200.00 owed).
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

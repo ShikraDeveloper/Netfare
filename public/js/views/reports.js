@@ -186,14 +186,6 @@ export async function render(container, { params } = {}) {
     rememberProfit(event.target.checked);
   });
 
-  // DSR sections fold open and shut (print shows them all).
-  body.addEventListener('click', (event) => {
-    const fold = event.target.closest('[data-dsr-fold]');
-    if (!fold) return;
-    const open = fold.closest('[data-dsr-section]').classList.toggle('is-open');
-    fold.setAttribute('aria-expanded', String(open));
-  });
-
   // DSR staff picker: one staff member's sales, or everyone's.
   body.addEventListener('change', (event) => {
     if (!event.target.matches('[data-dsr-staff]')) return;

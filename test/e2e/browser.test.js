@@ -1541,7 +1541,6 @@ test('a cancelled sale stays on its day in the DSR and statement, with its own c
   await openRoute('/reports/daily-sales');
   await setReportPeriod('2026-10-01');
   await page.locator('[data-dsr]').waitFor();
-  await page.locator('[data-dsr-section="cancellations"] [data-dsr-fold]').click();
   const tickets = page.locator('[data-dsr-table="tickets"]');
   const saleRow = tickets.locator('tr', { has: page.locator(`a[href="#/invoices/${confirmed.invoice_id}"]`) });
   assert.match(await saleRow.innerText(), /Cancelled/);
@@ -1575,37 +1574,34 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   await openRoute('/reports/daily-sales');
   await page.locator('[data-action="daily-today"]').click();
   await page.locator('[data-dsr-table="services"]').waitFor();
-  for (const id of ['tickets', 'visas', 'services', 'cancellations', 'collections', 'cash-out', 'summary']) {
-    assert.equal(await page.locator(`[data-dsr-section="${id}"]`).count(), 1, `section ${id}`);
+  // A counter's DSR: the ticket and visa lists always, then the closing boxes.
+  for (const table of ['tickets', 'visas', 'services', 'collections']) {
+    assert.equal(await page.locator(`[data-dsr-table="${table}"]`).count(), 1, `list ${table}`);
   }
+  assert.deepEqual((await page.locator('.dsr-title').allTextContents()).filter((text) => text !== 'Cancellations & Refunds'), ['Ticket Sales List', 'Visa Sales List', 'Service Sales List', 'Received for older invoices']);
   const row = page.locator('[data-dsr-table="services"] tr', { has: page.locator(`a[href="#/invoices/${service.id}"]`) });
   const cells = (await row.locator('td').allInnerTexts()).map((text) => text.trim());
-  assert.deepEqual(cells.slice(3), ['300.00', '100.00', '—', '—', '200.00'], 'total, then cash, card, bank and credit (still due)');
-  assert.equal(await page.locator('[data-dsr-section="collections"] .dsr-section-body').isVisible(), false, 'smaller sections start folded');
-  await page.locator('[data-dsr-section="collections"] [data-dsr-fold]').click();
-  assert.equal(await page.locator('[data-dsr-section="collections"] .dsr-section-body').isVisible(), true, 'and open on a click');
-
-  assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Gross profit")').first().isVisible(), false, 'profit hidden by default');
-  await page.locator('[data-dsr-profit]').check();
-  assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Gross profit")').first().isVisible(), true);
-  await page.locator('[data-dsr-profit]').uncheck();
-  const overview = await page.locator('[data-dsr-summary]').innerText();
-  assert.match(overview, /Total sales[\s\S]*Received[\s\S]*On credit/i, 'the totals come first');
-  assert.match(overview, /How the money came in[\s\S]*Cash[\s\S]*Opening[\s\S]*Closing/i);
-  // Received is every cash, card and bank amount in the legend added up.
-  const toCents = (text) => Math.round(Number(String(text).replace(/[^0-9.-]/g, '')) * 100);
-  const received = toCents(await page.locator('[data-dsr-summary] .dsr-tile', { hasText: 'Received' }).locator('.dsr-tile-value').innerText());
-  const legend = (await page.locator('[data-dsr-summary] .dsr-legend span').allInnerTexts()).map((text) => toCents(text.split(' ').pop()));
-  assert.equal(received, legend.reduce((sum, cents) => sum + cents, 0), 'Received equals cash + card + bank');
-  assert.ok(received >= 10_000, 'it includes the 100.00 cash taken today');
-  // As on a counter's DSR: each way of paying in its own column, and the closing.
+  assert.deepEqual(cells.slice(3, 8), ['300.00', '100.00', '', '', '200.00'], 'total, then cash, card, bank and credit (still due)');
   assert.deepEqual((await page.locator('[data-dsr-table="services"] thead th.dsr-mode').allTextContents()).filter((text) => text !== 'Adv.'), ['Cash', 'Card', 'Bank', 'Credit']);
-  const cashCard = await page.locator('[data-dsr-cash]').innerText();
-  assert.match(cashCard, /Opening cash[\s\S]*Sales paid in cash[\s\S]*Cash in hand/);
-  const closingCash = toCents(await page.locator('[data-dsr-cash] .dsr-close-total .num').innerText());
-  const positionCash = toCents((await page.locator('[data-dsr-summary] .dsr-cashbank .dsr-cb-total.num').first().innerText()));
-  assert.equal(closingCash, positionCash, 'cash in hand is the cash closing');
-  await page.locator('[data-dsr-parties]').waitFor();
+
+  assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Profit")').first().isVisible(), false, 'profit hidden by default');
+  await page.locator('[data-dsr-profit]').check();
+  assert.equal(await page.locator('[data-dsr] th.dsr-profit:has-text("Profit")').first().isVisible(), true);
+  await page.locator('[data-dsr-profit]').uncheck();
+
+  const toCents = (text) => Math.round(Number(String(text).replace(/[^0-9.-]/g, '')) * 100);
+  const boxRows = async (attr) => page.locator(`[${attr}] .dsr-box-row`).evaluateAll((rows) => rows.map((row) => [row.firstElementChild.textContent.trim(), row.lastElementChild.textContent.trim()]));
+  // By how it was paid: the parts add up to the total sales.
+  const modes = (await boxRows('data-dsr-modes'));
+  const total = modes.splice(modes.findIndex(([label]) => label === 'Total sales')).shift();
+  assert.equal(modes.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(total[1]));
+  // Cash in hand: opening plus every line in and out.
+  const cash = await boxRows('data-dsr-cash');
+  const hand = cash.pop();
+  assert.equal(hand[0], 'Cash in hand');
+  assert.equal(cash.reduce((sum, [, value]) => sum + toCents(value), 0), toCents(hand[1]), 'the lines add up to the cash in hand');
+  assert.ok(cash.some(([label, value]) => label === 'Visa sales (cash)' || (label === 'Ticket sales (cash)' && toCents(value) >= 0)));
+  for (const attr of ['data-dsr-payments', 'data-dsr-bank', 'data-dsr-parties']) await page.locator(`[${attr}]`).waitFor();
   assertNoConsoleErrors();
 });
 
