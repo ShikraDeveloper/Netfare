@@ -879,6 +879,12 @@ Verification:
 - **Also:** the supplier statement e2e test now opens the wallet whose top-up paid bills by name (it took the first wallet, which became the DSR test's new one).
 - **Checked:** `npm run check`; `npm test` 402 (new: a move voided the next day is a move back that day, not a reversal); `npm run test:e2e` 61 (the DSR test also moves 5.00 back to cash: "Back to Cash −5.00", and the petty cash lines add up to its closing).
 
+### DSR suppliers and wallets: no Net line
+
+- **Why:** The user asked "suppliers k nichay net total nai anna chaiye right ?" and then "bana do": adding our money in wallets to what we owe suppliers gives a figure that is neither (today −1,755.40).
+- **What:** the Suppliers and portal wallets box lists each supplier and wallet with its own balance and no total line.
+- **Checked:** `npm run check`; `npm run test:e2e` 61.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

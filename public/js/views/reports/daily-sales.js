@@ -262,7 +262,6 @@ function closingBoxes(data) {
   // Whatever the shown lines miss, so the box always adds up to cash in hand.
   const otherIn = cash ? cash.in_cents - cashOf(s.tickets) - cashOf(s.visas) - cashOf(s.services) - (collected.cash || 0) - movedInTotal : 0;
   const parties = s.parties || [];
-  const partyTotal = sumOf(parties, (party) => party.balance_cents);
   // Sales by how they were settled, plus what no column holds, add up to the
   // lists' totals; cancellations (net of charges kept) after.
   const sales = [...s.tickets, ...s.visas, ...s.services];
@@ -291,8 +290,7 @@ function closingBoxes(data) {
         ${cancelled ? `${boxRow('Cancellations', cancelled, 'neg')}${boxRow('Net sales', listed + cancelled, 'dsr-box-total')}` : ''}`, 'data-dsr-modes')}
       ${box(`Suppliers and portal wallets · ${fmtDate(data.to, { short: true })}`, parties.length
     // Our money with them is a plus in green; what we owe them is a minus in black.
-    ? `${parties.map((party) => `<div class="dsr-box-row"><span>${esc(party.name)} <span class="dsr-sub">${esc(party.kind)}</span></span><span class="num ${party.balance_cents < 0 ? 'pos' : ''}">${money(-party.balance_cents)}</span></div>`).join('')}
-       ${boxRow(parties.some((party) => party.balance_cents < 0) ? 'Net' : 'We owe in all', -partyTotal, `dsr-box-total ${partyTotal < 0 ? 'pos' : ''}`)}`
+    ? `${parties.map((party) => `<div class="dsr-box-row"><span>${esc(party.name)} <span class="dsr-sub">${esc(party.kind)}</span></span><span class="num ${party.balance_cents < 0 ? 'pos' : ''}">${money(-party.balance_cents)}</span></div>`).join('')}`
     : '<div class="dsr-box-row"><span class="dsr-sub">Every supplier and wallet is at 0.00</span></div>', 'data-dsr-parties')}
       </div>
       <div class="dsr-col">
