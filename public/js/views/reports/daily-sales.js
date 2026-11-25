@@ -367,7 +367,8 @@ function closingHtml(data) {
         ${row('Opening cash', cash.opening_cents)}
         ${row('Sales paid in cash', settlement.cash)}
         ${row('Received for older invoices', collected.cash || 0)}
-        ${otherIn ? row('Other cash in', otherIn) : ''}
+        ${otherIn > 0 ? row('Other cash in', otherIn) : ''}
+        ${otherIn < 0 ? row('Paid in cash, kept outside the cash account', otherIn) : ''}
         ${row('Paid out and deposited', -cash.out_cents, cash.out_cents ? 'margin-negative' : '')}
         ${row('Cash in hand', cash.closing_cents, 'dsr-close-total')}
       </div>` : ''}

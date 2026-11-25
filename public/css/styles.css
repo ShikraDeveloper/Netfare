@@ -462,7 +462,6 @@ table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
 .dsr-section-total { margin-left: auto; font-weight: 650; font-variant-numeric: tabular-nums; }
 .dsr-section-body { display: none; border-top: 1px solid var(--border); padding: 4px 14px 10px; }
 .dsr-section.is-open .dsr-section-body { display: block; }
-.dsr-pay { display: inline-block; font-size: 11px; white-space: nowrap; border-radius: 999px; padding: 0 8px; margin: 0 4px 3px 0; background: var(--surface); border: 1px solid var(--border); font-variant-numeric: tabular-nums; }
 .dsr-due { color: var(--amber); font-weight: 650; }
 .dsr-overview { margin-top: 6px; }
 .dsr-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
@@ -510,6 +509,8 @@ th.dsr-mode { min-width: 64px; }
 @page dsr {
   size: A4 portrait; margin: 12mm 10mm 14mm;
   @bottom-center { content: "Page " counter(page) " of " counter(pages); font-size: 8pt; font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #888; }
+  /* The general print page numbers at the bottom right; the DSR has its own. */
+  @bottom-right { content: none; }
 }
 .badge-prepaid { background: var(--green-soft); color: var(--green); }
 .badge-credit { background: var(--amber-soft); color: var(--amber); }
@@ -1640,7 +1641,6 @@ html:not(.show-accounting) .acct-col { display: none; }
   .dsr-chev { display: none; }
   .dsr-tile, .dsr-card { background: #fff !important; padding: 6px 8px; }
   .dsr-tile-value { font-size: 12pt; }
-  .dsr-pay { background: #fff; font-size: 7.5px; padding: 0 4px; }
   a { color: inherit !important; text-decoration: none !important; }
   /* On paper the brand line sits above the content, not over it. */
   .doc::before { position: static; display: block; margin: 0 0 18px; }

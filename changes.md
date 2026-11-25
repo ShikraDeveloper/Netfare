@@ -792,6 +792,14 @@ Verification:
   - **Suppliers and portal wallets** at the end of the period: only those with a balance, with their kind (Supplier, Wallet, Credit account); plus is what we owe, minus is money of ours with them. The figure is each supplier's statement closing (`partyBalances()` in `server/services/reports/daily-sales.js`, `sections.parties`).
 - **Checked:** `npm run check`; `npm test` 398 (new: a supplier at 0.00 is left out, a topped-up wallet is a minus, every balance equals the supplier statement); `npm run test:e2e` 61 (the DSR test now reads the Cash, Card, Bank, Credit columns, the cash in hand against the cash closing, and the supplier box). The 12 Nov DSR printed from a read-only copy of the real books (deleted after): visas 7,235.36 = cash 1,150.00 + card 2,895.36 + bank 2,050.00 + credit 1,140.00; cash in hand 0.00; HolidaySpace 3,200.00 owed, the four wallets at 0.00 not listed.
 
+### DSR audit fixes: one page number, no leftover chip styles, a clear cash line
+
+- **Why:** `/ponytail-audit` after the counter-format DSR; the user said "do fix and nice to have".
+- **1. One page number:** the printed DSR had "Page 1 of 3" twice (its own at the bottom centre and the general one at the bottom right). `@page dsr` now turns the bottom-right one off. Checked on the 12 Nov DSR from a read-only copy of the real books (deleted after): one page number per page.
+- **2. Leftover styles:** the `.dsr-pay` rules for the old "Paid by" chips are gone (nothing used them).
+- **3. Cash line:** when sales paid in cash went to an account outside the cash figures (for example Petty Cash), the summary showed "Other cash in" with a minus. That case now reads "Paid in cash, kept outside the cash account"; "Other cash in" shows only when it is more than zero.
+- **Checked:** `npm run check`; `npm run test:e2e` 61.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.
