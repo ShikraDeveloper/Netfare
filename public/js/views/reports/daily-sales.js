@@ -235,6 +235,8 @@ function closingBoxes(data) {
   const cash = position.cash;
   const bank = position.bank;
   const cashOf = (rows) => sumOf(rows, (r) => r.split.cash);
+  // Deposit cash sits in the visa rows' Cash column but is not a sale.
+  const depositCash = sumOf(s.visas, (r) => r.deposit_cash_cents);
   // Whatever the shown lines miss, so the box always adds up to cash in hand.
   const otherIn = cash ? cash.in_cents - cashOf(s.tickets) - cashOf(s.visas) - cashOf(s.services) - (collected.cash || 0) : 0;
   const parties = s.parties || [];
@@ -269,7 +271,8 @@ function closingBoxes(data) {
       ${cash ? box('Summary · cash in hand', `
         ${boxRow('Opening cash', cash.opening_cents)}
         ${boxRow('Ticket sales (cash)', cashOf(s.tickets))}
-        ${boxRow('Visa sales (cash)', cashOf(s.visas))}
+        ${boxRow('Visa sales (cash)', cashOf(s.visas) - depositCash)}
+        ${depositCash ? boxRow('Security deposits (cash)', depositCash) : ''}
         ${s.services.length ? boxRow('Service sales (cash)', cashOf(s.services)) : ''}
         ${boxRow('Received for older invoices (cash)', collected.cash || 0)}
         ${otherIn > 0 ? boxRow('Other cash in', otherIn) : ''}

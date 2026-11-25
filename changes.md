@@ -832,6 +832,13 @@ Verification:
 - **What:** the boxes now stand in two columns that stack on their own (`.dsr-col`): Payments, By how it was paid and Suppliers on the left; Summary · cash in hand, Bank and By staff on the right. On a phone they are one column as before.
 - **Checked:** `npm run check`; `npm run test:e2e` 61; on the demo (1–25 Nov) at desktop width each box starts right under the one above it, and at phone width they stack in one column. The demo server had been running the old server code, so "Cancelled before payment" was missing in the user's screenshot; after a restart it shows.
 
+### DSR deposit audit fixes: a test with a deposit, deposit cash on its own line
+
+- **Why:** `/ponytail-audit` of the last two DSR changes; the user said "Fix both".
+- **1. Test with a deposit:** the "every sale adds up" check had no visa with a security deposit, and the e2e DSR test runs before the deposit test. A new unit test takes a 1,000.00 cash deposit with a 500.00 visa, pays 200.00 of the invoice from the deposit and 100.00 in cash, and checks every sale still adds up to its total.
+- **2. Deposit cash on its own line:** deposit cash sits in the visa row's Cash column, so the cash box showed it as "Visa sales (cash)". The server now gives each visa row `deposit_cash_cents` (`server/services/reports/dsr-sections.js`), and the cash box shows "Security deposits (cash)" on its own line, with visa sales without it. Cash in hand is unchanged.
+- **Checked:** `npm run check`; `npm test` 400; `npm run test:e2e` 61.
+
 ### Next session
 
 1. Start from the latest `main`; the Phase 1 code commit is `49b3f93`.

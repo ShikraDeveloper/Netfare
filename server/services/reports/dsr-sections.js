@@ -188,6 +188,7 @@ function dsrSections(db, start, end, items) {
       visas.push({
         ...row,
         deposit_cents: deposits.reduce((sum, deposit) => sum + deposit.amount_cents, 0),
+        deposit_cash_cents: deposits.filter((deposit) => modeOf(deposit.method) === 'cash').reduce((sum, deposit) => sum + deposit.amount_cents, 0),
         deposit_numbers: deposits.map((deposit) => deposit.number),
         applicant_name: invoice.applicant_name || invoice.customer_name,
         country: invoice.destination_country || '',

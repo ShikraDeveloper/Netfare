@@ -18,6 +18,7 @@ const advanceService = require('../server/services/advances');
 const cancellationService = require('../server/services/cancellations');
 const { dailySales } = require('../server/services/reports/daily-sales');
 const { modeOf } = require('../server/services/reports/dsr-sections');
+const visaDeposits = require('../server/services/visa-deposits');
 
 function account(code) {
   const row = db.prepare('SELECT * FROM accounts WHERE code = ?').get(code);
@@ -216,6 +217,28 @@ test('a sale cancelled before it was paid: the unpaid part is in no column, and 
   const sections = dailySales(db, DAY, later).sections;
   const row = sections.tickets.find((r) => r.id === ticket.invoice_id);
   assert.deepEqual([row.split.credit, row.unpaid_cancelled_cents], [0, 100_000], '406,000 sold, 306,000 paid, the rest cancelled');
+  for (const sale of [...sections.tickets, ...sections.visas, ...sections.services]) {
+    const columns = ['cash', 'card', 'bank', 'other', 'credit'].reduce((sum, key) => sum + sale.split[key], 0);
+    assert.equal(columns - (sale.deposit_cents || 0) + sale.from_deposit_cents + sale.unpaid_cancelled_cents, sale.total_cents, sale.number);
+  }
+});
+
+test('a visa with a deposit taken in cash, part of it used on the invoice: every row still adds up', () => {
+  const day = '2026-11-20';
+  const withDeposit = visaService.submitVisa(db, visaService.createVisa(db, {
+    customer_id: customerId, application_date: day, destination_country: 'Italy', applicant_is_customer: false, applicant_name: 'Hina',
+    sale_items: [{ description: 'Schengen visa', quantity: 1, unit_price_cents: 50_000, account_id: account('4320').id }],
+  }).id);
+  const deposit = visaDeposits.collectDeposit(db, { visa_id: withDeposit.id, amount_cents: 100_000, deposit_date: day, account_id: account('1000').id, method: 'Cash' });
+  visaDeposits.applyToInvoice(db, deposit.id, { invoice_id: withDeposit.invoice_id, amount_cents: 20_000, event_date: day });
+  pay(withDeposit.invoice_id, 10_000, 'Cash', '1000', day);
+  const sections = dailySales(db, day, day).sections;
+  const row = sections.visas.find((r) => r.id === withDeposit.invoice_id);
+  assert.deepEqual(
+    [row.deposit_cents, row.deposit_cash_cents, row.from_deposit_cents, row.split.cash, row.split.credit],
+    [100_000, 100_000, 20_000, 110_000, 20_000],
+    'the deposit and the sale share the Cash column; 20,000 paid from the deposit, 20,000 still due',
+  );
   for (const sale of [...sections.tickets, ...sections.visas, ...sections.services]) {
     const columns = ['cash', 'card', 'bank', 'other', 'credit'].reduce((sum, key) => sum + sale.split[key], 0);
     assert.equal(columns - (sale.deposit_cents || 0) + sale.from_deposit_cents + sale.unpaid_cancelled_cents, sale.total_cents, sale.number);
