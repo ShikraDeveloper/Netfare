@@ -988,6 +988,14 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 405 (new: a received deposit for a credit supplier goes on account at submit, not before, with no bank payment out; a supplier with no portal leaves it with us and a warning; a due one goes on receipt; ledger checks match); `npm run test:e2e` 62 (the visa form shows Keep with us by default). Demo server (scratch data): with Not received yet and With the visa to the supplier chosen, "Received into" hides and the choice shows.
 - **AGENTS.md:** where things stand and the not-built list updated.
 
+### Due deposit audit fixes: none received on a cancelled visa, a voided receipt undoes its deposits
+
+- **Why:** `/ponytail-audit` of the new deposit commits; the user said "Fix both".
+- **1. Cancelled or rejected visa:** a due deposit could still be received (and Receive payment ticked it), booking customer money as a deposit for a visa that no longer runs. `receiveDeposit` now refuses ("… is rejected: drop deposit … with the void button"), and the due list for Receive payment leaves such deposits out.
+- **2. Voided receipt:** voiding a receipt undid only its invoice part; deposits received with it stayed received. `voidAdvance` now calls `undoReceivedWith`: each deposit whose collect step carries the receipt number goes back to due (its entry reversed). A deposit that has moved on since (sent to the supplier, refunded) stops the void with "void them on the visa first". Matched by the reference text (noted as a `shortcut:` in the code).
+- **AGENTS.md:** both rules added to the not-released note.
+- **Checked:** `npm run check`; `npm test` 406 (new: a receipt with a deposit voided puts the bank back and the deposit to due; a rejected visa's due deposit is refused and not offered; ledger checks match); `npm run test:e2e` 62.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

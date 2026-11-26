@@ -331,6 +331,9 @@ function voidAdvance(db, id, payload = {}) {
     if (advance.voided_at) throw bad('This advance is already void');
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
 
+    // Visa deposits received with this receipt go back to due.
+    if (advance.is_receipt) require('./visa-deposits').undoReceivedWith(db, advance.number, remarks);
+
     // Refunds and applications are part of the advance. Reverse them first so
     // the customer advance control account returns to zero.
     const refundService = require('./refunds');

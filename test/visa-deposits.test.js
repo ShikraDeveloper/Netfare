@@ -356,3 +356,29 @@ test('"with the visa to the supplier": sent on submit onto a credit account, or 
   assert.equal(later.with_supplier_cents, 204_000);
   assertChecksMatch();
 });
+
+test('voiding the receipt puts its deposit back to due; a due deposit of a rejected visa cannot be received', () => {
+  const advances = require('../server/services/advances');
+  const make = (name) => visaService.createVisaGroup(db, {
+    customer_id: customerId, application_date: '2026-11-26', destination_country: 'UAE', deposit: { not_received: true },
+    applicants: [{ applicant_name: name, deposit_cents: 60_000, sale_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 20_000, account_id: account('4320').id }] }],
+  }).applications[0];
+  const v = make('Receipt Voided');
+  const invoiceId = visaService.submitVisa(db, v.id).invoice_id;
+  const bankBefore = balance('1010');
+  const receipt = advances.receivePayment(db, {
+    customer_id: customerId, amount_cents: 80_000, receipt_date: '2026-11-26', method: 'Bank transfer', deposit_account_id: bank(),
+    allocations: [{ invoice_id: invoiceId, amount_cents: 20_000 }], deposits: [v.deposits[0].id],
+  });
+  advances.voidAdvance(db, receipt.id, { remarks: 'Wrong customer' });
+  assert.equal(balance('1010'), bankBefore, 'both parts undone');
+  assert.equal(deposits.getDeposit(db, v.deposits[0].id).status, 'due');
+  assertChecksMatch();
+
+  const rejected = make('Rejected Later');
+  visaService.submitVisa(db, rejected.id);
+  visaService.rejectVisa(db, rejected.id, { reason: 'Refused' });
+  assertBadRequest(() => deposits.receiveDeposit(db, rejected.deposits[0].id, { account_id: bank() }), /rejected: drop deposit/);
+  assert.ok(!deposits.listDeposits(db, { customer_id: customerId, status: 'due' }).some((d) => d.id === rejected.deposits[0].id), 'not offered in Receive payment');
+  assert.ok(deposits.listDeposits(db, { customer_id: customerId, status: 'due' }).some((d) => d.id === v.deposits[0].id));
+});

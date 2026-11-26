@@ -139,6 +139,8 @@ function listDeposits(db, { visa_id, customer_id, status, search } = {}) {
   const events = eventsFor(db, rows.map((row) => row.id));
   const list = rows.map((row) => serialize(row, events.get(row.id) || []));
   if (!status || status === 'all') return list;
+  // Due on a cancelled or rejected visa: nothing to collect any more.
+  if (status === 'due') return list.filter((row) => row.status === 'due' && !['cancelled', 'rejected'].includes(row.visa_status));
   if (status === 'open') return list.filter((row) => row.held_cents > 0 && !row.voided_at);
   return list.filter((row) => row.status === status);
 }
@@ -224,6 +226,9 @@ function receiveDeposit(db, id, payload = {}) {
     if (deposit.voided_at) throw bad('This deposit is void');
     if (!deposit.is_due) throw bad(`Deposit ${deposit.number} is already received`);
     const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(deposit.visa_id);
+    if (['cancelled', 'rejected'].includes(visa.status)) {
+      throw bad(`${visa.number} is ${visa.status}: drop deposit ${deposit.number} with the void button instead of receiving it`);
+    }
     const date = notFuture(eventDate(deposit, payload.event_date, 'Date received'), 'Date received');
     const account = cashAccount(db, payload.account_id, 'account the deposit was received into');
     postCollect(db, deposit, visa, date, account, payload);
@@ -309,6 +314,27 @@ function depositOnAccount(db, deposit, amount, date, payload) {
     method: 'On account', reference: bill.number, journal_entry_id: bill.journal_entry_id, bill_id: bill.id,
   });
   return getDeposit(db, deposit.id);
+}
+
+// A receipt voided: the deposits received with it (its number is their
+// reference) go back to due. A deposit that has moved on since stops the void.
+// shortcut: matched by reference text, so a deposit typed with that same reference counts too; add a receipt link column if that ever happens.
+function undoReceivedWith(db, receiptNumber, remarks) {
+  const rows = db.prepare(`
+    SELECT e.id, e.deposit_id, e.journal_entry_id FROM visa_deposit_events e JOIN visa_deposits d ON d.id = e.deposit_id
+    WHERE e.event_type = 'collect' AND e.voided_at IS NULL AND d.voided_at IS NULL AND e.reference = ?
+  `).all(receiptNumber);
+  for (const row of rows) {
+    const deposit = getDeposit(db, row.deposit_id);
+    if (deposit.events.filter((event) => !event.voided_at).length > 1) {
+      throw bad(`Deposit ${deposit.number} was received with ${receiptNumber} and has later steps. Void them on the visa first.`);
+    }
+    const voidEntryId = reverseEntry(db, row.journal_entry_id, {
+      entry_date: todayISO(), memo: audit.withRemarks(`Deposit ${deposit.number} back to due: receipt ${receiptNumber} voided`, remarks), source_type: 'void',
+    });
+    db.prepare("UPDATE visa_deposit_events SET voided_at = datetime('now'), void_entry_id = ?, void_remarks = ? WHERE id = ?").run(voidEntryId, remarks || '', row.id);
+    db.prepare('UPDATE visa_deposits SET is_due = 1 WHERE id = ?').run(deposit.id);
+  }
 }
 
 // Deposits marked "with the visa to the supplier" go to the supplier of the
@@ -591,6 +617,7 @@ function depositTotals(db) {
 }
 
 module.exports = {
+  undoReceivedWith,
   sendWithVisa,
   receiveDeposit,
   EVENT_LABELS,
