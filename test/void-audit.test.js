@@ -71,6 +71,9 @@ test('voiding an invoice cascades payments and records remarks in the audit log'
   });
 
   const originalEntryId = invoiceService.getInvoice(db, invoice.id).journal_entry_id;
+  const cashOf = () => db.prepare(`SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS b FROM journal_lines l
+    JOIN accounts a ON a.id = l.account_id WHERE a.code = '1000'`).get().b;
+  const cashBefore = cashOf();
   const voided = invoiceService.voidInvoice(db, invoice.id, { remarks: 'Duplicate invoice' });
 
   assert.equal(voided.status, 'void');
@@ -89,6 +92,10 @@ test('voiding an invoice cascades payments and records remarks in the audit log'
     'SELECT * FROM journal_entries WHERE reversal_of_id = ?',
   ).get(originalEntryId);
   assert.ok(reversal, 'invoice reversal is linked to the original entry');
+  // The 400.00 paid stays with the customer as an advance; cash does not move.
+  const kept = db.prepare('SELECT a.* FROM payments p JOIN customer_advances a ON a.id = p.kept_advance_id WHERE p.invoice_id = ?').get(invoice.id);
+  assert.deepEqual([kept.amount_cents, kept.reference], [40_000, `Void of ${invoice.number}`]);
+  assert.equal(cashOf(), cashBefore, 'the cash received is still there');
   assertBalanced();
 });
 

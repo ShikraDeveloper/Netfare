@@ -612,11 +612,17 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
       });
     }
 
-    const payments = db.prepare("SELECT id FROM payments WHERE invoice_id = ? AND status = 'posted' ORDER BY id").all(invoice.id);
+    // Money the customer paid stays with us: a direct payment becomes the
+    // customer's advance (no cash or bank moves); a share of an advance or
+    // receipt goes back to it. Giving money back is a separate refund.
+    const payments = db.prepare("SELECT * FROM payments WHERE invoice_id = ? AND status = 'posted' ORDER BY id").all(invoice.id);
     for (const payment of payments) {
-      deleteInvoicePayment(db, payment.id, {
-        remarks: remarks || `Voided with invoice ${invoice.number}`,
-      });
+      // An admin void or a job workflow undoes everything, the money included.
+      if (fromWorkflow || payment.advance_id || payment.deposit_id) {
+        deleteInvoicePayment(db, payment.id, { remarks: remarks || `Voided with invoice ${invoice.number}` });
+      } else {
+        keepPaymentAsAdvance(db, payment, invoice, remarks);
+      }
     }
 
     const fresh = invoiceRow(db, invoice.id);
@@ -831,6 +837,38 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
     });
     return getInvoice(db, invoice.id);
   })();
+}
+
+function keepPaymentAsAdvance(db, payment, invoice, remarks) {
+  const date = todayISO();
+  const number = allocateNumber(db, 'advance', date);
+  const advanceId = Number(db.prepare(`
+    INSERT INTO customer_advances (number, customer_id, advance_date, amount_cents, method, reference, deposit_account_id, is_receipt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+  `).run(number, payment.customer_id, date, payment.amount_cents, payment.method, `Void of ${invoice.number}`, payment.deposit_account_id).lastInsertRowid);
+  markCreated(db, 'customer_advances', advanceId);
+  const entryId = postEntry(db, {
+    entry_date: date,
+    memo: audit.withRemarks(`Void invoice ${invoice.number} · payment ${payment.number} kept as advance ${number}`, remarks),
+    reference: number,
+    source_type: 'void',
+    source_id: payment.id,
+    lines: [
+      { account_id: systemAccount(db, '1100', 'Trade Receivables').id, debit_cents: payment.amount_cents, credit_cents: 0, description: `Invoice ${invoice.number}` },
+      { account_id: systemAccount(db, '2400', 'Contract Liabilities (Customer Advances)').id, debit_cents: 0, credit_cents: payment.amount_cents, description: `Advance ${number}` },
+    ],
+  });
+  db.prepare('UPDATE customer_advances SET journal_entry_id = ? WHERE id = ?').run(entryId, advanceId);
+  db.prepare(`
+    UPDATE payments SET status = 'void', void_entry_id = ?, voided_at = datetime('now'), kept_advance_id = ? WHERE id = ?
+  `).run(entryId, advanceId, payment.id);
+  db.prepare("UPDATE invoices SET amount_paid_cents = MAX(0, amount_paid_cents - ?), updated_at = datetime('now') WHERE id = ?")
+    .run(payment.amount_cents, invoice.id);
+  audit.record(db, {
+    entity_type: 'payment', entity_id: payment.id, entity_number: payment.number, action: 'void',
+    remarks: remarks || `Kept as advance ${number} with invoice ${invoice.number}`, amount_cents: payment.amount_cents,
+    metadata: { invoice_id: invoice.id, invoice_number: invoice.number, kept_advance: number },
+  });
 }
 
 // Everything a printed receipt voucher needs for one customer payment.

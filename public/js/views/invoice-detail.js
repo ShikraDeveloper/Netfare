@@ -721,7 +721,9 @@ export async function render(container, { params } = {}) {
     voidButton.addEventListener('click', async () => {
       const result = await voidDialog({
         title: `Void ${invoice.number}?`,
-        message: 'A reversing journal entry will be posted to cancel this invoice. Any linked payments, refunds and credit applications will also be reversed.',
+        message: invoice.amount_paid_cents > 0
+          ? `A reversing journal entry will be posted to cancel this invoice. ${fmtMoney(invoice.amount_paid_cents)} already paid stays with ${invoice.customer_name} as an advance: cash and bank do not change. Refund it or use it for another invoice from the customer.`
+          : 'A reversing journal entry will be posted to cancel this invoice. Any linked refunds and credit applications will also be reversed.',
         warning: 'This cannot be undone. The invoice and every linked reversal are kept permanently in the audit trail.',
         preview: invoiceVoidPreview(invoice),
         confirmLabel: 'Void invoice',
@@ -821,7 +823,9 @@ export async function render(container, { params } = {}) {
       const result = await voidDialog({
         title: 'Void this payment?',
         message: 'The payment will be voided and a reversing journal entry will be posted. The payment record and its audit trail are kept, and the invoice balance will reopen.',
-        warning: 'Any refund linked to this payment must also be reversed. This cannot be undone.',
+        warning: payment && !payment.advance_id
+          ? `This takes ${fmtMoney(payment.amount_cents)} out of ${payment.deposit_account_name || 'the account it was received into'}. Use it for a payment typed by mistake or a bounced cheque. If the customer got the money back, void the invoice and refund the advance instead. This cannot be undone.`
+          : 'Any refund linked to this payment must also be reversed. This cannot be undone.',
         preview: payment ? {
           heading: 'Void preview',
           items: [

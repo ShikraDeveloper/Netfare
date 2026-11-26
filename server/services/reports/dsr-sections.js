@@ -41,7 +41,7 @@ const FLOW_LABELS = {
   opening_balance: 'Opening balances',
   petty_cash_count: 'Petty cash count differences',
   card_settlement: 'Card & payment link settlements',
-  void: 'Reversals (voids)',
+  void: 'Voids (money given back)',
   bank_charges: 'Bank charges',
 };
 
@@ -54,7 +54,8 @@ function dsrSections(db, start, end, items) {
   // it), so it stays on its day; only a void inside the period takes it out.
   const voidDate = (alias) => `(SELECT entry_date FROM journal_entries WHERE id = COALESCE(${alias}.void_entry_id,
       (SELECT void_entry_id FROM customer_advances WHERE id = ${alias}.advance_id)))`;
-  const livePayment = (alias) => `(${alias}.status = 'posted' OR ${voidDate(alias)} > ?)`;
+  // A payment kept as an advance when its invoice was voided: the money stayed, so it is always live.
+  const livePayment = (alias) => `(${alias}.status = 'posted' OR ${alias}.kept_advance_id IS NOT NULL OR ${voidDate(alias)} > ?)`;
   const liveEvent = `(e.voided_at IS NULL OR (SELECT entry_date FROM journal_entries WHERE id = e.void_entry_id) > ?)`;
   const itemById = new Map(items.filter((item) => !item.is_cancellation).map((item) => [item.id, item]));
   const saleIds = [...itemById.keys()];
@@ -207,7 +208,9 @@ function dsrSections(db, start, end, items) {
     }
   }
 
-  const cancellations = items.filter((item) => item.is_cancellation);
+  // Voids of earlier sales are their own list, apart from real cancellations and refunds.
+  const voids = items.filter((item) => item.is_void);
+  const cancellations = items.filter((item) => item.is_cancellation && !item.is_void);
 
   const refunds = db.prepare(`
     SELECT r.id, r.number, r.refund_date AS date, r.created_at, r.amount_cents, r.method,
@@ -259,6 +262,8 @@ function dsrSections(db, start, end, items) {
         LEFT JOIN bookings b ON b.id = a.booking_id
         LEFT JOIN visa_applications v ON v.id = a.visa_id
         WHERE (a.voided_at IS NULL OR (SELECT entry_date FROM journal_entries WHERE id = a.void_entry_id) > ?)
+          -- An advance made from a voided invoice's payment is money already counted on its payment's day.
+          AND NOT EXISTS (SELECT 1 FROM payments k WHERE k.kept_advance_id = a.id)
           AND a.advance_date >= ? AND a.advance_date <= ?
       ) WHERE amount_cents > 0
     `).all(end, end, start, end).map((row) => ({
@@ -392,6 +397,7 @@ function dsrSections(db, start, end, items) {
     visas,
     services,
     cancellations,
+    voids,
     refunds,
     deposit_kept: depositKept,
     collections,
@@ -404,6 +410,7 @@ function dsrSections(db, start, end, items) {
         visas_cents: sum(visas, (row) => row.total_cents),
         services_cents: sum(services, (row) => row.total_cents),
         cancellations_cents: sum(cancellations, (row) => row.sale_cents),
+        voids_cents: sum(voids, (row) => row.sale_cents),
       },
       settlement,
       collected,

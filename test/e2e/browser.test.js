@@ -1589,7 +1589,8 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   for (const table of ['tickets', 'visas', 'services', 'collections']) {
     assert.equal(await page.locator(`[data-dsr-table="${table}"]`).count(), 1, `list ${table}`);
   }
-  assert.deepEqual((await page.locator('.dsr-title').allTextContents()).filter((text) => text !== 'Cancellations & Refunds'), ['Ticket Sales List', 'Visa Sales List', 'Service Sales List', 'Received for older invoices']);
+  // Cancellations & Refunds and Voided invoices show only when other tests made some today.
+  assert.deepEqual((await page.locator('.dsr-title').allTextContents()).filter((text) => !['Cancellations & Refunds', 'Voided invoices'].includes(text)), ['Ticket Sales List', 'Visa Sales List', 'Service Sales List', 'Received for older invoices']);
   const row = page.locator('[data-dsr-table="services"] tr', { has: page.locator(`a[href="#/invoices/${service.id}"]`) });
   const cells = (await row.locator('td').allInnerTexts()).map((text) => text.trim());
   assert.deepEqual(cells.slice(3, 8), ['300.00', '100.00', '', '', '200.00'], 'total, then cash, card, bank and credit (still due)');

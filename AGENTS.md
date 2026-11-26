@@ -123,6 +123,7 @@ Demo server for looking at screens (scratch data only):
 ## Where things stand (update this)
 
 - Latest release: **1.0.34** (26 Nov 2026).
+- Not released yet: voiding a paid (direct) invoice keeps the money as the customer's advance (ADV, reference "Void of INV-…"; Dr 1100 / Cr 2400, no cash or bank move); giving it back is a refund of that advance. Admin and job-workflow voids still undo everything. The payment void dialog warns that it takes the money out of cash or bank. The DSR has its own **Voided invoices** list (Kept as advance column) and a "Voided earlier sales" line, apart from Cancellations & Refunds; the void flow label is "Voids (money given back)".
 - Not released yet: in the DSR, an invoice voided on a later day shows on its day and as a void line on the void day; a mistake made and voided in the same period no longer shows as money in and out; Payments lists each top-up by portal and bank charges on their own line. Check with `git status -sb` whether `main` is level with GitHub.
 - This file was written on 25 Nov 2026 and is kept current with every change.
 - In 1.0.34: a visa deposit can be "Not received yet" on the New visa form (Received by). It waits as **Due** on the visa (no money, no entry) and is received from the deposit card (Receive) or together with invoices from the customer's **Receive payment** (each due deposit taken in full, its own entry Dr bank / Cr 2600; the receipt RCP is only the invoice part). Voiding that receipt puts its deposits back to due. A due deposit of a cancelled or rejected visa cannot be received (drop it with the void button).
@@ -161,4 +162,5 @@ Later (only when asked):
 - A correction voids the old document and dates the void on the old document's own day (`server/services/corrections.js`). Reports must treat such a void as part of the same day.
 - The "Mac SSD" volume ignores file ownership, so `chmod` gives no protection there. The real books are on the internal disk on purpose.
 - `rm -rf` with a variable path is blocked by a safety check here. Use literal absolute paths, or move things to the Trash with Finder (`osascript -e 'tell application "Finder" to delete POSIX file "…"'`).
+- An advance made from a voided invoice's payment (`payments.kept_advance_id`) is not a new receipt: the DSR leaves it out of money received, and it cannot be voided (refund or use it instead).
 - Electron 44 has no `clipboard.writeBuffer`. The desktop app copies a PDF with `osascript` "set the clipboard to (POSIX file …)".

@@ -203,6 +203,29 @@ function cancellationList(cancellations, refunds, kept) {
     </table>` : ''}`;
 }
 
+// Earlier sales voided in the period (only when there were some): apart from
+// cancellations. What the customer had paid stays with us as an advance.
+function voidList(rows) {
+  if (!rows.length) return '';
+  return `
+    ${title('Voided invoices')}
+    <table class="dsr-table" data-dsr-table="voids"><caption class="sr-only">Voided invoices</caption>
+      <thead><tr><th scope="col">Void date</th><th scope="col">Invoice</th><th scope="col">Customer</th><th scope="col">Sale date</th>
+        <th scope="col" class="num">Amount</th><th scope="col" class="num">Kept as advance</th></tr></thead>
+      <tbody>${rows.map((row) => `
+        <tr>
+          <td class="dsr-when">${esc(fmtDate(row.issue_date, { short: true }))}</td>
+          <td><a href="${row.href}">${esc(short(row.number))}</a>${row.reference && row.reference !== 'Void' ? `<div class="dsr-sub">${esc(short(row.reference.replace(/^Void · /, '')))}</div>` : ''}</td>
+          <td>${esc(row.customer_name)}</td>
+          <td class="dsr-when">${esc(fmtDate(row.sale_date, { short: true }))}</td>
+          <td class="num">${money(row.sale_cents)}</td>
+          <td class="num">${row.kept_cents ? money(row.kept_cents) : '—'}</td>
+        </tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4">Total · ${rows.length}</td>
+        <td class="num">${money(sumOf(rows, (r) => r.sale_cents))}</td><td class="num">${money(sumOf(rows, (r) => r.kept_cents))}</td></tr></tfoot>
+    </table>`;
+}
+
 function collectionList(rows) {
   const modes = rows.some((row) => row.mode === 'other') ? ['cash', 'card', 'bank', 'other'] : ['cash', 'card', 'bank'];
   const byMode = (mode) => sumOf(rows.filter((r) => r.mode === mode), (r) => r.amount_cents);
@@ -273,6 +296,7 @@ function closingBoxes(data) {
   const fromDeposit = sumOf(sales, (r) => r.from_deposit_cents);
   const unpaidCancelled = sumOf(sales, (r) => r.unpaid_cancelled_cents);
   const cancelled = s.summary.sales.cancellations_cents || 0;
+  const voided = s.summary.sales.voids_cents || 0;
   const modes = [['cash', 'Cash'], ['card', 'Card & payment link'], ['bank', 'Bank'], ['other', 'Advance or credit note used'], ['credit', 'Credit (unpaid)']];
   return `
     <div class="dsr-boxes">
@@ -290,7 +314,9 @@ function closingBoxes(data) {
         ${fromDeposit ? boxRow('Paid from a security deposit', fromDeposit) : ''}
         ${unpaidCancelled ? boxRow('Cancelled before payment', unpaidCancelled) : ''}
         ${boxRow('Total sales', listed, 'dsr-box-total')}
-        ${cancelled ? `${boxRow('Cancellations', cancelled, 'neg')}${boxRow('Net sales', listed + cancelled, 'dsr-box-total')}` : ''}`, 'data-dsr-modes')}
+        ${cancelled ? boxRow('Cancellations', cancelled, 'neg') : ''}
+        ${voided ? boxRow('Voided earlier sales', voided, 'neg') : ''}
+        ${cancelled || voided ? boxRow('Net sales', listed + cancelled + voided, 'dsr-box-total') : ''}`, 'data-dsr-modes')}
       ${box(`Suppliers and portal wallets · ${fmtDate(data.to, { short: true })}`, parties.length
     // Our money with them is a plus in green; what we owe them is a minus in black.
     ? `${parties.map((party) => `<div class="dsr-box-row"><span>${esc(party.name)} <span class="dsr-sub">${esc(party.kind)}</span></span><span class="num ${party.balance_cents < 0 ? 'pos' : ''}">${money(-party.balance_cents)}</span></div>`).join('')}`
@@ -345,7 +371,7 @@ export function dailySales(data) {
   const s = data.sections;
   const hasAnything = s && (s.tickets.length || s.visas.length || s.services.length || s.cancellations.length
     || s.refunds.length || s.collections.length || s.cash_out.length || (s.deposit_kept || []).length
-    || (s.transfers || []).length || s.summary.position.petty?.in_cents || s.summary.position.petty?.out_cents);
+    || (s.transfers || []).length || (s.voids || []).length || s.summary.position.petty?.in_cents || s.summary.position.petty?.out_cents);
   if (!hasAnything) {
     return `
       <div class="report-card">
@@ -368,6 +394,7 @@ export function dailySales(data) {
       ${visaList(s.visas)}
       ${serviceList(s.services)}
       ${cancellationList(s.cancellations, s.refunds, s.deposit_kept || [])}
+      ${voidList(s.voids || [])}
       ${collectionList(s.collections)}
       ${closingBoxes(data)}
     </div>`;

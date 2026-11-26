@@ -272,7 +272,10 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   // the sale (and its job cost) back out, like the ledger's reversal.
   // shortcut: the job cost is today's, so a job whose bills were voided too reverses 0 cost; fine while voids are rare.
   for (const row of db.prepare(`
-    SELECT i.id, i.number, i.subtotal_cents, i.booking_id, i.visa_id, i.created_by AS staff, r.entry_date AS date, r.created_at,
+    SELECT i.id, i.number, i.subtotal_cents, i.issue_date AS sale_date, i.booking_id, i.visa_id, i.created_by AS staff, r.entry_date AS date, r.created_at,
+           -- What the customer had paid and we kept: payments turned into an advance, or shares put back on one.
+           COALESCE((SELECT SUM(p.amount_cents) FROM payments p WHERE p.invoice_id = i.id AND p.status = 'void'
+                     AND (p.kept_advance_id IS NOT NULL OR p.advance_id IS NOT NULL)), 0) AS kept_cents,
            c.name AS customer_name, COALESCE(b.number, v.number) AS job_number, COALESCE(i.booking_id, i.visa_id) AS job_id
     FROM invoices i
     JOIN journal_entries r ON r.reversal_of_id = i.journal_entry_id
@@ -289,6 +292,9 @@ function dailySales(db, from, to, { staff = '' } = {}) {
       ...refundLine(row, kind, { sale: -row.subtotal_cents, cost: -cost, label: `Void of ${row.number}`, href: `#/invoices/${row.id}` }),
       particulars: `Void of ${row.number}${row.job_number ? ` · ${row.job_number}` : ''}`,
       reference: row.job_number ? `Void · ${row.job_number}` : 'Void',
+      is_void: true,
+      sale_date: row.sale_date,
+      kept_cents: row.kept_cents,
     });
   }
 

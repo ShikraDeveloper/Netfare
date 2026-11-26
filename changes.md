@@ -1049,6 +1049,16 @@ Verification:
   - A due reminder's pop-up printed on top of the report; the pop-up stack is now `no-print` (`public/js/reminders.js`).
 - **Checked:** `npm run check`; `npm test` 409; `npm run test:e2e` 62; both demo days printed: 24 Nov the sale with "Voided · Nov 26", cash in hand 450.00; 26 Nov "INV-0014 · Void" −450.00, Net sales down by 450.00, cash −450.00; the reminder pop-up not shown in print.
 
+### Voids: paid money kept as the customer's advance; voids on their own DSR list
+
+- **Why:** The owner said cancellations and refunds are different from voids and voids need their own line ("voids ki alag ak line banani chaiye"), that after a void the money should go to the customer's balance and be refunded from there ("void k bad balance customer me jay or waha se refund banaye"), asked how voiding the payment first works, and approved the final mockup ("Haan, bana do").
+- **What:**
+  - **Invoice void** (`server/services/invoices.js`): a direct cash, bank or card payment on the invoice is no longer reversed. `keepPaymentAsAdvance` makes a customer advance (ADV, reference "Void of INV-…", same received-into account) with Dr 1100 / Cr 2400, marks the payment void with `kept_advance_id` (new column), and audits it. Shares of an advance or receipt go back to it as before. Admin voids and job workflows (`fromWorkflow`) still undo everything. Such an advance cannot be voided (`voidAdvance`): refund it or use it.
+  - **Dialogs** (`public/js/views/invoice-detail.js`): voiding a paid invoice says the paid amount stays with the customer as an advance and cash and bank do not change; voiding a payment warns it takes the amount out of its account and to void the invoice and refund the advance when the customer got the money back.
+  - **DSR** (`daily-sales.js`, `dsr-sections.js`, page): void lines move from Cancellations & Refunds to a new **Voided invoices** list (void date, invoice, customer, sale date, amount, kept as advance) and a **Voided earlier sales** line before Net sales (`summary.sales.voids_cents`). A kept payment stays on its own day; the advance made from it is not counted again as money received. The `void` flow is labelled "Voids (money given back)".
+- **Checked:** `npm run check`; `npm test` 409 (void test: 400.00 paid stays as an advance with reference "Void of …" and cash unchanged; admin-void tests unchanged; DSR summary has `voids_cents`); `npm run test:e2e` 62. Demo copy (deleted after), three invoices voided on 26 Nov: unpaid 450.00, paid 300.00 cash, 200.00 of 500.00 by bank → Voided invoices −1,250.00 with 500.00 kept as advance (ADV for Rahul Menon 300.00 and Gulf Tech FZE 200.00), Payments 0.00, Voided earlier sales −1,250.00, cash and bank unchanged.
+- **AGENTS.md:** not-released note and a lesson on kept advances.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

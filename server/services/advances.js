@@ -329,6 +329,10 @@ function voidAdvance(db, id, payload = {}) {
     const advance = db.prepare('SELECT * FROM customer_advances WHERE id = ?').get(id);
     if (!advance) throw notFound('Advance not found');
     if (advance.voided_at) throw bad('This advance is already void');
+    const keptFrom = db.prepare(`
+      SELECT i.number FROM payments p JOIN invoices i ON i.id = p.invoice_id WHERE p.kept_advance_id = ?
+    `).get(advance.id);
+    if (keptFrom) throw bad(`This advance is the money paid on voided invoice ${keptFrom.number}. Refund it or use it for an invoice instead.`);
     const remarks = optionalStr(payload.remarks ?? payload.reason ?? '', 'Void remarks', 2000);
 
     // Visa deposits received with this receipt go back to due.

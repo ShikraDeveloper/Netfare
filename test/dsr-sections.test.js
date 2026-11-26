@@ -150,7 +150,7 @@ test('cash and bank reconcile: opening + in − out = closing, and receipts matc
   }
   assert.deepEqual(sections.cash_out.map((row) => [row.label, row.bank_out_cents]), [['Supplier payments', 360_000]]);
   assert.deepEqual(sections.summary.sales, {
-    tickets_cents: 406_000, visas_cents: 45_000, services_cents: 15_000, cancellations_cents: 0, total_cents: 466_000,
+    tickets_cents: 406_000, visas_cents: 45_000, services_cents: 15_000, cancellations_cents: 0, voids_cents: 0, total_cents: 466_000,
   });
 });
 
