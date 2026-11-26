@@ -300,6 +300,11 @@ function supplierReturn(db, id, payload = {}) {
     const { held, withSuppliers } = accounts(db);
     const lastPaid = deposit.events.filter((e) => e.event_type === 'to_supplier' && !e.voided_at).at(-1) || {};
     const vendorId = lastPaid.vendor_id || null;
+    // On the supplier's account: nothing can come back before we have paid it.
+    const bill = lastPaid.bill_id ? db.prepare('SELECT number, total_cents, amount_paid_cents FROM bills WHERE id = ?').get(lastPaid.bill_id) : null;
+    if (bill && bill.amount_paid_cents < bill.total_cents) {
+      throw bad(`${bill.number} for this deposit is not paid yet. Void the "Paid to supplier" step instead.`);
+    }
     const lines = [
       { account_id: withSuppliers.id, debit_cents: 0, credit_cents: gross, description: `Deposit ${deposit.number} settled by supplier` },
     ];

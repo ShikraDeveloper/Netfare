@@ -393,9 +393,8 @@ function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
     if (bill.status === 'void') throw bad('Bill is already void');
     // A booking or visa bill is part of the job's margin. Supplier changes go
     // through a supplier credit, or the job is cancelled.
-    if (!fromWorkflow && depositOnBill(db, bill.id)) {
-      throw bad(`This bill is security deposit ${depositOnBill(db, bill.id)} put on the supplier's account. Void it on the visa's deposit card.`);
-    }
+    const deposit = fromWorkflow ? null : depositOnBill(db, bill.id);
+    if (deposit) throw bad(`This bill is security deposit ${deposit} put on the supplier's account. Void it on the visa's deposit card.`);
     if ((bill.booking_id || bill.visa_id) && !fromWorkflow) {
       throw bad(`This bill belongs to a ${bill.booking_id ? 'booking' : 'visa application'}. Record a supplier credit for the amount the supplier returns, or cancel the ${bill.booking_id ? 'booking' : 'visa application'}.`);
     }

@@ -261,6 +261,8 @@ test("a deposit put on a credit supplier's account is a bill on their statement,
   assert.match(JSON.stringify(line), /Security deposit .*On Account/);
   assertChecksMatch();
 
+  assertBadRequest(() => deposits.supplierReturn(db, dep.id, { account_id: bank(), event_date: '2026-11-26' }), /not paid yet/);
+  assert.equal(balance('1010'), bankBefore, 'no return of money we never paid');
   assertBadRequest(() => bills.voidBill(db, bill.id, { remarks: 'x' }), /security deposit .* deposit card/i);
   assertBadRequest(() => corrections.correctDocument(db, 'bill', bill.id, { remarks: 'x' }), /security deposit/i);
 
@@ -271,6 +273,9 @@ test("a deposit put on a credit supplier's account is a bill on their statement,
   });
   assert.equal(balance('1010'), bankBefore - 204_000, 'the bank pays when HolidaySpace is paid');
   assertBadRequest(() => deposits.voidLastEvent(db, dep.id, { remarks: 'Wrong' }), /already paid/);
+  // Once paid, a return into the bank is fine; voiding it puts the step back.
+  deposits.supplierReturn(db, dep.id, { account_id: bank(), event_date: '2026-11-26' });
+  deposits.voidLastEvent(db, dep.id, { remarks: 'Not yet back' });
   require('../server/services/supplier-payments').voidSupplierPayment(db, payment.id, { remarks: 'Sent twice' });
   const undone = deposits.voidLastEvent(db, dep.id, { remarks: 'Wrong supplier' });
   assert.deepEqual([undone.in_hand_cents, undone.with_supplier_cents], [204_000, 0]);

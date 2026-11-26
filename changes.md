@@ -959,6 +959,14 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 403 (new: on account the bank does not change, the bill is on the supplier statement and not a visa cost, Bills void and correction are refused, Pay supplier pays it, the step cannot be voided while paid, after the payment is voided the step voids the bill, ledger checks match; `document-moves.test.js` lists the new link as left out on purpose); `npm run test:e2e` 61 (the deposit test puts the 2,500.00 still held on a new credit supplier through the form: no method field, a 2,500.00 bill to that supplier, deposit and payables checks match).
 - **AGENTS.md:** where things stand and open items updated (redo SD-2026-0001 after the update).
 
+### Deposit on account audit fixes: no return before the bill is paid, one lookup
+
+- **Why:** `/ponytail-audit` of the deposit-on-account change; the user said "Fix both".
+- **1. No return before paying:** "Returned by supplier" could be recorded for a deposit put on the supplier's account whose bill was still unpaid, so the bank showed money that never came in while the bill stayed owed. `supplierReturn` now refuses while that bill is not fully paid: "BILL-… for this deposit is not paid yet. Void the "Paid to supplier" step instead."
+- **2. One lookup:** `voidBill` asks once whether a bill belongs to a deposit.
+- **AGENTS.md:** the not-released note mentions the new rule.
+- **Checked:** `npm run check`; `npm test` 403 (the on-account test now tries a return before paying: refused and the bank unchanged; after paying, a return works and voids again); `npm run test:e2e` 61.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
