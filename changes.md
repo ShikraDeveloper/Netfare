@@ -1022,6 +1022,13 @@ Verification:
 - **Not checked:** other reports for the same "voided later" rule; visa deposits collected and voided on a later day.
 - **Checked:** `npm run check`; `npm test` 408 (new: a 300.00 cash payment voided the next day shows on its own day, cash collected equals cash in, and it is not on the void day); `npm run test:e2e` 62.
 
+### DSR: a payment or deposit voided later keeps its own day
+
+- **Why:** The owner asked to check the other reports for the "voided later" mismatch, then said "Fix all three" for the three DSR spots found. Profit and loss, balance sheet, trial balance, ageing and the bank fees report were already right (they read the ledger, or check the void date like ageing).
+- **What (`server/services/reports/dsr-sections.js`):** the void-after-the-period rule now also covers how each sale was paid (`livePayment` on the payments behind the Cash, Card, Bank columns) and visa deposit steps received or kept (`liveEvent` on deposit events). The helpers moved to the top of `dsrSections`.
+- **Not changed:** the sales lists. An existing test (`cancellation-history.test.js`: "an invoice voided as a mistake stays out of the DSR and the statement") records the earlier choice to leave a mistaken invoice out even on its own day; that is left for the owner to decide (AGENTS.md open item).
+- **Checked:** `npm run check`; `npm test` 409 (new: a sale paid in cash whose payment is voided later keeps 400.00 in Cash on its day; a deposit voided later still shows as received that day; cash closes); `npm run test:e2e` 62.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

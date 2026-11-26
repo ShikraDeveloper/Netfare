@@ -304,3 +304,27 @@ test('a payment voided on a later day still shows on its own day, and the cash b
   assert.equal(sections.summary.collected.cash, sections.summary.position.cash.in_cents, 'nothing left over as other cash in');
   assert.ok(!dailySales(db, voidDay, voidDay).sections.collections.some((row) => row.invoice_number === old.number), 'not on the void day');
 });
+
+test('a sale paid on its day keeps its cash column when the payment is voided later; so does a deposit voided later', () => {
+  const day = '2026-11-23';
+  const sale = invoiceService.createInvoice(db, {
+    customer_id: customerId, issue_date: day,
+    items: [{ description: 'Same-day sale', quantity: 1, unit_price_cents: 40_000, account_id: account('4300').id }],
+  });
+  const paid = pay(sale.id, 40_000, 'Cash', '1000', day);
+  invoiceService.deleteInvoicePayment(db, paid.payments.at(-1).id, { remarks: 'Bounced' });
+  const row = dailySales(db, day, day).sections.services.find((r) => r.id === sale.id);
+  assert.deepEqual([row.split.cash, row.split.credit], [40_000, 0], 'paid in cash that day');
+
+  const deposits = require('../server/services/visa-deposits');
+  const dv = visaService.createVisa(db, {
+    customer_id: customerId, application_date: day, destination_country: 'UAE', applicant_is_customer: false, applicant_name: 'Later Void',
+    sale_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 10_000, account_id: account('4320').id }],
+  });
+  const dep = deposits.collectDeposit(db, { visa_id: dv.id, amount_cents: 70_000, deposit_date: day, account_id: account('1000').id, method: 'Cash' });
+  deposits.voidLastEvent(db, dep.id, { remarks: 'Typed on the wrong visa' });
+  const sections = dailySales(db, day, day).sections;
+  assert.ok(sections.collections.some((r) => r.kind === 'deposit' && r.number === dep.number && r.amount_cents === 70_000), 'the deposit still came in that day');
+  const cash = sections.summary.position.cash;
+  assert.equal(cash.closing_cents, cash.opening_cents + cash.in_cents - cash.out_cents);
+});

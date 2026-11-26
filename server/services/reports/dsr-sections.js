@@ -50,6 +50,12 @@ function flowLabel(type) {
 }
 
 function dsrSections(db, start, end, items) {
+  // Voided after the period: it still happened then (the money flows count
+  // it), so it stays on its day; only a void inside the period takes it out.
+  const voidDate = (alias) => `(SELECT entry_date FROM journal_entries WHERE id = COALESCE(${alias}.void_entry_id,
+      (SELECT void_entry_id FROM customer_advances WHERE id = ${alias}.advance_id)))`;
+  const livePayment = (alias) => `(${alias}.status = 'posted' OR ${voidDate(alias)} > ?)`;
+  const liveEvent = `(e.voided_at IS NULL OR (SELECT entry_date FROM journal_entries WHERE id = e.void_entry_id) > ?)`;
   const itemById = new Map(items.filter((item) => !item.is_cancellation).map((item) => [item.id, item]));
   const saleIds = [...itemById.keys()];
   const placeholders = saleIds.map(() => '?').join(',') || 'NULL';
@@ -103,17 +109,17 @@ function dsrSections(db, start, end, items) {
     JOIN visa_deposits d ON d.id = e.deposit_id
     JOIN customers c ON c.id = d.customer_id
     JOIN visa_applications v ON v.id = d.visa_id
-    WHERE e.event_type = 'collect' AND e.voided_at IS NULL AND e.event_date >= ? AND e.event_date <= ?
+    WHERE e.event_type = 'collect' AND ${liveEvent} AND e.event_date >= ? AND e.event_date <= ?
     ORDER BY e.event_date, e.id
-  `).all(start, end);
+  `).all(end, start, end);
   const depositIds = new Set(depositRows.map((row) => row.id));
 
   // How each sale was settled by the report's end date.
   const settled = new Map();
   for (const row of db.prepare(`
-    SELECT invoice_id, method, advance_id, from_receipt, deposit_id, amount_cents FROM payments
-    WHERE status = 'posted' AND payment_date <= ? AND invoice_id IN (${placeholders})
-  `).all(end, ...saleIds)) {
+    SELECT invoice_id, method, advance_id, from_receipt, deposit_id, amount_cents FROM payments p
+    WHERE ${livePayment('p')} AND payment_date <= ? AND invoice_id IN (${placeholders})
+  `).all(end, end, ...saleIds)) {
     const split = settled.get(row.invoice_id) || emptySplit();
     // A deposit received in this period is already counted where it came in
     // (its visa's row or Money collected), so paying from it adds nothing:
@@ -227,12 +233,7 @@ function dsrSections(db, start, end, items) {
           : row.invoice_number ? `Invoice ${row.invoice_number}` : '',
   }));
 
-  // Money received in the period that is not a sale of the period. A payment
-  // voided after the period still came in then (the money flows count it), so
-  // it stays; only a void inside the period takes it out.
-  const voidDate = (alias) => `(SELECT entry_date FROM journal_entries WHERE id = COALESCE(${alias}.void_entry_id,
-      (SELECT void_entry_id FROM customer_advances WHERE id = ${alias}.advance_id)))`;
-  const livePayment = (alias) => `(${alias}.status = 'posted' OR ${voidDate(alias)} > ?)`;
+  // Money received in the period that is not a sale of the period.
   const collections = [
     ...db.prepare(`
       SELECT p.id, p.number, p.payment_date AS date, p.created_at, p.amount_cents, p.method,
@@ -364,10 +365,10 @@ function dsrSections(db, start, end, items) {
     JOIN visa_deposits d ON d.id = e.deposit_id
     JOIN customers c ON c.id = d.customer_id
     JOIN visa_applications v ON v.id = d.visa_id
-    WHERE e.voided_at IS NULL AND e.event_date >= ? AND e.event_date <= ?
+    WHERE ${liveEvent} AND e.event_date >= ? AND e.event_date <= ?
       AND (e.event_type = 'forfeit' OR (e.event_type = 'supplier_return' AND e.deduction_cents > 0))
     ORDER BY e.event_date, e.id
-  `).all(start, end).map((row) => ({
+  `).all(end, start, end).map((row) => ({
     ...row,
     kept_by: row.event_type === 'forfeit' && row.forfeit_to === 'agency' ? 'agency' : 'supplier',
   }));

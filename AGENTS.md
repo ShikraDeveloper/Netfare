@@ -134,6 +134,7 @@ Demo server for looking at screens (scratch data only):
 ## Open items (update this)
 
 Waiting on the owner:
+- Decide: an invoice voided as a mistake on a later day is left out of its own day's DSR, while the profit and loss still shows it on that day until the void. Keep it out (as now), or show it on its day?
 - After updating, in the app: upload the logo again (Settings → Company), set company customers to "Company" with their payment days, and set the HolidaySpace credit limit if there is one.
 - Decide what to do about Sadia Sohail's duplicate invoices.
 - Decide whether the card fee of 307.26 in account 6700 is right.
@@ -156,7 +157,7 @@ Later (only when asked):
 ## Things learned the hard way
 
 - `node --check file.js` passes any file that has `import` without really parsing it. `scripts/check.js` checks such files as modules; keep it that way.
-- The DSR leaves out an entry and its void when both fall in the report's period (`reversal_of_id`), in the money flows and in the list of moves alike; a void of an earlier day still shows. Payments and receipts voided after the period still show on their own day. Keep these in step, or the cash box stops adding up.
+- The DSR leaves out an entry and its void when both fall in the report's period (`reversal_of_id`), in the money flows and in the list of moves alike; a void of an earlier day still shows. Payments, receipts, the paid columns of a sale, and visa deposit steps voided after the period still show on their own day. Exception kept on purpose: an invoice voided as a mistake stays out of the DSR even on its own day (`test/cancellation-history.test.js`). Keep these in step, or the cash box stops adding up.
 - The DSR has to add up. The e2e test checks every closing box against cash in hand, bank and petty closings, Total sales against the lists, and payments against cash and bank out. When you change a box, keep those checks passing.
 - A correction voids the old document and dates the void on the old document's own day (`server/services/corrections.js`). Reports must treat such a void as part of the same day.
 - The "Mac SSD" volume ignores file ownership, so `chmod` gives no protection there. The real books are on the internal disk on purpose.
