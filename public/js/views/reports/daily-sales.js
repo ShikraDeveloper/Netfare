@@ -139,7 +139,7 @@ function serviceList(rows) {
       <tbody>${rows.map((row) => `
         <tr>
           ${whenCell(row.date, row.created_at)}
-          <td><a href="#/invoices/${row.id}">${esc(short(row.number))}</a></td>
+          <td><a href="#/invoices/${row.id}">${esc(short(row.number))}</a>${cancelledNote(row)}</td>
           <td>${esc(row.customer_name)}<div class="dsr-sub">${esc(row.description || '')}</div></td>
           <td class="num">${money(row.total_cents)}</td>
           ${payCells(row.split, other)}

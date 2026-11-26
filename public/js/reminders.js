@@ -287,7 +287,7 @@ function alertStack() {
   if (!stack) {
     stack = document.createElement('div');
     stack.id = 'reminder-alerts';
-    stack.className = 'reminder-alerts';
+    stack.className = 'reminder-alerts no-print';
     stack.setAttribute('role', 'alert');
     document.body.appendChild(stack);
   }

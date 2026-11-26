@@ -285,9 +285,11 @@ function dailySales(db, from, to, { staff = '' } = {}) {
   `).all(start, end, start)) {
     const kind = row.booking_id ? 'booking' : row.visa_id ? 'visa' : 'direct';
     const cost = kind === 'booking' ? (bookingCosts.get(row.booking_id) || 0) : kind === 'visa' ? (visaCosts.get(row.visa_id) || 0) : 0;
-    allItems.push(refundLine({ ...row, job_number: row.job_number || row.number }, kind, {
-      sale: -row.subtotal_cents, cost: -cost, label: `Void of ${row.number}`, href: `#/invoices/${row.id}`,
-    }));
+    allItems.push({
+      ...refundLine(row, kind, { sale: -row.subtotal_cents, cost: -cost, label: `Void of ${row.number}`, href: `#/invoices/${row.id}` }),
+      particulars: `Void of ${row.number}${row.job_number ? ` · ${row.job_number}` : ''}`,
+      reference: row.job_number ? `Void · ${row.job_number}` : 'Void',
+    });
   }
 
   // Sales by staff for the whole period; the staff filter then narrows the

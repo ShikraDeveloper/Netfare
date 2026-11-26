@@ -1040,6 +1040,15 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 409 (the old "stays out" test now checks: on 10 Nov the 200.00 sale shows with its void date, on the void day a −200.00 void line, statements still leave it out, and a same-day void leaves no trace); `npm run test:e2e` 62. On a read-only copy of the real books (deleted after) the only later voids (INV-2026-0004, INV-2026-0028) belong to cancellations, so 4, 7, 12 and 13 Nov read as before (12 Nov visas 7,235.36).
 - **AGENTS.md:** the open decision is closed; the rule is under lessons.
 
+### DSR void example as PDF: "Void" label on the void line, "Voided" on service rows, no reminder pop-up in print
+
+- **Why:** The owner asked for the void rule in PDF ("can you me in pdf"). Printing an example (a 450.00 cash service invoice dated 24 Nov, voided 26 Nov, on a copy of the demo books, deleted after) showed three small things to fix.
+- **What:**
+  - The void line under Cancellations & Refunds showed the invoice number twice; it now reads "INV-… · Void" (or "Void · <job>" for a booking or visa) (`server/services/reports/daily-sales.js`).
+  - Service sale rows now show "Voided · <date>" (and "Cancelled · …") like ticket and visa rows (`public/js/views/reports/daily-sales.js`).
+  - A due reminder's pop-up printed on top of the report; the pop-up stack is now `no-print` (`public/js/reminders.js`).
+- **Checked:** `npm run check`; `npm test` 409; `npm run test:e2e` 62; both demo days printed: 24 Nov the sale with "Voided · Nov 26", cash in hand 450.00; 26 Nov "INV-0014 · Void" −450.00, Net sales down by 450.00, cash −450.00; the reminder pop-up not shown in print.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
