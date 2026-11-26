@@ -146,14 +146,14 @@ function insertEvent(db, depositId, fields) {
   const info = db.prepare(`
     INSERT INTO visa_deposit_events (
       deposit_id, event_type, event_date, amount_cents, deduction_cents, forfeit_to, vendor_id,
-      account_id, method, reference, notes, invoice_id, payment_id, refund_id, journal_entry_id, portal_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      account_id, method, reference, notes, invoice_id, payment_id, refund_id, journal_entry_id, portal_id, bill_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     depositId, fields.event_type, fields.event_date, fields.amount_cents, fields.deduction_cents || 0,
     fields.forfeit_to || null, fields.vendor_id || null, fields.account_id || null,
     fields.method || '', fields.reference || '', fields.notes || '',
     fields.invoice_id || null, fields.payment_id || null, fields.refund_id || null, fields.journal_entry_id || null,
-    fields.portal_id || null,
+    fields.portal_id || null, fields.bill_id || null,
   );
   return Number(info.lastInsertRowid);
 }
@@ -236,6 +236,9 @@ function payToSupplier(db, id, payload = {}) {
       throw bad(`Only ${(deposit.in_hand_cents / 100).toFixed(2)} of this deposit is in hand to pass to a supplier`);
     }
     const date = eventDate(deposit, payload.event_date, 'Payment date');
+    // A credit supplier (HolidaySpace): no money moves now. The deposit becomes
+    // a supplier bill (Dr 1460 / Cr 2000) on their statement, paid with Pay supplier.
+    if (payload.on_account) return depositOnAccount(db, deposit, amount, date, payload);
     const portal = payload.portal_id ? walletFor(db, payload.portal_id, Number(payload.vendor_id) || null, date, amount) : null;
     const vendor = db.prepare('SELECT * FROM vendors WHERE id = ?').get(portal ? portal.vendor_id : Number(payload.vendor_id));
     if (!vendor) throw bad('Choose the supplier');
@@ -265,6 +268,22 @@ function payToSupplier(db, id, payload = {}) {
     if (portal) assertWalletNotLower(db, portal.id, before);
     return getDeposit(db, deposit.id);
   })();
+}
+
+function depositOnAccount(db, deposit, amount, date, payload) {
+  const visa = db.prepare('SELECT number, applicant_name FROM visa_applications WHERE id = ?').get(deposit.visa_id);
+  const label = `Security deposit ${deposit.number} · ${visa.number}${visa.applicant_name ? ` · ${visa.applicant_name}` : ''}`;
+  const { withSuppliers } = accounts(db);
+  const bill = require('./bills').createBill(db, {
+    vendor_id: payload.vendor_id, bill_date: date, due_date: date, status: 'received', notes: label,
+    supplier_ref: optionalStr(payload.reference, 'Reference', 100),
+    items: [{ description: label, quantity: 1, unit_price_cents: amount, account_id: withSuppliers.id }],
+  }, { allowAccountIds: [withSuppliers.id] });
+  insertEvent(db, deposit.id, {
+    event_type: 'to_supplier', event_date: date, amount_cents: amount, vendor_id: bill.vendor_id,
+    method: 'On account', reference: bill.number, journal_entry_id: bill.journal_entry_id, bill_id: bill.id,
+  });
+  return getDeposit(db, deposit.id);
 }
 
 function supplierReturn(db, id, payload = {}) {
@@ -461,7 +480,13 @@ function voidLastEvent(db, id, payload = {}) {
     if (!last) throw bad('Nothing to void');
     const { walletLow, assertWalletNotLower } = require('./portals/common');
     const before = last.portal_id ? walletLow(db, last.portal_id) : null;
-    if (last.event_type === 'apply' && last.payment_id) {
+    if (last.bill_id) {
+      // On the supplier's account: void the deposit's bill, unless it is already paid.
+      const bill = db.prepare('SELECT number, amount_paid_cents, status FROM bills WHERE id = ?').get(last.bill_id);
+      if (bill.amount_paid_cents > 0) throw bad(`${bill.number} for this deposit is already paid. Void that payment first.`);
+      if (bill.status !== 'void') require('./bills').voidBill(db, last.bill_id, { remarks }, { fromWorkflow: true });
+      db.prepare("UPDATE visa_deposit_events SET voided_at = datetime('now'), void_remarks = ? WHERE id = ?").run(remarks, last.id);
+    } else if (last.event_type === 'apply' && last.payment_id) {
       // The payment voids its own entry and the invoice balance.
       require('./invoices').deleteInvoicePayment(db, last.payment_id, { remarks, fromDeposit: true });
       db.prepare("UPDATE visa_deposit_events SET voided_at = datetime('now'), void_remarks = ? WHERE id = ?").run(remarks, last.id);

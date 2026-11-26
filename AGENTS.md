@@ -124,12 +124,14 @@ Demo server for looking at screens (scratch data only):
 
 - Latest release: **1.0.33** (25 Nov 2026). Check with `git status -sb` whether `main` is level with GitHub.
 - This file was written on 25 Nov 2026 and is kept current with every change.
+- Not released yet: a visa deposit can go on a credit supplier's account ("Paid from" → "On the supplier's account (pay later)"). It becomes a supplier bill on account 1460, shows on the supplier statement, is paid with Pay supplier, and is voided only on the deposit card.
 - Recent work: the Daily Sales Report (DSR) in the counter format (sales lists with Cash, Card, Bank and Credit columns, then boxes for payments, cash in hand, sales by how paid, bank, petty cash, and supplier and wallet balances); moves between our own accounts shown as moves, not payments; Reminders with suggestions and WhatsApp; Pay supplier; company customers with payment days; Settings in five groups.
 - The multi-user plan is done through step 5: security, logins with per-user rights, office network, desktop app, update notice. Step 6 (download page) is open, and where the site is hosted is not recorded: ask the owner.
 
 ## Open items (update this)
 
 Waiting on the owner:
+- After the next update: on VIS-2026-0053, void the "Paid to supplier" step of SD-2026-0001 (it took 2,040.00 out of the bank, but nothing was sent) and pay it again with "HolidaySpace · add to what we owe".
 - After updating, in the app: upload the logo again (Settings → Company), set company customers to "Company" with their payment days, and set the HolidaySpace credit limit if there is one.
 - Decide what to do about Sadia Sohail's duplicate invoices.
 - Decide whether the card fee of 307.26 in account 6700 is right.
@@ -137,6 +139,7 @@ Waiting on the owner:
 - `data/` in this folder can go to the Trash if the owner no longer needs it. Only the owner may move it.
 
 Later (only when asked):
+- A credit supplier returning a deposit by reducing what we owe (now only a return into bank, cash or a wallet is possible).
 - VAT.
 - Help panel, further phases.
 - 4 security leads remain from audit run-2 (`~/security-audit-skill/ledgerly/run-2/`, NEEDS-VALIDATION.md). Each depends on an office or deployment fact.

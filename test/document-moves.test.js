@@ -31,6 +31,7 @@ const LEFT_OUT = {
   bill_id: [
     'bill_items', // the document's own lines
     'compliance_logs', // history: which bill a compliance item generated
+    'visa_deposit_events', // a deposit's bill is never corrected (refused); it is voided on the deposit card
   ],
   credit_note_id: [
     'supplier_credit_items', // a supplier credit's own lines

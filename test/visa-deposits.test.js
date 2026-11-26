@@ -241,3 +241,39 @@ test('a deposit can be paid from a prepaid portal wallet and returned into it', 
     /only .* available/i,
   );
 });
+
+test("a deposit put on a credit supplier's account is a bill on their statement, paid later, and voids cleanly", () => {
+  const bills = require('../server/services/bills');
+  const corrections = require('../server/services/corrections');
+  const { paySupplier } = require('../server/services/supplier-payments');
+  const v = visa('On Account');
+  const dep = take(v.id, 204_000, '2026-11-26');
+  const bankBefore = balance('1010');
+  const sent = deposits.payToSupplier(db, dep.id, { vendor_id: vendorId, on_account: true, event_date: '2026-11-26' });
+  assert.deepEqual([sent.with_supplier_cents, sent.in_hand_cents], [204_000, 0]);
+  assert.equal(balance('1010'), bankBefore, 'no money moves now');
+  const event = sent.events.find((e) => e.event_type === 'to_supplier' && !e.voided_at);
+  const bill = db.prepare('SELECT * FROM bills WHERE id = ?').get(event.bill_id);
+  assert.deepEqual([bill.vendor_id, bill.total_cents, bill.status, bill.visa_id], [vendorId, 204_000, 'received', null], 'not a visa cost');
+  assert.equal(event.reference, bill.number);
+  const line = statements.vendorStatement(db, vendorId, {}).transactions.find((row) => row.reference === bill.number || row.number === bill.number);
+  assert.ok(line, 'the deposit is on the supplier statement');
+  assert.match(JSON.stringify(line), /Security deposit .*On Account/);
+  assertChecksMatch();
+
+  assertBadRequest(() => bills.voidBill(db, bill.id, { remarks: 'x' }), /security deposit .* deposit card/i);
+  assertBadRequest(() => corrections.correctDocument(db, 'bill', bill.id, { remarks: 'x' }), /security deposit/i);
+
+  // Paid with Pay supplier like any bill; then the step can't be voided until that payment is.
+  const payment = paySupplier(db, {
+    vendor_id: vendorId, payment_date: '2026-11-26', amount_cents: 204_000, payment_account_id: bank(), method: 'Bank transfer',
+    allocations: [{ bill_id: bill.id, amount_cents: 204_000 }],
+  });
+  assert.equal(balance('1010'), bankBefore - 204_000, 'the bank pays when HolidaySpace is paid');
+  assertBadRequest(() => deposits.voidLastEvent(db, dep.id, { remarks: 'Wrong' }), /already paid/);
+  require('../server/services/supplier-payments').voidSupplierPayment(db, payment.id, { remarks: 'Sent twice' });
+  const undone = deposits.voidLastEvent(db, dep.id, { remarks: 'Wrong supplier' });
+  assert.deepEqual([undone.in_hand_cents, undone.with_supplier_cents], [204_000, 0]);
+  assert.equal(db.prepare('SELECT status FROM bills WHERE id = ?').get(bill.id).status, 'void');
+  assertChecksMatch();
+});

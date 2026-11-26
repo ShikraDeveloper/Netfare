@@ -1683,6 +1683,26 @@ test('a visa security deposit is taken with the application, shown apart from sa
     assert.equal(checks.checks.find((item) => item.key === key).matched, true, `${key} matches`);
   }
 
+  // The 2,500 still held goes on a credit supplier's account: a bill, no bank payment.
+  const creditVendor = await postJson(baseUrl, '/api/vendors', { name: 'E2E Credit Visa Agent' });
+  await postJson(baseUrl, '/api/portals', { name: 'E2E Credit Visa Agent', portal_type: 'visa_agent', settlement: 'credit', vendor_id: creditVendor.id });
+  await openRoute(`/visas/${visaId}`);
+  await page.locator('[data-visa-deposits] [data-deposit-action="to-supplier"]').click();
+  const toSupplier = page.locator('[role="dialog"]');
+  await toSupplier.locator('#dep-paid-from').selectOption(`vendor:${creditVendor.id}`);
+  assert.equal(await toSupplier.locator('[data-dep-method]').isVisible(), false, 'no method: no money moves');
+  await toSupplier.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  const onAccount = (await getJson(baseUrl, `/api/visas/${visaId}`)).deposits[0].events.find((event) => event.event_type === 'to_supplier' && !event.voided_at);
+  assert.ok(onAccount.bill_id, 'a supplier bill holds the deposit');
+  const depositBill = await getJson(baseUrl, `/api/bills/${onAccount.bill_id}`);
+  assert.deepEqual([depositBill.vendor_id, depositBill.total_cents], [creditVendor.id, 250_000]);
+  const recheck = await getJson(baseUrl, '/api/reports/reconciliation');
+  for (const key of ['visa_deposits', 'deposits_with_suppliers', 'payables']) {
+    const item = recheck.checks.find((row) => row.key === key);
+    if (item) assert.equal(item.matched, true, `${key} matches`);
+  }
+
   // The deposit refund page names the deposit and sends Void to the deposit card.
   const visaDetail = await getJson(baseUrl, `/api/visas/${visaId}`);
   const refundId = visaDetail.deposits[0].events.find((event) => event.event_type === 'refund').refund_id;

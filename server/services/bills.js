@@ -204,7 +204,7 @@ function assertVendor(db, vendorId) {
   return vendor;
 }
 
-function normalizeItems(db, items) {
+function normalizeItems(db, items, allowAccountIds = []) {
   if (!Array.isArray(items) || items.length === 0) {
     throw bad('Add at least one line item');
   }
@@ -216,7 +216,7 @@ function normalizeItems(db, items) {
     const account = db.prepare('SELECT * FROM accounts WHERE id = ?').get(Number(item.account_id));
     if (!account) throw bad(`${label}: choose an account`);
     if (!account.is_active) throw bad(`${label}: account "${account.name}" is archived`);
-    if (!isPurchaseAccount(account)) {
+    if (!isPurchaseAccount(account) && !allowAccountIds.includes(account.id)) {
       throw bad(`${label}: choose an expense account or a valid non-cash asset`);
     }
     return {
@@ -270,7 +270,8 @@ function postBill(db, bill, vendor, items) {
   });
 }
 
-function createBill(db, payload) {
+// allowAccountIds: system accounts a workflow may bill to (a visa deposit's 1460).
+function createBill(db, payload, { allowAccountIds = [] } = {}) {
   return db.transaction(() => {
     const vendor = assertVendor(db, payload.vendor_id);
     const billDate = dateISO(payload.bill_date, 'Bill date');
@@ -280,7 +281,7 @@ function createBill(db, payload) {
     // A posted bill counts as owed at once; its ledger entry only from its date.
     if (status === 'received') notFuture(billDate, 'Bill date');
     const defaultPaymentMethod = optionalStr(payload.default_payment_method, 'Default payment method', 100) || 'Bank transfer';
-    const items = normalizeItems(db, payload.items);
+    const items = normalizeItems(db, payload.items, allowAccountIds);
     const totals = computeTotals(items);
     if (totals.total <= 0) throw bad('Bill total must be greater than zero');
     const number = allocateNumber(db, 'bill', billDate);
@@ -377,6 +378,14 @@ function finalizeBill(db, id) {
 
 // fromWorkflow: the booking or visa that owns the bill is itself being
 // voided (job-void.js), so the owner check below does not apply.
+// The deposit number when this bill is a visa deposit put on the supplier's account.
+function depositOnBill(db, billId) {
+  return db.prepare(`
+    SELECT d.number FROM visa_deposit_events e JOIN visa_deposits d ON d.id = e.deposit_id
+    WHERE e.bill_id = ? AND e.voided_at IS NULL
+  `).get(billId)?.number || null;
+}
+
 function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
   return db.transaction(() => {
     const bill = billRow(db, id);
@@ -384,6 +393,9 @@ function voidBill(db, id, payload = {}, { fromWorkflow = false } = {}) {
     if (bill.status === 'void') throw bad('Bill is already void');
     // A booking or visa bill is part of the job's margin. Supplier changes go
     // through a supplier credit, or the job is cancelled.
+    if (!fromWorkflow && depositOnBill(db, bill.id)) {
+      throw bad(`This bill is security deposit ${depositOnBill(db, bill.id)} put on the supplier's account. Void it on the visa's deposit card.`);
+    }
     if ((bill.booking_id || bill.visa_id) && !fromWorkflow) {
       throw bad(`This bill belongs to a ${bill.booking_id ? 'booking' : 'visa application'}. Record a supplier credit for the amount the supplier returns, or cancel the ${bill.booking_id ? 'booking' : 'visa application'}.`);
     }
@@ -661,6 +673,7 @@ function createQuickExpense(db, payload = {}) {
 }
 
 module.exports = {
+  depositOnBill,
   setSupplierRef,
   createQuickExpense,
   bankDebitVendor,

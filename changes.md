@@ -947,6 +947,18 @@ Verification:
 - **4. No counts:** the Commands section no longer gives file and test counts that change with every commit.
 - **Checked:** read against the code and git config; `npm run check` passes.
 
+### Visa deposit on a credit supplier's account: a bill on their statement, paid with Pay supplier
+
+- **Why:** The owner took a 2,040.00 security deposit on VIS-2026-0053 and passed it to HolidaySpace, a credit supplier, but the app could only take it out of the bank or a wallet, so the bank showed 2,040.00 out that was never sent and the HolidaySpace statement did not show the deposit with the applicant ("supplier me jesay amount jati hy us applicant k sath deposit b jana chaiye na"). A mockup was approved ("Haan, bana do").
+- **What:**
+  - Pay to supplier on the deposit card has a third choice, **On the supplier's account (pay later)**, listing active credit portals ("HolidaySpace · add to what we owe"). No method field: no money moves.
+  - Server (`server/services/visa-deposits.js`, `depositOnAccount`): the deposit becomes a received supplier bill to that supplier, one line on 1460 Refundable Deposits Paid ("Security deposit SD-… · VIS-… · applicant"), so Dr 1460 / Cr 2000. The bill is not linked to the visa, so it is not a visa cost. The deposit step keeps the bill (`visa_deposit_events.bill_id`, new column) and its number as the reference.
+  - The bill shows on the supplier statement and is paid with Pay supplier like any bill.
+  - Voiding the step on the deposit card voids the bill; it is refused while the bill is paid ("void that payment first"). The bill cannot be voided or corrected from Bills (`depositOnBill` in `server/services/bills.js`, guard in `corrections.js`). `createBill` takes `allowAccountIds` so a workflow may bill to the system account 1460.
+- **Not done:** a credit supplier returning the deposit by reducing what we owe; a return still goes into bank, cash or a wallet.
+- **Checked:** `npm run check`; `npm test` 403 (new: on account the bank does not change, the bill is on the supplier statement and not a visa cost, Bills void and correction are refused, Pay supplier pays it, the step cannot be voided while paid, after the payment is voided the step voids the bill, ledger checks match; `document-moves.test.js` lists the new link as left out on purpose); `npm run test:e2e` 61 (the deposit test puts the 2,500.00 still held on a new credit supplier through the form: no method field, a 2,500.00 bill to that supplier, deposit and payables checks match).
+- **AGENTS.md:** where things stand and open items updated (redo SD-2026-0001 after the update).
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

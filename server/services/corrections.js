@@ -290,6 +290,7 @@ function correctDocument(db, kind, id, payload = {}) {
     const posted = kind === 'invoice' ? 'sent' : 'received';
     if (old.status !== posted) throw bad(`Only a posted ${config.label} can be corrected; a draft is edited`);
     if (old.booking_id || old.visa_id) throw bad(`This ${config.label} belongs to a ${old.booking_id ? 'booking' : 'visa'}: correct it there`);
+    if (kind === 'bill' && require('./bills').depositOnBill(db, old.id)) throw bad("This bill is a visa security deposit: void it on the visa's deposit card and pay it again");
     if (old.cancellation_id) throw bad('This invoice holds cancellation charges. Issue a credit note to change them.');
     if (old.is_opening) throw bad("Change an opening balance from the customer's or supplier's Edit form.");
     const reason = str(payload.remarks ?? payload.reason, 'Reason', { max: 500 });

@@ -40,13 +40,14 @@ function accountSelect(id, preferCash = true) {
   return `<select class="input" id="${id}" name="account_id">${optionsHtml(accounts, { selected: chosen?.id, placeholder: 'Choose account…', labelKey: (a) => `${a.code} · ${a.name}` })}</select>`;
 }
 
-// "Paid from" with the bank and cash accounts plus any prepaid portal
-// wallets (values "acc:<id>" and "portal:<id>").
-function paidFromSelect(id, wallets) {
+// "Paid from" with the bank and cash accounts, any prepaid portal wallets, and
+// credit suppliers to owe it to (values "acc:<id>", "portal:<id>", "vendor:<id>").
+function paidFromSelect(id, wallets, creditors = []) {
   const { accounts, preferred } = depositAccounts();
   return `<select class="input" id="${id}">
     <optgroup label="Bank and cash">${accounts.map((a) => `<option value="acc:${a.id}" ${a.id === preferred?.id ? 'selected' : ''}>${esc(`${a.code} · ${a.name}`)}</option>`).join('')}</optgroup>
     ${wallets.length ? `<optgroup label="Supplier portal wallet">${wallets.map((w) => `<option value="portal:${w.id}" data-vendor="${w.vendor_id}">${esc(`${w.name} · ${fmtMoney(w.balance_cents)} available`)}</option>`).join('')}</optgroup>` : ''}
+    ${creditors.length ? `<optgroup label="On the supplier's account (pay later)">${creditors.map((c) => `<option value="vendor:${c.vendor_id}" data-vendor="${c.vendor_id}">${esc(`${c.name} · add to what we owe`)}</option>`).join('')}</optgroup>` : ''}
   </select>`;
 }
 
@@ -166,15 +167,18 @@ export function bindDepositCard(container, visa, refresh) {
       }
       if (action === 'to-supplier') {
         let wallets = [];
+        let creditors = [];
         try {
-          wallets = (await api.get('/portals')).filter((row) => row.settlement === 'prepaid' && row.vendor_id && row.is_active && row.balance_cents > 0);
+          const portals = (await api.get('/portals')).filter((row) => row.vendor_id && row.is_active);
+          wallets = portals.filter((row) => row.settlement === 'prepaid' && row.balance_cents > 0);
+          creditors = portals.filter((row) => row.settlement === 'credit');
         } catch { /* bank and cash only */ }
         openModal({
           title: `Pay ${deposit.number} to the supplier`,
           body: `<div class="form-grid">
             ${amountField('dep-amount', 'Amount', deposit.in_hand_cents, `In hand ${fmtMoney(deposit.in_hand_cents)}`)}
             ${dateField('dep-date', 'Date paid')}
-            <div class="field full"><label for="dep-paid-from">Paid from</label>${paidFromSelect('dep-paid-from', wallets)}
+            <div class="field full"><label for="dep-paid-from">Paid from</label>${paidFromSelect('dep-paid-from', wallets, creditors)}
 </div>
             <div class="field full"><label for="dep-vendor">Supplier</label><select class="input" id="dep-vendor" data-add="vendor" required>${optionsHtml(activeVendors(), { placeholder: 'Choose supplier…' })}</select></div>
             <div class="field" data-dep-method><label for="dep-method">Method</label>${methodSelect('dep-method', 'Bank transfer')}</div>
@@ -184,12 +188,13 @@ export function bindDepositCard(container, visa, refresh) {
             const from = overlay.querySelector('#dep-paid-from');
             const vendor = overlay.querySelector('#dep-vendor');
             const sync = () => {
-              const wallet = from.value.startsWith('portal:');
+              const wallet = !from.value.startsWith('acc:');
               overlay.querySelector('[data-dep-method]').hidden = wallet;
               if (wallet) vendor.value = from.selectedOptions[0].dataset.vendor;
               vendor.disabled = wallet;
               // Bank: Dr 1460 Refundable Deposits Paid · Cr bank. Portal wallet:
               // Dr 1460 · Cr 1400 Advances to Suppliers, with no bank payment.
+              // On account: a supplier bill, Dr 1460 · Cr 2000, paid later.
             };
             from.addEventListener('change', sync);
             sync();
@@ -203,7 +208,8 @@ export function bindDepositCard(container, visa, refresh) {
               method: form.querySelector('#dep-method').value,
               account_id: kind === 'acc' ? Number(sourceId) : null,
               portal_id: kind === 'portal' ? Number(sourceId) : null,
-            }), kind === 'portal' ? 'Deposit paid from the portal wallet' : 'Deposit paid to supplier', refresh);
+              on_account: kind === 'vendor',
+            }), kind === 'portal' ? 'Deposit paid from the portal wallet' : kind === 'vendor' ? "Deposit added to the supplier's account" : 'Deposit paid to supplier', refresh);
           },
         });
         return;

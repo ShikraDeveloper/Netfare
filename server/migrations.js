@@ -207,6 +207,8 @@ ensureColumn('settings', 'petty_cash_float_cents', 'INTEGER NOT NULL DEFAULT 0')
 // A visa deposit paid to the supplier from (or returned into) a prepaid
 // portal wallet instead of the bank.
 ensureColumn('visa_deposit_events', 'portal_id', 'INTEGER REFERENCES supplier_portals(id)');
+// A visa deposit put on a credit supplier's account is a supplier bill (Dr 1460).
+ensureColumn('visa_deposit_events', 'bill_id', 'INTEGER REFERENCES bills(id)');
 ensureColumn('settings', 'next_card_settlement_number', 'INTEGER NOT NULL DEFAULT 1');
 // A gateway's payment link for an invoice, shared with the invoice.
 ensureColumn('invoices', 'payment_link', "TEXT NOT NULL DEFAULT ''");
