@@ -1645,6 +1645,39 @@ test('the DSR shows sales by type with how each was settled, money out and a cas
   assertNoConsoleErrors();
 });
 
+test('a deposit not received yet is due on the visa and received with the invoice from Receive payment', async () => {
+  const accounts = await getJson(baseUrl, '/api/accounts');
+  const code = (c) => accounts.find((a) => a.code === c).id;
+  const customer = await postJson(baseUrl, '/api/customers', { name: `Due Deposit ${Date.now()}` });
+  const { applications } = await postJson(baseUrl, '/api/visas/groups', {
+    customer_id: customer.id, application_date: new Date().toISOString().slice(0, 10), destination_country: 'UAE',
+    deposit: { not_received: true },
+    applicants: [{ applicant_name: 'Due Applicant', deposit_cents: 204_000, sale_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 103_000, account_id: code('4320') }] }],
+  });
+  const visaId = applications[0].id;
+  await postJson(baseUrl, `/api/visas/${visaId}/submit`, {}, 200);
+  await openRoute(`/visas/${visaId}`);
+  const card = page.locator('[data-visa-deposits]');
+  await card.waitFor();
+  assert.match((await card.innerText()).replace(/\s+/g, ' '), /Due/);
+  assert.equal(await card.locator('[data-deposit-action="receive"]').count(), 1);
+
+  await openRoute(`/customer-balances/${customer.id}`);
+  await page.locator('#page-actions [data-action="receive-payment"]').click();
+  const dialog = page.locator('[role="dialog"]');
+  await dialog.locator('#rp-amount').fill('3070');
+  assert.equal(await dialog.locator('[data-deposit-due]').isChecked(), true, 'the deposit is taken once the invoice is covered');
+  await dialog.locator('[data-submit]').click();
+  await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+  const deposit = (await getJson(baseUrl, `/api/visas/${visaId}`)).deposits[0];
+  assert.deepEqual([deposit.status, deposit.held_cents], ['held', 204_000]);
+  const checks = await getJson(baseUrl, '/api/reports/reconciliation');
+  for (const key of ['visa_deposits', 'receivables', 'trial_balance']) {
+    assert.equal(checks.checks.find((item) => item.key === key).matched, true, `${key} matches`);
+  }
+  assertNoConsoleErrors();
+});
+
 test('a visa security deposit is taken with the application, shown apart from sales and refunded', async () => {
   await openRoute('/visas?new=1');
   const dialog = page.locator('[role="dialog"]');
@@ -2967,7 +3000,7 @@ test('the ageing box shows only when something is open', async () => {
   assert.ok(settled, 'the demo has a settled customer');
   const owing = customers.find((row) => row.outstanding_cents > 0);
   await openRoute(`/customers/${settled.id}/statement`);
-  await page.locator('.statement-table').waitFor();
+  await page.locator('.statement-table').first().waitFor(); // a customer with a deposit has a second table
   assert.equal(await page.locator('[data-statement-ageing]').count(), 0, 'no row of zeros');
   await openRoute(`/customers/${owing.id}/statement`);
   await page.locator('[data-statement-ageing]').waitFor();

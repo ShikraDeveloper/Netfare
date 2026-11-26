@@ -576,6 +576,7 @@ function createVisaGroup(db, payload = {}) {
             deposit_date: payload.deposit?.deposit_date || payload.application_date,
             account_id: payload.deposit?.account_id,
             method: payload.deposit?.method,
+            not_received: Boolean(payload.deposit?.not_received),
           });
         } catch (error) {
           if (error.status === 400) error.message = `Applicant ${index + 1} deposit: ${error.message}`;

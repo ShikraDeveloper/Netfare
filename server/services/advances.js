@@ -438,18 +438,36 @@ function receivePayment(db, payload = {}) {
       }
     }
     const shared = shares.reduce((sum, share) => sum + share.amount, 0);
-    if (shared > amount) throw bad('The invoice amounts add up to more than the amount received');
+    // Visa security deposits still due from this customer, taken in full. Each
+    // gets its own entry (Dr bank / Cr 2600): a deposit is not a sale or an advance.
+    const visaDeposits = require('./visa-deposits');
+    const deposits = [...new Set((payload.deposits || []).map(Number))].map((id) => {
+      const deposit = visaDeposits.getDeposit(db, id);
+      if (deposit.customer_id !== customerId || !deposit.is_due || deposit.voided_at) {
+        throw bad(`Deposit ${deposit.number} is not due from this customer`);
+      }
+      return deposit;
+    });
+    const depositTotal = deposits.reduce((sum, deposit) => sum + deposit.amount_cents, 0);
+    if (shared + depositTotal > amount) throw bad('The invoice and deposit amounts add up to more than the amount received');
+    const rest = amount - depositTotal;
+    if (!rest && Number(payload.bank_charges_cents)) throw bad('Bank charges go on the invoice or advance part of the payment');
 
-    const receipt = createAdvance(db, {
+    const receipt = rest ? createAdvance(db, {
       customer_id: customerId,
-      amount_cents: amount,
+      amount_cents: rest,
       advance_date: date,
       method: payload.method,
       reference: payload.reference,
       deposit_account_id: payload.deposit_account_id,
       bank_charges_cents: payload.bank_charges_cents,
-    }, { receipt: true, shares });
-    return getReceipt(db, receipt.id);
+    }, { receipt: true, shares }) : null;
+    const received = deposits.map((deposit) => visaDeposits.receiveDeposit(db, deposit.id, {
+      event_date: date, account_id: payload.deposit_account_id, method: payload.method,
+      reference: receipt ? receipt.number : payload.reference,
+    }));
+    const deposited = received.map((d) => ({ id: d.id, number: d.number, amount_cents: d.amount_cents, visa_number: d.visa_number, applicant_name: d.applicant_name }));
+    return receipt ? { ...getReceipt(db, receipt.id), deposits: deposited } : { id: null, number: null, invoices: [], deposits: deposited };
   })();
 }
 

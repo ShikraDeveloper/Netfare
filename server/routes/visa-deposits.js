@@ -18,6 +18,7 @@ router.get('/:id', (req, res) => {
 
 const ACTIONS = {
   'to-supplier': service.payToSupplier,
+  receive: service.receiveDeposit,
   'supplier-return': service.supplierReturn,
   refund: service.refundDeposit,
   apply: service.applyToInvoice,

@@ -21,6 +21,7 @@ import { bindMethodAccount } from '../payment-methods.js';
 // supplier holds, what was refunded, used or forfeited, and what is still held.
 
 const STATUS_TEXT = {
+  due: 'Due',
   held: 'Held',
   with_supplier: 'With supplier',
   settled: 'Settled',
@@ -88,6 +89,7 @@ function eventLine(event) {
 function depositHtml(deposit) {
   const open = !deposit.voided_at;
   const buttons = open ? [
+    deposit.is_due ? `<button class="btn btn-primary btn-sm" data-deposit-action="receive" data-id="${deposit.id}">Receive ${fmtMoney(deposit.amount_cents)}</button>` : '',
     deposit.in_hand_cents > 0 ? `<button class="btn btn-secondary btn-sm" data-deposit-action="to-supplier" data-id="${deposit.id}">Pay to supplier</button>` : '',
     deposit.with_supplier_cents > 0 ? `<button class="btn btn-secondary btn-sm" data-deposit-action="supplier-return" data-id="${deposit.id}">Supplier returned</button>` : '',
     deposit.in_hand_cents > 0 ? `<button class="btn btn-primary btn-sm" data-deposit-action="refund" data-id="${deposit.id}">Refund</button>` : '',
@@ -99,7 +101,7 @@ function depositHtml(deposit) {
     <div class="deposit-item" data-deposit="${deposit.id}">
       <div class="deposit-head">
         <div><strong>${esc(deposit.number)}</strong> <span class="badge badge-deposit-${esc(deposit.status)}">${esc(STATUS_TEXT[deposit.status] || deposit.status)}</span>
-          <div class="cell-sub">Received ${esc(fmtDate(deposit.deposit_date))}</div></div>
+          <div class="cell-sub">${deposit.is_due ? `${esc(fmtMoney(deposit.amount_cents))} not received yet` : `Received ${esc(fmtDate(deposit.deposit_date))}`}</div></div>
         <div class="deposit-held"><span>Still held</span><strong>${fmtMoney(deposit.held_cents)}</strong></div>
       </div>
       <dl class="deposit-figures">
@@ -162,6 +164,27 @@ export function bindDepositCard(container, visa, refresh) {
             account_id: Number(form.querySelector('#dep-account').value),
             reference: form.querySelector('#dep-ref').value,
           }), 'Deposit recorded', refresh),
+        });
+        return;
+      }
+      if (action === 'receive') {
+        openModal({
+          title: `Receive ${deposit.number}`,
+          body: `<div class="form-grid">
+            <div class="field"><label>Amount</label><input class="input" value="${esc(fmtMoney(deposit.amount_cents))}" disabled></div>
+            ${dateField('dep-date', 'Date received')}
+            <div class="field"><label for="dep-method">Method</label>${methodSelect('dep-method')}</div>
+            <div class="field"><label for="dep-account">Received into</label>${accountSelect('dep-account')}</div>
+          </div>`,
+          submitLabel: 'Record deposit',
+          onMount(overlay) {
+            bindMethodAccount(overlay.querySelector('#dep-method'), overlay.querySelector('#dep-account'), depositAccounts().accounts);
+          },
+          onSubmit: (form) => run(api.post(`/visa-deposits/${deposit.id}/receive`, {
+            event_date: form.querySelector('#dep-date').value,
+            method: form.querySelector('#dep-method').value,
+            account_id: Number(form.querySelector('#dep-account').value),
+          }), 'Deposit received', refresh),
         });
         return;
       }

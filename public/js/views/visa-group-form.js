@@ -146,9 +146,10 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
           <label for="vg-deposit-method">Received by</label>
           <select class="input" id="vg-deposit-method">
             <option>Cash</option><option>Bank transfer</option><option>Cheque</option><option>Credit card</option><option>Payment link</option><option>Other</option>
+            <option value="not-received">Not received yet</option>
           </select>
         </div>
-        <div class="field">
+        <div class="field" data-deposit-into>
           <label for="vg-deposit-account">Received into</label>
           <select class="input" id="vg-deposit-account">
             ${optionsHtml(depositAccounts().accounts, { selected: (depositAccounts().accounts.find((a) => a.code === '1000') || depositAccounts().preferred)?.id, placeholder: '', labelKey: (account) => `${account.code} · ${account.name}` })}
@@ -217,7 +218,10 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
     body,
     submitLabel: 'Create application',
     onMount(overlay) {
-      bindMethodAccount(overlay.querySelector('#vg-deposit-method'), overlay.querySelector('#vg-deposit-account'), depositAccounts().accounts);
+      const depositMethod = overlay.querySelector('#vg-deposit-method');
+      bindMethodAccount(depositMethod, overlay.querySelector('#vg-deposit-account'), depositAccounts().accounts);
+      // Not received yet: no account, the deposit waits as due on the visa.
+      depositMethod.addEventListener('change', () => { overlay.querySelector('[data-deposit-into]').hidden = depositMethod.value === 'not-received'; });
       overlayRef = overlay;
       const customerSelect = overlay.querySelector('#vg-customer');
       bindCustomerHint(customerSelect);
@@ -322,7 +326,7 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         notes: values.get('notes'),
         invoice_notes: values.get('invoice_notes'),
         applicants,
-        deposit: {
+        deposit: form.querySelector('#vg-deposit-method').value === 'not-received' ? { not_received: true } : {
           method: form.querySelector('#vg-deposit-method').value,
           account_id: Number(form.querySelector('#vg-deposit-account').value) || null,
         },

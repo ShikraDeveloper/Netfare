@@ -282,3 +282,39 @@ test("a deposit put on a credit supplier's account is a bill on their statement,
   assert.equal(db.prepare('SELECT status FROM bills WHERE id = ?').get(bill.id).status, 'void');
   assertChecksMatch();
 });
+
+test('a deposit not received yet waits as due, then is received with the invoice in one payment', () => {
+  const advances = require('../server/services/advances');
+  const { applications } = visaService.createVisaGroup(db, {
+    customer_id: customerId, application_date: '2026-11-26', destination_country: 'UAE',
+    deposit: { not_received: true },
+    applicants: [{ applicant_name: 'Due Later', deposit_cents: 204_000, sale_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 103_000, account_id: account('4320').id }] }],
+  });
+  const [due] = applications[0].deposits;
+  assert.deepEqual([due.status, due.held_cents, due.events.length], ['due', 0, 0], 'no money, no entry');
+  assertBadRequest(() => deposits.payToSupplier(db, due.id, { vendor_id: vendorId, on_account: true }), /in hand/);
+  assertChecksMatch();
+
+  const submitted = db.prepare('SELECT * FROM invoices WHERE id = ?').get(visaService.submitVisa(db, applications[0].id).invoice_id);
+  const bankBefore = balance('1010');
+  const result = advances.receivePayment(db, {
+    customer_id: customerId, amount_cents: 307_000, receipt_date: '2026-11-26', method: 'Bank transfer', deposit_account_id: bank(),
+    allocations: [{ invoice_id: submitted.id, amount_cents: 103_000 }], deposits: [due.id],
+  });
+  assert.equal(balance('1010'), bankBefore + 307_000, 'the bank gets the whole 3,070');
+  assert.equal(result.amount_cents, 103_000, 'the receipt is the invoice part');
+  assert.deepEqual(result.deposits.map((d) => d.number), [due.number]);
+  const received = deposits.getDeposit(db, due.id);
+  assert.deepEqual([received.status, received.held_cents, received.events[0].reference], ['held', 204_000, result.number]);
+  assert.equal(db.prepare('SELECT amount_paid_cents FROM invoices WHERE id = ?').get(submitted.id).amount_paid_cents, 103_000);
+  assertBadRequest(() => advances.receivePayment(db, { customer_id: customerId, amount_cents: 204_000, deposit_account_id: bank(), deposits: [due.id] }), /not due/);
+  assertChecksMatch();
+
+  // A deposit alone is received without a receipt; a due one can be dropped.
+  const alone = deposits.collectDeposit(db, { visa_id: visa('Alone').id, amount_cents: 50_000, deposit_date: '2026-11-26', not_received: true });
+  const onlyDeposit = advances.receivePayment(db, { customer_id: customerId, amount_cents: 50_000, receipt_date: '2026-11-26', method: 'Cash', deposit_account_id: cash(), deposits: [alone.id] });
+  assert.deepEqual([onlyDeposit.id, deposits.getDeposit(db, alone.id).held_cents], [null, 50_000]);
+  const dropped = deposits.collectDeposit(db, { visa_id: visa('Dropped').id, amount_cents: 10_000, deposit_date: '2026-11-26', not_received: true });
+  assert.equal(deposits.voidLastEvent(db, dropped.id, { remarks: 'Not needed' }).status, 'void');
+  assertChecksMatch();
+});

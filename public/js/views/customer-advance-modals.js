@@ -102,7 +102,16 @@ export function openRefundAdvance(advance, onDone) {
 // One payment for several invoices (two visas paid together, say): one receipt
 // and one bank entry, shared out oldest invoice first. The shares can be
 // changed; anything not shared stays as the customer's advance.
-export function openReceivePayment(customer, invoices, onDone) {
+export async function openReceivePayment(customer, invoices, onDone) {
+  // Visa deposits marked "not received yet": taken in full with the invoices.
+  let dueDeposits = [];
+  try { dueDeposits = await api.get('/visa-deposits', { customer_id: customer.id, status: 'due' }); } catch { /* invoices only */ }
+  const depositRows = dueDeposits.map((deposit) => `
+      <tr>
+        <td><div class="cell-main">${esc(deposit.number)} · Security deposit</div><div class="cell-sub">${esc([`Visa ${deposit.visa_number}`, deposit.applicant_name].filter(Boolean).join(' · '))}</div></td>
+        <td class="num">${fmtMoney(deposit.amount_cents)}</td>
+        <td class="num" style="width:150px"><label class="checkbox-row" style="justify-content:flex-end"><input type="checkbox" data-deposit-due="${deposit.id}" data-due="${deposit.amount_cents}"> <span>${fmtMoney(deposit.amount_cents)}</span></label></td>
+      </tr>`).join('');
   const rows = invoices.map((invoice) => {
     const about = [invoice.visa_number ? `Visa ${invoice.visa_number}` : '', invoice.applicant_name, invoice.booking_number ? `Booking ${invoice.booking_number}` : '']
       .filter(Boolean).join(' · ');
@@ -131,10 +140,10 @@ export function openReceivePayment(customer, invoices, onDone) {
       ${bankChargesFieldHtml('received')}
       <div class="field full">
         <label>Pays these invoices</label>
-        ${invoices.length ? `
+        ${invoices.length || dueDeposits.length ? `
           <div class="table-wrap"><table class="data compact">
             <thead><tr><th scope="col">Invoice</th><th scope="col" class="num">Due</th><th scope="col" class="num">This payment</th></tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${rows}${depositRows}</tbody>
           </table></div>` : '<div class="muted" style="font-size:13px">No unpaid invoices: kept as an advance.</div>'}
         <div class="hint" id="rp-left" aria-live="polite"></div>
       </div>
@@ -146,9 +155,11 @@ export function openReceivePayment(customer, invoices, onDone) {
       const amountInput = overlay.querySelector('#rp-amount');
       const dateInput = overlay.querySelector('#rp-date');
       const shareInputs = [...overlay.querySelectorAll('[data-share]')];
+      const depositBoxes = [...overlay.querySelectorAll('[data-deposit-due]')];
       const left = overlay.querySelector('#rp-left');
       const sync = () => {
-        const shared = shareInputs.reduce((sum, input) => sum + toCents(input.value || 0), 0);
+        const shared = shareInputs.reduce((sum, input) => sum + toCents(input.value || 0), 0)
+          + depositBoxes.reduce((sum, box) => sum + (box.checked ? Number(box.dataset.due) : 0), 0);
         const rest = toCents(amountInput.value || 0) - shared;
         left.textContent = rest > 0
           ? `${fmtMoney(rest)} not used for an invoice: it stays as the customer's advance.`
@@ -165,11 +176,17 @@ export function openReceivePayment(customer, invoices, onDone) {
           input.value = share ? centsToInput(share) : '';
           rest -= share;
         }
+        // Then each due deposit the rest covers in full.
+        for (const box of depositBoxes) {
+          box.checked = rest >= Number(box.dataset.due);
+          if (box.checked) rest -= Number(box.dataset.due);
+        }
         sync();
       };
       amountInput.addEventListener('input', shareOut);
       dateInput.addEventListener('change', shareOut);
       shareInputs.forEach((input) => input.addEventListener('input', sync));
+      depositBoxes.forEach((box) => box.addEventListener('change', sync));
     },
     async onSubmit(form) {
       const amount = toCents(form.querySelector('#rp-amount').value);
@@ -177,8 +194,9 @@ export function openReceivePayment(customer, invoices, onDone) {
       const allocations = [...form.querySelectorAll('[data-share]')]
         .map((input) => ({ invoice_id: Number(input.dataset.share), amount_cents: toCents(input.value || 0) }))
         .filter((row) => row.amount_cents > 0);
-      if (allocations.reduce((sum, row) => sum + row.amount_cents, 0) > amount) {
-        throw new Error('The invoice amounts add up to more than the amount received');
+      const deposits = [...form.querySelectorAll('[data-deposit-due]:checked')];
+      if (allocations.reduce((sum, row) => sum + row.amount_cents, 0) + deposits.reduce((sum, box) => sum + Number(box.dataset.due), 0) > amount) {
+        throw new Error('The invoice and deposit amounts add up to more than the amount received');
       }
       const receipt = await api.post('/advances/receipts', {
         customer_id: customer.id,
@@ -189,8 +207,13 @@ export function openReceivePayment(customer, invoices, onDone) {
         reference: form.querySelector('#rp-ref').value,
         bank_charges_cents: readBankCharges(form),
         allocations,
+        deposits: deposits.map((box) => Number(box.dataset.depositDue)),
       });
-      toast(`Receipt ${receipt.number} recorded · ${receipt.invoices.length} invoice${receipt.invoices.length === 1 ? '' : 's'} paid`);
+      const parts = [
+        receipt.number ? `Receipt ${receipt.number} recorded · ${receipt.invoices.length} invoice${receipt.invoices.length === 1 ? '' : 's'} paid` : '',
+        receipt.deposits?.length ? `deposit ${receipt.deposits.map((d) => d.number).join(', ')} received` : '',
+      ].filter(Boolean);
+      toast(parts.join(' · '));
       onDone(receipt);
     },
   });

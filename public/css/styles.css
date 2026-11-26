@@ -1012,6 +1012,7 @@ body.modal-open { overflow: hidden; }
 .deposit-event-date { color: var(--muted); }
 .deposit-event-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
 .deposit-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.badge-deposit-due { background: var(--amber-soft); color: var(--amber); }
 .badge-deposit-held { background: var(--blue-soft); color: var(--blue); }
 .badge-deposit-with_supplier { background: var(--amber-soft); color: var(--amber); }
 .badge-deposit-settled { background: var(--green-soft); color: var(--green); }

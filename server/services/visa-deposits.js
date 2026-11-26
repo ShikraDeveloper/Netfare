@@ -74,6 +74,7 @@ function position(deposit, events) {
 
 function statusOf(deposit, pos) {
   if (deposit.voided_at) return 'void';
+  if (deposit.is_due) return 'due';
   if (pos.held_cents <= 0) {
     if (pos.forfeited_cents && !pos.refunded_cents && !pos.applied_cents) return 'forfeited';
     return 'settled';
@@ -177,35 +178,57 @@ function collectDeposit(db, payload = {}) {
     if (['cancelled', 'rejected'].includes(visa.status)) throw bad('Deposits cannot be taken on a cancelled or rejected visa');
     const amount = cents(payload.amount_cents, 'Deposit amount', { min: 1 });
     const date = dateISO(payload.deposit_date || todayISO(), 'Deposit date');
-    const account = cashAccount(db, payload.account_id, 'account the deposit was received into');
-    const { held } = accounts(db);
+    const due = Boolean(payload.not_received);
+    const account = due ? null : cashAccount(db, payload.account_id, 'account the deposit was received into');
     const number = allocateNumber(db, 'visa_deposit', date);
     const depositId = Number(db.prepare(`
-      INSERT INTO visa_deposits (number, customer_id, visa_id, deposit_date, amount_cents, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(number, visa.customer_id, visa.id, date, amount, optionalStr(payload.notes, 'Notes', 1000)).lastInsertRowid);
+      INSERT INTO visa_deposits (number, customer_id, visa_id, deposit_date, amount_cents, notes, is_due)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(number, visa.customer_id, visa.id, date, amount, optionalStr(payload.notes, 'Notes', 1000), due ? 1 : 0).lastInsertRowid);
     markCreated(db, 'visa_deposits', depositId);
-    const entryId = postEntry(db, {
-      entry_date: date,
-      memo: `Visa security deposit ${number} — ${visa.number}${visa.applicant_name ? ` (${visa.applicant_name})` : ''}`,
-      reference: number,
-      source_type: 'deposit_collect',
-      source_id: depositId,
-      lines: [
-        { account_id: account.id, debit_cents: amount, credit_cents: 0, description: `Deposit ${number}` },
-        { account_id: held.id, debit_cents: 0, credit_cents: amount, description: `Deposit ${number} held` },
-      ],
-    });
-    insertEvent(db, depositId, {
-      event_type: 'collect', event_date: date, amount_cents: amount, account_id: account.id,
-      method: optionalStr(payload.method, 'Method', 100) || 'Cash',
-      reference: optionalStr(payload.reference, 'Reference', 200), journal_entry_id: entryId,
-    });
+    if (!due) postCollect(db, { id: depositId, number, amount_cents: amount }, visa, date, account, payload);
     audit.record(db, {
       entity_type: 'visa_deposit', entity_id: depositId, entity_number: number, action: 'create',
-      amount_cents: amount, metadata: { visa_id: visa.id },
+      amount_cents: amount, metadata: { visa_id: visa.id, due },
     });
     return getDeposit(db, depositId);
+  })();
+}
+
+// The customer's money comes in: Dr bank or cash / Cr 2600, and the "collect" step.
+function postCollect(db, deposit, visa, date, account, payload) {
+  const { held } = accounts(db);
+  const entryId = postEntry(db, {
+    entry_date: date,
+    memo: `Visa security deposit ${deposit.number} — ${visa.number}${visa.applicant_name ? ` (${visa.applicant_name})` : ''}`,
+    reference: deposit.number,
+    source_type: 'deposit_collect',
+    source_id: deposit.id,
+    lines: [
+      { account_id: account.id, debit_cents: deposit.amount_cents, credit_cents: 0, description: `Deposit ${deposit.number}` },
+      { account_id: held.id, debit_cents: 0, credit_cents: deposit.amount_cents, description: `Deposit ${deposit.number} held` },
+    ],
+  });
+  insertEvent(db, deposit.id, {
+    event_type: 'collect', event_date: date, amount_cents: deposit.amount_cents, account_id: account.id,
+    method: optionalStr(payload.method, 'Method', 100) || 'Cash',
+    reference: optionalStr(payload.reference, 'Reference', 200), journal_entry_id: entryId,
+  });
+}
+
+// A deposit marked "not received yet" is paid by the customer: in full, on its own
+// or together with invoices from Receive payment.
+function receiveDeposit(db, id, payload = {}) {
+  return db.transaction(() => {
+    const deposit = getDeposit(db, id);
+    if (deposit.voided_at) throw bad('This deposit is void');
+    if (!deposit.is_due) throw bad(`Deposit ${deposit.number} is already received`);
+    const visa = db.prepare('SELECT * FROM visa_applications WHERE id = ?').get(deposit.visa_id);
+    const date = notFuture(eventDate(deposit, payload.event_date, 'Date received'), 'Date received');
+    const account = cashAccount(db, payload.account_id, 'account the deposit was received into');
+    postCollect(db, deposit, visa, date, account, payload);
+    db.prepare('UPDATE visa_deposits SET is_due = 0 WHERE id = ?').run(deposit.id);
+    return getDeposit(db, deposit.id);
   })();
 }
 
@@ -482,6 +505,12 @@ function voidLastEvent(db, id, payload = {}) {
     const remarks = optionalStr(payload.remarks, 'Remarks', 2000);
     if (!remarks) throw bad('Enter the reason for the void');
     const last = deposit.events.filter((event) => !event.voided_at).at(-1);
+    if (!last && deposit.is_due) {
+      // Not received yet: nothing was posted, so the deposit is simply dropped.
+      db.prepare("UPDATE visa_deposits SET voided_at = datetime('now') WHERE id = ?").run(deposit.id);
+      audit.record(db, { entity_type: 'visa_deposit', entity_id: deposit.id, entity_number: deposit.number, action: 'void', remarks, amount_cents: deposit.amount_cents });
+      return getDeposit(db, deposit.id);
+    }
     if (!last) throw bad('Nothing to void');
     const { walletLow, assertWalletNotLower } = require('./portals/common');
     const before = last.portal_id ? walletLow(db, last.portal_id) : null;
@@ -531,6 +560,7 @@ function depositTotals(db) {
 }
 
 module.exports = {
+  receiveDeposit,
   EVENT_LABELS,
   getDeposit,
   listDeposits,

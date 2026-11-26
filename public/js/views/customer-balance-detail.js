@@ -226,7 +226,8 @@ export async function render(container, { params } = {}) {
   document.querySelector('#page-actions [data-action="receive-payment"]')?.addEventListener('click', () => openReceivePayment(
     customer,
     data.open_invoices,
-    (receipt) => { location.hash = `#/customer-receipts/${receipt.id}`; },
+    // Only deposits received (no receipt): stay on the customer.
+    (receipt) => { if (receipt.id) location.hash = `#/customer-receipts/${receipt.id}`; else refresh(); },
   ));
   const advanceById = new Map(data.advances.map((advance) => [String(advance.id), advance]));
   bindCorrections(container, refresh);

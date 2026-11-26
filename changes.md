@@ -967,6 +967,17 @@ Verification:
 - **AGENTS.md:** the not-released note mentions the new rule.
 - **Checked:** `npm run check`; `npm test` 403 (the on-account test now tries a return before paying: refused and the bank unchanged; after paying, a return works and voids again); `npm run test:e2e` 61.
 
+### Visa deposit "Not received yet": due on the visa, received with the invoice from Receive payment
+
+- **Why:** On the New visa form, choosing "Received by" and "Received into" recorded the deposit as received at once, even when the customer had paid nothing ("jab k full invoice abi unpaid hy client ne dia hi nai abi"). The owner wanted it cleared where customer payments are received ("jesay hum record payment or received payment kerty hy customer me waha hi isko b clear hona chaiye"). A mockup was approved ("Haan, bana do").
+- **What:**
+  - New visa form: "Received by" has **Not received yet**; "Received into" then hides and nothing is posted.
+  - Server (`server/services/visa-deposits.js`): `collectDeposit` with `not_received` makes the deposit with `is_due = 1` (new column) and no entry; status **due**. `receiveDeposit` (route `POST /visa-deposits/:id/receive`) posts it in full (Dr bank or cash / Cr 2600, the same "collect" step as before, `postCollect`). A due deposit is dropped with the void button (nothing was posted). Pay to supplier, refund and the rest wait until it is received.
+  - Deposit card: a **Due** badge, "AED … not received yet", and **Receive AED …**.
+  - Customer **Receive payment** lists the customer's due deposits under the invoices with a tick, ticked once the amount covers the invoices and the deposit in full. `receivePayment` takes `deposits`: each is received on its own entry with the receipt number as reference; the receipt (RCP) is the invoice part only, and with only deposits no receipt is made.
+- **Not built yet (in AGENTS.md):** "Deposit goes to: With the visa to the supplier" on the form, "Deposit due" on the customer statement, due deposits in the invoice's own Record payment.
+- **Checked:** `npm run check`; `npm test` 404 (new: a group with a not-received deposit makes a due deposit with no entry; it cannot go to a supplier; Receive payment of 3,070 pays the 1,030 invoice and receives the 2,040 deposit, the bank gets 3,070, the receipt is 1,030, the deposit is held with the receipt as reference, a second receive is refused; a deposit alone is received with no receipt; a due deposit is dropped; ledger checks match); `npm run test:e2e` 62 (new: a not-received deposit shows Due and Receive on the visa, Receive payment of 3,070 ticks it and receives it, deposits, receivables and trial balance match; the ageing test waits for the first statement table, as a customer with a deposit has two). Demo server (scratch data): the card showed "Due · AED 2,040.00 not received yet" and the Receive button; Receive payment listed SD-2026-0001 under the invoices and ticked it once the amount covered everything.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
