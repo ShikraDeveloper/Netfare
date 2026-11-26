@@ -1029,6 +1029,17 @@ Verification:
 - **Not changed:** the sales lists. An existing test (`cancellation-history.test.js`: "an invoice voided as a mistake stays out of the DSR and the statement") records the earlier choice to leave a mistaken invoice out even on its own day; that is left for the owner to decide (AGENTS.md open item).
 - **Checked:** `npm run check`; `npm test` 409 (new: a sale paid in cash whose payment is voided later keeps 400.00 in Cash on its day; a deposit voided later still shows as received that day; cash closes); `npm run test:e2e` 62.
 
+### DSR: an invoice voided later shows on its day and as a void on the void day
+
+- **Why:** Asked whether a mistaken invoice voided later should stay out of its own day's DSR, the owner chose the ledger's way: "jis din void ho us din me dekha do ye sale us din thi aaj void bikul accurate ho jay ga na".
+- **What (`server/services/reports/daily-sales.js`, `dsr-sections.js`, page `daily-sales.js`):**
+  - On its own day a sale voided after the period stays in its list, marked "Voided · <date>" (`voided_on`).
+  - On the void day a line "Void of INV-… · <job>" under Cancellations & Refunds takes the sale back out (and the job's cost), so Cancellations and Net sales match the ledger.
+  - Voided within the same period it is still left out entirely. An invoice with a cancellation is unchanged (the cancellation is its line).
+  - shortcut (in the code): the reversed job cost is today's, so a job whose bills were voided too reverses no cost.
+- **Checked:** `npm run check`; `npm test` 409 (the old "stays out" test now checks: on 10 Nov the 200.00 sale shows with its void date, on the void day a −200.00 void line, statements still leave it out, and a same-day void leaves no trace); `npm run test:e2e` 62. On a read-only copy of the real books (deleted after) the only later voids (INV-2026-0004, INV-2026-0028) belong to cancellations, so 4, 7, 12 and 13 Nov read as before (12 Nov visas 7,235.36).
+- **AGENTS.md:** the open decision is closed; the rule is under lessons.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

@@ -50,6 +50,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
 
   const invoices = db.prepare(`
     SELECT i.id, i.number, i.issue_date, i.created_at, i.status, i.subtotal_cents,
+           (SELECT r.entry_date FROM journal_entries r WHERE r.reversal_of_id = i.journal_entry_id ORDER BY r.id LIMIT 1) AS voided_on,
            i.total_cents, i.amount_paid_cents, i.credit_applied_cents, i.booking_id, i.visa_id,
            c.name AS customer_name,
            b.number AS booking_number, b.destination,
@@ -66,14 +67,17 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     LEFT JOIN visa_applications v ON v.id = i.visa_id
     LEFT JOIN cancellations x ON x.invoice_id = i.id AND x.voided_at IS NULL
     -- A sale cancelled later stays on the day it was made; the cancellation
-    -- appears as its own line on the cancellation date. Invoices voided as
-    -- mistakes are left out.
-    WHERE (i.status = 'sent' OR (i.status = 'void' AND x.id IS NOT NULL))
+    -- appears as its own line on the cancellation date. A void works the same
+    -- way, as in the ledger: voided after the period, the sale stands on its
+    -- day and the void is a line on its own day. Voided within the period, it
+    -- was a mistake and is left out.
+    WHERE (i.status = 'sent' OR (i.status = 'void' AND (x.id IS NOT NULL OR (i.journal_entry_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM journal_entries r WHERE r.reversal_of_id = i.journal_entry_id AND r.entry_date <= ?)))))
       AND i.cancellation_id IS NULL
       AND i.is_opening = 0
       AND i.issue_date >= ? AND i.issue_date <= ?
     ORDER BY i.issue_date, i.id
-  `).all(start, end);
+  `).all(end, start, end);
 
   const cancellations = db.prepare(`
     SELECT cc.*, c.name AS customer_name,
@@ -153,6 +157,7 @@ function dailySales(db, from, to, { staff = '' } = {}) {
       cancelled_by: cancelled
         ? { id: row.cancelled_by_id, number: row.cancelled_by_number, date: row.cancelled_on }
         : null,
+      voided_on: row.status === 'void' && !hasCancellation ? row.voided_on : null,
       staff: row.staff || NO_STAFF,
     });
   }
@@ -261,6 +266,28 @@ function dailySales(db, from, to, { staff = '' } = {}) {
     `).all(start, end)) {
       allItems.push(refundLine(row, kind, { cost: -row.amount_cents, label: 'Refund from supplier', href: `#/supplier-credits/${row.id}` }));
     }
+  }
+
+  // An earlier sale voided in the period: a line on the void day that takes
+  // the sale (and its job cost) back out, like the ledger's reversal.
+  // shortcut: the job cost is today's, so a job whose bills were voided too reverses 0 cost; fine while voids are rare.
+  for (const row of db.prepare(`
+    SELECT i.id, i.number, i.subtotal_cents, i.booking_id, i.visa_id, i.created_by AS staff, r.entry_date AS date, r.created_at,
+           c.name AS customer_name, COALESCE(b.number, v.number) AS job_number, COALESCE(i.booking_id, i.visa_id) AS job_id
+    FROM invoices i
+    JOIN journal_entries r ON r.reversal_of_id = i.journal_entry_id
+    JOIN customers c ON c.id = i.customer_id
+    LEFT JOIN bookings b ON b.id = i.booking_id
+    LEFT JOIN visa_applications v ON v.id = i.visa_id
+    WHERE i.status = 'void' AND i.cancellation_id IS NULL AND i.is_opening = 0
+      AND NOT EXISTS (SELECT 1 FROM cancellations x WHERE x.invoice_id = i.id AND x.voided_at IS NULL)
+      AND r.entry_date >= ? AND r.entry_date <= ? AND i.issue_date < ?
+  `).all(start, end, start)) {
+    const kind = row.booking_id ? 'booking' : row.visa_id ? 'visa' : 'direct';
+    const cost = kind === 'booking' ? (bookingCosts.get(row.booking_id) || 0) : kind === 'visa' ? (visaCosts.get(row.visa_id) || 0) : 0;
+    allItems.push(refundLine({ ...row, job_number: row.job_number || row.number }, kind, {
+      sale: -row.subtotal_cents, cost: -cost, label: `Void of ${row.number}`, href: `#/invoices/${row.id}`,
+    }));
   }
 
   // Sales by staff for the whole period; the staff filter then narrows the

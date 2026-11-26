@@ -50,6 +50,7 @@ const profitCells = (row) => `<td class="num dsr-profit">${cell(row.cost_cents)}
 const profitTotals = (rows) => `<td class="num dsr-profit">${money(sumOf(rows, (r) => r.cost_cents))}</td><td class="num dsr-profit">${money(sumOf(rows, (r) => r.margin_cents))}</td>`;
 
 function cancelledNote(row) {
+  if (row.voided_on) return `<div class="dsr-sub dsr-cancelled">Voided · ${esc(fmtDate(row.voided_on, { short: true }))}</div>`;
   if (!row.cancelled_by) return '';
   return `<div class="dsr-sub dsr-cancelled">Cancelled · <a href="#/cancellations/${row.cancelled_by.id}">${esc(short(row.cancelled_by.number))}</a></div>`;
 }

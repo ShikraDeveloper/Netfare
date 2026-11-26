@@ -174,6 +174,7 @@ function dsrSections(db, start, end, items) {
       from_deposit_cents: fromDeposit,
       unpaid_cancelled_cents: cancelled ? Math.max(0, invoice.total_cents - received) : 0,
       cancelled_by: item.cancelled_by || null,
+      voided_on: item.voided_on || null,
       remarks: invoice.notes || '',
       staff: item.staff,
     };

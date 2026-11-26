@@ -157,7 +157,9 @@ test('the DSR keeps the sale on its day and nets to the charges less retained co
   assert.deepEqual([totals.sale_cents, totals.cost_cents, totals.margin_cents], [10_000, 5_000, 5_000]);
 });
 
-test('an invoice voided as a mistake stays out of the DSR and the statement', () => {
+test('an invoice voided later shows on its day and as a void on the void day; voided the same day it stays out', () => {
+  const { todayISO } = require('../server/util');
+  const today = todayISO();
   const customerId = customer('History Mistake');
   const invoice = invoiceService.createInvoice(db, {
     customer_id: customerId,
@@ -165,7 +167,16 @@ test('an invoice voided as a mistake stays out of the DSR and the statement', ()
     items: [{ description: 'Typed twice', quantity: 1, unit_price_cents: 20_000, account_id: account('4300').id }],
   });
   invoiceService.voidInvoice(db, invoice.id, { remarks: 'Duplicate' });
-  assert.equal(dailySales(db, '2026-11-10', '2026-11-10').days.flatMap((day) => day.rows)
-    .filter((row) => row.id === invoice.id && !row.is_cancellation).length, 0);
-  assert.deepEqual(lines(customerId), []);
+  const onItsDay = dailySales(db, '2026-11-10', '2026-11-10').days.flatMap((day) => day.rows).find((row) => row.id === invoice.id && !row.is_cancellation);
+  assert.deepEqual([onItsDay.sale_cents, onItsDay.voided_on], [20_000, today], 'the sale stood that day, as in the ledger');
+  const voidLine = dailySales(db, today, today).days.flatMap((day) => day.rows).find((row) => row.is_cancellation && row.number === invoice.number);
+  assert.equal(voidLine.sale_cents, -20_000, 'taken back out on the void day');
+  assert.deepEqual(lines(customerId), [], 'the statement leaves voided invoices out');
+
+  const sameDay = invoiceService.createInvoice(db, {
+    customer_id: customerId, issue_date: today,
+    items: [{ description: 'Typed twice', quantity: 1, unit_price_cents: 5_000, account_id: account('4300').id }],
+  });
+  invoiceService.voidInvoice(db, sameDay.id, { remarks: 'Duplicate' });
+  assert.equal(dailySales(db, today, today).days.flatMap((day) => day.rows).filter((row) => row.number === sameDay.number).length, 0, 'a same-day mistake leaves no trace');
 });
