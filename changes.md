@@ -996,6 +996,15 @@ Verification:
 - **AGENTS.md:** both rules added to the not-released note.
 - **Checked:** `npm run check`; `npm test` 406 (new: a receipt with a deposit voided puts the bank back and the deposit to due; a rejected visa's due deposit is refused and not offered; ledger checks match); `npm run test:e2e` 62.
 
+### Release 1.0.34 — `e536482`, tag `v1.0.34`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** a visa deposit on a credit supplier's account (a bill on the supplier statement, paid with Pay supplier); "Not received yet" deposits that wait as Due and are received from the card or with invoices in Receive payment; "Deposit goes to: With the visa to the supplier" on the New visa form; and the audit fixes (no return before the deposit bill is paid, no due deposit received on a cancelled or rejected visa, a voided receipt puts its deposits back to due).
+- **Checked:** a clean copy of main passed `npm run check` (299 files), `npm test` 406 and `npm run test:e2e` 62. GitHub run 45826154856 (2m33s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.34); releases/latest is v1.0.34.
+- **Old release deleted:** v1.0.29 (tag kept); five releases remain, 1.0.30 to 1.0.34.
+- **AGENTS.md:** latest release 1.0.34; the not-released notes now say "In 1.0.34".
+- **After the update in the office:** on VIS-2026-0053, void the "Paid to supplier" step of SD-2026-0001 and pay it again with "HolidaySpace · add to what we owe".
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

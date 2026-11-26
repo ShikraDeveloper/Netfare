@@ -122,18 +122,18 @@ Demo server for looking at screens (scratch data only):
 
 ## Where things stand (update this)
 
-- Latest release: **1.0.33** (25 Nov 2026). Check with `git status -sb` whether `main` is level with GitHub.
+- Latest release: **1.0.34** (26 Nov 2026). Check with `git status -sb` whether `main` is level with GitHub.
 - This file was written on 25 Nov 2026 and is kept current with every change.
-- Not released yet: a visa deposit can be "Not received yet" on the New visa form (Received by). It waits as **Due** on the visa (no money, no entry) and is received from the deposit card (Receive) or together with invoices from the customer's **Receive payment** (each due deposit taken in full, its own entry Dr bank / Cr 2600; the receipt RCP is only the invoice part). Voiding that receipt puts its deposits back to due. A due deposit of a cancelled or rejected visa cannot be received (drop it with the void button).
-- Not released yet: the New visa form has **Deposit goes to: Keep with us / With the visa to the supplier**. With the second, submitting the visa sends each received deposit to the supplier of the visa's bill: onto a credit account (a bill) or from a prepaid wallet; if it can't (no portal, wallet too low, no supplier bill) it stays with us and the submit gives a warning. A due deposit marked this way goes when it is received, if the visa is already submitted.
-- Not released yet: a visa deposit can go on a credit supplier's account ("Paid from" → "On the supplier's account (pay later)"). It becomes a supplier bill on account 1460, shows on the supplier statement, is paid with Pay supplier, and is voided only on the deposit card. A return from the supplier is refused until that bill is paid.
+- In 1.0.34: a visa deposit can be "Not received yet" on the New visa form (Received by). It waits as **Due** on the visa (no money, no entry) and is received from the deposit card (Receive) or together with invoices from the customer's **Receive payment** (each due deposit taken in full, its own entry Dr bank / Cr 2600; the receipt RCP is only the invoice part). Voiding that receipt puts its deposits back to due. A due deposit of a cancelled or rejected visa cannot be received (drop it with the void button).
+- In 1.0.34: the New visa form has **Deposit goes to: Keep with us / With the visa to the supplier**. With the second, submitting the visa sends each received deposit to the supplier of the visa's bill: onto a credit account (a bill) or from a prepaid wallet; if it can't (no portal, wallet too low, no supplier bill) it stays with us and the submit gives a warning. A due deposit marked this way goes when it is received, if the visa is already submitted.
+- In 1.0.34: a visa deposit can go on a credit supplier's account ("Paid from" → "On the supplier's account (pay later)"). It becomes a supplier bill on account 1460, shows on the supplier statement, is paid with Pay supplier, and is voided only on the deposit card. A return from the supplier is refused until that bill is paid.
 - Recent work: the Daily Sales Report (DSR) in the counter format (sales lists with Cash, Card, Bank and Credit columns, then boxes for payments, cash in hand, sales by how paid, bank, petty cash, and supplier and wallet balances); moves between our own accounts shown as moves, not payments; Reminders with suggestions and WhatsApp; Pay supplier; company customers with payment days; Settings in five groups.
 - The multi-user plan is done through step 5: security, logins with per-user rights, office network, desktop app, update notice. Step 6 (download page) is open, and where the site is hosted is not recorded: ask the owner.
 
 ## Open items (update this)
 
 Waiting on the owner:
-- After the next update: on VIS-2026-0053, void the "Paid to supplier" step of SD-2026-0001 (it took 2,040.00 out of the bank, but nothing was sent) and pay it again with "HolidaySpace · add to what we owe".
+- After updating to 1.0.34: on VIS-2026-0053, void the "Paid to supplier" step of SD-2026-0001 (it took 2,040.00 out of the bank, but nothing was sent) and pay it again with "HolidaySpace · add to what we owe".
 - After updating, in the app: upload the logo again (Settings → Company), set company customers to "Company" with their payment days, and set the HolidaySpace credit limit if there is one.
 - Decide what to do about Sadia Sohail's duplicate invoices.
 - Decide whether the card fee of 307.26 in account 6700 is right.
