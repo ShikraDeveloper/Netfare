@@ -99,7 +99,7 @@ test('voiding an invoice cascades payments and records remarks in the audit log'
   assertBalanced();
 });
 
-test('voiding an invoice with a refund and an applied credit reverses both', () => {
+test('voiding an invoice keeps a refund that was given, reverses an applied credit, and keeps the rest as an advance', () => {
   const customerId = insertCustomer('Void Mixed Customer');
   const invoice = invoiceService.createInvoice(db, {
     customer_id: customerId,
@@ -138,8 +138,10 @@ test('voiding an invoice with a refund and an applied credit reverses both', () 
   assert.equal(voided.status, 'void');
   assert.equal(voided.amount_paid_cents, 0);
   assert.equal(voided.credit_applied_cents, 0);
-  assert.equal(db.prepare('SELECT status FROM refunds WHERE invoice_id = ?').get(invoice.id).status, 'void');
+  assert.equal(db.prepare('SELECT status FROM refunds WHERE invoice_id = ?').get(invoice.id).status, 'paid', 'the 400.00 refund was given');
   assert.equal(creditService.getCredit(db, credit.id).applied_cents, 0);
+  const kept = db.prepare('SELECT a.amount_cents FROM payments p JOIN customer_advances a ON a.id = p.kept_advance_id WHERE p.invoice_id = ?').get(invoice.id);
+  assert.equal(kept.amount_cents, 60_000, '1,000.00 paid less 400.00 refunded');
   assertBalanced();
 });
 
@@ -380,5 +382,33 @@ test('a portal credit cannot be voided if it would make a past wallet balance ne
     /negative on a past date/i,
   );
   assert.equal(db.prepare('SELECT status FROM portal_credits WHERE id = ?').get(credit.id).status, 'posted');
+  assertBalanced();
+});
+
+test('voiding an invoice after a partial refund keeps the refund and makes only the rest an advance', () => {
+  const statements = require('../server/services/statements');
+  const reconciliation = require('../server/services/reconciliation');
+  const customerId = insertCustomer('Partly Refunded Customer');
+  const cashOf = () => db.prepare(`SELECT COALESCE(SUM(l.debit_cents - l.credit_cents), 0) AS b FROM journal_lines l
+    JOIN accounts a ON a.id = l.account_id WHERE a.code = '1000'`).get().b;
+  const invoice = invoiceService.createInvoice(db, {
+    customer_id: customerId, issue_date: '2026-11-20', due_date: '2026-11-20', status: 'sent',
+    items: [{ description: 'Fee', quantity: 1, unit_price_cents: 45_000, account_id: account('4300').id }],
+  });
+  const paid = invoiceService.recordInvoicePayment(db, invoice.id, { amount_cents: 45_000, payment_date: '2026-11-20', method: 'Cash', deposit_account_id: account('1000').id });
+  const refund = refundService.createRefund(db, {
+    refund_type: 'customer', party_id: customerId, invoice_id: invoice.id, payment_id: paid.payments[0].id,
+    amount_cents: 10_000, refund_date: '2026-11-21', account_id: account('1000').id, method: 'Cash',
+  });
+  const cashBefore = cashOf();
+  invoiceService.voidInvoice(db, invoice.id, { remarks: 'Not taken' });
+  assert.equal(cashOf(), cashBefore, 'the 100.00 given back stays given back');
+  assert.equal(db.prepare('SELECT status FROM refunds WHERE id = ?').get(refund.id).status, 'paid');
+  const kept = db.prepare('SELECT a.amount_cents FROM payments p JOIN customer_advances a ON a.id = p.kept_advance_id WHERE p.invoice_id = ?').get(invoice.id);
+  assert.equal(kept.amount_cents, 35_000, 'only the 350.00 not refunded is the advance');
+  assert.equal(statements.customerStatement(db, customerId, { from: '2000-01-01' }).closing_balance_cents, 0, 'the statement ties to receivables');
+  for (const check of reconciliation.reconciliationSummary(db).checks.filter((c) => ['receivables', 'customer_advances', 'trial_balance'].includes(c.key))) {
+    assert.equal(check.matched, true, check.key);
+  }
   assertBalanced();
 });

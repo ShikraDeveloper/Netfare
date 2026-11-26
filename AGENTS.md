@@ -162,5 +162,5 @@ Later (only when asked):
 - A correction voids the old document and dates the void on the old document's own day (`server/services/corrections.js`). Reports must treat such a void as part of the same day.
 - The "Mac SSD" volume ignores file ownership, so `chmod` gives no protection there. The real books are on the internal disk on purpose.
 - `rm -rf` with a variable path is blocked by a safety check here. Use literal absolute paths, or move things to the Trash with Finder (`osascript -e 'tell application "Finder" to delete POSIX file "…"'`).
-- An advance made from a voided invoice's payment (`payments.kept_advance_id`) is not a new receipt: the DSR leaves it out of money received, and it cannot be voided (refund or use it instead).
+- An advance made from a voided invoice's payment (`payments.kept_advance_id`) is not a new receipt: the DSR leaves it out of money received, and it cannot be voided (refund or use it instead). A refund already given from that payment stays; only the rest becomes the advance, and the customer statement leaves out such refunds with their voided invoice.
 - Electron 44 has no `clipboard.writeBuffer`. The desktop app copies a PDF with `osascript` "set the clipboard to (POSIX file …)".

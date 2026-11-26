@@ -1059,6 +1059,15 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 409 (void test: 400.00 paid stays as an advance with reference "Void of …" and cash unchanged; admin-void tests unchanged; DSR summary has `voids_cents`); `npm run test:e2e` 62. Demo copy (deleted after), three invoices voided on 26 Nov: unpaid 450.00, paid 300.00 cash, 200.00 of 500.00 by bank → Voided invoices −1,250.00 with 500.00 kept as advance (ADV for Rahul Menon 300.00 and Gulf Tech FZE 200.00), Payments 0.00, Voided earlier sales −1,250.00, cash and bank unchanged.
 - **AGENTS.md:** not-released note and a lesson on kept advances.
 
+### Void after a partial refund: the refund stays, only the rest becomes the advance
+
+- **Why:** `/ponytail-audit` of the void-to-advance change found that voiding a paid invoice first voided its refunds (the old rule), so a 100.00 refund really given came back into cash and the advance was 450.00 instead of 350.00. The owner said "Haan, fix karo".
+- **What:**
+  - `voidInvoice` (`server/services/invoices.js`) leaves alone the paid refunds of a payment it keeps; refunds of other payments and of the invoice itself are voided as before (admin and job voids unchanged).
+  - `keepPaymentAsAdvance` keeps only the payment less its refunds as the advance; a payment refunded in full keeps nothing and is void as of the invoice's void entry.
+  - The customer statement (`server/services/statements.js`) leaves out a refund of a payment whose invoice is void, as it leaves out the payment, so it ties to receivables.
+- **Checked:** `npm run check`; `npm test` 410 (new: 450.00 paid, 100.00 refunded, then void: cash unchanged, refund still paid, advance 350.00, statement closing 0.00, receivables, advances and trial balance match; the older mixed test now expects the 400.00 refund kept and a 600.00 advance); `npm run test:e2e` 62.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

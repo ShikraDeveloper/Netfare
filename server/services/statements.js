@@ -219,6 +219,9 @@ function customerTransactions(db, customerId) {
       AND r.cancellation_id IS NULL AND r.advance_id IS NULL
       -- Visa deposit refunds belong to the separate deposit section.
       AND r.deposit_id IS NULL
+      -- A refund of a payment on an invoice voided later went with that invoice
+      -- (the rest of the payment became an advance), like the payment itself.
+      AND NOT EXISTS (SELECT 1 FROM payments kp JOIN invoices ki ON ki.id = kp.invoice_id WHERE kp.id = r.payment_id AND ki.status = 'void')
   `).all(customerId, customerId, customerId, customerId, customerId, customerId, customerId);
   const rows = groupReceipts(db, customerId, lines)
     .sort((a, b) => byDateThenEntry(a, b) || rank(a) - rank(b) || a.id - b.id)

@@ -599,13 +599,17 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
       });
     }
 
+    // A refund of a payment we keep as an advance really happened: it stays,
+    // and only what was not refunded becomes the advance.
+    const keeps = (payment) => !fromWorkflow && !payment.advance_id && !payment.deposit_id;
+    const keptIds = new Set(db.prepare("SELECT * FROM payments WHERE invoice_id = ? AND status = 'posted'").all(invoice.id).filter(keeps).map((p) => p.id));
     const refunds = db.prepare(`
-      SELECT id FROM refunds
+      SELECT id, payment_id FROM refunds
       WHERE status = 'paid' AND (
         invoice_id = ? OR payment_id IN (SELECT id FROM payments WHERE invoice_id = ?)
       )
       ORDER BY id
-    `).all(invoice.id, invoice.id);
+    `).all(invoice.id, invoice.id).filter((refund) => !keptIds.has(refund.payment_id));
     for (const refund of refunds) {
       refundService.voidRefund(db, refund.id, {
         remarks: remarks || `Voided with invoice ${invoice.number}`,
@@ -616,12 +620,13 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
     // customer's advance (no cash or bank moves); a share of an advance or
     // receipt goes back to it. Giving money back is a separate refund.
     const payments = db.prepare("SELECT * FROM payments WHERE invoice_id = ? AND status = 'posted' ORDER BY id").all(invoice.id);
+    const refundedAway = [];
     for (const payment of payments) {
       // An admin void or a job workflow undoes everything, the money included.
-      if (fromWorkflow || payment.advance_id || payment.deposit_id) {
+      if (!keptIds.has(payment.id)) {
         deleteInvoicePayment(db, payment.id, { remarks: remarks || `Voided with invoice ${invoice.number}` });
       } else {
-        keepPaymentAsAdvance(db, payment, invoice, remarks);
+        if (!keepPaymentAsAdvance(db, payment, invoice, remarks)) refundedAway.push(payment.id);
       }
     }
 
@@ -630,11 +635,13 @@ function voidInvoice(db, id, payload = {}, { fromWorkflow = false } = {}) {
       throw bad('Linked payments or credits could not be fully reversed');
     }
     if (fresh.status === 'sent' && fresh.journal_entry_id) {
-      reverseEntry(db, fresh.journal_entry_id, {
+      const reversalId = reverseEntry(db, fresh.journal_entry_id, {
         entry_date: todayISO(),
         memo: audit.withRemarks(`Void invoice ${fresh.number}`, remarks),
         source_type: 'void',
       });
+      // A payment refunded in full keeps nothing; it is void as of the invoice's void.
+      for (const paymentId of refundedAway) db.prepare('UPDATE payments SET void_entry_id = ? WHERE id = ?').run(reversalId, paymentId);
     }
     db.prepare(`UPDATE invoices SET status = 'void', updated_at = datetime('now') WHERE id = ?`).run(id);
     audit.record(db, {
@@ -841,11 +848,19 @@ function deleteInvoicePayment(db, paymentId, payload = {}) {
 
 function keepPaymentAsAdvance(db, payment, invoice, remarks) {
   const date = todayISO();
+  const refunded = db.prepare("SELECT COALESCE(SUM(amount_cents), 0) AS n FROM refunds WHERE payment_id = ? AND status = 'paid'").get(payment.id).n;
+  const kept = payment.amount_cents - refunded;
+  db.prepare("UPDATE invoices SET amount_paid_cents = MAX(0, amount_paid_cents - ?), updated_at = datetime('now') WHERE id = ?")
+    .run(payment.amount_cents, invoice.id);
+  if (kept <= 0) {
+    db.prepare("UPDATE payments SET status = 'void', voided_at = datetime('now') WHERE id = ?").run(payment.id);
+    return false;
+  }
   const number = allocateNumber(db, 'advance', date);
   const advanceId = Number(db.prepare(`
     INSERT INTO customer_advances (number, customer_id, advance_date, amount_cents, method, reference, deposit_account_id, is_receipt)
     VALUES (?, ?, ?, ?, ?, ?, ?, 0)
-  `).run(number, payment.customer_id, date, payment.amount_cents, payment.method, `Void of ${invoice.number}`, payment.deposit_account_id).lastInsertRowid);
+  `).run(number, payment.customer_id, date, kept, payment.method, `Void of ${invoice.number}`, payment.deposit_account_id).lastInsertRowid);
   markCreated(db, 'customer_advances', advanceId);
   const entryId = postEntry(db, {
     entry_date: date,
@@ -854,21 +869,20 @@ function keepPaymentAsAdvance(db, payment, invoice, remarks) {
     source_type: 'void',
     source_id: payment.id,
     lines: [
-      { account_id: systemAccount(db, '1100', 'Trade Receivables').id, debit_cents: payment.amount_cents, credit_cents: 0, description: `Invoice ${invoice.number}` },
-      { account_id: systemAccount(db, '2400', 'Contract Liabilities (Customer Advances)').id, debit_cents: 0, credit_cents: payment.amount_cents, description: `Advance ${number}` },
+      { account_id: systemAccount(db, '1100', 'Trade Receivables').id, debit_cents: kept, credit_cents: 0, description: `Invoice ${invoice.number}` },
+      { account_id: systemAccount(db, '2400', 'Contract Liabilities (Customer Advances)').id, debit_cents: 0, credit_cents: kept, description: `Advance ${number}` },
     ],
   });
   db.prepare('UPDATE customer_advances SET journal_entry_id = ? WHERE id = ?').run(entryId, advanceId);
   db.prepare(`
     UPDATE payments SET status = 'void', void_entry_id = ?, voided_at = datetime('now'), kept_advance_id = ? WHERE id = ?
   `).run(entryId, advanceId, payment.id);
-  db.prepare("UPDATE invoices SET amount_paid_cents = MAX(0, amount_paid_cents - ?), updated_at = datetime('now') WHERE id = ?")
-    .run(payment.amount_cents, invoice.id);
   audit.record(db, {
     entity_type: 'payment', entity_id: payment.id, entity_number: payment.number, action: 'void',
-    remarks: remarks || `Kept as advance ${number} with invoice ${invoice.number}`, amount_cents: payment.amount_cents,
+    remarks: remarks || `Kept as advance ${number} with invoice ${invoice.number}`, amount_cents: kept,
     metadata: { invoice_id: invoice.id, invoice_number: invoice.number, kept_advance: number },
   });
+  return true;
 }
 
 // Everything a printed receipt voucher needs for one customer payment.
