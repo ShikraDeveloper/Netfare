@@ -288,3 +288,19 @@ test('a mistake voided the same day leaves the DSR; a top-up names its portal an
   for (const p of [cash, bank]) assert.equal(p.closing_cents, p.opening_cents + p.in_cents - p.out_cents);
   assert.equal(cash.in_cents, 4_000, 'only the real cash in');
 });
+
+test('a payment voided on a later day still shows on its own day, and the cash box adds up', () => {
+  const day = '2026-11-25';
+  const old = invoiceService.createInvoice(db, {
+    customer_id: customerId, issue_date: '2026-11-02',
+    items: [{ description: 'Old visa', quantity: 1, unit_price_cents: 30_000, account_id: account('4300').id }],
+  });
+  const payment = pay(old.id, 30_000, 'Cash', '1000', day);
+  invoiceService.deleteInvoicePayment(db, payment.payments.at(-1).id, { remarks: 'Bounced' });
+  const voidDay = db.prepare("SELECT v.entry_date FROM payments p JOIN journal_entries v ON v.id = p.void_entry_id WHERE p.invoice_id = ?").get(old.id).entry_date;
+  assert.ok(voidDay > day, 'voided after the day');
+  const sections = dailySales(db, day, day).sections;
+  assert.ok(sections.collections.some((row) => row.invoice_number === old.number && row.amount_cents === 30_000), 'listed on its day');
+  assert.equal(sections.summary.collected.cash, sections.summary.position.cash.in_cents, 'nothing left over as other cash in');
+  assert.ok(!dailySales(db, voidDay, voidDay).sections.collections.some((row) => row.invoice_number === old.number), 'not on the void day');
+});

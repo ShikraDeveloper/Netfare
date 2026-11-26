@@ -227,7 +227,12 @@ function dsrSections(db, start, end, items) {
           : row.invoice_number ? `Invoice ${row.invoice_number}` : '',
   }));
 
-  // Money received in the period that is not a sale of the period.
+  // Money received in the period that is not a sale of the period. A payment
+  // voided after the period still came in then (the money flows count it), so
+  // it stays; only a void inside the period takes it out.
+  const voidDate = (alias) => `(SELECT entry_date FROM journal_entries WHERE id = COALESCE(${alias}.void_entry_id,
+      (SELECT void_entry_id FROM customer_advances WHERE id = ${alias}.advance_id)))`;
+  const livePayment = (alias) => `(${alias}.status = 'posted' OR ${voidDate(alias)} > ?)`;
   const collections = [
     ...db.prepare(`
       SELECT p.id, p.number, p.payment_date AS date, p.created_at, p.amount_cents, p.method,
@@ -235,25 +240,26 @@ function dsrSections(db, start, end, items) {
       FROM payments p
       JOIN invoices i ON i.id = p.invoice_id
       JOIN customers c ON c.id = p.customer_id
-      WHERE p.status = 'posted' AND (p.advance_id IS NULL OR p.from_receipt = 1)
+      WHERE ${livePayment('p')} AND (p.advance_id IS NULL OR p.from_receipt = 1)
         AND p.payment_date >= ? AND p.payment_date <= ?
         ${saleIds.length ? `AND p.invoice_id NOT IN (${placeholders})` : ''}
-    `).all(start, end, ...saleIds).map((row) => ({
+    `).all(end, start, end, ...saleIds).map((row) => ({
       ...row, kind: 'payment', against: `Invoice ${row.invoice_number} · ${row.invoice_date}`,
     })),
     ...db.prepare(`
       SELECT * FROM (
         SELECT a.id, a.number, a.advance_date AS date, a.created_at, a.method, a.is_receipt,
                a.amount_cents - COALESCE((SELECT SUM(p.amount_cents) FROM payments p
-                 WHERE p.advance_id = a.id AND p.from_receipt = 1 AND p.status = 'posted'), 0) AS amount_cents,
+                 WHERE p.advance_id = a.id AND p.from_receipt = 1 AND ${livePayment('p')}), 0) AS amount_cents,
                c.name AS customer_name, b.number AS booking_number, v.number AS visa_number
         FROM customer_advances a
         JOIN customers c ON c.id = a.customer_id
         LEFT JOIN bookings b ON b.id = a.booking_id
         LEFT JOIN visa_applications v ON v.id = a.visa_id
-        WHERE a.voided_at IS NULL AND a.advance_date >= ? AND a.advance_date <= ?
+        WHERE (a.voided_at IS NULL OR (SELECT entry_date FROM journal_entries WHERE id = a.void_entry_id) > ?)
+          AND a.advance_date >= ? AND a.advance_date <= ?
       ) WHERE amount_cents > 0
-    `).all(start, end).map((row) => ({
+    `).all(end, end, start, end).map((row) => ({
       ...row,
       kind: 'advance',
       against: row.is_receipt ? `Advance · left from receipt ${row.number}` : ['Advance', row.booking_number || row.visa_number].filter(Boolean).join(' · '),

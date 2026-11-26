@@ -505,6 +505,8 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_visa_deposits_visa ON visa_deposits(visa_id);
   CREATE INDEX IF NOT EXISTS idx_visa_deposits_customer ON visa_deposits(customer_id);
   CREATE INDEX IF NOT EXISTS idx_visa_deposit_events_deposit ON visa_deposit_events(deposit_id);
+  -- The DSR asks, for each money line, whether a void of it falls in the period.
+  CREATE INDEX IF NOT EXISTS idx_journal_entries_reversal ON journal_entries(reversal_of_id);
   CREATE INDEX IF NOT EXISTS idx_refunds_deposit ON refunds(deposit_id);
   CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON invoice_items(invoice_id);
   CREATE INDEX IF NOT EXISTS idx_bill_items_bill ON bill_items(bill_id);

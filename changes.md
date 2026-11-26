@@ -1014,6 +1014,14 @@ Verification:
 - **Checked:** `npm run check`; `npm test` 407 (new: a top-up with charges shows as "Top-up · Day Wallet" and "Bank charges"; a move and its void on the same day are neither money out nor listed; positions close); `npm run test:e2e` 62. 26 Nov printed again from a fresh read-only copy (deleted after): Payments Top-up · HolidaySpace −4,150.03, Top-up · Akbar Travel Online −2,313.92, Bank charges −2.10, Total −6,466.05; Bank In 2,250.73, Out −6,466.05, Closing −4,443.76 (unchanged); cash in hand 1,850.00.
 - **AGENTS.md:** the SD-2026-0001 redo is gone (the owner cancelled VIS-2026-0053); the same-period rule is under lessons; a not-released note.
 
+### DSR audit fixes: a payment voided later stays on its day; an index for void lookups
+
+- **Why:** `/ponytail-audit` of the same-day-void change; the user said "Fix both".
+- **1. Voided later:** "Received for older invoices" took only payments still posted, so a cash payment of one day voided on a later day vanished from that day's list while the money flows still counted it, and the cash box showed "Other cash in". Payments and receipts (and receipt shares) now count when they are posted or their void falls after the period (`livePayment` in `server/services/reports/dsr-sections.js`); a void inside the period still takes them out.
+- **2. Index:** `idx_journal_entries_reversal` on `journal_entries(reversal_of_id)` (`server/migrations.js`), so checking each money line for a void in the period stays fast as the books grow.
+- **Not checked:** other reports for the same "voided later" rule; visa deposits collected and voided on a later day.
+- **Checked:** `npm run check`; `npm test` 408 (new: a 300.00 cash payment voided the next day shows on its own day, cash collected equals cash in, and it is not on the void day); `npm run test:e2e` 62.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
