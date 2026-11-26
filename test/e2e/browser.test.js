@@ -1691,6 +1691,7 @@ test('a visa security deposit is taken with the application, shown apart from sa
   await row.locator('.va-deposit').fill('4000');
   assert.equal(await dialog.locator('[data-deposit-received]').isVisible(), true);
   assert.equal((await dialog.locator('#vg-margin').innerText()).replace(/\s+/g, ' '), 'AED 350.00', 'the deposit is not part of the margin');
+  assert.equal((await dialog.locator('[data-seg="deposit-goes"] [aria-pressed="true"]').innerText()).trim(), 'Keep with us', 'kept with us unless chosen');
   await dialog.locator('[data-submit]').click();
   await page.waitForFunction(() => location.hash.startsWith('#/visas/'));
 

@@ -413,6 +413,7 @@ function submitVisa(db, id, options = {}) {
     const { invoice, warnings } = postVisaDocuments(db, visa);
     db.prepare("UPDATE visa_applications SET status = 'submitted', invoice_id = ?, updated_at = datetime('now') WHERE id = ?")
       .run(invoice.id, id);
+    require('./visa-deposits').sendWithVisa(db, id, warnings);
     jobs.recordStatus(db, 'visa', id, { from: 'draft', to: 'submitted', remarks: `Invoice ${invoice.number} posted` });
     const appliedAdvances = options.apply_advances ? jobs.applyOpenAdvances(db, 'visa', id, invoice) : [];
     const result = getVisa(db, id);
@@ -577,6 +578,7 @@ function createVisaGroup(db, payload = {}) {
             account_id: payload.deposit?.account_id,
             method: payload.deposit?.method,
             not_received: Boolean(payload.deposit?.not_received),
+            send_with_visa: Boolean(payload.deposit?.send_with_visa),
           });
         } catch (error) {
           if (error.status === 400) error.message = `Applicant ${index + 1} deposit: ${error.message}`;

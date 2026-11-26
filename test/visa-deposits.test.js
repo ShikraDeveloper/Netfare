@@ -318,3 +318,41 @@ test('a deposit not received yet waits as due, then is received with the invoice
   assert.equal(deposits.voidLastEvent(db, dropped.id, { remarks: 'Not needed' }).status, 'void');
   assertChecksMatch();
 });
+
+test('"with the visa to the supplier": sent on submit onto a credit account, or from a wallet; otherwise it stays with a warning', () => {
+  const portals = require('../server/services/portals');
+  const creditVendor = Number(db.prepare("INSERT INTO vendors (name) VALUES ('Credit Visa Co')").run().lastInsertRowid);
+  portals.createPortal(db, { name: 'Credit Visa Co', portal_type: 'visa_agent', settlement: 'credit', vendor_id: creditVendor });
+  const plainVendor = Number(db.prepare("INSERT INTO vendors (name) VALUES ('No Portal Visa Co')").run().lastInsertRowid);
+  const group = (name, vendor, deposit) => visaService.createVisaGroup(db, {
+    customer_id: customerId, application_date: '2026-11-26', destination_country: 'UAE', deposit: { ...deposit, send_with_visa: true },
+    applicants: [{
+      applicant_name: name, deposit_cents: 204_000,
+      sale_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 103_000, account_id: account('4320').id }],
+      cost_items: [{ description: 'Visa', quantity: 1, unit_price_cents: 100_000, account_id: account('5120').id, vendor_id: vendor }],
+    }],
+  }).applications[0];
+
+  const bankBefore = balance('1010');
+  const onCredit = group('With Credit', creditVendor, { account_id: bank(), method: 'Bank transfer' });
+  assert.equal(deposits.getDeposit(db, onCredit.deposits[0].id).in_hand_cents, 204_000, 'nothing goes before submit');
+  const submitted = visaService.submitVisa(db, onCredit.id);
+  const sent = deposits.getDeposit(db, onCredit.deposits[0].id);
+  assert.deepEqual([sent.with_supplier_cents, sent.events.at(-1).method], [204_000, 'On account']);
+  assert.equal(balance('1010'), bankBefore + 204_000, 'received into the bank, nothing paid out');
+  assert.equal(db.prepare('SELECT vendor_id FROM bills WHERE id = ?').get(sent.events.at(-1).bill_id).vendor_id, creditVendor);
+  assert.ok(!(submitted.warnings || []).some((w) => /stays with you/.test(w)));
+
+  const noPortal = group('No Portal', plainVendor, { account_id: bank(), method: 'Bank transfer' });
+  const result = visaService.submitVisa(db, noPortal.id);
+  assert.ok(result.warnings.some((w) => /stays with you: the supplier has no portal account/.test(w)));
+  assert.equal(deposits.getDeposit(db, noPortal.deposits[0].id).in_hand_cents, 204_000);
+
+  // Not received yet: it goes once the customer pays, as the visa is already in.
+  const due = group('Due Then Sent', creditVendor, { not_received: true });
+  visaService.submitVisa(db, due.id);
+  assert.equal(deposits.getDeposit(db, due.deposits[0].id).status, 'due');
+  const later = deposits.receiveDeposit(db, due.deposits[0].id, { account_id: bank(), method: 'Bank transfer', event_date: '2026-11-26' });
+  assert.equal(later.with_supplier_cents, 204_000);
+  assertChecksMatch();
+});

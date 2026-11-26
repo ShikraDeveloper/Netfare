@@ -125,6 +125,7 @@ Demo server for looking at screens (scratch data only):
 - Latest release: **1.0.33** (25 Nov 2026). Check with `git status -sb` whether `main` is level with GitHub.
 - This file was written on 25 Nov 2026 and is kept current with every change.
 - Not released yet: a visa deposit can be "Not received yet" on the New visa form (Received by). It waits as **Due** on the visa (no money, no entry) and is received from the deposit card (Receive) or together with invoices from the customer's **Receive payment** (each due deposit taken in full, its own entry Dr bank / Cr 2600; the receipt RCP is only the invoice part).
+- Not released yet: the New visa form has **Deposit goes to: Keep with us / With the visa to the supplier**. With the second, submitting the visa sends each received deposit to the supplier of the visa's bill: onto a credit account (a bill) or from a prepaid wallet; if it can't (no portal, wallet too low, no supplier bill) it stays with us and the submit gives a warning. A due deposit marked this way goes when it is received, if the visa is already submitted.
 - Not released yet: a visa deposit can go on a credit supplier's account ("Paid from" → "On the supplier's account (pay later)"). It becomes a supplier bill on account 1460, shows on the supplier statement, is paid with Pay supplier, and is voided only on the deposit card. A return from the supplier is refused until that bill is paid.
 - Recent work: the Daily Sales Report (DSR) in the counter format (sales lists with Cash, Card, Bank and Credit columns, then boxes for payments, cash in hand, sales by how paid, bank, petty cash, and supplier and wallet balances); moves between our own accounts shown as moves, not payments; Reminders with suggestions and WhatsApp; Pay supplier; company customers with payment days; Settings in five groups.
 - The multi-user plan is done through step 5: security, logins with per-user rights, office network, desktop app, update notice. Step 6 (download page) is open, and where the site is hosted is not recorded: ask the owner.
@@ -140,7 +141,7 @@ Waiting on the owner:
 - `data/` in this folder can go to the Trash if the owner no longer needs it. Only the owner may move it.
 
 Later (only when asked):
-- From the deposit mockups, not built yet: "Deposit goes to: With the visa to the supplier" on the visa form (send a received deposit to the applicant's supplier on submit), "Deposit due" on the customer statement, and due deposits in the invoice's own Record payment.
+- From the deposit mockups, not built yet: "Deposit due" on the customer statement, and due deposits in the invoice's own Record payment.
 - A credit supplier returning a deposit by reducing what we owe (now only a return into bank, cash or a wallet is possible).
 - VAT.
 - Help panel, further phases.

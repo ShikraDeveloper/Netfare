@@ -978,6 +978,16 @@ Verification:
 - **Not built yet (in AGENTS.md):** "Deposit goes to: With the visa to the supplier" on the form, "Deposit due" on the customer statement, due deposits in the invoice's own Record payment.
 - **Checked:** `npm run check`; `npm test` 404 (new: a group with a not-received deposit makes a due deposit with no entry; it cannot go to a supplier; Receive payment of 3,070 pays the 1,030 invoice and receives the 2,040 deposit, the bank gets 3,070, the receipt is 1,030, the deposit is held with the receipt as reference, a second receive is refused; a deposit alone is received with no receipt; a due deposit is dropped; ledger checks match); `npm run test:e2e` 62 (new: a not-received deposit shows Due and Receive on the visa, Receive payment of 3,070 ticks it and receives it, deposits, receivables and trial balance match; the ageing test waits for the first statement table, as a customer with a deposit has two). Demo server (scratch data): the card showed "Due · AED 2,040.00 not received yet" and the Receive button; Receive payment listed SD-2026-0001 under the invoices and ticked it once the amount covered everything.
 
+### Visa form "Deposit goes to": with the visa to the supplier, on submit
+
+- **Why:** The rest of the approved deposit mockup; the owner said "Haan, woh bhi". The deposit should go to the supplier with the applicant ("supplier me jesay amount jati hy us applicant k sath deposit b jana chaiye").
+- **What:**
+  - New visa form, Security deposit: **Deposit goes to: Keep with us / With the visa to the supplier** (default Keep with us). Saved on the deposit (`visa_deposits.send_with_visa`, new column).
+  - On submit (`submitVisa` → `sendWithVisa` in `server/services/visa-deposits.js`), each received deposit marked this way goes to the supplier of the visa's bill: a credit portal gets it on account (a bill, Dr 1460 / Cr 2000), a prepaid portal pays it from its wallet. If it cannot go (the supplier has no portal, the wallet is too low, the visa has no supplier bill), it stays with us and the submit returns a warning to pay it from the deposit card.
+  - A due deposit marked this way goes when it is received, if the visa is already submitted (`receiveDeposit`).
+- **Checked:** `npm run check`; `npm test` 405 (new: a received deposit for a credit supplier goes on account at submit, not before, with no bank payment out; a supplier with no portal leaves it with us and a warning; a due one goes on receipt; ledger checks match); `npm run test:e2e` 62 (the visa form shows Keep with us by default). Demo server (scratch data): with Not received yet and With the visa to the supplier chosen, "Received into" hides and the choice shows.
+- **AGENTS.md:** where things stand and the not-built list updated.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

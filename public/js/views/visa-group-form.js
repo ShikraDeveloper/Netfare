@@ -13,6 +13,7 @@ import {
   icon,
   openModal,
   optionsHtml,
+  segmentedHtml,
   todayISO,
   toast,
   toCents,
@@ -156,6 +157,9 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
           </select>
         </div>
       </div>
+        <div class="field full" style="margin-top:10px"><label>Deposit goes to</label>
+          ${segmentedHtml('deposit-goes', [{ value: 'keep', label: 'Keep with us' }, { value: 'supplier', label: 'With the visa to the supplier' }], 'keep')}
+        </div>
       </div>
 
       <div class="field">
@@ -222,6 +226,9 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
       bindMethodAccount(depositMethod, overlay.querySelector('#vg-deposit-account'), depositAccounts().accounts);
       // Not received yet: no account, the deposit waits as due on the visa.
       depositMethod.addEventListener('change', () => { overlay.querySelector('[data-deposit-into]').hidden = depositMethod.value === 'not-received'; });
+      overlay.querySelectorAll('[data-seg="deposit-goes"] [data-seg-value]').forEach((button) => button.addEventListener('click', () => {
+        overlay.querySelectorAll('[data-seg="deposit-goes"] [data-seg-value]').forEach((b) => b.setAttribute('aria-pressed', String(b === button)));
+      }));
       overlayRef = overlay;
       const customerSelect = overlay.querySelector('#vg-customer');
       bindCustomerHint(customerSelect);
@@ -326,9 +333,13 @@ export function openVisaGroupModal({ visaTypes = {}, onSaved = () => {} } = {}) 
         notes: values.get('notes'),
         invoice_notes: values.get('invoice_notes'),
         applicants,
-        deposit: form.querySelector('#vg-deposit-method').value === 'not-received' ? { not_received: true } : {
-          method: form.querySelector('#vg-deposit-method').value,
-          account_id: Number(form.querySelector('#vg-deposit-account').value) || null,
+        deposit: {
+          ...(form.querySelector('#vg-deposit-method').value === 'not-received' ? { not_received: true } : {
+            method: form.querySelector('#vg-deposit-method').value,
+            account_id: Number(form.querySelector('#vg-deposit-account').value) || null,
+          }),
+          // Sent to the applicant's supplier when the visa is submitted (or when received, if later).
+          send_with_visa: form.querySelector('[data-seg="deposit-goes"] [aria-pressed="true"]')?.dataset.segValue === 'supplier',
         },
       });
       const first = result.applications[0];

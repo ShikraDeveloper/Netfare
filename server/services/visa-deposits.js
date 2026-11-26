@@ -182,9 +182,9 @@ function collectDeposit(db, payload = {}) {
     const account = due ? null : cashAccount(db, payload.account_id, 'account the deposit was received into');
     const number = allocateNumber(db, 'visa_deposit', date);
     const depositId = Number(db.prepare(`
-      INSERT INTO visa_deposits (number, customer_id, visa_id, deposit_date, amount_cents, notes, is_due)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(number, visa.customer_id, visa.id, date, amount, optionalStr(payload.notes, 'Notes', 1000), due ? 1 : 0).lastInsertRowid);
+      INSERT INTO visa_deposits (number, customer_id, visa_id, deposit_date, amount_cents, notes, is_due, send_with_visa)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(number, visa.customer_id, visa.id, date, amount, optionalStr(payload.notes, 'Notes', 1000), due ? 1 : 0, payload.send_with_visa ? 1 : 0).lastInsertRowid);
     markCreated(db, 'visa_deposits', depositId);
     if (!due) postCollect(db, { id: depositId, number, amount_cents: amount }, visa, date, account, payload);
     audit.record(db, {
@@ -228,6 +228,8 @@ function receiveDeposit(db, id, payload = {}) {
     const account = cashAccount(db, payload.account_id, 'account the deposit was received into');
     postCollect(db, deposit, visa, date, account, payload);
     db.prepare('UPDATE visa_deposits SET is_due = 0 WHERE id = ?').run(deposit.id);
+    // Received after the visa went in: it follows the visa to the supplier now.
+    if (visa.status !== 'draft') sendWithVisa(db, visa.id, [], date);
     return getDeposit(db, deposit.id);
   })();
 }
@@ -307,6 +309,35 @@ function depositOnAccount(db, deposit, amount, date, payload) {
     method: 'On account', reference: bill.number, journal_entry_id: bill.journal_entry_id, bill_id: bill.id,
   });
   return getDeposit(db, deposit.id);
+}
+
+// Deposits marked "with the visa to the supplier" go to the supplier of the
+// visa's bill: onto a credit account, or from a prepaid wallet with enough in
+// it. Anything that cannot go stays with us, with a warning to pay it from the card.
+function sendWithVisa(db, visaId, warnings = [], date = todayISO()) {
+  const rows = db.prepare(`
+    SELECT id FROM visa_deposits WHERE visa_id = ? AND send_with_visa = 1 AND is_due = 0 AND voided_at IS NULL
+  `).all(visaId);
+  for (const { id } of rows) {
+    const deposit = getDeposit(db, id);
+    if (deposit.in_hand_cents <= 0) continue;
+    const bill = db.prepare("SELECT vendor_id FROM bills WHERE visa_id = ? AND status = 'received' ORDER BY id LIMIT 1").get(visaId);
+    const portal = bill && db.prepare(`
+      SELECT * FROM supplier_portals WHERE vendor_id = ? AND is_active = 1 ORDER BY settlement = 'credit' DESC, id LIMIT 1
+    `).get(bill.vendor_id);
+    const stays = (why) => warnings.push(`Deposit ${deposit.number} stays with you: ${why}. Pay it to the supplier from the visa's deposit card.`);
+    if (!portal) { stays(bill ? 'the supplier has no portal account' : 'the visa has no supplier bill'); continue; }
+    const when = date < deposit.deposit_date ? deposit.deposit_date : date;
+    try {
+      payToSupplier(db, id, portal.settlement === 'credit'
+        ? { vendor_id: portal.vendor_id, on_account: true, event_date: when }
+        : { portal_id: portal.id, event_date: when });
+    } catch (error) {
+      if (error.status !== 400) throw error;
+      stays(error.message.replace(/\.$/, ''));
+    }
+  }
+  return warnings;
 }
 
 function supplierReturn(db, id, payload = {}) {
@@ -560,6 +591,7 @@ function depositTotals(db) {
 }
 
 module.exports = {
+  sendWithVisa,
   receiveDeposit,
   EVENT_LABELS,
   getDeposit,

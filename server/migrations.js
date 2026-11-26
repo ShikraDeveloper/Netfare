@@ -211,6 +211,8 @@ ensureColumn('visa_deposit_events', 'portal_id', 'INTEGER REFERENCES supplier_po
 ensureColumn('visa_deposit_events', 'bill_id', 'INTEGER REFERENCES bills(id)');
 // A deposit agreed on the visa but not paid by the customer yet: no money, no entry.
 ensureColumn('visa_deposits', 'is_due', 'INTEGER NOT NULL DEFAULT 0');
+// "Deposit goes to: with the visa to the supplier": sent when the visa is submitted.
+ensureColumn('visa_deposits', 'send_with_visa', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('settings', 'next_card_settlement_number', 'INTEGER NOT NULL DEFAULT 1');
 // A gateway's payment link for an invoice, shared with the invoice.
 ensureColumn('invoices', 'payment_link', "TEXT NOT NULL DEFAULT ''");
