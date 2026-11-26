@@ -1068,6 +1068,14 @@ Verification:
   - The customer statement (`server/services/statements.js`) leaves out a refund of a payment whose invoice is void, as it leaves out the payment, so it ties to receivables.
 - **Checked:** `npm run check`; `npm test` 410 (new: 450.00 paid, 100.00 refunded, then void: cash unchanged, refund still paid, advance 350.00, statement closing 0.00, receivables, advances and trial balance match; the older mixed test now expects the 400.00 refund kept and a 600.00 advance); `npm run test:e2e` 62.
 
+### Release 1.0.35 — `fd2373b`, tag `v1.0.35`
+
+- **Why:** The user said "Push aur release".
+- **What's in it:** voiding a paid invoice keeps the money as the customer's advance (a refund already given stays); a warning on payment void; the DSR's Voided invoices list and Voided earlier sales line; invoices voided on a later day shown on their own day and as a void on the void day; same-day mistakes left out; top-ups by portal and bank charges on their own line; payments and deposits voided later kept on their own day; reminder pop-ups kept off prints; an index for void lookups.
+- **Checked:** a clean copy of main passed `npm run check` (299 files), `npm test` 410 and `npm run test:e2e` 62. GitHub run 45840817477 (8m28s) succeeded; the smoke test passed on both builds. Assets: two Mac .dmg, the Windows .exe, latest.json (1.0.35); releases/latest is v1.0.35.
+- **Old release deleted:** v1.0.30 (tag kept); five releases remain, 1.0.31 to 1.0.35.
+- **AGENTS.md:** latest release 1.0.35; the not-released notes now say "In 1.0.35".
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.
