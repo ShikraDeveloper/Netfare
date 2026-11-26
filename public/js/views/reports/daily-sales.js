@@ -247,9 +247,6 @@ function closingBoxes(data) {
     for (const [name, cents] of movedBy(code, 'from', 'to')) net.set(name, (net.get(name) || 0) - cents);
     return [...net].filter(([, cents]) => cents);
   };
-  // A move and its void both in the period cancel out, so neither is listed.
-  const voidedHere = new Set(transfers.filter((t) => t.reversal).map((t) => t.id));
-  const shownMoves = transfers.filter((t) => !(voidedHere.has(t.id) && transfers.some((o) => o.id === t.id && !o.reversal)));
   const movedOutTotal = totalOf(movedBy('1000', 'from', 'to'));
   const movedInTotal = totalOf(movedBy('1000', 'to', 'from'));
   const petty = position.petty;
@@ -282,8 +279,8 @@ function closingBoxes(data) {
       ${box('Payments', `
         ${out.map((row) => boxRow(row.label, -row.cents, 'neg')).join('')}
         ${boxRow('Total', -paidOut, `dsr-box-total ${paidOut ? 'neg' : ''}`)}
-        ${shownMoves.length ? `<div class="dsr-box-row dsr-box-sub" data-dsr-moved><span>Moved between our accounts</span><span></span></div>
-        ${shownMoves.map((row) => boxRow(row.reversal
+        ${transfers.length ? `<div class="dsr-box-row dsr-box-sub" data-dsr-moved><span>Moved between our accounts</span><span></span></div>
+        ${transfers.map((row) => boxRow(row.reversal
           ? `Void of ${short(row.number)} · ${row.from_name} to ${row.to_name}`
           : `${row.from_name} to ${row.to_name} · ${short(row.number)}${row.status === 'void' ? ' (voided)' : ''}`, row.amount_cents)).join('')}` : ''}`, 'data-dsr-payments')}
       ${box('By how it was paid · sales', `

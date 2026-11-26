@@ -122,7 +122,8 @@ Demo server for looking at screens (scratch data only):
 
 ## Where things stand (update this)
 
-- Latest release: **1.0.34** (26 Nov 2026). Check with `git status -sb` whether `main` is level with GitHub.
+- Latest release: **1.0.34** (26 Nov 2026).
+- Not released yet: in the DSR, a mistake made and voided in the same period no longer shows as money in and out; Payments lists each top-up by portal and bank charges on their own line. Check with `git status -sb` whether `main` is level with GitHub.
 - This file was written on 25 Nov 2026 and is kept current with every change.
 - In 1.0.34: a visa deposit can be "Not received yet" on the New visa form (Received by). It waits as **Due** on the visa (no money, no entry) and is received from the deposit card (Receive) or together with invoices from the customer's **Receive payment** (each due deposit taken in full, its own entry Dr bank / Cr 2600; the receipt RCP is only the invoice part). Voiding that receipt puts its deposits back to due. A due deposit of a cancelled or rejected visa cannot be received (drop it with the void button).
 - In 1.0.34: the New visa form has **Deposit goes to: Keep with us / With the visa to the supplier**. With the second, submitting the visa sends each received deposit to the supplier of the visa's bill: onto a credit account (a bill) or from a prepaid wallet; if it can't (no portal, wallet too low, no supplier bill) it stays with us and the submit gives a warning. A due deposit marked this way goes when it is received, if the visa is already submitted.
@@ -133,7 +134,6 @@ Demo server for looking at screens (scratch data only):
 ## Open items (update this)
 
 Waiting on the owner:
-- After updating to 1.0.34: on VIS-2026-0053, void the "Paid to supplier" step of SD-2026-0001 (it took 2,040.00 out of the bank, but nothing was sent) and pay it again with "HolidaySpace · add to what we owe".
 - After updating, in the app: upload the logo again (Settings → Company), set company customers to "Company" with their payment days, and set the HolidaySpace credit limit if there is one.
 - Decide what to do about Sadia Sohail's duplicate invoices.
 - Decide whether the card fee of 307.26 in account 6700 is right.
@@ -156,6 +156,7 @@ Later (only when asked):
 ## Things learned the hard way
 
 - `node --check file.js` passes any file that has `import` without really parsing it. `scripts/check.js` checks such files as modules; keep it that way.
+- The DSR leaves out an entry and its void when both fall in the report's period (`reversal_of_id`), in the money flows and in the list of moves alike; a void of an earlier day still shows. Keep the two in step, or the cash box stops adding up.
 - The DSR has to add up. The e2e test checks every closing box against cash in hand, bank and petty closings, Total sales against the lists, and payments against cash and bank out. When you change a box, keep those checks passing.
 - A correction voids the old document and dates the void on the old document's own day (`server/services/corrections.js`). Reports must treat such a void as part of the same day.
 - The "Mac SSD" volume ignores file ownership, so `chmod` gives no protection there. The real books are on the internal disk on purpose.

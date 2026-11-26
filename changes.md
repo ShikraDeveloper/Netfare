@@ -1005,6 +1005,15 @@ Verification:
 - **AGENTS.md:** latest release 1.0.34; the not-released notes now say "In 1.0.34".
 - **After the update in the office:** on VIS-2026-0053, void the "Paid to supplier" step of SD-2026-0001 and pay it again with "HolidaySpace · add to what we owe".
 
+### DSR: same-day voids leave the report; top-ups by portal, bank charges apart
+
+- **Why:** The owner said today's DSR looked wrong after voiding the VIS-2026-0053 deposit steps ("check today dsr is wrong i think i void these visa"), then that the top-up looked wrong ("top up galat a raha hy i think dekho"). On a read-only copy of the books (deleted after), 26 Nov showed Payments 10,546.05 with "Visa deposits paid to suppliers 2,040" and "Reversals (voids) 2,040" for steps made and voided the same day, Bank In 6,330.73 and Out 10,546.05; and one line "Portal top-ups 6,466.05" that held two top-ups (HolidaySpace 4,150.03, Akbar Travel Online 2,313.92) and 2.10 of bank charges. The owner said "Haan, dono theek karo".
+- **What (`server/services/reports/dsr-sections.js`):**
+  - The money flows leave out an entry and its void when both fall in the period (`journal_entries.reversal_of_id`); the list of moves does the same, so the page no longer needs its own pair filter (`daily-sales.js`). A void of an earlier day still shows.
+  - Bank charge lines (`Bank charges · …`) are their own "Bank charges" line in Payments; each top-up shows as "Top-up · <portal>".
+- **Checked:** `npm run check`; `npm test` 407 (new: a top-up with charges shows as "Top-up · Day Wallet" and "Bank charges"; a move and its void on the same day are neither money out nor listed; positions close); `npm run test:e2e` 62. 26 Nov printed again from a fresh read-only copy (deleted after): Payments Top-up · HolidaySpace −4,150.03, Top-up · Akbar Travel Online −2,313.92, Bank charges −2.10, Total −6,466.05; Bank In 2,250.73, Out −6,466.05, Closing −4,443.76 (unchanged); cash in hand 1,850.00.
+- **AGENTS.md:** the SD-2026-0001 redo is gone (the owner cancelled VIS-2026-0053); the same-period rule is under lessons; a not-released note.
+
 ### Next session
 
 1. Read `AGENTS.md` first: rules, owner's way of working, commands, release steps, where things stand and open items.

@@ -42,6 +42,7 @@ const FLOW_LABELS = {
   petty_cash_count: 'Petty cash count differences',
   card_settlement: 'Card & payment link settlements',
   void: 'Reversals (voids)',
+  bank_charges: 'Bank charges',
 };
 
 function flowLabel(type) {
@@ -281,17 +282,25 @@ function dsrSections(db, start, end, items) {
     FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
     WHERE a.code = ? AND e.entry_date < ?
   `).get(code, date).total;
+  // An entry and its void both in the period cancel out, so neither is
+  // counted (a mistake made and voided the same day). Bank charges get their
+  // own line, and each top-up names its portal.
   const flows = db.prepare(`
     SELECT a.code,
-           -- The void of a cash deposit is a move back, not a general reversal.
-           CASE WHEN e.id IN (SELECT void_entry_id FROM cash_deposits WHERE void_entry_id IS NOT NULL)
-                THEN 'cash_deposit' ELSE e.source_type END AS source_type,
+           CASE WHEN l.description LIKE 'Bank charges ·%' THEN 'bank_charges'
+                -- The void of a cash deposit is a move back, not a general reversal.
+                WHEN e.id IN (SELECT void_entry_id FROM cash_deposits WHERE void_entry_id IS NOT NULL) THEN 'cash_deposit'
+                ELSE e.source_type END AS source_type,
+           CASE WHEN e.source_type = 'portal_topup' AND l.description NOT LIKE 'Bank charges ·%'
+                THEN (SELECT p.name FROM portal_topups t JOIN supplier_portals p ON p.id = t.portal_id WHERE t.id = e.source_id) END AS detail,
            COUNT(DISTINCT e.id) AS entries,
            COALESCE(SUM(l.debit_cents), 0) AS in_cents, COALESCE(SUM(l.credit_cents), 0) AS out_cents
     FROM journal_lines l JOIN journal_entries e ON e.id = l.entry_id JOIN accounts a ON a.id = l.account_id
     WHERE a.code IN (${marks}) AND e.entry_date >= ? AND e.entry_date <= ?
-    GROUP BY 1, 2
-  `).all(...codes, start, end);
+      AND NOT EXISTS (SELECT 1 FROM journal_entries r WHERE r.reversal_of_id = e.id AND r.entry_date >= ? AND r.entry_date <= ?)
+      AND NOT EXISTS (SELECT 1 FROM journal_entries o WHERE o.id = e.reversal_of_id AND o.entry_date >= ? AND o.entry_date <= ?)
+    GROUP BY 1, 2, 3
+  `).all(...codes, start, end, start, end, start, end);
   const byType = new Map();
   const position = {};
   for (const account of cashAccounts) {
@@ -305,13 +314,14 @@ function dsrSections(db, start, end, items) {
     const key = keyOf(flow.code);
     position[key].in_cents += flow.in_cents;
     position[key].out_cents += flow.out_cents;
-    const row = byType.get(flow.source_type) || {
-      source_type: flow.source_type, label: flowLabel(flow.source_type),
+    const rowKey = `${flow.source_type}:${flow.detail || ''}`;
+    const row = byType.get(rowKey) || {
+      source_type: flow.source_type, label: flow.detail ? `Top-up · ${flow.detail}` : flowLabel(flow.source_type),
       cash_in_cents: 0, cash_out_cents: 0, bank_in_cents: 0, bank_out_cents: 0, petty_in_cents: 0, petty_out_cents: 0,
     };
     row[`${key}_in_cents`] += flow.in_cents;
     row[`${key}_out_cents`] += flow.out_cents;
-    byType.set(flow.source_type, row);
+    byType.set(rowKey, row);
   }
   for (const key of Object.keys(position)) {
     position[key].closing_cents = position[key].opening_cents + position[key].in_cents - position[key].out_cents;
@@ -319,20 +329,21 @@ function dsrSections(db, start, end, items) {
   const flowRows = [...byType.values()];
   // Money moved between our own accounts (cash to bank, cash to petty cash),
   // and each void of one as a move back on its own date, so the list matches
-  // the cash_deposit flows above.
+  // the cash_deposit flows above: a move and its void both in the period are left out.
   const transfers = db.prepare(`
     SELECT d.id, d.number, d.deposit_date AS date, d.amount_cents, d.status, 0 AS reversal,
            f.code AS from_code, f.name AS from_name, t.code AS to_code, t.name AS to_name
     FROM cash_deposits d JOIN accounts f ON f.id = d.from_account_id JOIN accounts t ON t.id = d.to_account_id
-    WHERE d.deposit_date >= ? AND d.deposit_date <= ?
+    LEFT JOIN journal_entries v ON v.id = d.void_entry_id
+    WHERE d.deposit_date >= ? AND d.deposit_date <= ? AND NOT COALESCE(v.entry_date >= ? AND v.entry_date <= ?, 0)
     UNION ALL
     SELECT d.id, d.number, v.entry_date AS date, d.amount_cents, d.status, 1 AS reversal,
            t.code AS from_code, t.name AS from_name, f.code AS to_code, f.name AS to_name
     FROM cash_deposits d JOIN journal_entries v ON v.id = d.void_entry_id
     JOIN accounts f ON f.id = d.from_account_id JOIN accounts t ON t.id = d.to_account_id
-    WHERE v.entry_date >= ? AND v.entry_date <= ?
+    WHERE v.entry_date >= ? AND v.entry_date <= ? AND NOT (d.deposit_date >= ? AND d.deposit_date <= ?)
     ORDER BY 3, 1, 6
-  `).all(start, end, start, end);
+  `).all(start, end, start, end, start, end, start, end);
   const cashOut = flowRows.filter((row) => row.cash_out_cents || row.bank_out_cents)
     .sort((a, b) => (b.cash_out_cents + b.bank_out_cents) - (a.cash_out_cents + a.bank_out_cents));
   const cashIn = flowRows.filter((row) => row.cash_in_cents || row.bank_in_cents)

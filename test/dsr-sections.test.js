@@ -269,3 +269,22 @@ test('a move voided on a later day is a move back that day, not a reversal or sp
   assert.deepEqual([flow.cash_in_cents, flow.petty_out_cents], [1_000, 1_000]);
   assert.ok(![...sections.cash_in, ...sections.cash_out].some((row) => row.source_type === 'void'), 'not a general reversal');
 });
+
+test('a mistake voided the same day leaves the DSR; a top-up names its portal and its bank charges stand apart', () => {
+  const portals = require('../server/services/portals');
+  const { createDeposit, voidDeposit } = require('../server/services/cash-deposits');
+  const day = '2026-11-24';
+  const wallet = portals.createPortal(db, { name: 'Day Wallet', portal_type: 'consolidator', settlement: 'prepaid', vendor_id: vendorId });
+  portals.topUp(db, { portal_id: wallet.id, amount_cents: 231_392, bank_charges_cents: 105, topup_date: day, deposit_account_id: account('1010').id, method: 'Bank transfer' });
+  pay(service.id, 4_000, 'Cash', '1000', day);
+  const mistake = createDeposit(db, { amount_cents: 1_000, deposit_date: day, from_account_id: account('1000').id, to_account_id: account('1020').id });
+  voidDeposit(db, mistake.id, { void_date: day, remarks: 'Wrong' });
+  const sections = dailySales(db, day, day).sections;
+  const out = sections.cash_out.map((row) => [row.label, row.bank_out_cents + row.cash_out_cents]);
+  assert.deepEqual(out.filter(([label]) => /Top-up|Bank charges/.test(label)), [['Top-up · Day Wallet', 231_392], ['Bank charges', 105]]);
+  assert.ok(!out.some(([label]) => /Reversals|Cash deposited/.test(label)), 'the move and its void are not money out');
+  assert.deepEqual(sections.transfers, [], 'nor listed as moves');
+  const { cash, bank } = sections.summary.position;
+  for (const p of [cash, bank]) assert.equal(p.closing_cents, p.opening_cents + p.in_cents - p.out_cents);
+  assert.equal(cash.in_cents, 4_000, 'only the real cash in');
+});
